@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Wifi, WifiOff, Trash2, Pause, Play, Search, Brain, Globe, Target, Sparkles, AlertCircle, CheckCircle2, Clock, Zap } from "lucide-react";
+import { Wifi, WifiOff, Trash2, Pause, Play, Search, Brain, Globe, Target, Sparkles, AlertCircle, Zap, Rocket, Loader2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +44,6 @@ const SOURCE_BG: Record<ResearchEvent["source"], string> = {
 };
 
 export default function ResearchMonitor() {
-  const navigate = useNavigate();
   const [events, setEvents] = useState<ResearchEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -247,19 +247,28 @@ export default function ResearchMonitor() {
     setStats({ searches: 0, sources: 0, ideas: 0, candidates: 0 });
   };
 
+  const triggerResearchMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/strategy-lab/trigger-research");
+      return res.json();
+    },
+    onMutate: () => {
+      setEvents(prev => [...prev, {
+        id: `sys-trigger-${Date.now()}`,
+        timestamp: new Date(),
+        type: "system",
+        source: "system",
+        title: "Research triggered manually",
+        details: "Starting AI research cycle...",
+      }]);
+    },
+  });
+
   return (
     <AppLayout title="Research Monitor" disableMainScroll>
       <div className="flex flex-col h-full bg-background">
         <div className="flex items-center justify-between gap-4 p-4 border-b">
           <div className="flex items-center gap-3">
-            <Button 
-              size="icon" 
-              variant="ghost" 
-              onClick={() => navigate("/strategy-lab")}
-              data-testid="button-back-to-strategy-lab"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
             <div>
               <h1 className="text-lg font-semibold flex items-center gap-2">
                 Research Monitor
@@ -301,6 +310,25 @@ export default function ResearchMonitor() {
               </div>
             </div>
             
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  onClick={() => triggerResearchMutation.mutate()}
+                  disabled={triggerResearchMutation.isPending}
+                  data-testid="button-trigger-research"
+                >
+                  {triggerResearchMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Rocket className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Trigger research now</TooltipContent>
+            </Tooltip>
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -354,7 +382,7 @@ export default function ResearchMonitor() {
                       >
                         <div className="flex items-center gap-2 min-w-[140px] text-xs text-muted-foreground shrink-0">
                           <Clock className="h-3 w-3" />
-                          {format(event.timestamp, "HH:mm:ss.SSS")}
+                          {format(event.timestamp, "h:mm:ss a")}
                         </div>
                         
                         <div className={cn("shrink-0", SOURCE_COLORS[event.source])}>
