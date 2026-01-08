@@ -47,12 +47,88 @@ export default function ResearchMonitor() {
   const [events, setEvents] = useState<ResearchEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [usePolling, setUsePolling] = useState(false);
   const [stats, setStats] = useState({ searches: 0, sources: 0, ideas: 0, candidates: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastEventTimestamp = useRef<number>(0);
+  const wsFailCount = useRef(0);
+
+  const addEvents = useCallback((newEvents: ResearchEvent[]) => {
+    if (paused || newEvents.length === 0) return;
+    
+    setEvents(prev => {
+      const existingIds = new Set(prev.map(e => e.id));
+      const unique = newEvents.filter(e => !existingIds.has(e.id));
+      if (unique.length === 0) return prev;
+      return [...prev.slice(-499 + unique.length), ...unique];
+    });
+    
+    newEvents.forEach(evt => {
+      setStats(prev => ({
+        ...prev,
+        searches: prev.searches + (evt.type === "search" ? 1 : 0),
+        sources: prev.sources + (evt.type === "source" ? 1 : 0),
+        ideas: prev.ideas + (evt.type === "idea" ? 1 : 0),
+        candidates: prev.candidates + (evt.type === "candidate" ? 1 : 0),
+      }));
+      if (evt.timestamp instanceof Date) {
+        lastEventTimestamp.current = Math.max(lastEventTimestamp.current, evt.timestamp.getTime());
+      } else if (typeof evt.timestamp === 'number') {
+        lastEventTimestamp.current = Math.max(lastEventTimestamp.current, evt.timestamp);
+      }
+    });
+  }, [paused]);
+
+  const pollEvents = useCallback(async () => {
+    if (paused) return;
+    try {
+      const url = lastEventTimestamp.current 
+        ? `/api/research-monitor/events?since=${lastEventTimestamp.current}`
+        : `/api/research-monitor/events`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && data.events?.length > 0) {
+        const mapped: ResearchEvent[] = data.events.map((e: any) => ({
+          id: e.id,
+          timestamp: new Date(e.timestamp),
+          type: e.eventType || "system",
+          source: e.source || "system",
+          title: e.title,
+          details: e.details,
+          metadata: e.metadata,
+        }));
+        addEvents(mapped);
+      }
+    } catch (e) {
+      console.error("[ResearchMonitor] Polling error:", e);
+    }
+  }, [paused, addEvents]);
+
+  const startPolling = useCallback(() => {
+    if (pollingIntervalRef.current) return;
+    setUsePolling(true);
+    setConnected(true);
+    console.log("[ResearchMonitor] Switching to HTTP polling");
+    
+    setEvents(prev => [...prev, {
+      id: `sys-poll-${Date.now()}`,
+      timestamp: new Date(),
+      type: "system",
+      source: "system",
+      title: "Connected via HTTP polling",
+      details: "Watching AI research activity (polling mode)",
+    }]);
+    
+    pollEvents();
+    pollingIntervalRef.current = setInterval(pollEvents, 3000);
+  }, [pollEvents]);
 
   const connectWebSocket = useCallback(() => {
+    if (usePolling) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -62,6 +138,7 @@ export default function ResearchMonitor() {
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
+        wsFailCount.current = 0;
         setConnected(true);
         console.log("[ResearchMonitor] WebSocket connected");
         
@@ -92,15 +169,7 @@ export default function ResearchMonitor() {
               metadata: data.metadata,
             };
             
-            setEvents(prev => [...prev.slice(-499), newEvent]);
-            
-            setStats(prev => ({
-              ...prev,
-              searches: prev.searches + (newEvent.type === "search" ? 1 : 0),
-              sources: prev.sources + (newEvent.type === "source" ? 1 : 0),
-              ideas: prev.ideas + (newEvent.type === "idea" ? 1 : 0),
-              candidates: prev.candidates + (newEvent.type === "candidate" ? 1 : 0),
-            }));
+            addEvents([newEvent]);
           }
         } catch (e) {
           console.error("[ResearchMonitor] Failed to parse message:", e);
@@ -110,10 +179,15 @@ export default function ResearchMonitor() {
       ws.onclose = () => {
         setConnected(false);
         console.log("[ResearchMonitor] WebSocket disconnected");
+        wsFailCount.current++;
         
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connectWebSocket();
-        }, 3000);
+        if (wsFailCount.current >= 3) {
+          startPolling();
+        } else {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectWebSocket();
+          }, 2000);
+        }
       };
 
       ws.onerror = (error) => {
@@ -123,11 +197,16 @@ export default function ResearchMonitor() {
       wsRef.current = ws;
     } catch (e) {
       console.error("[ResearchMonitor] Failed to connect:", e);
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connectWebSocket();
-      }, 5000);
+      wsFailCount.current++;
+      if (wsFailCount.current >= 3) {
+        startPolling();
+      } else {
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectWebSocket();
+        }, 3000);
+      }
     }
-  }, [paused]);
+  }, [paused, usePolling, addEvents, startPolling]);
 
   useEffect(() => {
     let mounted = true;
@@ -141,14 +220,16 @@ export default function ResearchMonitor() {
 
     return () => {
       mounted = false;
-      // Clear any pending reconnect timers first
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
-      // Close WebSocket connection
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
       if (wsRef.current) {
-        wsRef.current.onclose = null; // Prevent reconnect on cleanup
+        wsRef.current.onclose = null;
         wsRef.current.close();
         wsRef.current = null;
       }

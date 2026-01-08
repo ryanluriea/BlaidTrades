@@ -173,6 +173,13 @@ class ResearchMonitorWebSocketServer {
     return this.clients.size;
   }
 
+  getRecentEvents(since?: number): ResearchEvent[] {
+    if (since) {
+      return this.eventBuffer.filter(e => e.timestamp > since);
+    }
+    return [...this.eventBuffer];
+  }
+
   shutdown(): void {
     if (this.wss) {
       this.wss.close();

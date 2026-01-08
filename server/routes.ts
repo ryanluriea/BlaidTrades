@@ -13270,6 +13270,27 @@ export function registerRoutes(app: Express) {
   });
 
   // ============================================================================
+  // RESEARCH MONITOR API - HTTP polling fallback for WebSocket
+  // ============================================================================
+  
+  app.get("/api/research-monitor/events", async (req: Request, res: Response) => {
+    try {
+      const { researchMonitorWS } = await import("./research-monitor-ws");
+      const since = req.query.since ? parseInt(req.query.since as string) : undefined;
+      const events = researchMonitorWS.getRecentEvents(since);
+      
+      return res.json({
+        success: true,
+        events,
+        clientCount: researchMonitorWS.getClientCount(),
+      });
+    } catch (error: any) {
+      console.error("[RESEARCH_MONITOR] Error getting events:", error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // ============================================================================
   // GROK RESEARCH ENGINE API - Autonomous contrarian strategy discovery
   // ============================================================================
   
