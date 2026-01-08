@@ -16,7 +16,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
 import type { IncomingMessage } from "http";
 import { parse as parseCookie } from "cookie";
-import { pool } from "./db";
+import { poolWeb } from "./db";
 import crypto from "crypto";
 
 interface LivePnLUpdate {
@@ -256,7 +256,7 @@ class LivePnLWebSocketServer {
       
       const rawSid = sigResult.sid;
 
-      const result = await pool.query(
+      const result = await poolWeb.query(
         `SELECT sess FROM session WHERE sid = $1 AND expire > NOW()`,
         [rawSid]
       );
@@ -285,7 +285,7 @@ class LivePnLWebSocketServer {
    */
   private async validateSessionStillValid(sessionId: string): Promise<boolean> {
     try {
-      const result = await pool.query(
+      const result = await poolWeb.query(
         `SELECT 1 FROM session WHERE sid = $1 AND expire > NOW()`,
         [sessionId]
       );
