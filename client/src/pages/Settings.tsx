@@ -796,9 +796,17 @@ function ProfileSection() {
     
     setIsUpdatingUsername(true);
     try {
+      // Fetch CSRF token first
+      const csrfRes = await fetch("/api/auth/csrf-token", { credentials: "include" });
+      const csrfData = await csrfRes.json();
+      const csrfToken = csrfData.csrfToken;
+
       const response = await fetch("/api/auth/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
         credentials: "include",
         body: JSON.stringify({ username: newUsername.trim() }),
       });
@@ -826,9 +834,17 @@ function ProfileSection() {
     
     setIsUpdatingEmail(true);
     try {
+      // Fetch CSRF token first
+      const csrfRes = await fetch("/api/auth/csrf-token", { credentials: "include" });
+      const csrfData = await csrfRes.json();
+      const csrfToken = csrfData.csrfToken;
+
       const response = await fetch("/api/auth/email", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
         credentials: "include",
         body: JSON.stringify({ newEmail: newEmail.trim(), currentPassword: emailPassword }),
       });
@@ -877,9 +893,17 @@ function ProfileSection() {
     
     setIsUpdatingPassword(true);
     try {
+      // Fetch CSRF token first
+      const csrfRes = await fetch("/api/auth/csrf-token", { credentials: "include" });
+      const csrfData = await csrfRes.json();
+      const csrfToken = csrfData.csrfToken;
+
       const response = await fetch("/api/auth/password", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
         credentials: "include",
         body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
       });
