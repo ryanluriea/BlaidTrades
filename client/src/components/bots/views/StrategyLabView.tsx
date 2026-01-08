@@ -1514,7 +1514,7 @@ export function StrategyLabView() {
         </div>
         
         {/* Right side - Menu */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Research Monitor - Watch AI research live */}
           <Button 
             size="icon" 
@@ -1522,6 +1522,7 @@ export function StrategyLabView() {
             onClick={() => navigate("/research-monitor")}
             data-testid="button-research-monitor"
             title="Watch AI research live"
+            className="text-muted-foreground hover:text-foreground"
           >
             <Eye className="h-4 w-4" />
           </Button>
