@@ -1,18 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
   Wifi, WifiOff, Trash2, Pause, Play, Search, Brain, Globe, Target, Sparkles, 
-  AlertCircle, Zap, Rocket, Loader2, Clock, DollarSign, CheckCircle, XCircle, 
-  AlertTriangle, ChevronDown, ChevronRight, Activity, Cpu, TrendingUp,
-  FileText, Link, BarChart3, Download, Settings, Radio, Eye
+  AlertCircle, Zap, Rocket, Loader2, ChevronDown, ChevronRight, Settings, Radio
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -30,34 +26,7 @@ interface ResearchEvent {
   source: ResearchSource;
   title: string;
   details?: string;
-  metadata?: {
-    traceId?: string;
-    phase?: string;
-    durationMs?: number;
-    provider?: string;
-    model?: string;
-    inputTokens?: number;
-    outputTokens?: number;
-    costUsd?: number;
-    confidence?: number;
-    confidenceBreakdown?: Record<string, number>;
-    strategyName?: string;
-    archetype?: string;
-    symbol?: string;
-    symbols?: string[];
-    depth?: string;
-    regime?: string;
-    trigger?: string;
-    reasoning?: string;
-    sources?: Array<{ type: string; label: string; detail: string }>;
-    hypothesis?: string;
-    validationResult?: "PASS" | "FAIL" | "WARN";
-    validationReason?: string;
-    rejectionReason?: string;
-    url?: string;
-    citations?: string[];
-    [key: string]: any;
-  };
+  metadata?: Record<string, any>;
 }
 
 const EVENT_ICONS: Record<ResearchEventType, typeof Search> = {
@@ -68,144 +37,25 @@ const EVENT_ICONS: Record<ResearchEventType, typeof Search> = {
   error: AlertCircle,
   system: Zap,
   analysis: Brain,
-  reasoning: FileText,
-  validation: CheckCircle,
-  cost: DollarSign,
-  phase: Activity,
-  scoring: BarChart3,
-  rejection: XCircle,
-  api_call: Cpu,
+  reasoning: Brain,
+  validation: Target,
+  cost: Zap,
+  phase: Radio,
+  scoring: Target,
+  rejection: AlertCircle,
+  api_call: Zap,
 };
-
-const EVENT_COLORS: Record<ResearchEventType, string> = {
-  search: "text-blue-400",
-  source: "text-cyan-400",
-  idea: "text-yellow-400",
-  candidate: "text-emerald-400",
-  error: "text-red-400",
-  system: "text-muted-foreground",
-  analysis: "text-purple-400",
-  reasoning: "text-indigo-400",
-  validation: "text-green-400",
-  cost: "text-amber-400",
-  phase: "text-sky-400",
-  scoring: "text-orange-400",
-  rejection: "text-rose-400",
-  api_call: "text-slate-400",
-};
-
-const SOURCE_COLORS: Record<ResearchSource, string> = {
-  perplexity: "text-cyan-400",
-  grok: "text-purple-400",
-  openai: "text-green-400",
-  anthropic: "text-orange-400",
-  groq: "text-blue-400",
-  gemini: "text-indigo-400",
-  system: "text-muted-foreground",
-};
-
-function EventCard({ event, isExpanded, onToggle }: { event: ResearchEvent; isExpanded: boolean; onToggle: () => void }) {
-  const Icon = EVENT_ICONS[event.type] || Zap;
-  const hasExpandableContent = !!(
-    event.metadata?.reasoning || 
-    event.metadata?.hypothesis || 
-    event.metadata?.confidenceBreakdown ||
-    event.metadata?.sources?.length ||
-    event.metadata?.citations?.length ||
-    (event.details && event.details.length > 100)
-  );
-
-  return (
-    <div 
-      className={cn(
-        "p-2 bg-muted/20 rounded-sm cursor-pointer transition-colors",
-        isExpanded && "bg-muted/40"
-      )}
-      onClick={() => hasExpandableContent && onToggle()}
-      data-testid={`event-${event.id}`}
-    >
-      <div className="flex items-start gap-2">
-        <div className="text-[10px] text-muted-foreground font-mono w-16 shrink-0">
-          {format(event.timestamp, "HH:mm:ss")}
-        </div>
-        <div className={cn("shrink-0 mt-0.5", EVENT_COLORS[event.type])}>
-          <Icon className="h-3.5 w-3.5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge variant="outline" className={cn("text-[9px] uppercase h-4 px-1", SOURCE_COLORS[event.source])}>
-              {event.source}
-            </Badge>
-            <span className="text-xs font-medium truncate">{event.title}</span>
-            {event.metadata?.confidence !== undefined && (
-              <Badge variant="secondary" className="text-[9px] h-4 px-1">
-                {event.metadata.confidence}%
-              </Badge>
-            )}
-            {event.metadata?.costUsd !== undefined && (
-              <Badge variant="outline" className="text-[9px] h-4 px-1 text-amber-400">
-                ${event.metadata.costUsd.toFixed(4)}
-              </Badge>
-            )}
-          </div>
-          {event.details && !isExpanded && (
-            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{event.details}</p>
-          )}
-        </div>
-        {hasExpandableContent && (
-          <div className="shrink-0 text-muted-foreground">
-            {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          </div>
-        )}
-      </div>
-      
-      {isExpanded && hasExpandableContent && (
-        <div className="mt-2 ml-[72px] space-y-2 text-[10px] border-l-2 border-border/50 pl-2">
-          {event.details && (
-            <p className="text-foreground/80 whitespace-pre-wrap">{event.details}</p>
-          )}
-          {event.metadata?.reasoning && (
-            <div>
-              <span className="text-muted-foreground uppercase">Reasoning:</span>
-              <p className="text-foreground/80 italic mt-0.5">"{event.metadata.reasoning}"</p>
-            </div>
-          )}
-          {event.metadata?.citations && event.metadata.citations.length > 0 && (
-            <div className="space-y-0.5">
-              {event.metadata.citations.slice(0, 3).map((url, idx) => (
-                <a 
-                  key={idx}
-                  href={url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-400 hover:underline flex items-center gap-1"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <Link className="h-2.5 w-2.5" />
-                  {url.replace(/^https?:\/\//, '').slice(0, 40)}...
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function ResearchMonitor() {
   const [events, setEvents] = useState<ResearchEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
   const [usePolling, setUsePolling] = useState(false);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<ResearchEvent | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<Set<ResearchEventType>>(new Set());
+  const [showControls, setShowControls] = useState(false);
   const [stats, setStats] = useState({ 
     searches: 0, 
     sources: 0, 
-    ideas: 0, 
     candidates: 0,
     totalCost: 0,
   });
@@ -215,15 +65,6 @@ export default function ResearchMonitor() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastEventTimestamp = useRef<number>(0);
   const wsFailCount = useRef(0);
-
-  const toggleExpanded = useCallback((id: string) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
 
   const addEvents = useCallback((newEvents: ResearchEvent[]) => {
     if (paused || newEvents.length === 0) return;
@@ -240,7 +81,6 @@ export default function ResearchMonitor() {
         ...prev,
         searches: prev.searches + (evt.type === "search" ? 1 : 0),
         sources: prev.sources + (evt.type === "source" ? 1 : 0),
-        ideas: prev.ideas + (evt.type === "idea" ? 1 : 0),
         candidates: prev.candidates + (evt.type === "candidate" ? 1 : 0),
         totalCost: prev.totalCost + (evt.metadata?.costUsd || 0),
       }));
@@ -278,6 +118,7 @@ export default function ResearchMonitor() {
 
   const startPolling = useCallback(() => {
     if (pollingIntervalRef.current) return;
+    console.log("[ResearchMonitor] Switching to HTTP polling");
     setUsePolling(true);
     setConnected(true);
     pollEvents();
@@ -337,6 +178,7 @@ export default function ResearchMonitor() {
       };
 
       ws.onclose = () => {
+        console.log("[ResearchMonitor] WebSocket disconnected");
         setConnected(false);
         wsFailCount.current++;
         
@@ -347,7 +189,9 @@ export default function ResearchMonitor() {
         }
       };
 
-      ws.onerror = () => {};
+      ws.onerror = (e) => {
+        console.error("[ResearchMonitor] WebSocket error:", e);
+      };
 
       wsRef.current = ws;
     } catch (e) {
@@ -383,8 +227,7 @@ export default function ResearchMonitor() {
 
   const clearEvents = () => {
     setEvents([]);
-    setStats({ searches: 0, sources: 0, ideas: 0, candidates: 0, totalCost: 0 });
-    setExpandedIds(new Set());
+    setStats({ searches: 0, sources: 0, candidates: 0, totalCost: 0 });
     setSelectedEvent(null);
   };
 
@@ -395,177 +238,155 @@ export default function ResearchMonitor() {
     },
   });
 
-  const filteredEvents = useMemo(() => {
-    if (activeFilters.size === 0) return events;
-    return events.filter(e => activeFilters.has(e.type));
-  }, [events, activeFilters]);
-
   return (
     <AppLayout title="Research Monitor">
-      <div className="h-full flex flex-col gap-3 p-2">
-        {/* Top Stats Bar */}
-        <div className="grid grid-cols-5 gap-2">
-          <div className="bg-card/80 border border-border/50 rounded-sm p-2">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</div>
-            <div className="text-lg font-mono font-semibold flex items-center gap-1.5">
+      <div className="h-full flex flex-col">
+        {/* Top Stats Bar - matching Tournaments exactly */}
+        <div className="grid grid-cols-4 border-b border-border">
+          <div className="p-3 border-r border-border">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Queries</div>
+            <div className="text-xl font-semibold mt-0.5">{stats.searches}</div>
+          </div>
+          <div className="p-3 border-r border-border">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Sources</div>
+            <div className="text-xl font-semibold mt-0.5">{stats.sources}</div>
+          </div>
+          <div className="p-3 border-r border-border">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Candidates</div>
+            <div className="text-xl font-semibold mt-0.5">{stats.candidates}</div>
+          </div>
+          <div className="p-3">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Status</div>
+            <div className="text-xl font-semibold mt-0.5 flex items-center gap-2">
               {connected ? (
-                <>
-                  <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">{usePolling ? "POLL" : "LIVE"}</span>
-                </>
+                <span className="text-emerald-400">{usePolling ? "POLLING" : "LIVE"}</span>
               ) : (
-                <>
-                  <WifiOff className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">OFF</span>
-                </>
+                <span className="text-muted-foreground">IDLE</span>
               )}
             </div>
           </div>
-          <div className="bg-card/80 border border-border/50 rounded-sm p-2">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Queries</div>
-            <div className="text-lg font-mono font-semibold text-blue-400">{stats.searches}</div>
-          </div>
-          <div className="bg-card/80 border border-border/50 rounded-sm p-2">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Sources</div>
-            <div className="text-lg font-mono font-semibold text-cyan-400">{stats.sources}</div>
-          </div>
-          <div className="bg-card/80 border border-border/50 rounded-sm p-2">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Candidates</div>
-            <div className="text-lg font-mono font-semibold text-emerald-400">{stats.candidates}</div>
-          </div>
-          <div className="bg-card/80 border border-border/50 rounded-sm p-2">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Cost</div>
-            <div className="text-lg font-mono font-semibold text-amber-400">${stats.totalCost.toFixed(4)}</div>
-          </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 min-h-0">
-          {/* Left Panel - Controls + History */}
-          <div className="lg:col-span-1 flex flex-col gap-3 min-h-0">
-            {/* Controls */}
-            <div className="bg-card/80 border border-border/50 rounded-sm">
-              <div className="px-3 py-2 border-b border-border/50 flex items-center gap-2">
-                <Settings className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium uppercase tracking-wide">Controls</span>
+        {/* Main Content - 2 column layout */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 min-h-0">
+          {/* Left Panel */}
+          <div className="lg:col-span-1 border-r border-border flex flex-col min-h-0">
+            {/* Schedule Section */}
+            <div className="p-3 border-b border-border">
+              <div className="flex items-center gap-2 text-sm font-medium mb-3">
+                <Radio className={cn("w-4 h-4", connected && "text-emerald-400")} />
+                <span>SCHEDULE</span>
               </div>
-              <div className="p-2 space-y-2">
-                <Button 
-                  size="sm" 
-                  className="w-full justify-start"
-                  onClick={() => triggerResearchMutation.mutate()}
-                  disabled={triggerResearchMutation.isPending}
-                  data-testid="button-trigger-research"
-                >
-                  {triggerResearchMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                  ) : (
-                    <Rocket className="h-3.5 w-3.5 mr-2" />
-                  )}
-                  Trigger Research
-                </Button>
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setPaused(!paused)}
-                    data-testid="button-pause"
-                  >
-                    {paused ? <Play className="h-3.5 w-3.5 mr-1.5" /> : <Pause className="h-3.5 w-3.5 mr-1.5" />}
-                    {paused ? "Resume" : "Pause"}
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={clearEvents}
-                    data-testid="button-clear"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-400" : "bg-muted-foreground")} />
+                    <span>Continuous Scan</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                    <Badge variant="secondary" className="text-[10px] h-5">AUTO</Badge>
+                    <span>{events.length > 0 ? format(events[events.length - 1]?.timestamp || new Date(), "h:mm a") : "Never ran"}</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    <span>Deep Research</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                    <Badge variant="secondary" className="text-[10px] h-5">MANUAL</Badge>
+                    <span>On demand</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Filters */}
-            <Collapsible open={showFilters} onOpenChange={setShowFilters}>
-              <div className="bg-card/80 border border-border/50 rounded-sm">
-                <CollapsibleTrigger className="w-full px-3 py-2 border-b border-border/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium uppercase tracking-wide">Filters</span>
-                  </div>
-                  {showFilters ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="p-2 grid grid-cols-2 gap-1">
-                    {(["search", "source", "idea", "candidate", "analysis", "validation", "error"] as ResearchEventType[]).map(type => {
-                      const Icon = EVENT_ICONS[type];
-                      const isActive = activeFilters.size === 0 || activeFilters.has(type);
-                      return (
-                        <div 
-                          key={type}
-                          className={cn(
-                            "flex items-center gap-1.5 px-2 py-1 rounded-sm cursor-pointer text-[10px]",
-                            isActive ? "bg-muted/50" : "opacity-40"
-                          )}
-                          onClick={() => {
-                            setActiveFilters(prev => {
-                              const next = new Set(prev);
-                              if (next.has(type)) next.delete(type);
-                              else next.add(type);
-                              return next;
-                            });
-                          }}
-                          data-testid={`filter-${type}`}
-                        >
-                          <Checkbox checked={isActive} className="h-3 w-3" data-testid={`checkbox-filter-${type}`} />
-                          <Icon className={cn("h-3 w-3", EVENT_COLORS[type])} />
-                          <span className="capitalize">{type}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="px-2 pb-2">
+            {/* Show Manual Controls - collapsible like Tournaments */}
+            <Collapsible open={showControls} onOpenChange={setShowControls}>
+              <CollapsibleTrigger className="w-full px-3 py-2 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground border-b border-border">
+                <Settings className="w-3.5 h-3.5" />
+                <span>Show Manual Controls</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-3 border-b border-border space-y-2">
+                  <Button 
+                    size="sm" 
+                    className="w-full justify-start"
+                    onClick={() => triggerResearchMutation.mutate()}
+                    disabled={triggerResearchMutation.isPending}
+                    data-testid="button-trigger-research"
+                  >
+                    {triggerResearchMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                    ) : (
+                      <Rocket className="h-3.5 w-3.5 mr-2" />
+                    )}
+                    Trigger Research
+                  </Button>
+                  <div className="flex gap-2">
                     <Button 
                       size="sm" 
-                      variant="ghost" 
-                      className="w-full h-6 text-[10px]"
-                      onClick={() => setActiveFilters(new Set())}
-                      data-testid="button-filter-show-all"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setPaused(!paused)}
+                      data-testid="button-pause"
                     >
-                      Show All
+                      {paused ? <Play className="h-3.5 w-3.5 mr-1.5" /> : <Pause className="h-3.5 w-3.5 mr-1.5" />}
+                      {paused ? "Resume" : "Pause"}
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={clearEvents}
+                      data-testid="button-clear"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                </CollapsibleContent>
-              </div>
+                </div>
+              </CollapsibleContent>
             </Collapsible>
 
-            {/* History List */}
-            <div className="flex-1 bg-card/80 border border-border/50 rounded-sm flex flex-col min-h-0">
-              <div className="px-3 py-2 border-b border-border/50 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Radio className={cn("w-3.5 h-3.5", connected && !paused && "text-emerald-400 animate-pulse")} />
-                  <span className="text-xs font-medium uppercase tracking-wide">History</span>
-                </div>
-                <Badge variant="secondary" className="text-[9px] h-4">{filteredEvents.length}</Badge>
+            {/* History Section */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="px-3 py-2 flex items-center justify-between border-b border-border">
+                <span className="text-sm font-medium">HISTORY</span>
+                <Badge variant="secondary" className="text-[10px] h-5">{events.length}</Badge>
               </div>
               <ScrollArea className="flex-1" ref={scrollRef}>
                 <div className="p-2 space-y-1">
-                  {filteredEvents.length === 0 ? (
-                    <div className="py-8 text-center">
-                      <Brain className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                      <p className="text-xs text-muted-foreground">Waiting for activity...</p>
-                    </div>
-                  ) : (
-                    filteredEvents.map(event => (
-                      <EventCard 
-                        key={event.id} 
-                        event={event}
-                        isExpanded={expandedIds.has(event.id)}
-                        onToggle={() => toggleExpanded(event.id)}
-                      />
+                  {events.length === 0 ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="h-12 bg-muted/30 rounded-sm animate-pulse" />
                     ))
+                  ) : (
+                    events.map(event => {
+                      const Icon = EVENT_ICONS[event.type] || Zap;
+                      return (
+                        <div 
+                          key={event.id}
+                          className={cn(
+                            "p-2 rounded-sm cursor-pointer transition-colors",
+                            selectedEvent?.id === event.id ? "bg-muted" : "hover:bg-muted/50"
+                          )}
+                          onClick={() => setSelectedEvent(event)}
+                          data-testid={`event-${event.id}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-sm truncate flex-1">{event.title}</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              {format(event.timestamp, "h:mm a")}
+                            </span>
+                          </div>
+                          {event.details && (
+                            <p className="text-xs text-muted-foreground mt-0.5 ml-5 truncate">{event.details}</p>
+                          )}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </ScrollArea>
@@ -573,21 +394,21 @@ export default function ResearchMonitor() {
           </div>
 
           {/* Right Panel - Detail View */}
-          <div className="lg:col-span-2 bg-card/80 border border-border/50 rounded-sm flex flex-col min-h-0">
+          <div className="lg:col-span-2 flex flex-col min-h-0">
             {selectedEvent ? (
               <>
-                <div className="px-3 py-2 border-b border-border/50">
+                <div className="p-3 border-b border-border">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={cn("text-[10px]", SOURCE_COLORS[selectedEvent.source])}>
+                    <Badge variant="outline" className="text-[10px] uppercase">
                       {selectedEvent.source}
                     </Badge>
-                    <span className="text-sm font-medium">{selectedEvent.title}</span>
+                    <span className="font-medium">{selectedEvent.title}</span>
                   </div>
-                  <div className="text-[10px] text-muted-foreground mt-1">
+                  <div className="text-xs text-muted-foreground mt-1">
                     {format(selectedEvent.timestamp, "PPpp")}
                   </div>
                 </div>
-                <ScrollArea className="flex-1 p-3">
+                <ScrollArea className="flex-1 p-4">
                   <div className="space-y-4 text-sm">
                     {selectedEvent.details && (
                       <div>
@@ -601,45 +422,25 @@ export default function ResearchMonitor() {
                         <p className="text-foreground/80 italic">"{selectedEvent.metadata.reasoning}"</p>
                       </div>
                     )}
-                    {selectedEvent.metadata?.confidenceBreakdown && (
+                    {selectedEvent.metadata?.confidence !== undefined && (
                       <div>
-                        <div className="text-[10px] text-muted-foreground uppercase mb-1">Confidence Breakdown</div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {Object.entries(selectedEvent.metadata.confidenceBreakdown).map(([key, value]) => (
-                            <div key={key} className="flex justify-between bg-muted/30 rounded-sm px-2 py-1 text-xs">
-                              <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                              <span className="font-mono">{typeof value === 'number' ? value.toFixed(0) : value}</span>
-                            </div>
-                          ))}
-                        </div>
+                        <div className="text-[10px] text-muted-foreground uppercase mb-1">Confidence</div>
+                        <p className="text-foreground/80">{selectedEvent.metadata.confidence}%</p>
                       </div>
                     )}
-                    {selectedEvent.metadata?.citations && selectedEvent.metadata.citations.length > 0 && (
+                    {selectedEvent.metadata?.costUsd !== undefined && (
                       <div>
-                        <div className="text-[10px] text-muted-foreground uppercase mb-1">Citations</div>
-                        <div className="space-y-1">
-                          {selectedEvent.metadata.citations.map((url, idx) => (
-                            <a 
-                              key={idx}
-                              href={url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-400 hover:underline flex items-center gap-1"
-                            >
-                              <Link className="h-3 w-3" />
-                              {url}
-                            </a>
-                          ))}
-                        </div>
+                        <div className="text-[10px] text-muted-foreground uppercase mb-1">Cost</div>
+                        <p className="text-foreground/80">${selectedEvent.metadata.costUsd.toFixed(4)}</p>
                       </div>
                     )}
                   </div>
                 </ScrollArea>
               </>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                <Brain className="h-12 w-12 text-muted-foreground/20 mb-3" />
-                <p className="text-sm text-muted-foreground">Select an event to view details</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <Brain className="h-16 w-16 text-muted-foreground/20 mb-3" />
+                <p className="text-sm text-muted-foreground">Select a research event to view details</p>
                 <p className="text-xs text-muted-foreground/70 mt-1">Click on any entry in the history list</p>
               </div>
             )}
