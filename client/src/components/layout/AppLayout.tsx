@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Trophy,
+  Brain,
 } from "lucide-react";
 import { PowerButton } from "@/components/power/PowerButton";
 
@@ -29,6 +30,7 @@ interface AppLayoutProps {
 const navItems = [
   { href: "/bots", label: "Bots", icon: Bot },
   { href: "/strategy-lab", label: "Strategy Lab", icon: Microscope },
+  { href: "/research-monitor", label: "AI Research", icon: Brain },
   { href: "/tournaments", label: "Tournaments", icon: Trophy },
   { href: "/operations", label: "Operations", icon: Activity },
   { href: "/accounts", label: "Accounts", icon: Wallet },
