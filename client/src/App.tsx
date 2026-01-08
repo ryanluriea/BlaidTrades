@@ -1,9 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { get, set, del } from "idb-keyval";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -12,6 +10,7 @@ import { ServerClockProvider } from "@/contexts/ServerClockContext";
 import { LivePnLProvider } from "@/contexts/LivePnLContext";
 import { StrategyLabDialogProvider } from "@/contexts/StrategyLabDialogContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { queryClient } from "@/lib/queryClient";
 
 // Auth pages
 import Login from "@/pages/Login";
@@ -36,39 +35,6 @@ import AlphaDecay from "@/pages/AlphaDecay";
 import TradeCostAnalysis from "@/pages/TradeCostAnalysis";
 import CorrelationAnalysis from "@/pages/CorrelationAnalysis";
 import ResearchMonitor from "@/pages/ResearchMonitor";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 120 * 1000, // 2 minutes - THROTTLED for single-VM performance
-      gcTime: 30 * 60 * 1000, // 30 minutes - keep cached data resident for persistence
-      retry: (failureCount, error: any) => {
-        const status = error?.status ?? error?.response?.status;
-        const code = error?.code ?? error?.error?.code;
-        const message = String(error?.message ?? error?.error?.message ?? "");
-
-        const isRestDegraded =
-          status === 503 ||
-          status === 504 ||
-          code === "PGRST002" ||
-          message.toLowerCase().includes("schema cache");
-
-        if (isRestDegraded) return failureCount < 2;
-        return failureCount < 3;
-      },
-      retryDelay: (attemptIndex) => {
-        const base = 800;
-        const max = 8_000;
-        return Math.min(max, base * 2 ** attemptIndex);
-      },
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-    },
-    mutations: {
-      retry: false,
-    },
-  },
-});
 
 const IDB_CACHE_KEY = 'blaidagent-query-cache-v2';
 
