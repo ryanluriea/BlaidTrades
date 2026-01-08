@@ -1,0 +1,46 @@
+==> Using Bun version 1.3.4 (default)
+==> Docs on specifying a Bun version: https://render.com/docs/bun-version
+==> Running 'node --experimental-specifier-resolution=node dist/index.js'
+[DB_CONFIG] host=dpg-d5fm9724d50c73f96udg-a port=5432 pooler=false legacy=false reader=false
+1:33:50 PM [express] [STARTUP] Cleaned up stale temporary files
+[MEMORY_SENTINEL] instance=6cb0f1a2 starting sample_interval=5000ms pressure_threshold=75% max_heap_mb=4096
+1:33:50 PM [express] [STARTUP] Memory sentinel started (instance=6cb0f1a2)
+[MEMORY_SENTINEL] Cache eviction callback registered for active memory recovery
+[DB_WARMUP] Attempt 1/3 - connecting to database...
+[DB_WARMUP] Database connection established successfully
+[DB_CIRCUIT] Circuit CLOSED - database operations resumed
+1:33:50 PM [express] [STARTUP] Database ready - PostgreSQL session store will be used
+[AUTH] CRITICAL: SESSION_SECRET environment variable is not set!
+[AUTH] Please set SESSION_SECRET in your environment variables.
+file:///opt/render/project/src/dist/index.js:20930
+      throw new Error("SESSION_SECRET must be configured in production");
+            ^
+Error: SESSION_SECRET must be configured in production
+    at setupAuth (file:///opt/render/project/src/dist/index.js:20930:13)
+    at file:///opt/render/project/src/dist/index.js:67041:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+Node.js v22.16.0
+==> Using Bun version 1.3.4 (default)
+==> Docs on specifying a Bun version: https://render.com/docs/bun-version
+==> Running 'node --experimental-specifier-resolution=node dist/index.js'
+==> Exited with status 1
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+[DB_CONFIG] host=dpg-d5fm9724d50c73f96udg-a port=5432 pooler=false legacy=false reader=false
+1:34:04 PM [express] [STARTUP] Cleaned up stale temporary files
+[MEMORY_SENTINEL] instance=53a4b951 starting sample_interval=5000ms pressure_threshold=75% max_heap_mb=4096
+1:34:04 PM [express] [STARTUP] Memory sentinel started (instance=53a4b951)
+[MEMORY_SENTINEL] Cache eviction callback registered for active memory recovery
+[DB_WARMUP] Attempt 1/3 - connecting to database...
+[DB_WARMUP] Database connection established successfully
+[DB_CIRCUIT] Circuit CLOSED - database operations resumed
+1:34:04 PM [express] [STARTUP] Database ready - PostgreSQL session store will be used
+[AUTH] CRITICAL: SESSION_SECRET environment variable is not set!
+[AUTH] Please set SESSION_SECRET in your environment variables.
+file:///opt/render/project/src/dist/index.js:20930
+      throw new Error("SESSION_SECRET must be configured in production");
+            ^
+Error: SESSION_SECRET must be configured in production
+    at setupAuth (file:///opt/render/project/src/dist/index.js:20930:13)
+    at file:///opt/render/project/src/dist/index.js:67041:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+Node.js v22.16.0
