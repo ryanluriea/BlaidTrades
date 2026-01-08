@@ -1516,19 +1516,15 @@ export function StrategyLabView() {
         {/* Right side - Menu */}
         <div className="flex items-center gap-1.5">
           {/* Research Monitor - Watch AI research live */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                size="icon" 
-                variant="ghost" 
-                onClick={() => navigate("/research-monitor")}
-                data-testid="button-research-monitor"
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Watch AI research live</TooltipContent>
-          </Tooltip>
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            onClick={() => navigate("/research-monitor")}
+            data-testid="button-research-monitor"
+            title="Watch AI research live"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           
           {/* 3-Dot Menu - Filter, Sort, Bulk Actions, Settings */}
           <DropdownMenu>
