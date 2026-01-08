@@ -1,21 +1,95 @@
 /**
  * Research Monitor WebSocket Server
  * 
- * Streams real-time AI research activity to connected clients.
- * Events include: search queries, source analysis, idea discovery, candidate creation.
+ * INSTITUTIONAL-GRADE AI Research Transparency Layer
+ * 
+ * Provides complete audit trail of all AI research activities including:
+ * - Search queries and API calls
+ * - Source analysis with credibility scoring
+ * - Idea discovery with confidence levels
+ * - Strategy candidate creation with full reasoning
+ * - Cost tracking and token usage
+ * - Phase progression and timing metrics
  */
 
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
 
+// Extended event types for institutional-grade transparency
+export type ResearchEventType = 
+  | "search"           // API query initiated
+  | "source"           // Source/citation discovered
+  | "idea"             // Trading idea/hypothesis generated
+  | "candidate"        // Strategy candidate created
+  | "error"            // Error occurred
+  | "system"           // System message
+  | "analysis"         // Analysis in progress
+  | "reasoning"        // AI reasoning chain exposed
+  | "validation"       // Validation check performed
+  | "cost"             // Cost/token tracking event
+  | "phase"            // Research phase transition
+  | "scoring"          // Confidence scoring event
+  | "rejection"        // Candidate rejected with reason
+  | "api_call";        // Raw API call details
+
+export type ResearchSource = "perplexity" | "grok" | "openai" | "anthropic" | "groq" | "gemini" | "system";
+
 export interface ResearchEvent {
   id: string;
   timestamp: number;
-  eventType: "search" | "source" | "idea" | "candidate" | "error" | "system" | "analysis";
-  source: "perplexity" | "grok" | "system";
+  eventType: ResearchEventType;
+  source: ResearchSource;
   title: string;
   details?: string;
-  metadata?: Record<string, any>;
+  metadata?: {
+    // Common fields
+    traceId?: string;
+    phase?: string;
+    durationMs?: number;
+    
+    // Provider info
+    provider?: string;
+    model?: string;
+    
+    // Token/cost tracking
+    inputTokens?: number;
+    outputTokens?: number;
+    costUsd?: number;
+    
+    // Confidence/scoring
+    confidence?: number;
+    confidenceBreakdown?: Record<string, number>;
+    
+    // Strategy details
+    strategyName?: string;
+    archetype?: string;
+    symbol?: string;
+    symbols?: string[];
+    
+    // Research context
+    depth?: string;
+    regime?: string;
+    trigger?: string;
+    
+    // Reasoning/evidence
+    reasoning?: string;
+    sources?: Array<{ type: string; label: string; detail: string }>;
+    hypothesis?: string;
+    
+    // Validation
+    validationResult?: "PASS" | "FAIL" | "WARN";
+    validationReason?: string;
+    
+    // Rejection
+    rejectionReason?: string;
+    
+    // URLs/citations
+    url?: string;
+    citations?: string[];
+    
+    // Arbitrary extra data
+    [key: string]: any;
+  };
 }
 
 interface ClientState {
@@ -23,11 +97,29 @@ interface ClientState {
   connectedAt: number;
 }
 
+interface ResearchPhase {
+  name: string;
+  startTime: number;
+  source: ResearchSource;
+  traceId: string;
+}
+
 class ResearchMonitorWebSocketServer {
   private wss: WebSocketServer | null = null;
   private clients: Map<WebSocket, ClientState> = new Map();
   private eventBuffer: ResearchEvent[] = [];
-  private readonly MAX_BUFFER_SIZE = 100;
+  private readonly MAX_BUFFER_SIZE = 200; // Increased for richer history
+  private activePhases: Map<string, ResearchPhase> = new Map();
+  
+  // Statistics tracking
+  private stats = {
+    totalEvents: 0,
+    searchCount: 0,
+    candidatesCreated: 0,
+    errorsLogged: 0,
+    totalCostUsd: 0,
+    totalTokens: 0,
+  };
 
   initialize(server: Server): void {
     if (this.wss) {
@@ -53,7 +145,8 @@ class ResearchMonitorWebSocketServer {
         type: "connected",
         timestamp: Date.now(),
         message: "Research Monitor connected",
-        recentEvents: this.eventBuffer.slice(-20),
+        recentEvents: this.eventBuffer.slice(-50),
+        stats: this.stats,
       }));
 
       ws.on("close", () => {
@@ -70,8 +163,7 @@ class ResearchMonitorWebSocketServer {
     console.log("[RESEARCH_WS] Research Monitor WebSocket initialized at /ws/research-monitor");
   }
 
-  broadcast(event: Omit<ResearchEvent, "id" | "timestamp">): void {
-    // Guard against worker-only mode where WebSocket server is not initialized
+  private broadcast(event: Omit<ResearchEvent, "id" | "timestamp">): void {
     if (!this.wss) {
       return;
     }
@@ -86,6 +178,15 @@ class ResearchMonitorWebSocketServer {
     if (this.eventBuffer.length > this.MAX_BUFFER_SIZE) {
       this.eventBuffer = this.eventBuffer.slice(-this.MAX_BUFFER_SIZE);
     }
+
+    // Update stats
+    this.stats.totalEvents++;
+    if (event.eventType === "search") this.stats.searchCount++;
+    if (event.eventType === "candidate") this.stats.candidatesCreated++;
+    if (event.eventType === "error") this.stats.errorsLogged++;
+    if (event.metadata?.costUsd) this.stats.totalCostUsd += event.metadata.costUsd;
+    if (event.metadata?.inputTokens) this.stats.totalTokens += event.metadata.inputTokens;
+    if (event.metadata?.outputTokens) this.stats.totalTokens += event.metadata.outputTokens;
 
     const message = JSON.stringify({
       type: "research_event",
@@ -103,71 +204,244 @@ class ResearchMonitorWebSocketServer {
     });
   }
 
-  logSearch(source: "perplexity" | "grok", query: string, metadata?: Record<string, any>): void {
-    this.broadcast({
-      eventType: "search",
+  // ============================================================
+  // PHASE MANAGEMENT - Track research lifecycle
+  // ============================================================
+  
+  startPhase(source: ResearchSource, phaseName: string, traceId: string, metadata?: Record<string, any>): void {
+    const phaseKey = `${source}-${traceId}`;
+    this.activePhases.set(phaseKey, {
+      name: phaseName,
+      startTime: Date.now(),
       source,
-      title: `Searching: "${query.slice(0, 100)}${query.length > 100 ? "..." : ""}"`,
-      details: query,
-      metadata,
+      traceId,
+    });
+    
+    this.broadcast({
+      eventType: "phase",
+      source,
+      title: `Phase Started: ${phaseName}`,
+      details: `Beginning ${phaseName} phase`,
+      metadata: { ...metadata, phase: phaseName, traceId },
+    });
+  }
+  
+  endPhase(source: ResearchSource, phaseName: string, traceId: string, result?: string): void {
+    const phaseKey = `${source}-${traceId}`;
+    const phase = this.activePhases.get(phaseKey);
+    const durationMs = phase ? Date.now() - phase.startTime : 0;
+    this.activePhases.delete(phaseKey);
+    
+    this.broadcast({
+      eventType: "phase",
+      source,
+      title: `Phase Complete: ${phaseName}`,
+      details: result || `Completed ${phaseName} in ${durationMs}ms`,
+      metadata: { phase: phaseName, traceId, durationMs },
     });
   }
 
-  logSource(source: "perplexity" | "grok", url: string, title?: string): void {
+  // ============================================================
+  // SEARCH & API CALLS
+  // ============================================================
+
+  logSearch(source: ResearchSource, query: string, metadata?: Record<string, any>): void {
+    this.broadcast({
+      eventType: "search",
+      source,
+      title: `Querying: "${query.slice(0, 100)}${query.length > 100 ? "..." : ""}"`,
+      details: query,
+      metadata: { ...metadata },
+    });
+  }
+  
+  logApiCall(source: ResearchSource, provider: string, model: string, purpose: string, metadata?: Record<string, any>): void {
+    this.broadcast({
+      eventType: "api_call",
+      source,
+      title: `API Call: ${provider}/${model}`,
+      details: purpose,
+      metadata: { ...metadata, provider, model },
+    });
+  }
+
+  // ============================================================
+  // SOURCE DISCOVERY
+  // ============================================================
+
+  logSource(source: ResearchSource, url: string, title?: string, credibility?: string): void {
     this.broadcast({
       eventType: "source",
       source,
       title: title || "Analyzing source",
       details: url,
-      metadata: { url },
+      metadata: { url, credibility },
     });
   }
-
-  logIdea(source: "perplexity" | "grok", idea: string, confidence?: number): void {
+  
+  logCitations(source: ResearchSource, citations: string[], context?: string): void {
+    if (citations.length === 0) return;
+    
     this.broadcast({
-      eventType: "idea",
+      eventType: "source",
       source,
-      title: `Discovered: ${idea.slice(0, 80)}${idea.length > 80 ? "..." : ""}`,
-      details: idea,
-      metadata: { confidence },
+      title: `Found ${citations.length} citations`,
+      details: context || citations.slice(0, 3).join(", ") + (citations.length > 3 ? "..." : ""),
+      metadata: { citations, citationCount: citations.length },
     });
   }
 
-  logCandidate(source: "perplexity" | "grok", strategyName: string, confidence: number, symbol?: string): void {
+  // ============================================================
+  // REASONING & ANALYSIS
+  // ============================================================
+  
+  logReasoning(source: ResearchSource, reasoning: string, context?: string): void {
     this.broadcast({
-      eventType: "candidate",
+      eventType: "reasoning",
       source,
-      title: `Created Strategy: ${strategyName}`,
-      details: symbol ? `Symbol: ${symbol}` : undefined,
-      metadata: { confidence, symbol },
+      title: `Reasoning: ${reasoning.slice(0, 80)}${reasoning.length > 80 ? "..." : ""}`,
+      details: reasoning,
+      metadata: { context },
     });
   }
 
-  logAnalysis(source: "perplexity" | "grok", analysis: string): void {
+  logAnalysis(source: ResearchSource, analysis: string, metadata?: Record<string, any>): void {
     this.broadcast({
       eventType: "analysis",
       source,
       title: analysis.slice(0, 100) + (analysis.length > 100 ? "..." : ""),
       details: analysis,
+      metadata,
     });
   }
 
-  logError(source: "perplexity" | "grok" | "system", error: string): void {
+  // ============================================================
+  // IDEA DISCOVERY
+  // ============================================================
+
+  logIdea(source: ResearchSource, idea: string, confidence?: number, hypothesis?: string): void {
+    this.broadcast({
+      eventType: "idea",
+      source,
+      title: `Idea: ${idea.slice(0, 80)}${idea.length > 80 ? "..." : ""}`,
+      details: idea,
+      metadata: { confidence, hypothesis },
+    });
+  }
+
+  // ============================================================
+  // CANDIDATE CREATION & SCORING
+  // ============================================================
+
+  logCandidate(
+    source: ResearchSource, 
+    strategyName: string, 
+    confidence: number, 
+    options?: {
+      symbol?: string;
+      symbols?: string[];
+      archetype?: string;
+      hypothesis?: string;
+      reasoning?: string;
+      sources?: Array<{ type: string; label: string; detail: string }>;
+      confidenceBreakdown?: Record<string, number>;
+      traceId?: string;
+    }
+  ): void {
+    this.broadcast({
+      eventType: "candidate",
+      source,
+      title: `Strategy Created: ${strategyName}`,
+      details: options?.hypothesis || `Confidence: ${confidence}%`,
+      metadata: {
+        strategyName,
+        confidence,
+        symbol: options?.symbol,
+        symbols: options?.symbols,
+        archetype: options?.archetype,
+        hypothesis: options?.hypothesis,
+        reasoning: options?.reasoning,
+        sources: options?.sources,
+        confidenceBreakdown: options?.confidenceBreakdown,
+        traceId: options?.traceId,
+      },
+    });
+  }
+  
+  logScoring(source: ResearchSource, strategyName: string, score: number, breakdown: Record<string, number>): void {
+    this.broadcast({
+      eventType: "scoring",
+      source,
+      title: `Scored: ${strategyName} = ${score}%`,
+      details: Object.entries(breakdown).map(([k, v]) => `${k}: ${v}`).join(", "),
+      metadata: { strategyName, confidence: score, confidenceBreakdown: breakdown },
+    });
+  }
+
+  // ============================================================
+  // VALIDATION & REJECTION
+  // ============================================================
+  
+  logValidation(source: ResearchSource, check: string, result: "PASS" | "FAIL" | "WARN", reason?: string): void {
+    this.broadcast({
+      eventType: "validation",
+      source,
+      title: `${result}: ${check}`,
+      details: reason,
+      metadata: { validationResult: result, validationReason: reason },
+    });
+  }
+  
+  logRejection(source: ResearchSource, strategyName: string, reason: string): void {
+    this.broadcast({
+      eventType: "rejection",
+      source,
+      title: `Rejected: ${strategyName}`,
+      details: reason,
+      metadata: { strategyName, rejectionReason: reason },
+    });
+  }
+
+  // ============================================================
+  // COST & TOKEN TRACKING
+  // ============================================================
+  
+  logCost(source: ResearchSource, provider: string, model: string, inputTokens: number, outputTokens: number, costUsd: number, traceId?: string): void {
+    this.broadcast({
+      eventType: "cost",
+      source,
+      title: `Cost: $${costUsd.toFixed(4)} (${provider}/${model})`,
+      details: `Input: ${inputTokens.toLocaleString()} | Output: ${outputTokens.toLocaleString()} tokens`,
+      metadata: { provider, model, inputTokens, outputTokens, costUsd, traceId },
+    });
+  }
+
+  // ============================================================
+  // ERRORS & SYSTEM
+  // ============================================================
+
+  logError(source: ResearchSource, error: string, metadata?: Record<string, any>): void {
     this.broadcast({
       eventType: "error",
       source,
       title: `Error: ${error.slice(0, 80)}`,
       details: error,
+      metadata,
     });
   }
 
-  logSystem(message: string): void {
+  logSystem(message: string, metadata?: Record<string, any>): void {
     this.broadcast({
       eventType: "system",
       source: "system",
       title: message,
+      metadata,
     });
   }
+
+  // ============================================================
+  // UTILITY METHODS
+  // ============================================================
 
   getClientCount(): number {
     return this.clients.size;
@@ -178,6 +452,22 @@ class ResearchMonitorWebSocketServer {
       return this.eventBuffer.filter(e => e.timestamp > since);
     }
     return [...this.eventBuffer];
+  }
+  
+  getStats(): typeof this.stats {
+    return { ...this.stats };
+  }
+  
+  clearEvents(): void {
+    this.eventBuffer = [];
+    this.stats = {
+      totalEvents: 0,
+      searchCount: 0,
+      candidatesCreated: 0,
+      errorsLogged: 0,
+      totalCostUsd: 0,
+      totalTokens: 0,
+    };
   }
 
   shutdown(): void {

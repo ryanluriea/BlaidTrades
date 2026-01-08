@@ -369,8 +369,18 @@ export async function runGrokResearch(
   const traceId = crypto.randomUUID();
   const apiKey = process.env.XAI_API_KEY;
   const depth = context?.grokDepth || "CONTRARIAN_SCAN";
+  const startTime = Date.now();
+  
+  // INSTITUTIONAL: Start research phase
+  researchMonitorWS.startPhase("grok", `${depth} Research`, traceId, {
+    depth,
+    regime: context?.currentRegime,
+    trigger: context?.regimeTrigger || "manual",
+  });
   
   if (!apiKey) {
+    researchMonitorWS.logError("grok", "XAI_API_KEY not configured", { traceId });
+    researchMonitorWS.endPhase("grok", `${depth} Research`, traceId, "Failed: API key missing");
     return {
       success: false,
       candidates: [],
@@ -383,6 +393,8 @@ export async function runGrokResearch(
     const budgetCheck = await checkBudgetLimit(userId);
     if (!budgetCheck.allowed) {
       console.log(`[GROK_RESEARCH] trace_id=${traceId} skipped: ${budgetCheck.reason}`);
+      researchMonitorWS.logValidation("grok", "Budget Check", "FAIL", budgetCheck.reason);
+      researchMonitorWS.endPhase("grok", `${depth} Research`, traceId, `Blocked: ${budgetCheck.reason}`);
       return {
         success: false,
         candidates: [],
@@ -390,6 +402,7 @@ export async function runGrokResearch(
         traceId,
       };
     }
+    researchMonitorWS.logValidation("grok", "Budget Check", "PASS", "Within monthly limit");
   }
   
   const prompt = buildGrokResearchPrompt(context);
@@ -397,11 +410,41 @@ export async function runGrokResearch(
   try {
     console.log(`[GROK_RESEARCH] trace_id=${traceId} depth=${depth} starting research`);
     
-    // Stream to Research Monitor
-    researchMonitorWS.logSearch("grok", `Grok ${depth} research - ${context?.regimeTrigger || "scheduled"} ${context?.customFocus ? `focus: ${context.customFocus}` : ""}`, {
+    // INSTITUTIONAL: Log research context and focus
+    const focusAreas = [];
+    if (context?.currentRegime) focusAreas.push(`Regime: ${context.currentRegime}`);
+    if (context?.customFocus) focusAreas.push(`Focus: ${context.customFocus}`);
+    if (context?.xSentimentFocus) focusAreas.push(`X Sentiment: ${context.xSentimentFocus.join(", ")}`);
+    if (context?.contrarianTargets) focusAreas.push(`Contrarian Targets: ${context.contrarianTargets.join(", ")}`);
+    
+    researchMonitorWS.logAnalysis("grok", `Research Context: ${focusAreas.join(" | ") || "General market scan"}`, {
+      traceId,
       depth,
       regime: context?.currentRegime,
+    });
+    
+    // Log if learning from failure
+    if (context?.sourceLabFailure) {
+      researchMonitorWS.logReasoning("grok", 
+        `Learning from previous failure: ${context.sourceLabFailure.failureReasonCodes?.join(", ")}`,
+        "Adaptive evolution mode"
+      );
+    }
+    
+    // Log feedback context if present
+    if (context?.feedbackContext) {
+      researchMonitorWS.logReasoning("grok",
+        "Incorporating performance feedback from past strategies",
+        "Autonomous learning active"
+      );
+    }
+    
+    // INSTITUTIONAL: API call logging
+    researchMonitorWS.logApiCall("grok", "xai", GROK_MODEL, `${depth} strategy generation`, {
       traceId,
+      depth,
+      temperature: 0.7,
+      maxTokens: 4000,
     });
     
     const response = await fetch(GROK_API_URL, {
@@ -418,6 +461,8 @@ export async function runGrokResearch(
       }),
     });
     
+    const apiLatency = Date.now() - startTime;
+    
     if (!response.ok) {
       throw new Error(`Grok API error: ${response.status} ${response.statusText}`);
     }
@@ -426,10 +471,26 @@ export async function runGrokResearch(
     const content = data.choices?.[0]?.message?.content || "";
     const inputTokens = data.usage?.prompt_tokens || 0;
     const outputTokens = data.usage?.completion_tokens || 0;
-    
-    const candidates = parseGrokResponse(content);
     const costUsd = calculateCost(GROK_MODEL, inputTokens, outputTokens);
     
+    // INSTITUTIONAL: Cost tracking event
+    researchMonitorWS.logCost("grok", "xai", GROK_MODEL, inputTokens, outputTokens, costUsd, traceId);
+    
+    // INSTITUTIONAL: Log parsing phase
+    researchMonitorWS.logAnalysis("grok", `Parsing ${outputTokens.toLocaleString()} tokens of strategy candidates`, {
+      traceId,
+      durationMs: apiLatency,
+    });
+    
+    const candidates = parseGrokResponse(content);
+    
+    if (candidates.length === 0) {
+      researchMonitorWS.logValidation("grok", "Candidate Parsing", "WARN", "No valid candidates extracted from response");
+    } else {
+      researchMonitorWS.logValidation("grok", "Candidate Parsing", "PASS", `Extracted ${candidates.length} strategies`);
+    }
+    
+    // INSTITUTIONAL: Confidence scoring phase
     for (const candidate of candidates) {
       const recalculated = calculateConfidenceScore(
         candidate,
@@ -439,6 +500,16 @@ export async function runGrokResearch(
         score: recalculated.total,
         breakdown: recalculated,
       };
+      
+      // Log detailed scoring
+      researchMonitorWS.logScoring("grok", candidate.strategyName, recalculated.total, recalculated);
+      
+      // Log idea discovery with full context
+      researchMonitorWS.logIdea("grok", 
+        `${candidate.archetypeName}: ${candidate.hypothesis?.slice(0, 100) || candidate.strategyName}`,
+        recalculated.total,
+        candidate.hypothesis
+      );
     }
     
     if (userId) {
@@ -476,7 +547,6 @@ export async function runGrokResearch(
     
     trackProviderSuccess("xai");
     
-    // Log AI request for tracking/analytics
     await logIntegrationRequest({
       source: "AI",
       traceId,
@@ -484,22 +554,34 @@ export async function runGrokResearch(
       model: GROK_MODEL,
       tokensIn: inputTokens,
       tokensOut: outputTokens,
-      latencyMs: 0, // Could add timing if needed
+      latencyMs: apiLatency,
       success: true,
       purpose: `GROK_RESEARCH_${depth}`,
     });
     
     console.log(`[GROK_RESEARCH] trace_id=${traceId} SUCCESS depth=${depth} candidates=${candidates.length} cost=$${costUsd.toFixed(6)}`);
     
-    // Stream candidates to Research Monitor
+    // INSTITUTIONAL: Stream detailed candidates to Research Monitor
     for (const candidate of candidates) {
-      researchMonitorWS.logCandidate(
-        "grok", 
-        candidate.strategyName, 
-        candidate.confidence.score,
-        candidate.symbols?.[0]
-      );
+      const aiReasoning = (candidate as any).aiReasoning;
+      const aiSources = (candidate as any).aiResearchSources;
+      
+      researchMonitorWS.logCandidate("grok", candidate.strategyName, candidate.confidence.score, {
+        symbols: candidate.instrumentUniverse || candidate.symbols,
+        archetype: candidate.archetypeName,
+        hypothesis: candidate.hypothesis,
+        reasoning: aiReasoning,
+        sources: aiSources,
+        confidenceBreakdown: candidate.confidence.breakdown,
+        traceId,
+      });
     }
+    
+    // End research phase
+    const totalDuration = Date.now() - startTime;
+    researchMonitorWS.endPhase("grok", `${depth} Research`, traceId, 
+      `Completed: ${candidates.length} strategies in ${(totalDuration/1000).toFixed(1)}s | $${costUsd.toFixed(4)}`
+    );
     
     return {
       success: true,
@@ -512,16 +594,15 @@ export async function runGrokResearch(
     console.error(`[GROK_RESEARCH] trace_id=${traceId} FAILED: ${errorMsg}`);
     trackProviderFailure("xai", errorMsg);
     
-    // Stream error to Research Monitor
-    researchMonitorWS.logError("grok", `Research failed: ${errorMsg}`);
+    researchMonitorWS.logError("grok", `Research failed: ${errorMsg}`, { traceId });
+    researchMonitorWS.endPhase("grok", `${depth} Research`, traceId, `Failed: ${errorMsg}`);
     
-    // Log failed AI request
     await logIntegrationRequest({
       source: "AI",
       traceId,
       provider: "xai",
       model: GROK_MODEL,
-      latencyMs: 0,
+      latencyMs: Date.now() - startTime,
       success: false,
       errorMessage: errorMsg,
       purpose: `GROK_RESEARCH_${depth}`,

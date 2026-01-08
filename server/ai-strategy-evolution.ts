@@ -1772,9 +1772,19 @@ export async function runPerplexityResearch(
   userId?: string
 ): Promise<PerplexityResearchResult> {
   const traceId = crypto.randomUUID();
+  const startTime = Date.now();
   const providers = getStrategyLabProviders();
   
+  // INSTITUTIONAL: Start Perplexity research phase
+  researchMonitorWS.startPhase("perplexity", "Strategy Lab Research", traceId, {
+    trigger: context?.regimeTrigger || "manual",
+    regime: context?.currentRegime,
+    providersAvailable: providers.map(p => p.provider),
+  });
+  
   if (providers.length === 0) {
+    researchMonitorWS.logError("perplexity", "No AI providers configured for Strategy Lab", { traceId });
+    researchMonitorWS.endPhase("perplexity", "Strategy Lab Research", traceId, "Failed: No providers");
     return {
       success: false,
       candidates: [],
@@ -1783,17 +1793,35 @@ export async function runPerplexityResearch(
     };
   }
   
+  // INSTITUTIONAL: Log research context
+  const focusAreas = [];
+  if (context?.currentRegime) focusAreas.push(`Regime: ${context.currentRegime}`);
+  if (context?.regimeTrigger) focusAreas.push(`Trigger: ${context.regimeTrigger}`);
+  
+  researchMonitorWS.logAnalysis("perplexity", 
+    `Research Context: ${focusAreas.join(" | ") || "Market-wide strategy scan"}`, 
+    { traceId }
+  );
+  
   const prompt = buildResearchPrompt(context);
   const errors: string[] = [];
   
   for (const { provider, apiKey } of providers) {
+    const providerSource = provider === "perplexity" ? "perplexity" : 
+                           provider === "anthropic" ? "anthropic" :
+                           provider === "openai" ? "openai" :
+                           provider === "groq" ? "groq" :
+                           provider === "gemini" ? "gemini" : "system";
+    
     if (userId) {
       const budgetCheck = await checkBudgetLimit(userId, provider);
       if (!budgetCheck.allowed) {
         console.log(`[STRATEGY_LAB] trace_id=${traceId} provider=${provider} skipped: ${budgetCheck.reason}`);
+        researchMonitorWS.logValidation(providerSource as any, `Budget Check (${provider})`, "FAIL", budgetCheck.reason);
         errors.push(`${provider}: ${budgetCheck.reason}`);
         continue;
       }
+      researchMonitorWS.logValidation(providerSource as any, `Budget Check (${provider})`, "PASS", "Within limit");
     }
     
     try {
@@ -1802,16 +1830,24 @@ export async function runPerplexityResearch(
       const config = AI_PROVIDERS[provider];
       const { headers, body } = config.formatRequest(prompt, apiKey);
       
+      // INSTITUTIONAL: Log API call
+      researchMonitorWS.logApiCall(providerSource as any, provider, config.model, "Strategy research with web grounding", {
+        traceId,
+        cascadePosition: errors.length + 1,
+      });
+      
       let url = config.url;
       if (provider === "gemini") {
         url = `${config.url}?key=${apiKey}`;
       }
       
+      const callStart = Date.now();
       const response = await fetch(url, {
         method: "POST",
         headers,
         body,
       });
+      const apiLatency = Date.now() - callStart;
       
       if (!response.ok) {
         throw new Error(`${provider} API error: ${response.status} ${response.statusText}`);
@@ -1828,6 +1864,18 @@ export async function runPerplexityResearch(
         inputTokens = data.usage?.prompt_tokens || 0;
         outputTokens = data.usage?.completion_tokens || 0;
         citations = data.citations || [];
+        
+        // INSTITUTIONAL: Log citations discovered
+        if (citations.length > 0) {
+          researchMonitorWS.logCitations("perplexity", citations, `Found ${citations.length} web sources`);
+          
+          // Log individual high-value sources
+          citations.slice(0, 5).forEach((url, idx) => {
+            researchMonitorWS.logSource("perplexity", url, `Web Source ${idx + 1}`, 
+              idx === 0 ? "PRIMARY" : "SECONDARY"
+            );
+          });
+        }
       } else if (provider === "anthropic") {
         content = data.content?.[0]?.text || "";
         inputTokens = data.usage?.input_tokens || 0;
@@ -1842,14 +1890,57 @@ export async function runPerplexityResearch(
         outputTokens = data.usage?.completion_tokens || 0;
       }
       
-      const candidates = parseResearchResponse(content, citations);
       const costUsd = calculateCost(config.model, inputTokens, outputTokens);
+      
+      // INSTITUTIONAL: Cost tracking
+      researchMonitorWS.logCost(providerSource as any, provider, config.model, inputTokens, outputTokens, costUsd, traceId);
+      
+      // INSTITUTIONAL: Log parsing phase
+      researchMonitorWS.logAnalysis(providerSource as any, 
+        `Parsing ${outputTokens.toLocaleString()} tokens for strategy candidates`, 
+        { traceId, durationMs: apiLatency }
+      );
+      
+      const candidates = parseResearchResponse(content, citations);
+      
+      if (candidates.length === 0) {
+        researchMonitorWS.logValidation(providerSource as any, "Candidate Parsing", "WARN", "No valid candidates extracted");
+      } else {
+        researchMonitorWS.logValidation(providerSource as any, "Candidate Parsing", "PASS", `Extracted ${candidates.length} strategies`);
+      }
+      
+      // INSTITUTIONAL: Log each candidate with full details
+      for (const candidate of candidates) {
+        // Log scoring
+        researchMonitorWS.logScoring(providerSource as any, 
+          candidate.strategyName, 
+          candidate.confidence.score, 
+          candidate.confidence.breakdown as Record<string, number>
+        );
+        
+        // Log idea discovery
+        researchMonitorWS.logIdea(providerSource as any,
+          `${candidate.archetypeName}: ${candidate.hypothesis?.slice(0, 100) || candidate.strategyName}`,
+          candidate.confidence.score,
+          candidate.hypothesis
+        );
+        
+        // Log full candidate
+        researchMonitorWS.logCandidate(providerSource as any, candidate.strategyName, candidate.confidence.score, {
+          symbols: candidate.instrumentUniverse || candidate.symbols,
+          archetype: candidate.archetypeName,
+          hypothesis: candidate.hypothesis,
+          reasoning: (candidate as any).aiReasoning,
+          sources: (candidate as any).aiResearchSources,
+          confidenceBreakdown: candidate.confidence.breakdown as Record<string, number>,
+          traceId,
+        });
+      }
       
       if (userId) {
         await updateBudgetSpend(userId, provider, costUsd);
-        // Persist cost to botCostEvents for aggregation
         await logCostEvent(
-          context?.sourceLabBotId || "00000000-0000-0000-0000-000000000000", // System bot ID for global research
+          context?.sourceLabBotId || "00000000-0000-0000-0000-000000000000",
           userId,
           provider,
           config.model,
@@ -1890,6 +1981,12 @@ export async function runPerplexityResearch(
       
       console.log(`[STRATEGY_LAB] trace_id=${traceId} SUCCESS provider=${provider} candidates=${candidates.length} cost=$${costUsd.toFixed(6)}`);
       
+      // End research phase
+      const totalDuration = Date.now() - startTime;
+      researchMonitorWS.endPhase("perplexity", "Strategy Lab Research", traceId,
+        `Completed: ${candidates.length} strategies via ${provider} in ${(totalDuration/1000).toFixed(1)}s | $${costUsd.toFixed(4)}`
+      );
+      
       return {
         success: true,
         candidates,
@@ -1899,12 +1996,16 @@ export async function runPerplexityResearch(
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       console.warn(`[STRATEGY_LAB] trace_id=${traceId} provider=${provider} FAILED: ${errorMsg}`);
+      researchMonitorWS.logError(providerSource as any, `${provider} failed: ${errorMsg}`, { traceId });
       errors.push(`${provider}: ${errorMsg}`);
       trackProviderFailure(provider, errorMsg);
     }
   }
   
   console.error(`[STRATEGY_LAB] trace_id=${traceId} ALL_PROVIDERS_FAILED: ${errors.join("; ")}`);
+  researchMonitorWS.logError("system", `All providers failed: ${errors.join("; ")}`, { traceId });
+  researchMonitorWS.endPhase("perplexity", "Strategy Lab Research", traceId, `Failed: All ${providers.length} providers exhausted`);
+  
   return {
     success: false,
     candidates: [],
