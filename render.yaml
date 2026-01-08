@@ -14,7 +14,7 @@ services:
     name: blaidtrades-api
     runtime: node
     plan: standard
-    buildCommand: npm install && npm run build
+    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
     startCommand: node --experimental-specifier-resolution=node --enable-source-maps dist/index.js
     healthCheckPath: /api/health
     envVars:
@@ -97,7 +97,7 @@ services:
     name: blaidtrades-worker
     runtime: node
     plan: standard
-    buildCommand: npm install && npm run build
+    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
     startCommand: node --experimental-specifier-resolution=node --enable-source-maps dist/index.js
     envVars:
       - key: NODE_ENV
