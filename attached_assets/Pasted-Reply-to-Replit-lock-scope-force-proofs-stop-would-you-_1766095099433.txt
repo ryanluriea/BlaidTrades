@@ -1,0 +1,86 @@
+Reply to Replit (lock scope + force proofs + stop “would you like”)
+
+Good — but I’m not accepting summaries. I need the exact proof outputs and confirmation that you didn’t regress runner endpoints again.
+
+DO THIS NOW, IN ORDER, AND PASTE OUTPUTS (redact secrets only):
+
+========================
+1) FILES CHANGED (NO PROSE)
+========================
+List exact files changed since the rollback checkpoint and why (1 line each).
+
+========================
+2) RUNNER ENDPOINTS — PROVE NO DUPLICATE ROUTES + THEY WORK
+========================
+A) Prove only one definition exists per route (grep proof):
+- rg -n "POST /api/runners/start|app\.post\\(\"/api/runners/start" -n server/routes.ts
+- rg -n "POST /api/runners/restart|app\.post\\(\"/api/runners/restart" -n server/routes.ts
+- rg -n "POST /api/runners/stop|app\.post\\(\"/api/runners/stop" -n server/routes.ts
+
+B) Prove endpoints exist and fail-closed without auth:
+- curl -i -s -X POST http://localhost:5000/api/runners/start -H "Content-Type: application/json" -d '{}' | head -200
+(expect 401 + error_code + trace_id)
+
+C) Prove endpoints work with auth (run from inside app session context OR use existing test harness):
+- curl -s -X POST http://localhost:5000/api/runners/start  -H "Content-Type: application/json" -d '{"botId":"<BOT_ID>"}' | jq
+- curl -s -X POST http://localhost:5000/api/runners/restart -H "Content-Type: application/json" -d '{"botId":"<BOT_ID>"}' | jq
+- curl -s -X POST http://localhost:5000/api/runners/stop -H "Content-Type: application/json" -d '{"botId":"<BOT_ID>"}' | jq
+
+Each response must include:
+success, trace_id, botId, runner_instance_id (or instance id), status, suggested_next (if blocked)
+
+D) SQL proof that runner state is persisted:
+- SELECT id, bot_id, status, last_heartbeat_at, updated_at
+  FROM bot_instances
+  WHERE bot_id='<BOT_ID>'
+  ORDER BY updated_at DESC
+  LIMIT 3;
+
+========================
+3) BACKTEST DIAGNOSTICS — PROVE THE NEW TRADE-LEVEL BREAKDOWN EXISTS IN DB
+========================
+A) Show one newest backtest id:
+- SELECT id, bot_id, status, created_at
+  FROM backtest_sessions
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+B) Show trade_logs contain per-trade fields (top 5 trades from that session):
+(Use the actual columns that now exist; paste the query you ran.)
+Minimum required per-trade fields:
+gross_pnl, fees, slippage, net_pnl
+
+C) Curl diagnostics for that backtest (paste full JSON):
+- curl -s http://localhost:5000/api/backtests/<ID>/diagnostics | jq
+
+Acceptance requirements:
+uses_instrument_spec=true
+pnl_includes_fees=true
+pnl_includes_slippage=true
+trade_level_audit=true
+has_losers=true
+realistic_drawdown=true
+max_drawdown_pct > 0 and <= configured threshold
+
+========================
+4) IMPORTANT: PROMOTION GATES MUST PREVENT PAPER RUNNERS WHEN BROKER NOT VERIFIED
+========================
+Right now I’ve seen “bots promoted to PAPER while broker connected=false” earlier.
+
+A) Paste system status + integrations status:
+- curl -s http://localhost:5000/api/system/status | jq
+- curl -s http://localhost:5000/api/integrations/status | jq
+
+B) Confirm enforcement with one explicit rule statement and where it is in code (file + line):
+- PAPER stage runner start must require broker configured=true (and optionally verified within 24h), otherwise BLOCK with error_code + suggested_fix.
+
+Prove by attempting to start a PAPER bot runner when broker is not verified and showing the response is blocked.
+
+========================
+5) NO MORE “WOULD YOU LIKE…”
+========================
+After you paste all proofs, finish by giving me:
+- A 10-line “How I verify in UI” checklist (Feed events + badges + system health)
+- Any remaining blockers as explicit error_code + fix
+
+That’s it.

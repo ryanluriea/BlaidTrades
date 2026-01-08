@@ -1,0 +1,85 @@
+NO MORE SKIPS — SHIP INSTITUTIONAL “BOT NOW” (BACKEND + UI) SO BADGES ARE REAL
+
+You said “botNow skipped (requires backend changes)”. That’s not acceptable. Badges MUST be based on canonical backend truth. We are cleared to modify server/shared. Implement botNow and wire badges to it.
+
+GOAL
+1) /api/bots (list) returns per-bot canonical “botNow” so badges are deterministic and never default to “Fresh” due to missing data.
+2) Bot table + bot detail badges render from botNow ONLY (no guessing).
+3) Provide proof that badges reflect real bot_jobs / bot_instances / backtest_sessions states.
+
+PART A — CANONICAL botNow (SERVER)
+Implement a function computeBotNow(botId) and a batched computeBotsNow(botIds[]) used by GET /api/bots.
+
+botNow shape (minimum):
+botNow: {
+  state: string,                 // e.g. IDLE, FRESH, BACKTEST_QUEUED, BACKTEST_RUNNING, BACKTEST_COMPLETED,
+                                 // RUNNER_REQUIRED, RUNNER_STARTING, RUNNER_RUNNING, RUNNER_STALE,
+                                 // EVOLVING, PROMOTION_PENDING, BLOCKED_BY_GATES, ERROR
+  reasonCode?: string,           // machine readable
+  since?: string,                // ISO timestamp
+  stageGate?: {
+    allowed: boolean,
+    blockers: { code: string, severity: "info"|"warn"|"critical", fix?: string }[]
+  },
+  runner?: { status: string, lastHeartbeatAt?: string, stale: boolean },
+  activeJob?: { id: string, type: string, status: string, createdAt: string },
+  lastBacktest?: { id: string, status: string, completedAt?: string, trades?: number, netPnl?: number }
+}
+
+CANONICAL INPUTS (no heuristics):
+- bot_instances (latest per bot): status + last_heartbeat_at
+- bot_jobs (latest active/queued/running per bot): type/status/timestamps
+- backtest_sessions (latest per bot): status + completed_at + key metrics
+- system gates: integrations/stage requirements + readiness (data/broker verified) + autonomy gates
+
+PRECEDENCE (must be explicit in code):
+1) If killed / error state -> ERROR (include reasonCode)
+2) If gate blocked for stage -> BLOCKED_BY_GATES (list blockers)
+3) If active job RUNNING -> map to {BACKTEST_RUNNING | EVOLVING | ...}
+4) If queued job exists -> {BACKTEST_QUEUED | RUNNER_STARTING | ...}
+5) If runner exists:
+   - heartbeat fresh -> RUNNER_RUNNING
+   - heartbeat stale -> RUNNER_STALE
+6) If no backtest exists and stage requires baseline -> NEEDS_BACKTEST
+7) If created recently and no activity -> FRESH (ONLY THIS CASE)
+8) Else -> IDLE
+
+PERFORMANCE REQUIREMENT
+Do NOT do N+1 queries per bot.
+Use batched queries:
+- SELECT latest job per bot via DISTINCT ON (bot_id) ORDER BY created_at DESC
+- SELECT latest instance per bot via DISTINCT ON
+- SELECT latest backtest per bot via DISTINCT ON
+Then compute botNow in memory.
+
+PART B — API CONTRACT
+Update:
+GET /api/bots?limit=... -> include botNow for each bot.
+Also update bot detail endpoint if exists to return botNow consistently.
+
+PART C — UI WIRING (NO GUESSES)
+Update Bot table row badge lanes to use bot.botNow.state (and related fields) rather than derived fallbacks.
+Remove any “default to Fresh” behavior if botNow is present.
+
+If botNow missing, show “UNKNOWN_DATA” badge with tooltip “botNow missing from API” (this should never happen after Part A).
+
+PART D — PROOF PACK (MANDATORY)
+Paste these outputs:
+
+1) curl -s http://localhost:5000/api/bots?limit=5 | jq '.data[] | {name, stage, botNow}'
+2) SQL proof showing a bot with each state:
+- one bot with a running/queued backtest job
+- one bot with a running runner instance
+- one bot blocked by gates (if any)
+Provide the SQL for the selected bots:
+- SELECT id, bot_id, job_type, status, created_at, started_at, completed_at FROM bot_jobs WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 5;
+- SELECT id, bot_id, status, last_heartbeat_at FROM bot_instances WHERE bot_id='<ID>' ORDER BY updated_at DESC LIMIT 3;
+- SELECT id, bot_id, status, completed_at, total_trades, net_pnl FROM backtest_sessions WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 3;
+
+3) Screenshot of bot table showing badges for those bots (authenticated).
+
+DELIVERABLES
+- Exact files changed list
+- The computeBotsNow implementation location + line numbers
+- Proof outputs above
+- NO “skipped” items. Ship botNow and badges end-to-end.

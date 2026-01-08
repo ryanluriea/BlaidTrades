@@ -1,0 +1,176 @@
+REPLIT — SEV-1 “BADGES + STAGES” FIX PACK (NO NEW BADGES, NO SKIPS, INSTITUTIONAL)
+
+CONTEXT / WHAT’S BROKEN (FROM UI)
+- Bots page still shows “Fresh” on LAB bots that have clearly been active (backtests/trades exist).
+- Most bots are showing PAPER stage (likely auto-promotion / stage routing misfire). I expect many should still be LAB.
+- There’s a yellow “!” alert that pops a tooltip that literally says “OK” — pointless noise. Alerts should only exist for WARN/ERROR and should be explainable.
+
+NON-NEGOTIABLE GOALS
+1) Bot stage (LAB/PAPER/SHADOW/CANARY/LIVE) must be canonical and explainable: “why is this bot in this stage?”
+2) Bot “Now” status badges MUST render from server botNow ONLY — no client guessing, no fallback to “Fresh”.
+3) “Fresh” must be extremely strict (newly created + no activity). It should never appear for bots with any job/backtest/runner history.
+4) Alerts must be meaningful. Remove “OK” alert UI.
+
+========================================================
+A) STAGE INTEGRITY AUDIT + FIX (WHY ARE BOTS IN PAPER?)
+========================================================
+
+A1) HARD PROOF: list bot stages + when they changed
+Run SQL:
+- SELECT id, name, stage, created_at, updated_at FROM bots ORDER BY updated_at DESC LIMIT 50;
+
+If you have stage history/audit table (or events), print it. If not, we add it (no excuses — institutional systems have an audit trail):
+- Add table bot_stage_events:
+  (id uuid, bot_id uuid, from_stage text, to_stage text, reason_code text, actor text, created_at timestamptz default now())
+- Every stage change MUST write an event with reason_code + actor (“autonomy”, “user”, “migration”, etc).
+
+A2) IDENTIFY WHO/WHAT PROMOTED THEM
+Search code for any auto-promotion:
+- grep: “promote”, “promotion”, “stage =”, “setStage”, “LAB→PAPER”, “StageRoutingDefaults”, “autoPromotion”, “autonomy promote”
+- Find any background loop that writes bots.stage.
+
+For each stage change path, enforce:
+- Promotion can ONLY happen if:
+  - lastBacktest exists AND completed
+  - lastBacktest.validation_flags all true (or whatever your new institutional gates are)
+  - trades_count >= MIN_TRADES (50)
+  - 0 < max_dd_pct <= 20
+  - winners>0 AND losers>0
+  - market_data_proof present
+  - (if PAPER requires broker now) broker verified as well
+- AND promotion must set:
+  - bots.stage_updated_at = now()
+  - bots.stage_reason_code = <reason>
+  - insert bot_stage_events row
+
+A3) ADD “PROMOTION LOCK” TO PREVENT SURPRISES
+Add bot field:
+- bots.promotion_mode: “AUTO” | “MANUAL” (default MANUAL unless explicitly enabled)
+If MANUAL:
+- autonomy loop may recommend promotion but MUST NOT apply it.
+- store recommendation as a “promotion_candidate” object (or event) shown in UI.
+
+A4) UI: SHOW “WHY THIS STAGE”
+Expose in API:
+- stageInfo: { stage, since, reasonCode, lastStageEvent, recommendedStage? }
+In bot row tooltip, show:
+- “Stage: PAPER (since 2025-12-19 07:xx, reason: AUTOPROMOTE_BASELINE_PASSED, actor: autonomy)”
+
+========================================================
+B) BADGES STILL WRONG: “Fresh” + missing real statuses
+========================================================
+
+B1) CONFIRM API TRUTH (NO UI)
+Run:
+1) curl -s http://localhost:5000/api/bots?limit=10 | jq '.data[] | {id,name,stage,createdAt,botNow}'
+2) curl -s http://localhost:5000/api/bots-overview?limit=10 | jq '.data[] | {id,name,stage,botNow}'
+3) Pick a bot that shows “Fresh” incorrectly in UI, and run:
+   curl -s http://localhost:5000/api/bots/<BOT_ID> | jq '.data | {id,name,stage,botNow}'
+
+If bots-overview differs from bots, FIX IT so both carry the SAME botNow shape.
+
+B2) FIX botNow PRECEDENCE (THIS IS WHY “FRESH” LEAKS)
+In compute-bot-now.ts enforce STRICT precedence and include “since” for the chosen state:
+Order MUST be (stop as soon as one matches):
+1) ERROR / KILLED
+2) BLOCKED_BY_GATES (stage gate denies)
+3) activeJob RUNNING → map by type (BACKTEST_RUNNING / EVOLVING / RUNNER_STARTING etc)
+4) activeJob QUEUED → BACKTEST_QUEUED / RUNNER_STARTING
+5) runner exists:
+   - heartbeat fresh → RUNNER_RUNNING
+   - heartbeat stale → RUNNER_STALE
+6) if stage requires baseline and no completed baseline backtest → NEEDS_BACKTEST
+7) FRESH ONLY IF:
+   - now - bot.created_at <= 10 minutes
+   - AND NO job exists ever (not just “active”)
+   - AND NO backtest exists ever
+   - AND NO runner instance exists ever
+8) else IDLE
+
+IMPORTANT: your “Fresh” bug is almost always because you only check “active job/backtest”, not historical existence. Fix by also querying:
+- existence_any_job
+- existence_any_backtest
+- existence_any_runner
+
+B3) BATched QUERIES MUST INCLUDE “ANY HISTORY EXISTS”
+Add batched aggregates:
+- SELECT bot_id, COUNT(*)>0 as has_any_jobs FROM bot_jobs WHERE bot_id = ANY($1) GROUP BY bot_id
+- SELECT bot_id, COUNT(*)>0 as has_any_backtests FROM backtest_sessions WHERE bot_id = ANY($1) GROUP BY bot_id
+- SELECT bot_id, COUNT(*)>0 as has_any_instances FROM bot_instances WHERE bot_id = ANY($1) GROUP BY bot_id
+Use these booleans in the FRESH check.
+
+B4) UI MUST NOT DERIVE STATE
+On Bots page:
+- Remove evaluateCanonicalState() usage for the list view.
+- BotStatusBadgeLanes must take bot.botNow and render ONLY from botNow.state (and botNow.reasonCode, since).
+- If botNow missing: show a single badge “UNKNOWN_DATA” with tooltip “botNow missing from API” and log console.error once. (After this pack it should never happen.)
+
+B5) BADGE TEXT & TOOLTIP QUALITY (INSTITUTIONAL)
+- Every badge must show a meaningful tooltip:
+  - State label
+  - since timestamp
+  - reasonCode
+  - top 1–2 relevant fields (runner heartbeat age, job id/type/status, last backtest summary)
+Example tooltip:
+“RUNNER_STALE (since 07:42) — heartbeat 9m old. reason: RUNNER_HEARTBEAT_STALE. Fix: restart runner.”
+
+========================================================
+C) THE STUPID “OK” ALERT (STOP SPAMMING ME)
+========================================================
+
+C1) Define alert semantics:
+- Only show alert icon if botNow.stageGate.allowed == false OR botNow.state in [ERROR, BLOCKED_BY_GATES, RUNNER_STALE, RUNNER_REQUIRED, BACKTEST_FAILED]
+- If everything is healthy, show nothing (or a subtle green dot that does NOT open a tooltip).
+
+C2) Replace the tooltip “OK” with either:
+- Remove it entirely, OR
+- Make it a hover-only “Health: OK” line in a non-alert context (no yellow icon).
+
+C3) Ensure alert icon color matches severity:
+- warn: yellow
+- critical: red
+- info: muted blue/gray
+No yellow “!” for OK.
+
+========================================================
+D) PROOF PACK (MANDATORY, NO “TRUST ME”)
+========================================================
+
+D1) API proof (paste output)
+- curl -s http://localhost:5000/api/bots?limit=5 | jq '.data[] | {name,stage,botNow}'
+- curl -s http://localhost:5000/api/bots-overview?limit=5 | jq '.data[] | {name,stage,botNow}'
+
+D2) SQL proof for 3 bots:
+Pick one bot from each situation and paste SQL outputs:
+
+BOT A (should be FRESH? prove it)
+- SELECT id, created_at FROM bots WHERE id='<A>';
+- SELECT COUNT(*) FROM bot_jobs WHERE bot_id='<A>';
+- SELECT COUNT(*) FROM backtest_sessions WHERE bot_id='<A>';
+- SELECT COUNT(*) FROM bot_instances WHERE bot_id='<A>';
+
+BOT B (runner running or stale)
+- SELECT id, bot_id, status, last_heartbeat_at FROM bot_instances WHERE bot_id='<B>' ORDER BY updated_at DESC LIMIT 3;
+- SELECT id, bot_id, job_type, status, created_at, started_at, completed_at FROM bot_jobs WHERE bot_id='<B>' ORDER BY created_at DESC LIMIT 5;
+
+BOT C (backtest completed)
+- SELECT id, bot_id, status, completed_at, total_trades, net_pnl FROM backtest_sessions WHERE bot_id='<C>' ORDER BY created_at DESC LIMIT 3;
+
+D3) Stage history proof (after adding bot_stage_events)
+- SELECT * FROM bot_stage_events WHERE bot_id='<any>' ORDER BY created_at DESC LIMIT 10;
+
+D4) UI proof
+- Screenshot of Bots table where:
+  - no “Fresh” appears unless the bot is truly new with zero history
+  - alert icon does NOT show “OK”
+  - at least one bot shows RUNNER_* state, one shows BACKTEST_* state, one shows IDLE
+
+========================================================
+E) DELIVERABLES
+========================================================
+- Files changed list
+- computeBotsNow location + line ranges
+- Confirmation that bots-overview and bots list return the same botNow contract
+- Proof pack outputs D1–D4
+
+SHIP IT. NO SKIPS. NO NEW BADGE SYSTEMS. JUST MAKE THE EXISTING BADGES FINALLY TELL THE TRUTH.

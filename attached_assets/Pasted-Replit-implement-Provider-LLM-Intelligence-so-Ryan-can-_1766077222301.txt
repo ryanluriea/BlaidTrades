@@ -1,0 +1,74 @@
+Replit — implement “Provider + LLM Intelligence” so Ryan can see EXACTLY what all integrations are doing and prove bots are using sources intelligently. Also harden backtest window selection so any randomness is deterministic + replayable.
+
+PART 1 — SINGLE TELEMETRY TABLES (NO GUESSING)
+A) integration_usage_events (already exists or add if missing)
+- id, provider, category, op, trace_id
+- bot_id nullable, job_id nullable
+- symbol nullable, timeframe nullable
+- request_meta JSON (bars_requested/returned, endpoint, etc) — NO secrets
+- latency_ms, success boolean, error_code nullable
+- created_at
+Write a row on ANY real usage:
+- market data: HISTORICAL_BARS, LIVE_BARS
+- news: FETCH_HEADLINES
+- alt data: FETCH_FLOW, FETCH_ALERTS
+- brokers: ACCOUNT_PING, ORDER_SIM, ORDER_LIVE
+- llm: CHAT_COMPLETION, TOOL_CALL
+
+B) llm_usage_events (can be separate or same table with category=llm)
+- provider, model, tokens_in/out, cost_estimate (optional), latency_ms
+- trace_id, bot_id/job_id
+- success, error_code
+
+PART 2 — INTEGRATIONS STATUS MUST SHOW “PROOF OF USE”
+Update GET /api/integrations/status to include per provider:
+- configured, connected, last_verified_at
+- proof_of_use_count_24h (from integration_usage_events)
+- last_used_at (from integration_usage_events)
+- last_error_code + suggested_fix
+- latency p50/p95 computed from last 24h (optional)
+Make this the canonical source for “are they doing anything?”
+
+PART 3 — PROVIDER VERIFY MUST WRITE PROOF TOO (tagged op=VERIFY)
+POST /api/integrations/verify writes integration_usage_events with op=VERIFY (separate from real usage).
+
+PART 4 — “WHY DID THE BOT DO THIS?” TRACEABILITY
+For ANY bot decision event (trade enter/exit/no-trade/promo/demotion/backtest complete):
+- store decision_sources row linked by trace_id containing:
+  - symbol, timeframe, date_range (if backtest)
+  - providers_used[] with ops + counts
+  - llm_calls[] provider/model/tokens/latency + output_hash
+  - citations[] (news ids / unusual whales signal ids)
+  - reasoning_summary (short, PII-safe)
+Expose GET /api/decisions/:trace_id to view this payload.
+
+PART 5 — BACKTEST WINDOW SELECTION MUST BE REPLAYABLE
+When a backtest is queued/started:
+- compute and STORE in backtest_sessions:
+  provider, symbol, timeframe, session_filter (RTH/ETH), date_from, date_to
+  seed (int)
+  config_hash (hash of strategy params + fill model + fees/slippage)
+If “random windows” are used:
+- randomness MUST be derived from seed and recorded
+- NEVER use Math.random() without a seeded RNG
+
+PART 6 — UI SURFACES (NO NEW PAGES REQUIRED)
+A) System Health drawer: add a “Providers” section (compact)
+- Market Data: Databento (proof count, last used, last error)
+- Alt Data: UnusualWhales
+- News: NewsAPI/Marketaux
+- LLM: OpenAI/Anthropic/etc
+Each row shows: configured/connected + proof_of_use_count_24h + last_used_at
+Click opens Feed filtered to provider events (trace_id preserved).
+
+B) Feed event details: show a “Sources Used” block
+- providers called + counts
+- llm model used + tokens
+- links to /api/decisions/:trace_id (drawer)
+
+PART 7 — REQUIRED PROOFS (PASTE OUTPUTS)
+- Run a backtest for 1 bot and show:
+  - integration_usage_events rows with op=HISTORICAL_BARS (databento) and trace_id
+  - llm_usage_events rows (if LLM used) with trace_id
+  - backtest_sessions row includes date_from/date_to/seed/config_hash
+- Show integrations/status now has proof_of_use_count_24h > 0 for databento and whichever sources were used.

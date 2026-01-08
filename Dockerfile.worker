@@ -1,0 +1,66 @@
+# Dockerfile for Worker tier (backtests, evolution, autonomy workers)
+# Optimized for heavy computation workloads
+
+# =============================================================================
+# Stage 1: Base image with Node.js
+# =============================================================================
+FROM node:20-slim AS base
+
+# Install essential system dependencies
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# =============================================================================
+# Stage 2: Dependencies installation
+# =============================================================================
+FROM base AS deps
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# =============================================================================
+# Stage 3: Build the application
+# =============================================================================
+FROM deps AS builder
+
+COPY . .
+RUN npm run build
+
+# =============================================================================
+# Stage 4: Production worker image
+# =============================================================================
+FROM base AS production
+
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built assets
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/shared ./shared
+COPY --from=builder /app/data ./data
+
+RUN chown -R appuser:appgroup /app
+USER appuser
+
+# Workers don't expose HTTP ports, but healthcheck via process
+HEALTHCHECK --interval=60s --timeout=30s --start-period=120s --retries=3 \
+    CMD pgrep -f "node.*dist/index.js" || exit 1
+
+# Worker-optimized memory settings
+# More heap space for backtest computations (700K+ bars per bot)
+ENV NODE_ENV=production
+ENV WORKER_MODE=true
+ENV MAX_HEAVY_BACKTEST_CONCURRENCY=2
+ENV MAX_LIGHT_BACKTEST_CONCURRENCY=4
+
+# Run in worker-only mode (no HTTP server, just scheduler)
+CMD ["node", "--max-old-space-size=14336", "--expose-gc", "dist/index.js", "--worker-only"]

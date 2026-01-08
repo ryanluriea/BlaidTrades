@@ -1,0 +1,277 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* BlaidAgent Design System - Trading Terminal Aesthetic */
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 220 70% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 15% 92%;
+    --secondary-foreground: 220 20% 20%;
+
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 220 70% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 220 70% 50%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 220 20% 97%;
+    --sidebar-foreground: 220 20% 20%;
+    --sidebar-primary: 220 70% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 92%;
+    --sidebar-accent-foreground: 220 20% 20%;
+    --sidebar-border: 220 15% 88%;
+    --sidebar-ring: 220 70% 50%;
+
+    /* Trading specific colors */
+    --profit: 142 71% 45%;
+    --loss: 0 72% 51%;
+    --neutral: 220 10% 50%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 96%;
+
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 6%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 217 33% 14%;
+    --muted-foreground: 215 20% 60%;
+
+    --accent: 217 91% 60%;
+    --accent-foreground: 222 47% 6%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
+
+    --sidebar-background: 222 47% 7%;
+    --sidebar-foreground: 210 40% 90%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 222 47% 6%;
+    --sidebar-accent: 217 33% 14%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Trading specific colors */
+    --profit: 142 71% 45%;
+    --loss: 0 72% 51%;
+    --neutral: 215 20% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Mono font for numbers/data */
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbars while preserving scroll functionality */
+  .scrollbar-none {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
+  .text-profit {
+    color: hsl(var(--profit));
+  }
+  
+  .text-loss {
+    color: hsl(var(--loss));
+  }
+  
+  .text-neutral {
+    color: hsl(var(--neutral));
+  }
+  
+  .bg-profit {
+    background-color: hsl(var(--profit));
+  }
+  
+  .bg-loss {
+    background-color: hsl(var(--loss));
+  }
+
+  /* Glow effects for trading terminal feel */
+  .glow-profit {
+    box-shadow: 0 0 20px hsl(var(--profit) / 0.3);
+  }
+  
+  .glow-loss {
+    box-shadow: 0 0 20px hsl(var(--loss) / 0.3);
+  }
+  
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+
+  /* Subtle grid pattern for backgrounds */
+  .bg-grid {
+    background-image: 
+      linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Status indicators */
+  .status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+  
+  .status-dot-connected {
+    @apply bg-profit;
+    box-shadow: 0 0 8px hsl(var(--profit) / 0.6);
+  }
+  
+  .status-dot-disconnected {
+    @apply bg-loss;
+    box-shadow: 0 0 8px hsl(var(--loss) / 0.6);
+  }
+  
+  .status-dot-degraded {
+    @apply bg-warning;
+    box-shadow: 0 0 8px hsl(var(--warning) / 0.6);
+  }
+
+  /* Bot update pulse animation */
+  @keyframes update-pulse {
+    0% { 
+      box-shadow: inset 4px 0 0 0 currentColor, 0 0 16px 4px hsl(217 91% 60% / 0.5);
+    }
+    100% { 
+      box-shadow: inset 4px 0 0 0 currentColor, 0 0 0 0 hsl(217 91% 60% / 0);
+    }
+  }
+
+  .animate-update-pulse {
+    animation: update-pulse 2s ease-out;
+  }
+
+  /* Rating dots pulse animations */
+  @keyframes pulse-amber {
+    0%, 100% { 
+      opacity: 1; 
+      box-shadow: 0 0 0 0 hsl(38 92% 50% / 0.4);
+    }
+    50% { 
+      opacity: 0.8; 
+      box-shadow: 0 0 4px 2px hsl(38 92% 50% / 0.3);
+    }
+  }
+
+  @keyframes pulse-green {
+    0%, 100% { 
+      opacity: 1; 
+      box-shadow: 0 0 0 0 hsl(142 71% 45% / 0.4);
+    }
+    50% { 
+      opacity: 0.9; 
+      box-shadow: 0 0 6px 3px hsl(142 71% 45% / 0.4);
+    }
+  }
+
+  .animate-pulse-red { 
+    animation: pulse-amber 1.5s ease-in-out infinite; 
+  }
+  
+  .animate-pulse-green { 
+    animation: pulse-green 2s ease-in-out infinite; 
+  }
+
+  /* Metric-level flash animation - brief highlight when value changes */
+  @keyframes metric-flash {
+    0% { 
+      background-color: hsl(217 91% 60% / 0.4);
+      transform: scale(1.02);
+    }
+    30% {
+      background-color: hsl(217 91% 60% / 0.2);
+      transform: scale(1.01);
+    }
+    100% { 
+      background-color: transparent;
+      transform: scale(1);
+    }
+  }
+
+  .animate-metric-flash {
+    animation: metric-flash 0.6s ease-out;
+    border-radius: 2px;
+  }
+
+  /* Stale metrics indicator - dimmed with subtle border */
+  .stale-metrics {
+    @apply opacity-50;
+    filter: grayscale(30%);
+  }
+
+  .stale-metrics-badge {
+    @apply absolute -top-1 -right-1 text-[7px] px-0.5 py-0 rounded bg-muted text-muted-foreground border border-muted-foreground/20;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+}

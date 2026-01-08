@@ -1,0 +1,133 @@
+REPLIT — STRAIGHT TAKE + “MAKE AUTONOMY ACTUALLY RUN” PATCH (NO MORE LIES / NO MANUAL JOB STARTS)
+
+STRAIGHT TAKE (WHAT THIS MEANS)
+- If your logs say “Autonomy loop started (interval: 180000ms)” but your health summary says autonomyLoopsTotal: 0 AND you have 0 queued/0 running jobs while bots clearly NEED baseline backtests (metrics_reset_at set, 0 completed since reset)…
+- Then your autonomy loop is NOT executing the planner body at all. Either:
+  (1) the interval is registered but the callback never fires (init not called / returned early / wrong runtime),
+  (2) the callback fires but throws before incrementing counters / persisting runs (silent failure),
+  (3) multiple schedulers exist and health checks are reading a different “scheduler instance” than the one actually running,
+  (4) autonomy is gated off by an env flag / feature flag and you’re only logging “registered” not “ran”.
+
+THIS IS WHY NOTHING IS HAPPENING:
+- Not a badge problem.
+- Not a “you need to start jobs” problem.
+- It’s a scheduler execution / instrumentation mismatch problem. Autonomy isn’t ticking, so nothing gets queued, so no “Backtesting / Improving” states can appear.
+
+WHAT WE DO NEXT (INSTITUTIONAL FIX ORDER)
+1) HARD-PROVE ticks: make autonomy tick write a row every run (even if it enqueues 0) + bump in-memory counters.
+2) HARD-PROVE scheduler alive: ensure the scheduler init is invoked exactly once in the server boot path and stays alive.
+3) FAIL-LOUD: wrap the tick body in try/catch that logs + persists failure rows (no silent failures).
+4) Once ticks are real, enforce LAB job planning:
+   - If metrics_reset_at set AND no completed backtest since reset => enqueue baseline backtest.
+5) Only after ticks + enqueue are real:
+   - Restore the ORIGINAL activity badges (Backtesting ×N • elapsed, Improving #N, Evolving, Queued).
+   - Remove “Data Fresh” completely.
+
+===========================================================
+PATCH: “AUTONOMY LOOP IS REGISTERED BUT NOT EXECUTING”
+===========================================================
+
+A) Ensure scheduler init is called (and only once)
+- Find the actual server entrypoint (e.g., server/index.ts or server/main.ts or app bootstrap).
+- Confirm there is ONE call to something like initScheduler()/startWorkers()/registerLoops().
+- If autonomy loop is defined but never started: call startAutonomyLoop() at boot.
+
+Add a guard so it doesn’t double-start in dev/hot reload:
+- globalThis.__schedulerStarted flag
+- or a module-level singleton
+
+B) Add tick proof that cannot lie
+Inside runAutonomyLoop() (or whatever the tick function is):
+- at the very top:
+  - increment an in-memory counter: schedulerStats.autonomyTicksTotal++
+  - set schedulerStats.lastAutonomyTickAt = now
+  - insert autonomy_planner_runs row with started_at + trace_id
+- in finally:
+  - update the row with finished_at + status + summary_json
+- in catch:
+  - set status=FAILED + error_json + still set finished_at
+
+IMPORTANT:
+- “registered” logs do not count. Only “tick started” + persisted run record counts.
+
+C) Fix health-summary to read the same truth
+Your health-summary showing autonomyLoopsTotal: 0 means it’s reading:
+- either the wrong counter object,
+- or counters never increment,
+- or it’s expecting a different name (autonomyLoopsTotal vs autonomyTicksTotal).
+Fix it so health-summary uses:
+- schedulerStats.autonomyTicksTotal
+- schedulerStats.lastAutonomyTickAt
+- and/or a DB query: count of autonomy_planner_runs in last 10m
+
+Institutional rule:
+- Health should be backed by DB proof, not only in-memory counters (because reloads reset counters).
+
+D) Add /api/_proof/autonomy that shows REAL tick proof
+Return:
+- last 20 autonomy_planner_runs (started_at, finished_at, status, bots_evaluated, jobs_enqueued, error if any)
+- “alive” verdict if last finished tick < 5m ago
+- “stalled” verdict otherwise
+
+E) Fix the planner body to actually enqueue baseline backtests in LAB
+In the planning logic for each bot in LAB:
+- Determine needsBaseline = (metrics_reset_at is not null) AND (no completed backtest with completed_at > metrics_reset_at)
+- OR (no backtests ever) if you’re onboarding
+If needsBaseline and no active/queued backtest job exists:
+- enqueue job_type=BACKTEST_BASELINE, status=QUEUED, attempt = (prev attempts + 1), created_at=now
+
+Also ensure:
+- Jobs query checks ANY “queued/running” job for that bot, not only “latest active job”.
+- Don’t require “runner” for LAB baseline backtests unless your architecture demands it; if you do, the planner must also schedule the runner start automatically.
+
+F) Make the system self-healing for stuck autonomy
+If no autonomy tick in 10m:
+- supervisor worker restarts autonomy loop
+- log an error
+- write an “invariant failed” record
+
+===========================================================
+BADGES: RESTORE ORIGINAL ACTIVITY BADGES (AND REMOVE “DATA FRESH”)
+===========================================================
+
+G) Remove “Data Fresh”
+- Delete the UI pill entirely. No substitute.
+
+H) Only show activity badges from botNow (canonical)
+- Primary badge lane reads botNow.state + botNow.activeJob only.
+- If botNow.activeJob.status RUNNING and type BACKTEST:
+  show “Backtesting ×{attempt} • {elapsed}”
+- If type IMPROVE:
+  show “Improving #{iteration} • {elapsed}”
+- If queued:
+  show “Queued ×{attempt}”
+- Never show “Fresh” unless:
+  created_at < 10 minutes AND historyExists == false (no jobs ever, no backtests ever, no runner instances ever)
+
+I) Prove it with one forced job enqueue (AUTONOMOUSLY, NOT MANUAL)
+Once planner is working:
+- Reset metrics on 1 bot (or all bots) and let autonomy tick enqueue baseline backtests automatically.
+- The moment the job transitions to RUNNING, the badge must switch to Backtesting with elapsed.
+
+===========================================================
+PROOF PACK REQUIREMENTS (NON-NEGOTIABLE)
+===========================================================
+1) /api/_proof/autonomy shows at least 3 completed ticks in last 10 minutes.
+2) At least 1 bot shows:
+   - queued baseline backtest job (QUEUED) and then RUNNING
+3) UI screenshot shows “Backtesting ×N • Xm” and “Improving #N” for active jobs.
+4) System Health screenshot no longer claims “Market data not configured / brokers connected 0” if they are configured;
+   and LAB must not be blocked by LIVE verification checks.
+
+===========================================================
+DO THIS NOW (EXECUTION TASK LIST)
+===========================================================
+TASK 1 — Bootpath audit + ensure autonomy init actually runs
+TASK 2 — Add tick persistence + counters + fail-loud try/catch/finally
+TASK 3 — Fix health-summary to use DB-backed proof
+TASK 4 — Implement /api/_proof/autonomy + /api/_proof/jobs (if not already truly correct)
+TASK 5 — Fix LAB baseline enqueue rule (metrics_reset_at -> baseline needed)
+TASK 6 — Remove “Data Fresh” + restore original activity badges
+TASK 7 — Run proof pack and paste outputs + screenshots
+
+STOP SAYING “it’s registered” — SHOW ticks, SHOW queued jobs, SHOW running jobs, SHOW badges.

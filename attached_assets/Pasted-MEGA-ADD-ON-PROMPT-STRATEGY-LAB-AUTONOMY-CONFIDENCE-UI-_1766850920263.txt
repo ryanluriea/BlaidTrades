@@ -1,0 +1,211 @@
+MEGA ADD-ON PROMPT — STRATEGY LAB AUTONOMY, CONFIDENCE, UI, & RESEARCH LOOP
+
+Context:
+This is an extension to the existing BlaidAgent Strategy Lab. The app is already autonomous. Do NOT introduce new pages. Do NOT introduce mock data, fake metrics, or placeholder logic. Everything must be real, auditable, and derived from live or historical data already available in the system (Databento, execution logs, LAB results, etc).
+
+This prompt refines:
+• Strategy Lab research behavior
+• Strategy Candidate presentation
+• Confidence scoring math
+• Perplexity-powered deep research
+• Recycling underperforming LAB bots
+• UI organization and flow
+
+––––––––––––––––––––
+A. STRATEGY LAB AUTONOMOUS CONTROL MODEL
+––––––––––––––––––––
+
+1. Strategy Lab must support TWO MODES simultaneously:
+   • Autonomous Continuous Research (default, always-on)
+   • Custom Sessions (created ONLY via the + button)
+
+2. When the Strategy Lab page loads:
+   • Autonomous research is already running (no modal required)
+   • New strategy candidates stream in automatically
+   • No configuration is required to “start” research
+
+3. The + button (top right) is ONLY for:
+   • Creating a focused or custom research session
+   • Overriding defaults (universe, contract preference, regime focus)
+   • Running short, intensive bursts (Frontier / Focused Burst)
+
+4. Remove the conceptual dependency on “No Sessions Yet” for core functionality.
+   • Autonomous research must function even if zero custom sessions exist.
+   • Keep the + button for power users only.
+
+––––––––––––––––––––
+B. STRATEGY LAB ↔ LAB FEEDBACK LOOP (CRITICAL)
+––––––––––––––––––––
+
+1. Add an automated reverse-pipeline:
+   • Continuously scan bots currently in LAB
+   • Detect underperformance using hard rules:
+     - Sharpe below threshold
+     - Drawdown breach
+     - Regime mismatch
+     - Entry/exit inefficiency
+     - Degradation flags
+
+2. When a LAB bot fails:
+   • Extract its full strategy definition
+   • Attach performance diagnostics
+   • Send it BACK to Strategy Lab as a “Rework Candidate”
+
+3. Rework Candidates must:
+   • Be tagged with failure reasons
+   • Trigger targeted Perplexity research
+   • Produce revised or alternative strategy hypotheses
+   • Maintain lineage (original strategy → revision chain)
+
+4. This loop must be continuous and autonomous.
+
+––––––––––––––––––––
+C. PERPLEXITY DEEP RESEARCH ENGINE
+––––––––––––––––––––
+
+1. Strategy Lab uses Perplexity for:
+   • Market microstructure research
+   • Academic & practitioner studies
+   • Regime-specific edge discovery
+   • Novel, non-consensus strategy ideas
+
+2. Research must go BEYOND surface ideas:
+   • Structural inefficiencies
+   • Liquidity mechanics
+   • Auction theory
+   • Volatility regime transitions
+   • Order book behavior
+   • Calendar effects
+   • Contract roll distortions
+
+3. Add REGIME-SWITCH TRIGGERS that cause deeper research bursts:
+   • Volatility regime shifts
+   • Correlation breakdowns
+   • Liquidity compression/expansion
+   • RTH vs ETH behavioral divergence
+   • Macro event clustering
+
+4. Each strategy candidate must include:
+   • “Why this strategy exists” explainer
+   • Citations / research sources (Perplexity-derived)
+   • Explicit causal hypothesis (not descriptive)
+
+––––––––––––––––––––
+D. CONFIDENCE SCORING — FORMAL MATH (NO VIBES)
+––––––––––––––––––––
+
+Implement a deterministic Confidence Score (0–100):
+
+ConfidenceScore =
+  w1 * ResearchStrength +
+  w2 * StructuralEdge +
+  w3 * RegimeAlignment +
+  w4 * RiskEfficiency +
+  w5 * HistoricalAnalogs +
+  w6 * ExecutionFeasibility
+
+Where:
+
+• ResearchStrength:
+  - Citation density
+  - Cross-source agreement
+  - Novelty vs redundancy score
+
+• StructuralEdge:
+  - Liquidity interaction
+  - Auction imbalance
+  - Inventory dynamics
+  - Microstructure asymmetry
+
+• RegimeAlignment:
+  - Regime detection confidence
+  - Stability duration
+  - Historical persistence
+
+• RiskEfficiency:
+  - Expected R multiple
+  - Drawdown containment
+  - Trade frequency stability
+
+• HistoricalAnalogs:
+  - Similar past conditions
+  - Backtest analog performance
+  - LAB-derived outcomes
+
+• ExecutionFeasibility:
+  - Slippage sensitivity
+  - Spread impact
+  - Order type robustness
+
+Each component must be stored and auditable.
+Display Tier labels (S, A, B, C) derived from score bands.
+
+––––––––––––––––––––
+E. STRATEGY CANDIDATE CARD — EXACT LIST VIEW LAYOUT
+––––––––––––––––––––
+
+MANDATORY: Use LIST VIEW ONLY (no grid).
+
+Each Strategy Candidate row must include:
+
+[Left → Right]
+
+• Status badge (New / Rework / Sent to LAB / In LAB)
+• Strategy Name + Source (Discovery / Rework / Frontier)
+• Confidence Tier + numeric score
+• Win %, R:R, Frequency, Risk
+• Intent (1–2 lines, causal)
+• Entry / Exit / Invalidation summary
+• “Why this exists” expandable section
+• Confidence Breakdown (expandable)
+• Action buttons:
+   - Send to LAB
+   - View Research
+   - Compare
+   - Trace Lineage
+
+NO FAKE METRICS.  
+If a metric is unknown, omit it.
+
+––––––––––––––––––––
+F. TWO-TAB ORGANIZATION (NO NEW PAGES)
+––––––––––––––––––––
+
+Add a simple tab switch at top of Strategy Lab:
+
+1. “Strategy Candidates”
+   • Newly discovered
+   • Rework candidates
+   • Frontier ideas
+
+2. “Sent to LAB”
+   • Strategies already handed off
+   • Show LAB status + early metrics
+   • Allow recall or revision if failing
+
+Tabs are filters on the same page, not routes.
+
+––––––––––––––––––––
+G. REAL DATA GUARANTEE
+––––––––––––––––––––
+
+Strict rules:
+• No mock strategies
+• No fake backtests
+• No placeholder confidence
+• No simulated performance unless explicitly tagged SIM
+• Every strategy must trace to real data, research, or LAB output
+
+––––––––––––––––––––
+H. FINAL AUTONOMY RULES
+––––––––––––––––––––
+
+• Strategy Lab runs continuously by default
+• User does NOT need to configure to “start”
+• User intervention is optional, not required
+• Only manual confirmation required:
+   → Promoting a bot to LIVE
+
+Everything else is autonomous.
+
+Implement all of the above without adding new pages or breaking existing architecture.

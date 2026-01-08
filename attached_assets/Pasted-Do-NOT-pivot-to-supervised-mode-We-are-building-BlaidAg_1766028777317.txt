@@ -1,0 +1,118 @@
+Do NOT pivot to “supervised mode.” We are building BlaidAgent to be autonomous.
+
+You already confirmed the autonomy blockers:
+- POST /api/runners/start = 501
+- POST /api/runners/restart = 501
+- POST /api/bots/:id/reconcile = 501
+
+These must be fully implemented (minimal V1) with fail-closed behavior, audit events, and job/run FSM integration.
+
+========================
+GOAL
+========================
+Replace the 3 runner stubs with a REAL minimal autonomous runner control plane that can:
+1) Start a runner
+2) Restart a runner
+3) Reconcile state after failures
+…while never allowing unsafe execution.
+
+Minimal diffs. No rewrites.
+
+========================
+HARD REQUIREMENTS
+========================
+A) Fail-Closed Always
+- If required data is missing (integration not ready, stage disallowed, risk fails, provider down):
+  return 409/503 with structured error + trace_id
+  and create a job/run event marked BLOCKED/DEGRADED with reason_code.
+
+B) Server Owns State
+- Client cannot set status/stage/mode directly.
+- Server sets job status, runner state, and transitions.
+
+C) Job/Run FSM Integration
+Each call MUST:
+- create or attach to a run/job record
+- transition status with an event
+- heartbeat while RUNNING
+- terminalize on failure (FAILED/BLOCKED/TIMEOUT)
+No silent failures.
+
+D) Audit Trail
+- Every start/restart/reconcile action must log an audit event:
+  actor (user_id), bot_id, action, decision (allowed/denied), reason_code, reason_human, trace_id
+
+========================
+IMPLEMENTATION SPEC (MINIMAL V1)
+========================
+
+1) POST /api/runners/start
+Input: { botId, accountId?, mode? }  (mode optional; server derives from stage)
+Behavior:
+- Validate ownership + bot exists + stage allows start
+- Validate integrations/readiness (provider keys present, entitlements ok where applicable)
+- Run risk gate (max contracts, daily loss, kill state, live toggle off unless explicitly enabled)
+- Create run/job:
+  - status=QUEUED -> RUNNING when runner process registered
+  - include data_sources_used + input_hash
+- Start runner:
+  - If you have an existing runner worker/process: enqueue a runner-start job
+  - If not: implement a “runner registry” table entry (runner_instances) as the minimal start representation:
+    id, bot_id, status, execution_mode, started_at, last_heartbeat_at, last_error, trace_id
+Return:
+{ success:true, data:{ runId, runnerId, status }, trace_id }
+
+2) POST /api/runners/restart
+Input: { botId, reason? }
+Behavior:
+- Validate ownership
+- If bot killed -> deny (409 KILLED)
+- Find latest runner/run; if RUNNING and healthy -> deny or no-op (200 NO_OP) with reason
+- If stale/errored:
+  - terminalize previous run if needed (FAILED with reason_code=RESTART)
+  - create new run/job and start fresh runner instance
+Return:
+{ success:true, data:{ oldRunId, newRunId, runnerId, status }, trace_id }
+
+3) POST /api/bots/:id/reconcile
+Input: { botId } (from param)
+Behavior:
+- Validate ownership
+- Reconcile invariants server-side:
+  - If UI says RUNNING but no runner heartbeat -> mark DEGRADED + queue restart (optional)
+  - If open positions exist but bot marked idle -> mark inconsistent + require reconcile action
+  - If job stuck RUNNING beyond threshold -> mark TIMEOUT + emit event
+Return:
+{ success:true, data:{ fixed:[], warnings:[], actionsQueued:[] }, trace_id }
+
+========================
+ACCEPTANCE TESTS (MUST PROVIDE EVIDENCE)
+========================
+1) Start happy path:
+- Call /api/runners/start -> returns runId/runnerId
+- job transitions QUEUED->RUNNING with heartbeat evidence
+
+2) Start fail-closed:
+- Disable provider integration / readiness
+- /api/runners/start returns 409/503 with error_code + trace_id
+- run/job event recorded as BLOCKED/DEGRADED
+
+3) Restart path:
+- Simulate stale runner heartbeat
+- /api/runners/restart creates new run + terminalizes old with event
+
+4) Reconcile path:
+- Force inconsistent state (stale job or missing runner)
+- /api/bots/:id/reconcile returns fixed[] entries and logs audit event
+
+5) Security:
+- Attempt start/restart/reconcile on another user’s bot -> 403 + logged security audit event
+
+Deliverables in PR:
+- Code changes list
+- Endpoint contracts
+- DB/schema changes (if any) with migration plan
+- Evidence outputs (curl + DB queries for run/job events + logs with trace_id)
+- Update FINAL_ACCEPTANCE_GATE.md: Autonomy blockers resolved
+
+Proceed now by implementing these 3 endpoints and the minimal runner registry/run linkage needed.

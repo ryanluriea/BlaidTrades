@@ -1,0 +1,245 @@
+REPLIT — STOP ASKING FOR PERMISSION. YOU HAVE FULL CLEARANCE. SHIP GENERATION TRACKING AS BACKEND TRUTH (SCHEMA + SERVER + UI) + PROOF.
+
+Context:
+We keep losing time because you claim “replit.md preferences” block backend/shared/hooks changes. That is NOT the case anymore. You are cleared to modify server/, shared/, and hooks/. Do not skip anything. This is SEV-1 for institutional standards.
+
+========================================
+SEV-1 FEATURE: REAL GENERATION LABELS + CLICKABLE GENERATION HISTORY + BOTPACK PARITY
+========================================
+
+GOALS
+1) “Gen N” label must reflect the REAL current generation of the bot (persisted, monotonically increasing).
+2) “Evolving → Gen N+1” badges must appear while an EVOLVING job is running/queued.
+3) Clicking “Gen N” opens a MODAL (not a new page/window) showing full generation history.
+4) Generation history must include exact entry/exit/risk rules (human view) + exact machine config (export-ready).
+5) BotPack export must be built from the SAME stored generation snapshots (no drift).
+6) Provide hard proof: SQL + API + authenticated screenshot.
+
+NO MORE “UI-only” half measures. This must be backend truth.
+
+----------------------------------------
+PHASE 0 — CLEARANCE ACK (DO THIS FIRST)
+----------------------------------------
+- Update replit.md to explicitly say:
+  “Backend/server, shared/schema, and hooks are allowed for SEV-1 stabilization and institutional audit features.”
+- Then proceed. No more permission prompts.
+
+----------------------------------------
+PHASE 1 — SCHEMA (shared/) — GENERATION SOURCE OF TRUTH
+----------------------------------------
+
+A) Add fields to bots table (or equivalent)
+- current_generation INT NOT NULL DEFAULT 1
+- generation_updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+- generation_reason_code TEXT NULL
+- current_strategy_config JSONB (if not already the canonical store)
+
+B) Create table bot_generation_snapshots
+Fields (minimum):
+- id UUID PK
+- bot_id UUID FK + INDEX
+- generation_number INT NOT NULL
+- parent_generation_number INT NULL
+- created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+- created_by_job_id UUID NULL
+- mutation_reason_code TEXT NULL
+- summary_title TEXT NULL
+- summary_diff JSONB NULL
+- strategy_config JSONB NOT NULL                 -- machine truth
+- human_rules_md TEXT NULL                      -- renderer output
+- performance_snapshot JSONB NULL               -- metrics after eval
+Constraints:
+- UNIQUE(bot_id, generation_number)
+Indexes:
+- (bot_id, generation_number DESC)
+- (created_at DESC)
+
+C) Migration rules
+- For each existing bot:
+  - set current_generation = 1
+  - insert a Gen 1 snapshot seeded from the bot’s current strategy_config
+    (human_rules_md produced by renderer)
+
+----------------------------------------
+PHASE 2 — SERVER (server/) — SNAPSHOT CREATION + GENERATION INCREMENTS
+----------------------------------------
+
+A) Implement renderer (single source of truth)
+- renderHumanRules(strategy_config) -> markdown (or structured sections)
+- MUST be derived from executable config (no invented prose).
+- Output sections: Entry / Exit / Risk / Constraints / Walkthrough (optional)
+
+B) On EVOLVING completion (institutional rule)
+When an EVOLVING job completes successfully:
+1) Determine parentGen = bots.current_generation
+2) Create new snapshot with generation_number = parentGen + 1
+   - parent_generation_number = parentGen
+   - created_by_job_id = job.id
+   - mutation_reason_code = job.reason_code
+   - strategy_config = evolvedConfig
+   - human_rules_md = renderHumanRules(evolvedConfig)
+   - summary_diff = diff(parentConfig, evolvedConfig) (minimal JSON diff ok)
+   - performance_snapshot initially NULL or “pending”
+3) Update bots table:
+   - current_generation = parentGen + 1
+   - generation_updated_at = now()
+   - generation_reason_code = job.reason_code
+   - current_strategy_config = evolvedConfig (if bots stores current config)
+4) Queue a validation backtest for the new generation (LAB cadence rules apply)
+5) When that backtest completes, update performance_snapshot for that generation snapshot.
+
+C) Ensure idempotency (no double increments)
+- If EVOLVING job retries, do NOT create duplicate generations.
+- Protect with:
+  - unique constraint UNIQUE(bot_id, generation_number)
+  - and/or check “snapshot exists for (bot_id, created_by_job_id)”
+- If exists: treat as already applied.
+
+D) botNow enrichment for generation UX
+In compute-bot-now:
+- include:
+  botNow.generation = bots.current_generation
+  botNow.nextGeneration = current_generation + 1 when evolving queued/running
+  botNow.activeJob includes type/status/attempt/iteration/elapsedSeconds
+- If EVOLVING_RUNNING:
+  state = EVOLVING_RUNNING
+  include nextGeneration in botNow
+
+----------------------------------------
+PHASE 3 — API ENDPOINTS (server/)
+----------------------------------------
+
+1) GET /api/bots and /api/bots-overview
+- Must include current_generation (and botNow.generation) for each bot.
+- Must never strip these fields in transforms.
+
+2) Generation history
+A) GET /api/bots/:id/generations
+Returns timeline list:
+[
+  {
+    generationNumber,
+    createdAt,
+    summaryTitle,
+    createdByJobId,
+    mutationReasonCode,
+    keyMetrics: { trades, netPnl, maxDd, sharpe },
+    status: "EVALUATED"|"PENDING"
+  }
+]
+
+B) GET /api/bots/:id/generations/:gen
+Returns full snapshot:
+{
+  generationNumber,
+  parentGenerationNumber,
+  createdAt,
+  summaryTitle,
+  summaryDiff,
+  humanRulesMd,
+  strategyConfig,
+  performanceSnapshot,
+  provenance: { jobId, reasonCode }
+}
+
+3) BotPack export (parity)
+GET /api/bots/:id/botpack?range=all|lastN|fromTo
+- Build zip from snapshots:
+  /generations/gen_001.json + gen_001.md ...
+  manifest.json
+- HUMAN AND MACHINE must match snapshots exactly.
+
+----------------------------------------
+PHASE 4 — UI (client/) — MODAL + CLICKABLE LABELS (NO NEW PAGE)
+----------------------------------------
+
+A) Gen label
+- Render “Gen {bot.current_generation}” everywhere.
+- On hover: show last generation_updated_at + reason_code
+- On click: open GenerationHistoryModal(botId)
+
+B) Modal
+Left: timeline list (Gen N)
+Right: tabs:
+- Rules (render markdown)
+- Stats (performance snapshot)
+- Diff vs parent (summary_diff)
+- Machine (readonly JSON + copy)
+- Export (download botpack)
+No new window. No separate route required.
+
+C) Badges during work
+- If botNow.state = EVOLVING_RUNNING:
+  show “Evolving → Gen {botNow.nextGeneration} • {elapsed}”
+- If IMPROVING_RUNNING:
+  show “Improving • #{iteration} • {elapsed}”
+- If BACKTEST_RUNNING:
+  show “Backtesting • x{attempt} • {elapsed}”
+These must be visible in the same badge lane you already have (no new badge system).
+
+----------------------------------------
+PHASE 5 — FIX THE DATA PIPELINE (hooks/)
+----------------------------------------
+We’ve repeatedly had “transforms stripping fields”. Prevent this permanently:
+
+- Update transformBotFromApi / toBot / any mapping to preserve:
+  current_generation
+  botNow.generation
+  botNow.nextGeneration
+  botNow.activeJob
+- Add a dev assert:
+  if (process.env.NODE_ENV === "development" && botNow && botNow.generation == null) console.warn(...)
+No silent dropping.
+
+----------------------------------------
+PHASE 6 — INSTITUTIONAL ACCEPTANCE CRITERIA + PROOF PACK (MANDATORY)
+----------------------------------------
+
+A) SQL proof
+-- Verify bots have generation fields
+SELECT id, name, current_generation, generation_updated_at, generation_reason_code
+FROM bots
+ORDER BY generation_updated_at DESC
+LIMIT 20;
+
+-- Verify snapshots exist + are monotonic
+SELECT bot_id, generation_number, parent_generation_number, created_at, created_by_job_id, mutation_reason_code
+FROM bot_generation_snapshots
+ORDER BY created_at DESC
+LIMIT 50;
+
+B) API proof
+curl -s http://localhost:5000/api/bots?limit=5 | jq '.data[] | {name, current_generation, botNow: {state, generation, nextGeneration, activeJob}}'
+curl -s http://localhost:5000/api/bots/<BOT_ID>/generations | jq .
+curl -s http://localhost:5000/api/bots/<BOT_ID>/generations/1 | jq .
+
+C) UI proof (authenticated screenshot)
+Show:
+- bots table row with “Gen N”
+- click opens modal with Gen 1..N timeline
+- a running EVOLVING/IMPROVING badge shows “→ Gen N+1” correctly
+
+D) Parity proof
+- Provide a directory listing of BotPack zip contents
+- Show that gen_00X.md matches the modal Rules tab content for that generation
+
+----------------------------------------
+IMPORTANT NOTES / ANSWERS TO MY QUESTIONS (IMPLEMENT THESE ASSUMPTIONS)
+----------------------------------------
+1) YES — I should see “Improving” badges when IMPROVING jobs are queued/running.
+2) YES — I should see “Evolving” badges when EVOLVING jobs are queued/running, and it must show the target generation.
+3) Starting cadence: autonomy tick every 3 minutes is fine IF it enforces a LAB cadence budget (ex: backtest interval 15–30 min per bot, not flooding). Idle is acceptable ONLY when:
+   - within cadence window
+   - no pending work
+   - system budgets are respected
+But “idle for hours” is not acceptable.
+
+----------------------------------------
+DELIVERABLES
+- Exact files changed list
+- Migration(s) added
+- Endpoints added
+- Screenshots + curl + SQL outputs
+- ZERO “skipped” items
+- NO MORE claims about being blocked by replit.md
+SHIP IT.

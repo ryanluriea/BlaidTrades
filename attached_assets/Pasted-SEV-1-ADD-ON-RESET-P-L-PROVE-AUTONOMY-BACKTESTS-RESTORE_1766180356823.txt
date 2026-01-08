@@ -1,0 +1,175 @@
+SEV-1 ADD-ON: RESET P&L + PROVE AUTONOMY BACKTESTS + RESTORE “WORKING” BADGES (NO FAKE RECENCY PILLS)
+
+You are cleared for FULL stack changes (server + shared + client). We just successfully reverted all bots to LAB with a 24h stage lock + MANUAL promotion. Now we must (1) reset metrics/P&L cleanly, (2) prove autonomy is actually enqueuing/running baseline backtests, and (3) ensure badges show “Backtesting / Improving / Evolving” when work is happening.
+
+========================================================
+A) WHAT “RESET P&L” MEANS (INSTITUTIONAL)
+========================================================
+Do NOT delete raw truth (fills/trade_logs/backtest_sessions). Instead, implement a “reset baseline” that makes dashboards and bot cards show P&L since reset, per stage.
+
+We need two layers:
+1) RAW TRUTH (immutable):
+   - execution_fills, trade_logs, backtest_sessions (keep)
+2) DISPLAY METRICS (resettable):
+   - bot_performance_snapshots / bot_metrics_rollups that compute “since reset”
+
+This avoids breaking audits and lets us re-grade bots from a clean starting line.
+
+========================================================
+B) IMPLEMENT RESET BASELINES (SERVER + DB)
+========================================================
+1) Add reset fields (bots table or separate table)
+Preferred (simple, scalable):
+- bots.metrics_reset_at TIMESTAMPTZ NULL
+- bots.metrics_reset_reason_code TEXT NULL
+- bots.metrics_reset_by TEXT NULL
+- bots.metrics_reset_scope TEXT NOT NULL DEFAULT 'ALL'  -- ALL | BACKTEST_ONLY | PAPER_ONLY | LIVE_ONLY
+
+2) Add admin endpoint:
+POST /api/admin/reset-metrics
+Body:
+{
+  "scope": "ALL" | "BACKTEST_ONLY" | "PAPER_ONLY" | "LIVE_ONLY",
+  "botIds": ["..."] | null,
+  "reasonCode": "SEV1_RESET_METRICS",
+  "alsoResetEquityCurves": true
+}
+
+Behavior:
+- Transactional.
+- For each targeted bot:
+  - set metrics_reset_at = now()
+  - set metrics_reset_reason_code, metrics_reset_by, metrics_reset_scope
+- Write audit row in existing audit table (bot_stage_events or create bot_metrics_events):
+  - event_type = 'METRICS_RESET'
+  - reason_code, actor, payload_json
+
+3) Update P&L aggregation queries (single source of truth)
+Wherever you compute bot row Net P&L / Win% / Trades / MaxDD:
+- apply a filter: timestamp >= bots.metrics_reset_at (if set)
+- For backtests: filter backtest_sessions.created_at >= metrics_reset_at
+- For paper/live fills: filter execution_fills.created_at >= metrics_reset_at
+
+IMPORTANT:
+- If you store precomputed “net_pnl” on backtest_sessions, you can still use it, but only include sessions after reset.
+- If you have a “bot_equity_curve” table, either regenerate from reset or apply the time filter.
+
+========================================================
+C) ENSURE AUTONOMY ACTUALLY BACKTESTS + IMPROVES (NO MANUAL STARTS)
+========================================================
+Right now stage lock prevents promotion (good), but autonomy must still enqueue baseline LAB work.
+
+1) Define LAB autonomy plan (deterministic)
+Every autonomy tick:
+- Identify candidate LAB bots that need baseline backtest:
+  - stage = LAB
+  - NOT has activeJob RUNNING/QUEUED of type BACKTEST
+  - AND (
+      no backtest_sessions AFTER metrics_reset_at (or ever)
+      OR last backtest after reset is stale/failed
+    )
+- Enqueue BACKTEST jobs up to concurrency cap:
+  - CONCURRENCY_BACKTEST=2 (or 3)
+  - per symbol cap optional
+
+2) Add “improving/evolving” loop after baseline
+Once baseline backtest completes (after reset):
+- enqueue IMPROVE job for a small subset (cap 1–2) so we see “Improving #n” badges.
+- Criteria: completed baseline backtest, enough trades, not failing repeatedly, etc.
+- Record decisions in autonomy_bot_decisions with reasonCode.
+
+3) Proof endpoints must show real activity
+Update /api/_proof/autonomy summary to include:
+- jobs_enqueued_by_type: { BACKTEST: n, IMPROVE: n, EVOLVE: n }
+- currently_running_jobs_by_type
+- eligible_candidates_count
+- concurrency_caps
+
+Update /api/_proof/jobs to include:
+- counts by job_type + status
+- oldest queued job age
+- stuck running job detection
+
+========================================================
+D) BADGES MUST SHOW “WORKING” STATES (NO “DATA FRESH”)
+========================================================
+You want the original look: “Backtesting x2” and “Improving #1”.
+
+Rules:
+- Activity badges ONLY come from botNow.activeJob + botNow.state.
+- Remove/disable any “Data Fresh” pill entirely (must be zero in UI).
+- If there is no active job: show nothing (or Idle), but never “Fresh” as a default.
+
+Implementation:
+1) compute-bot-now.ts
+- Ensure botNow.activeJob includes:
+  - type, status, startedAt/createdAt
+  - attempt (backtest attempt count)
+  - iteration (improve/evolve iteration count)
+  - elapsedSeconds (derive from startedAt)
+- Ensure precedence sets:
+  - BACKTEST_RUNNING / BACKTEST_QUEUED
+  - IMPROVING_RUNNING / IMPROVING_QUEUED (or EVOLVING_*)
+  - IDLE only when truly idle
+
+2) UI badge lane:
+- If botNow.state == BACKTEST_RUNNING:
+  Purple pill: “Backtesting • x{attempt}”
+  Tooltip: “Running {elapsed} • Attempt x{attempt}”
+- If BACKTEST_QUEUED:
+  Purple pill: “Backtest queued • x{attempt}”
+- If IMPROVING_RUNNING:
+  Blue pill: “Improving • #{iteration}”
+- If IMPROVING_QUEUED:
+  Blue pill: “Improve queued • #{iteration}”
+- Remove “OK” alert icon if it only says OK.
+
+========================================================
+E) RUNBOOK: WHAT TO DO RIGHT NOW (ORDER)
+========================================================
+1) Ship reset-metrics endpoint + DB fields + audit record.
+2) Execute reset-metrics for ALL bots with reasonCode SEV1_RESET_METRICS.
+3) Confirm autonomy tick enqueues BACKTEST jobs within 1–2 cycles.
+4) Confirm at least 2 bots show “Backtesting xN” badge while running.
+5) After first backtests complete, confirm at least 1 IMPROVE job queues/runs -> “Improving #N”.
+6) Only after we see stable badges + completed runs do we consider promotions (keep MANUAL for now).
+
+========================================================
+F) REQUIRED PROOF PACK (PASTE OUTPUTS)
+========================================================
+1) Reset metrics (dry run + execute):
+curl -s -X POST http://localhost:5000/api/admin/reset-metrics \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: dev-admin-secret" \
+  -d '{"scope":"ALL","reasonCode":"SEV1_RESET_METRICS","alsoResetEquityCurves":true,"dryRun":true}' | jq
+
+curl -s -X POST http://localhost:5000/api/admin/reset-metrics \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: dev-admin-secret" \
+  -d '{"scope":"ALL","reasonCode":"SEV1_RESET_METRICS","alsoResetEquityCurves":true,"dryRun":false}' | jq
+
+2) Proof autonomy is enqueuing:
+curl -s http://localhost:5000/api/_proof/autonomy | jq '.latestRun.summary'
+curl -s http://localhost:5000/api/_proof/jobs | jq '.counts,.byType'
+
+3) Show bots with active job badges:
+curl -s "http://localhost:5000/api/bots?limit=10" | jq '.data[] | {name, stage, botNow: .botNow.state, job: .botNow.activeJob}'
+
+4) SQL proof (one bot in BACKTEST_RUNNING and one in IMPROVING_RUNNING/QUEUED):
+SELECT id, bot_id, job_type, status, created_at, started_at, completed_at
+FROM bot_jobs
+WHERE status IN ('QUEUED','RUNNING')
+ORDER BY created_at DESC
+LIMIT 20;
+
+5) Screenshot (authenticated) showing:
+- Purple “Backtesting • xN” visible on at least one bot row
+- Blue “Improving • #N” visible on at least one bot row (if improve is queued/running)
+- ZERO “Data Fresh” anywhere
+
+========================================================
+G) DELIVERABLES
+========================================================
+- Files changed list (server/shared/client)
+- Any migrations (fields/tables)
+- Confirmation: metrics reset applied, autonomy enqueues work, badges show active states, no “data fresh”, no “ok” tooltip alert.

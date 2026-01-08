@@ -1,0 +1,138 @@
+2025-12-26T23:15:07Z info: Deployment: 2bab5f94-913c-43d2-9b09-02c9c16c3365
+2025-12-26T23:15:07Z info: Build: 7e3b5a8a-6d17-491e-8260-0515ebab94d2
+2025-12-26T23:15:07Z info: Running Security Scan
+2025-12-26T23:15:17Z info: Security Scan Complete
+2025-12-26T23:15:17Z info: Connecting to builder
+2025-12-26T23:15:17Z info: Builder connected
+2025-12-26T23:15:17Z info: Installing packages
+2025-12-26T23:15:18Z info: Starting Build
+
+> trading-bot-platform@0.0.0 build
+> vite build
+
+
+vite v7.2.7 building client environment for production...
+
+transforming...
+
+✓ 3034 modules transformed.
+
+[plugin vite:reporter] 
+(!) /home/runner/workspace/client/src/lib/http.ts is dynamically imported by /home/runner/workspace/client/src/components/accounts/AttachBotToAccountDialog.tsx but also statically imported by /home/runner/workspace/client/src/components/alerts/PromoteToLiveDialog.tsx, /home/runner/workspace/client/src/components/bots/CreateBotDialog.tsx, /home/runner/workspace/client/src/components/bots/PipelineActions.tsx, /home/runner/workspace/client/src/components/bots/ResetBotFleetDialog.tsx, /home/runner/workspace/client/src/components/bots/WhyNotTradingExplainer.tsx, /home/runner/workspace/client/src/components/bots/dropdown/BotCapitalStatus.tsx, /home/runner/workspace/client/src/components/bots/dropdown/BotInlineControls.tsx, /home/runner/workspace/client/src/components/bots/dropdown/BotLineagePanel.tsx, /home/runner/workspace/client/src/components/connections/IntegrationOverview.tsx, /home/runner/workspace/client/src/components/connections/LiveStackSummary.tsx, /home/runner/workspace/client/src/components/connections/OpsAlertsSection.tsx, /home/runner/workspace/client/src/components/proof/ProofDashboard.tsx, /home/runner/workspace/client/src/lib/debugBundle.ts, /home/runner/workspace/client/src/pages/Settings.tsx, dynamic import will not move module into another chunk.
+
+
+rendering chunks...
+
+computing gzip size...
+
+../dist/public/index.html                     0.78 kB │ gzip:   0.40 kB
+
+../dist/public/assets/index-D-V4ODMn.css    109.14 kB │ gzip:  18.49 kB
+
+../dist/public/assets/index-FtDOWq7m.js   1,963.02 kB │ gzip: 514.47 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 16.69s
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.7.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.7.0
+npm notice To update run: npm install -g npm@11.7.0
+npm notice
+
+2025-12-26T23:15:40Z info: Pushing pid1 binary layer...
+2025-12-26T23:15:41Z info: Created pid1 binary layer
+2025-12-26T23:15:41Z info: Pushing Repl layer...
+2025-12-26T23:15:41Z info: Pushing hosting layer...
+2025-12-26T23:15:41Z info: Retrieved cached nix layer
+2025-12-26T23:15:41Z info: Created hosting layer
+2025-12-26T23:16:18Z info: Created Repl layer
+2025-12-26T23:16:19Z info: Pushed image manifest
+2025-12-26T23:16:20Z info: Pushed soci index manifest
+2025-12-26T23:16:28Z info: Creating virtual machine
+2025-12-26T23:17:02Z info: Virtual machine created
+2025-12-26T23:17:02Z info: Waiting for deployment to be ready
+Node.js v20.19.3
+    at node:internal/main/run_main_module:28:49 {
+}
+Node.js v20.19.3
+Node.js v20.19.3
+    at node:internal/main/run_main_module:28:49 {
+forwarding local port 5000 to external port 80 (mapped as 1104)
+  ^
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+node:internal/modules/cjs/loader:1215
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+    at node:internal/main/run_main_module:28:49 {
+command finished with error [node dist/index.js]: exit status 1
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+  code: 'MODULE_NOT_FOUND',
+
+metasidecar: loaded enterprise status from environment is_enterprise=false
+    at node:internal/main/run_main_module:28:49 {
+Error: Cannot find module '/home/runner/workspace/dist/index.js'
+Error: Cannot find module '/home/runner/workspace/dist/index.js'
+
+
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+Node.js v20.19.3
+  throw err;
+  throw err;
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+}
+
+  requireStack: []
+  throw err;
+
+command finished with error [node dist/index.js]: exit status 1
+Node.js v20.19.3
+}
+}
+  requireStack: []
+node:internal/modules/cjs/loader:1215
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+  ^
+  ^
+  requireStack: []
+
+node:internal/modules/cjs/loader:1215
+Error: Cannot find module '/home/runner/workspace/dist/index.js'
+
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+    at node:internal/main/run_main_module:28:49 {
+  requireStack: []
+
+command finished with error [node dist/index.js]: exit status 1
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+  throw err;
+command finished with error [node dist/index.js]: exit status 1
+node:internal/modules/cjs/loader:1215
+  code: 'MODULE_NOT_FOUND',
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+node:internal/modules/cjs/loader:1215
+  code: 'MODULE_NOT_FOUND',
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+  code: 'MODULE_NOT_FOUND',
+
+  throw err;
+command finished with error [node dist/index.js]: exit status 1
+}
+  ^
+starting up user application
+  code: 'MODULE_NOT_FOUND',
+Error: Cannot find module '/home/runner/workspace/dist/index.js'
+Error: Cannot find module '/home/runner/workspace/dist/index.js'
+  requireStack: []
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+  ^
+
+2025-12-26T23:17:32Z info: Deployment successful

@@ -1,0 +1,255 @@
+REPLIT MASTER PROMPT — BOT ACTIVITY FEED (FLEET → ACTIVITY) + EVENT LOG + NOTIFICATIONS-READY (DISCORD LATER)
+Goal: Upgrade the existing Fleet tab/page into an “Activity” tab that behaves like a social media feed for bots (trades, promotions, demotions, graduations, autonomy gates, runner/job lifecycle, risk blocks). This must become the single source of truth that notifications (Discord/SMS/push) can later subscribe to—WITHOUT re-architecture.
+
+NON-NEGOTIABLES (Industry Standard)
+- Event log is canonical. UI feed is a projection of events.
+- Every state-changing action emits an event.
+- Events are immutable (append-only). No silent failures.
+- Each event has trace_id correlation to requests + jobs + runner actions.
+- Event payload is JSONB with strict allowlist to avoid PII leaks.
+- Feed supports filtering, pagination, and “view details”.
+- Notifications are NOT required now; make the feed “notifications-ready” by design.
+- Single control plane: Express-only. No Supabase Edge Functions.
+
+BRANCH DISCIPLINE (follow our rules)
+- Backend + schema + instrumentation: dev branch
+- UI changes: ui-lovable branch
+- If you cannot create branches on platform, still implement cleanly but DO NOT touch .github/workflows (it breaks pushes).
+
+────────────────────────────────────────────────────────────
+PHASE 0 — AUDIT WHAT EXISTS (DO THIS FIRST)
+1) Locate the Fleet page/tab and confirm current route/component.
+2) Identify existing telemetry tables/endpoints (integration_usage_events, decision_traces, no_trade_traces, autonomy_scores, system status endpoints).
+3) Identify any existing “bot activity” or “system events” tables/endpoints.
+4) Produce a short “Existing vs Needed” diff list before coding.
+
+Deliverable: ACTIVITY_AUDIT.md with:
+- Current files/paths
+- Existing endpoints/tables relevant
+- Gaps you’ll implement
+
+────────────────────────────────────────────────────────────
+PHASE 1 — CANONICAL EVENT LOG (Backend + Schema) [dev]
+Create a single canonical table for bot/system activity events.
+
+A) Schema: activity_events
+- Table: activity_events
+  - id UUID PK default gen_random_uuid()
+  - created_at TIMESTAMP default now()
+  - user_id UUID NOT NULL (tenant scope; index)
+  - trace_id TEXT NOT NULL (index)
+  - severity TEXT NOT NULL CHECK IN ('INFO','WARN','ERROR','CRITICAL')
+  - event_type TEXT NOT NULL (index)    // e.g. 'TRADE_OPENED'
+  - entity_type TEXT NOT NULL           // 'BOT' | 'JOB' | 'RUNNER' | 'ACCOUNT' | 'SYSTEM' | 'STRATEGY'
+  - entity_id UUID NULL                 // bot_id, job_id, etc.
+  - bot_id UUID NULL (index)            // convenience index for common filter
+  - stage TEXT NULL                     // LAB/SHADOW/LIVE etc if applicable
+  - title TEXT NOT NULL                 // short human label
+  - message TEXT NOT NULL               // human-readable summary
+  - payload JSONB NOT NULL DEFAULT '{}' // structured detail (allowlisted)
+  - source TEXT NOT NULL DEFAULT 'API'  // API/JOB/SCHEDULER/RUNNER
+  - dedupe_key TEXT NULL                // optional for spam control (index)
+  - related_ids JSONB NOT NULL DEFAULT '[]' // array of {type,id} for linking
+  - is_public BOOLEAN NOT NULL DEFAULT false // keep false by default; internal-only
+
+Indexes:
+- (user_id, created_at desc)
+- (user_id, bot_id, created_at desc)
+- (trace_id)
+- (event_type)
+- optional (dedupe_key) unique per user within time window (if implemented via code)
+
+B) Storage + API
+Implement:
+- storage.createActivityEvent(event)
+- storage.listActivityEvents({ userId, botId?, severity?, eventTypes?, cursor?, limit? })
+- storage.getActivityEventById({ userId, id })
+
+API endpoints (Express):
+- GET  /api/activity?limit=50&cursor=...&botId=...&severity=...&type=...&stage=...
+  - Returns: { success:true, data:[...], next_cursor }
+  - Cursor is created_at+id or base64 encoded tuple for stable pagination.
+- GET  /api/activity/:id
+  - Returns full payload/details
+Security:
+- Auth required, user_id from session (NO user_id in query body)
+- Tenant isolation: enforce user_id match always
+
+C) Event Types (initial taxonomy)
+Implement as constants and document in ACTIVITY_EVENT_TYPES.md.
+Minimum list:
+TRADING:
+- TRADE_OPENED
+- TRADE_CLOSED
+- TRADE_REJECTED
+- TRADE_BLOCKED_RISK
+- ORDER_SUBMITTED
+- ORDER_FILLED
+- ORDER_REJECTED
+BOT LIFECYCLE:
+- BOT_CREATED
+- BOT_UPDATED
+- BOT_PROMOTED
+- BOT_DEMOTED
+- BOT_GRADUATED
+- BOT_PAUSED
+- BOT_RESUMED
+- BOT_KILLED
+AUTONOMY / GATES:
+- AUTONOMY_SCORE_UPDATED
+- AUTONOMY_TIER_CHANGED
+- GATE_PASSED
+- GATE_FAILED
+RUNNERS / JOBS:
+- RUNNER_START_REQUESTED
+- RUNNER_START_DENIED
+- RUNNER_STARTED
+- RUNNER_RESTART_REQUESTED
+- RUNNER_RESTART_DENIED
+- RUNNER_RESTARTED
+- JOB_STARTED
+- JOB_HEARTBEAT
+- JOB_TIMEOUT
+- JOB_FAILED
+- JOB_COMPLETED
+DATA / INTEGRATIONS:
+- INTEGRATION_DEGRADED
+- INTEGRATION_RECOVERED
+- DATA_FEED_FAILOVER
+SYSTEM:
+- SYSTEM_BLOCKED
+- SYSTEM_DEGRADED
+- SYSTEM_RECOVERED
+
+D) Payload allowlist rules (PII-safe)
+- payload must NOT include: API keys, passwords, webhook URLs, phone numbers, emails, raw tokens, full request headers
+- payload may include:
+  - botId, jobId, symbol, timeframe, stage
+  - numeric metrics (pnl, risk, qty)
+  - reason codes
+  - snapshot IDs (references to other tables)
+Implement a sanitizer helper that strips forbidden keys recursively: ['apiKey','password','secret','token','webhook','phone','email','authorization']
+
+E) Emission requirements (instrumentation)
+Modify existing endpoints + scheduler/runner hooks to emit events:
+- /api/bots/:id/promote -> BOT_PROMOTED / BOT_DEMOTED + GATE_PASSED/FAILED if relevant
+- /api/bots/:id/kill -> BOT_KILLED
+- /api/runners/start -> RUNNER_START_REQUESTED + (DENIED or STARTED)
+- /api/runners/restart -> RUNNER_RESTART_REQUESTED + (DENIED or RESTARTED)
+- /api/bots/:id/reconcile -> emits BOT_UPDATED or RECONCILE outcome (use BOT_UPDATED with subtype in payload)
+- job timeout terminalization -> JOB_TIMEOUT (+ reason_code)
+- supervisor loop actions -> RUNNER_RESTARTED / CIRCUIT_OPENED events as SYSTEM/ JOB events
+
+Also bridge the existing explainability:
+- When decision_traces inserted -> emit TRADE_OPENED/TRADE_CLOSED (or TRADE_DECISION if you prefer) with pointers to decision_trace_id
+- When no_trade_traces inserted -> emit TRADE_BLOCKED_RISK or GATE_FAILED with suppression reasons
+
+IMPORTANT: Do not double-spam. Use dedupe_key for repeated scheduler logs (e.g., same “INTEGRATION_DEGRADED: databento” within 10 minutes).
+
+F) Proof requirements (backend)
+Add a script or curl proof instructions:
+- Create a bot promotion -> confirm activity event appears
+- Trigger a reconcile -> confirm event appears
+- Trigger job timeout -> confirm JOB_TIMEOUT event
+- Confirm tenant isolation (wrong user can’t read)
+- Confirm payload sanitization (no secrets in payload)
+
+Deliverables:
+- schema + db push OR SQL migration notes (must be reproducible)
+- ACTIVITY_AUDIT.md updated
+- ACTIVITY_EVENT_TYPES.md
+- curl_proofs/activity_proofs.md
+
+────────────────────────────────────────────────────────────
+PHASE 2 — ACTIVITY TAB UI (Fleet → Activity) [ui-lovable]
+A) UX: Activity timeline
+Replace or augment the existing “Fleet” view with an “Activity” tab:
+- “Activity” is default tab
+- Optional secondary tabs remain: Fleet / Overview (only if already there)
+
+B) Feed Card design (mobile-first, crisp)
+Each activity item shows:
+- Left icon (based on event_type & severity)
+- Title (bold): e.g. “MNQ_Reversion_B trade blocked”
+- Subtitle: message + key facts (symbol, qty, pnl)
+- Right side: timestamp (relative + exact on hover)
+- Chips: severity, stage (LAB/SHADOW/LIVE), event_type
+- “View details” button opens a popout/drawer
+
+C) Filters (must-have)
+Top row:
+- Search (title/message)
+- Bot filter dropdown
+- Severity filter
+- Type filter (Trading / Autonomy / System / Runner)
+- Time range quick filters (24h, 7d, 30d)
+
+D) Pagination
+- Infinite scroll or “Load more”
+- Uses cursor from backend
+- Shows empty state with “No activity yet” + hint “Run a backtest / promote / start runner”
+
+E) Detail popout (improved popout window)
+When opening an item:
+- Full title + timestamp + trace_id (copy button)
+- Structured JSON view for payload (pretty print)
+- Links to related entities:
+  - Go to Bot
+  - Go to Job
+  - Go to Decision Trace / No Trade Trace (if referenced)
+- “Proof of use” snippet if event relates to integrations (pull recent integration_usage_events if available, otherwise show “Not available yet”)
+
+F) Integrate with existing “Why Bot Traded” and “Why Not”
+- On TRADE events, show a “Explain” button:
+  - If decision_trace_id present -> open BotDecisionTraces tab directly
+  - If suppression trace present -> open Why Not view directly
+
+G) Autonomy Score per bot (in feed + bot page)
+- If event_type = AUTONOMY_TIER_CHANGED or AUTONOMY_SCORE_UPDATED:
+  - show tier badge (LOCKED/SUPERVISED/LIMITED/FULL)
+  - show score delta if present
+Additionally:
+- In bot detail page, include “Autonomy Score” panel with:
+  - tier badge
+  - breakdown
+  - gates pass/fail list
+
+H) No regressions
+- Keep degraded/fail-closed UI patterns
+- If /api/activity fails:
+  - show DegradedBanner
+  - disable filter actions gracefully
+- All requests go through existing http helper, not Supabase.
+
+Deliverables:
+- Updated Fleet page to Activity tab
+- New components: ActivityFeed.tsx, ActivityFilters.tsx, ActivityItemCard.tsx, ActivityDetailDrawer.tsx
+- Wiring into router/nav
+- Screenshots or a short “click path” writeup
+
+────────────────────────────────────────────────────────────
+PHASE 3 — NOTIFICATIONS-READY (DO NOT BUILD DISCORD NOW)
+We are NOT implementing Discord notifications now.
+But ensure the Activity Event model supports later subscriptions:
+- event_type, severity, trace_id, payload, source already satisfy this.
+- later we can add: “notification_subscriptions” table and worker.
+For now: NONE. Do not mention Discord, SMS, AWS, Twilio in final summary.
+
+────────────────────────────────────────────────────────────
+ACCEPTANCE GATES (must pass)
+1) Creating real actions generates activity events (promotion, kill, reconcile, timeout).
+2) Events are tenant-isolated.
+3) Events contain trace_id and are PII/secret sanitized.
+4) Activity tab loads, filters work, detail popout works.
+5) No Supabase Edge Functions invoked anywhere (guardrail passes).
+6) No “fake” placeholder events; only emit on real operations.
+
+FINAL DELIVERABLES (what you send me)
+- ACTIVITY_AUDIT.md
+- ACTIVITY_EVENT_TYPES.md
+- curl_proofs/activity_proofs.md (copy/paste)
+- List of files changed (backend + UI separated)
+- Confirmation of guardrail pass (no supabase.functions.invoke)
+- Brief note: how to add new event types in future
+
+START NOW.

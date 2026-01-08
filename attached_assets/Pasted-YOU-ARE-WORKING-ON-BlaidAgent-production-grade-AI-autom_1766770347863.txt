@@ -1,0 +1,217 @@
+YOU ARE WORKING ON: BlaidAgent (production-grade AI automation + backtesting platform on Replit autoscale).
+GOAL: Build an “Autoscale + Memory + Redis Cache” TEST HARNESS that proves (with logs + metrics) when it’s safe to increase machines, and catches duplicate jobs / cache stampedes / memory leaks.
+
+==================================================
+WHAT THIS TEST MUST PROVE (PASS/FAIL)
+==================================================
+
+A) REDIS BARS CACHE SHARED ACROSS MACHINES
+- First request for a bars range = MISS + single Databento fetch
+- Subsequent requests from SAME machine = HIT
+- Subsequent requests from DIFFERENT machine = HIT (proves shared cache)
+- Stampede control works: 10 concurrent requests for same key results in:
+  - exactly 1 Databento fetch
+  - 9 wait + then HIT
+
+B) NO DUPLICATE BACKTEST/TRAINING JOB EXECUTION
+- If two machines are running, the same job must not execute twice
+- Every job run must have a unique “execution lease” held by one worker
+- If a worker dies, lease expires and job is safely re-acquired
+
+C) MEMORY STABILITY UNDER LOAD
+- Heap must NOT monotonically climb during 30–60 minutes
+- GC must periodically reclaim memory (heapUsed drops)
+- When heapUsed/heapTotal > 80% load shedding triggers (503 for heavy endpoints) instead of crashing
+- No restarts during the test window
+
+D) AUTOSCALE READINESS SIGNAL
+- Expose a single “Scale Ready: YES/NO” indicator based on:
+  - cache hit rate threshold
+  - job duplicate rate == 0
+  - memory stable
+  - p95 latency acceptable
+
+==================================================
+IMPLEMENTATION: ADD A TEST MODE (NO FAKE DATA)
+==================================================
+
+Create a dedicated test route + runner:
+1) /server/routes/opsScaleTest.ts (or similar)
+2) /server/ops/scaleTestRunner.ts
+3) DB tables for results (or reuse existing ops tables)
+
+Add an ADMIN-ONLY endpoint:
+GET  /ops/scale-test/run?profile=cache|jobs|memory|full&durationMin=30
+POST /ops/scale-test/run   { profile, durationMin, symbol, tf, ranges, concurrency }
+
+And a status endpoint:
+GET /ops/scale-test/status
+- returns progress, interim metrics, failures
+
+And a results endpoint:
+GET /ops/scale-test/results?runId=...
+
+UI:
+- System Status → new tab "Scale Tests"
+- Shows last runs with PASS/FAIL badges and the key metrics
+
+==================================================
+TEST PROFILES
+==================================================
+
+PROFILE 1: CACHE STAMPEDE TEST (10 minutes)
+Inputs:
+- symbol = ES or NQ (or user-configurable)
+- timeframe = 1m or 5m
+- range = last 7 trading days (or configurable)
+Steps:
+1) Warmup: request bars once (expect MISS then SET)
+2) Single-machine HIT test: request same key 5 times (all HIT)
+3) Concurrency stampede test:
+   - fire 10 concurrent requests for the same bars key
+   - assert:
+     - databento_fetch_count == 1
+     - redis_hits == 9 after lock release
+4) Cross-instance test:
+   - tag each instance with INSTANCE_ID (read from env or generated at boot)
+   - record which instance served each request
+   - verify at least 2 distinct INSTANCE_IDs participated
+   - verify cache hits happened on both instances
+
+Instrumentation requirements:
+- Every bars fetch must emit structured log:
+  { runId, instanceId, cacheKey, cacheHit, lockAcquired, providerFetch, bytesIn, bytesOut, durationMs }
+- Create Redis counters per runId:
+  scaleTest:{runId}:cache_hit
+  scaleTest:{runId}:cache_miss
+  scaleTest:{runId}:provider_fetch
+  scaleTest:{runId}:lock_waits
+
+PASS criteria:
+- provider_fetch == 1 for stampede section
+- cache_hit >= 90% after warmup
+- evidence of >=2 instances hitting same cache key (shared cache)
+
+--------------------------------------------------
+
+PROFILE 2: JOB DUPLICATION TEST (15 minutes)
+Goal: prove no backtest job runs twice when multiple machines are active.
+
+Requirements:
+- Job table includes:
+  - status: queued|running|completed|failed
+  - lease_owner (instanceId)
+  - lease_expires_at
+  - attempt_count
+- Worker acquisition must be atomic:
+  - UPDATE ... WHERE status='queued' AND (lease_expires_at IS NULL OR lease_expires_at < now())
+  - RETURNING job id
+- Worker must heartbeat to extend lease while running
+
+Test steps:
+1) Create N=20 tiny backtest jobs (small range) queued simultaneously
+2) Run 2+ instances (autoscale)
+3) Assert:
+   - each job has exactly one “start” event
+   - no job has overlapping running windows
+   - completed jobs == N
+4) Kill simulation (optional):
+   - forcibly stop one worker mid-job (or simulate by not heartbeating)
+   - ensure lease expires and job is picked up once more (attempt_count increments)
+   - ensure still no double-completion
+
+Instrumentation:
+- On job start, write execution event to DB:
+  jobs_execution_events(jobId, runId, instanceId, startedAt)
+- On job finish:
+  jobs_execution_events(jobId, runId, instanceId, finishedAt, result)
+
+PASS criteria:
+- duplicates == 0 (no job has >1 startedAt without lease expiration path)
+- completed == N
+- retry behavior only occurs after lease expiration, not concurrently
+
+--------------------------------------------------
+
+PROFILE 3: MEMORY SOAK TEST (30–60 minutes)
+Goal: prove memory stable and no crashes.
+
+Steps:
+1) Start a mixed workload loop:
+   - every 10s: request cached bars (same keys, some new keys)
+   - every 60s: enqueue a small backtest job
+   - keep concurrency low but constant
+2) Record every 10s:
+   - heapUsed, heapTotal, rss, external, arrayBuffers
+   - event loop delay
+3) Detect monotonic growth:
+   - if heapUsed trend slope > threshold for 10 minutes => FAIL
+4) Confirm load shedding:
+   - if heapUsed/heapTotal > 0.80:
+     - heavy endpoints return 503 with reason MEMORY_PRESSURE
+     - system does not crash/restart
+
+PASS criteria:
+- No restarts in the window (uptime stable)
+- heapUsed does not show continuous climb (must plateau or oscillate)
+- p95 latency within target (define baseline target in code)
+- load shedding triggers if needed (instead of crash)
+
+--------------------------------------------------
+
+PROFILE 4: FULL SCALE READINESS TEST (60 minutes)
+Runs profiles 1–3 sequentially and outputs a single readiness verdict.
+
+Readiness verdict:
+SCALE_READY = true only if:
+- cache shared proof passed
+- stampede protection passed
+- job duplication passed
+- memory soak passed
+- p95 latency improves with 2 instances (optional but recommended)
+
+==================================================
+REPLIT AUTOSCALE-SPECIFIC REQUIREMENTS
+==================================================
+- Add INSTANCE_ID at boot:
+  - use env like REPL_ID / REPLIT_DEPLOYMENT_ID if present, else random uuid
+- Display INSTANCE_ID in logs and in /ops/health response
+
+- During tests, ensure max machines is set to 2 (or 3) to allow cross-instance proof.
+
+==================================================
+DELIVERABLES
+==================================================
+1) Ops endpoints:
+- /ops/scale-test/run
+- /ops/scale-test/status
+- /ops/scale-test/results
+
+2) Test runner with 4 profiles above
+
+3) Persistent results storage:
+- scale_test_runs table
+- scale_test_events table
+- optional counters stored in Redis too
+
+4) System Status UI:
+- New tab “Scale Tests”
+- Shows:
+  - last run status
+  - PASS/FAIL per profile
+  - key metrics (hit rate, provider fetch count, duplicates, heap peak, restarts, p95 latency)
+  - “Scale Ready: YES/NO” pill
+
+5) NO FAKE DATA
+- Use real Databento calls on first miss then Redis cache
+- Use real job execution pipeline (but keep ranges small to control costs)
+
+==================================================
+DEFINITION OF DONE
+==================================================
+- I can run FULL profile and get a clear PASS/FAIL
+- I can increase machines to 2 and verify:
+  - no duplicate jobs
+  - no extra Databento pulls
+  - memory stable
+- Results are visible in UI and exportable as JSON

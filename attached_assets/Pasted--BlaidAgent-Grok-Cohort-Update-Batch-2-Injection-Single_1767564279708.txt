@@ -1,0 +1,73 @@
+# BlaidAgent — Grok Cohort Update & Batch #2 Injection
+# (Single Copy-Paste Block for Replit — January 04, 2026)
+
+## Weekend Metrics Review: Strong Early Signal from Grok Bots
+Outstanding results so far — Grok is already outperforming expectations.
+
+Key Highlights:
+- **Grok MES Adaptive EMA Trend v1 → PROMOTED TO PAPER!**
+  - Backtest Sharpe 1.82, MaxDD 7.6% — crushed TRIALS gates
+  - Now live paper trading (waiting for RTH Monday for full volume)
+  - This is exactly the institutional rigor we want: high risk-adjusted return, low drawdown
+
+- **Standouts in TRIALS**
+  - MES VWAP Bounce: 60.8% Win Rate on 158 trades — elite raw edge, just needs Sharpe lift (evolution workers on it)
+  - ES ORB Retest: 52.4% WR, 63 trades — solid, close to promotion
+  - MNQ Momentum Surge: Building trades steadily
+
+- **One pending** — Overnight Reversion will catch up in ETH sessions
+
+Grok batch promotion rate: **20% to PAPER already** (on weekend data) — this is exceptional velocity.
+
+## Monday Outlook (Jan 6 RTH Open)
+- High volume expected → rapid trade accumulation
+- MES Adaptive EMA Trend (PAPER) will generate real paper PnL
+- Expect 2–3 more promotions to PAPER by end of week
+
+## Batch #2: 5 New Grok Candidates — Inject Now
+Built on early learnings:
+- Prioritize low drawdown + high Sharpe (like the winner)
+- Boost win rate filters for VWAP/ORB types
+- Add regime-adaptive elements to combat negative Sharpe bots
+
+All set for AUTO_CREATE_BOT + Grok badge.
+
+### 1. Grok MNQ Scalping Micro Pullback v2
+```sql
+INSERT INTO strategy_candidates (
+  strategy_name, archetype_name, entry_condition_type,
+  instrument_universe, timeframe_preferences, session_mode_preference,
+  hypothesis, rules_json, confidence_score, novelty_score,
+  disposition, source, created_by_ai, ai_provider
+) VALUES (
+  'Grok MNQ Scalping Micro Pullback v2',
+  'scalping',
+  'MICRO_PULLBACK',
+  ARRAY['MNQ'],
+  ARRAY['5m'],
+  'RTH_US',
+  'Scalps quick pullbacks in strong intraday trends with tight risk for high Sharpe and low DD.',
+  '{
+    "version": "1.0.0",
+    "archetype": "scalping",
+    "entry": {
+      "condition": { "type": "PULLBACK_TO_EMA", "emaPeriod": 20, "maxRetraceTicks": 12 },
+      "confirmations": [
+        { "type": "TREND_FILTER", "emaPeriod": 50 },
+        { "type": "VOLUME", "volumeMultiplier": 1.3 }
+      ]
+    },
+    "exit": {
+      "stopLoss": [{ "type": "FIXED_TICKS", "ticks": 10 }],
+      "takeProfit": [{ "type": "FIXED_TICKS", "ticks": 20 }],
+      "timeStop": { "maxBarsInTrade": 20 }
+    },
+    "risk": { "maxPositionSize": 4, "riskPerTrade": 0.7, "maxDailyLoss": 2.5, "maxOpenPositions": 2 }
+  }'::jsonb,
+  89,
+  84,
+  'AUTO_CREATE_BOT',
+  'EXTERNAL_AI',
+  'Grok xAI',
+  'GROK'
+);

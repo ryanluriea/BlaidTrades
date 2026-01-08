@@ -1,0 +1,70 @@
+Replit — good. This is the kind of evidence I needed.
+
+However, I’m not accepting “backtest pipeline needs to be built” yet until we prove whether it’s:
+(A) truly missing, or
+(B) present but not triggered / writing to a different table / failing silently / gated incorrectly.
+
+Your proof shows:
+- integrations verify works (databento/polygon/ironbeam connected=true)
+- scheduler/status says running
+- BUT backtest_sessions + trade_logs are empty and only verify created integration_usage_events
+
+So now I need a HARD “pipeline existence” audit + then a deterministic kickoff.
+
+STEP 0 — CONFIRM THE BACKTEST PIPELINE EXISTS OR DOESN’T (NO ASSUMPTIONS)
+1) Show me the exact backtest entrypoints that exist in the current Express code:
+- rg -n "run-backtest|backtest|backtest_" server
+- list all routes containing "backtest" in server/routes.ts (file+line)
+- list all job types containing "BACKTEST" in any scheduler/worker file
+
+2) Show me what tables are ACTUALLY intended for backtests/trades in THIS codebase:
+- If you think backtests table name is backtest_sessions, prove that’s the canonical name by pointing to shared/schema.ts definitions + the storage methods that write to it.
+- If the canonical tables have different names, query those instead. Don’t assume.
+
+3) If there is a backtest runner already (even partial), prove it runs:
+- call the backtest endpoint (whatever exists) for ONE bot ID
+- paste:
+  - HTTP response JSON (trace_id included)
+  - logs for that trace_id
+  - DB row(s) created with that trace_id
+
+STEP 1 — FIX THE “BLOCKED” UI MISMATCH
+Your earlier UI shows “No market data provider configured / No broker configured”, but your API proof says configured=true and verify makes connected=true.
+
+So either:
+- the UI is reading stale/incorrect fields, OR
+- system/status is using a different resolver path than integrations/status
+
+Trace the exact code path for those blockers:
+- file + line numbers in server/live-stack-resolver.ts and/or server/integration-registry.ts
+- show the computed booleans used to set those blockers
+Then make system/status reflect:
+- “configured” if env vars present
+- “connected” only after verify OR proof-of-use
+- Live trading can remain BLOCKED due to RISK_ENGINE_DISCONNECTED, but backtesting must still be allowed.
+
+STEP 2 — IMPLEMENT THE MINIMUM “POST-SEED KICKOFF” (DO THIS EVEN IF PIPELINE EXISTS)
+When POST /api/bots/starter-pack succeeds:
+- queue baseline backtests for the seeded bots (only if no baseline exists)
+- throttle concurrency (2-4)
+- emit activity_events:
+  STARTER_PACK_CREATED
+  BACKTEST_QUEUED
+  BACKTEST_STARTED
+  BACKTEST_COMPLETED or BACKTEST_FAILED (with error_code + suggested_fix)
+- write integration_usage_events when historical bars are fetched (so proof_of_use_count_24h moves for databento/polygon)
+
+STEP 3 — DEMO PROOF (REQUIRED)
+After your changes, paste:
+A) One curl that triggers kickoff (or call starter-pack again with resetExisting=false)
+B) DB proof (top 10):
+- backtests table rows (queued/running/completed)
+- trade logs rows (at least one backtest produces >0 trades)
+- activity_events rows showing lifecycle
+C) UI proof: Feed shows backtest queued/started/completed
+
+IMPORTANT:
+- Do NOT block backtests due to RISK_ENGINE_DISCONNECTED. That blocker is valid for LIVE execution, not for LAB/BACKTEST_ONLY.
+- If you insist the pipeline “needs to be built,” then your first deliverable is the minimal baseline backtest executor that writes rows + metrics + emits events — not a roadmap.
+
+Proceed with the above and give me the proofs + exact files changed.

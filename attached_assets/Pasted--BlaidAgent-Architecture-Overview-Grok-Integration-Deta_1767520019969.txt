@@ -1,0 +1,149 @@
+# BlaidAgent Architecture Overview & Grok Integration Details
+# (Copy-paste ready — January 04, 2026)
+
+## 1. Repository Structure & Key Files
+blaidagent/
+├── client/                    # React frontend (Vite)
+├── server/                    # Express.js backend
+│   ├── scheduler.ts           # Main orchestrator - bot lifecycle, promotion logic
+│   ├── paper-runner-service.ts # Paper trading execution
+│   ├── backtest-executor.ts   # Backtesting engine
+│   ├── strategy-lab-engine.ts # AI research/candidate generation
+│   ├── evolution-engine.ts    # Strategy mutation/optimization
+│   ├── routes.ts              # REST API endpoints
+│   ├── strategy-rules.ts      # Strategy rule definitions
+│   └── providers/quantconnect/leanTranslator.ts # QC Python generation
+├── shared/
+│   ├── schema.ts              # Database models (Drizzle ORM)
+│   ├── graduationGates.ts     # Promotion requirements per stage
+│   └── strategy-types.ts      # Strategy type definitions
+└── data/                      # SQLite cache for historical bars
+
+## 2. Bot Lifecycle Stages
+LAB → PAPER → SHADOW → CANARY → LIVE
+
+Stored in PostgreSQL via Drizzle ORM:
+- bots table: stage column (text field)
+- strategy_candidates table: Pre-bot research candidates
+- bot_stage_changes table: Audit trail of promotions/demotions
+
+## 3. How Bots Are Managed
+Database Schema Example (shared/schema.ts):
+export const bots = pgTable("bots", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  stage: text("stage"),  // LAB | PAPER | SHADOW | CANARY | LIVE
+  symbol: text("symbol"),
+  archetype: text("archetype"),
+  strategyConfig: jsonb("strategy_config"),
+  // Performance metrics
+  livePnl: numeric("live_pnl"),
+  liveWinRate: numeric("live_win_rate"),
+  liveTotalTrades: integer("live_total_trades"),
+  liveMaxDrawdownPct: numeric("live_max_drawdown_pct"),
+  ...
+});
+
+Promotion Logic (server/scheduler.ts):
+// Autonomy loop checks graduation gates
+async function runAutonomyLoop() {
+  // Check each bot against graduationGates requirements
+  // If all gates pass → promote to next stage
+}
+
+## 4. Closed-Loop Strategy Flow
+Injection Point - New candidates via Strategy Lab (server/strategy-lab-engine.ts):
+async function runResearchCycle(depth: 'CONTINUOUS_SCAN' | 'FOCUSED_BURST' | 'FRONTIER_RESEARCH') {
+  // 1. Perplexity AI generates strategy candidates
+  // 2. Candidates scored for confidence/novelty
+  // 3. High-quality → auto-create bot at LAB stage
+  // 4. Medium quality → queue for human review
+}
+
+API Endpoint to Inject Candidate:
+POST /api/strategy-candidates
+{
+  "name": "Grok Momentum Alpha",
+  "archetype": "TREND_FOLLOWING",
+  "description": "...",
+  "strategyConfig": { ... },
+  "confidenceScore": 75,
+  "noveltyScore": 80
+}
+
+## 5. Data Pipeline
+Source         | Purpose                        | API
+---------------|--------------------------------|------------------------
+Databento      | Real-time CME futures (MES, MNQ, ES, NQ) | WebSocket streaming
+Ironbeam       | Live broker execution          | REST + Level 2 quotes
+FRED           | Economic indicators            | REST API
+Unusual Whales | Options flow signals           | REST API
+Finnhub/NewsAPI| News sentiment                 | REST API
+
+Caching: 3-tier (Redis → SQLite → API fallback)
+
+## 6. Strategy Archetypes
+type Archetype = 
+  | "BREAKOUT" 
+  | "MEAN_REVERSION" 
+  | "TREND_FOLLOWING"
+  | "SCALPING"
+  | "GAP_FADE"
+  | "VWAP_BOUNCE"
+  | "MOMENTUM_SURGE"
+  // ... 23 total archetypes
+
+## 7. Key Integration Points for Grok
+To inject a new strategy:
+- Create entry in strategy_candidates table with proper archetype
+- System will auto-create bot if disposition = 'AUTO_CREATE_BOT'
+- Bot starts at LAB stage → runs backtests
+- If backtest passes → promotes to PAPER
+- Paper trading accumulates real metrics
+- Graduation gates determine further promotion
+
+Graduation Gates (shared/graduationGates.ts):
+- LAB→PAPER: Backtest Sharpe > 1.0, MaxDD < 15%, ProfitFactor > 1.3
+- PAPER→SHADOW: Min 20 trades, Win rate > 45%, Live Sharpe > 0.8
+- etc.
+
+## 8. Current Bottlenecks
+- QC Verification Costs: QuantConnect backtest runs cost budget
+- Regime Decay: Strategies that work in backtests fail in changing markets
+- Drawdown Limits: 25% max drawdown hard-coded in QC translator
+
+## Requested Code Snippets for Grok (Priority Order)
+1. strategyConfig JSON structure (from strategy-types.ts or example)
+2. Promotion logic snippet from scheduler.ts
+3. Backtest execution key functions from backtest-executor.ts
+4. Candidate injection logic from strategy-lab-engine.ts
+5. Full graduationGates.ts export
+6. Evolution engine mutation/snapshot snippet from evolution-engine.ts
+
+## Example Strategy Candidate Payload (Ready to POST)
+{
+  "name": "Grok Nasdaq Momentum Surge",
+  "archetype": "TREND_FOLLOWING",
+  "description": "Targets volatility expansion in MNQ after consolidation. Enters long on 10-period SMA > 50-period SMA with volume > 1.5x avg. Exits on trailing 2% stop or death cross.",
+  "strategyConfig": {
+    "symbol": "MNQ",
+    "timeframe": "5m",
+    "entryLogic": "sma10 > sma50 && volume > 1.5 * avgVolume(20)",
+    "exitLogic": "trailingStopPct: 2 || sma10 < sma50",
+    "riskParams": {
+      "maxPositionSize": "10 contracts",
+      "maxDailyLossPct": 5,
+      "maxDrawdownPct": 15
+    },
+    "indicators": [
+      { "name": "sma10", "type": "SMA", "period": 10, "source": "close" },
+      { "name": "sma50", "type": "SMA", "period": 50, "source": "close" },
+      { "name": "avgVolume", "type": "SMA", "period": 20, "source": "volume" }
+    ],
+    "regimeFilter": "volatility > avgVolatility(50)"
+  },
+  "confidenceScore": 85,
+  "noveltyScore": 70
+}
+
+# End of Document

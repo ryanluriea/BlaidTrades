@@ -1,0 +1,149 @@
+BLAIDAGENT — QC PIPELINE REALITY CHECK / DE-CONVOLUTION PROMPT
+
+TASK
+Audit the CURRENT QuantConnect (QC) integration and promotion logic exactly as it exists today.
+The goal is to IDENTIFY WHAT IS ACTUALLY HAPPENING vs what is assumed, so the system does not become convoluted or contradictory.
+
+DO NOT redesign yet.
+DO NOT add features.
+DO NOT restate intended goals.
+ONLY report current behavior, gaps, and mismatches.
+
+====================================================
+A) PIPELINE TRUTH AUDIT
+====================================================
+
+Answer explicitly (with code + data references):
+
+1) Promotion Flow
+- When a strategy is promoted from Strategy Lab → Trial:
+  - Is QC REQUIRED, OPTIONAL, or IGNORED?
+  - What exact condition is checked in code?
+  - What happens if no QC result exists?
+
+2) QC Trigger Points
+- Where is QC triggered today?
+  - Manual button?
+  - Auto-trigger on promote?
+  - Background job?
+- Is QC ever triggered more than once for the same snapshot?
+
+3) Snapshot Binding
+- How is a strategy snapshot defined today?
+  - What fields are hashed?
+  - Does QC bind to this snapshot or to the mutable strategy?
+- What happens if parameters change after QC runs?
+
+====================================================
+B) QC EXECUTION AUDIT
+====================================================
+
+4) Execution Mode
+- Is QC running via:
+  - Cloud API
+  - LEAN CLI
+  - Mock / placeholder
+- Which environment variables are required?
+- Is execution happening in:
+  - API thread
+  - Worker / job queue
+  - Inline promise chain
+
+5) Timing & SLA
+- Measure actual observed timings:
+  - time to compile
+  - time to backtest
+  - total wall time
+- Is there any timeout logic?
+- What happens if QC stalls?
+
+6) Failure Modes
+- Enumerate all QC failure cases observed so far:
+  - auth
+  - compile
+  - runtime
+  - empty results
+- How are failures stored and surfaced?
+- Do failures block promotion today?
+
+====================================================
+C) QC RESULT HANDLING
+====================================================
+
+7) Pass / Fail Logic
+- What determines QC “success” today?
+  - completion only?
+  - metrics thresholds?
+- Is there a distinction between:
+  - failed
+  - inconclusive
+  - divergent
+- Or is it binary?
+
+8) Confidence Score Interaction
+- Does QC currently:
+  - add to confidence?
+  - block confidence?
+  - do nothing?
+- Where in the code is confidence updated?
+
+9) UI Representation
+- What does the Strategy Lab show today?
+  - badge?
+  - status?
+  - nothing?
+- Are QC states visible, implicit, or hidden?
+
+====================================================
+D) BUDGET / RATE / SAFETY CHECK
+====================================================
+
+10) Rate Limits
+- Are there ANY limits on:
+  - QC runs per day
+  - QC runs per strategy
+- If not, list all paths that can spam QC.
+
+11) Deadlock Risk
+- Identify scenarios where:
+  - QC is required
+  - QC cannot run
+  - Promotion is permanently blocked
+- Is there any bypass or degraded mode today?
+
+====================================================
+E) OUTPUT REQUIRED (STRICT)
+====================================================
+
+Produce a concise report with:
+
+1) CURRENT STATE SUMMARY
+- Bullet list of what the system ACTUALLY does today
+
+2) CONTRADICTIONS
+- Where behavior conflicts with expectations or earlier prompts
+
+3) REDUNDANCIES
+- Duplicate triggers
+- Unused states
+- Overlapping concepts
+
+4) RISK FLAGS
+- Cost explosion risk
+- Deadlock risk
+- Silent failure risk
+- User confusion risk
+
+5) MINIMAL FIX LIST
+- The smallest set of changes needed to:
+  - make behavior explicit
+  - remove ambiguity
+  - avoid future convolution
+
+DO NOT:
+- Add new stages
+- Propose large redesigns
+- Invent data
+- Assume intent
+
+This is a FACT-FINDING PASS ONLY.

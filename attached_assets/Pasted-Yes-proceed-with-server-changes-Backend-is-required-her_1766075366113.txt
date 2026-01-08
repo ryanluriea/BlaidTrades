@@ -1,0 +1,65 @@
+Yes — proceed with server/ changes. Backend is required here.
+
+But don’t just build “a backtest executor.” We need the FULL autonomous lifecycle to be real and testable end-to-end:
+- backtests actually execute (historical bars -> simulated entries/exits -> trades -> metrics)
+- jobs are actually consumed (BACKTESTER worker processes queued jobs)
+- promotion/demotion/graduation is automatic based on deterministic gates
+- evolution creates generations automatically (Gen 1 -> Gen 2 …) with clear triggers
+- every step emits Activity Feed events + proof-of-use telemetry
+
+SCOPE / DELIVERABLES (NO HAND-WAVING)
+1) Backtest executor + worker (MVP but real)
+- Implement a BACKTESTER job consumer that picks up bot_jobs where job_type=BACKTESTER (or BACKTEST as used by scheduler) and runs them.
+- Ensure backtest_sessions transitions: QUEUED -> RUNNING -> COMPLETED/FAILED
+- Populate backtest_sessions metrics (trades_count, realized_pnl, sharpe, max_dd, win_rate, etc.)
+- Populate trade_logs (or the canonical trades table) with >0 trades for at least 1 bot
+- Write integration_usage_events when market data is fetched so proof_of_use_count_24h moves (NOT just verify)
+- Emit activity_events:
+  BACKTEST_QUEUED, BACKTEST_STARTED, BACKTEST_COMPLETED/BACKTEST_FAILED
+
+2) Post-seed kickoff (deterministic)
+When POST /api/bots/starter-pack succeeds:
+- enqueue baseline backtests for any created bots missing a baseline session
+- throttle concurrency (2–4) with circuit breaker (no DoS)
+- emit STARTER_PACK_CREATED + BACKTEST_QUEUED per bot
+
+3) Autonomy lifecycle (promote/demote/graduation) + evolution generations
+We need a deterministic “autonomy supervisor” loop that runs on a schedule (e.g. every 1–5 minutes):
+A) Evaluate bots:
+- if bot is BACKTEST_ONLY/LAB: require baseline backtest completed
+- compute a score / gates (min trades, max DD, profitability, stability)
+B) Promote/demote/graduation:
+- if gates pass -> PROMOTED (LAB->PAPER or LAB->SHADOW per design)
+- if fail -> DEMOTED or remain in LAB
+- if critical risk -> KILL_TRIGGERED
+C) Evolution / generations:
+- if bot underperforms for N cycles OR on a cadence -> create next generation (Gen+1) via mutate/crossover rules
+- new generation auto-queued for baseline backtest
+D) Activity Feed proof events (required):
+PROMOTED, DEMOTED, GRADUATED, EVOLVED_GENERATION_CREATED, KILL_TRIGGERED, AUTONOMY_GATE_BLOCKED
+Include: bot_id, generation, score, reasons, trace_id, suggested_fix.
+
+4) System Health gates must reflect reality
+- LIVE can remain BLOCKED if risk-engine not verified (fine)
+- BUT LAB/backtest must not be blocked when market data provider is configured.
+- If Redis is optional, mark DEGRADED not BLOCKED.
+- Fix any mismatch so “No market data provider configured” cannot occur if integrations/status shows databento configured=true.
+
+PROOF PACKAGE REQUIRED (PASTE OUTPUTS)
+After implementation, paste:
+- curl /api/scheduler/status
+- curl /api/backtests?limit=10 (show non-empty)
+- curl /api/bots/:id/backtests/latest for one seeded bot (status=COMPLETED, trades_count>0)
+- SQL top 10 rows:
+  SELECT id, bot_id, status, trades_count, realized_pnl, started_at, completed_at FROM backtest_sessions ORDER BY created_at DESC LIMIT 10;
+  SELECT id, bot_id, created_at FROM trade_logs ORDER BY created_at DESC LIMIT 10;  (or canonical trades table if different)
+  SELECT provider, count(*) FROM integration_usage_events WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY provider;
+- Activity feed evidence:
+  SELECT event_type, bot_id, created_at FROM activity_events ORDER BY created_at DESC LIMIT 30;
+
+IMPLEMENTATION NOTE
+This can be MVP “industry-standard” by starting with:
+- one strategy archetype type (e.g., ORB breakout) implemented in sim
+- then expanding per archetype, but the lifecycle + telemetry + gating must work now.
+
+Proceed with server/ changes and deliver the proofs + exact files changed.

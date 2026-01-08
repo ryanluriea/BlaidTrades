@@ -1,0 +1,182 @@
+# BlaidAgent Full Technical Reference for Grok Integration
+# (Complete — Ready to Copy-Paste into Replit Notes/README — January 04, 2026)
+
+## 1. Strategy Candidate Schema (PostgreSQL/Drizzle)
+-- From shared/schema.ts
+export const strategyCandidates = pgTable("strategy_candidates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  strategyName: text("strategy_name").notNull(),
+  archetypeName: text("archetype_name"),           // e.g., "trend_following"
+  entryConditionType: text("entry_condition_type"),// e.g., "TREND_CONTINUATION"
+  instrumentUniverse: text("instrument_universe").array(),  // ["MES", "MNQ"]
+  timeframePreferences: text("timeframe_preferences").array(), // ["5m", "15m"]
+  sessionModePreference: text("session_mode_preference"), // RTH_US | ETH | FULL_24x5
+  hypothesis: text("hypothesis").notNull(),
+  rulesJson: jsonb("rules_json").notNull(),        // Full strategy rules
+  confidenceScore: integer("confidence_score"),    // 0-100
+  noveltyScore: integer("novelty_score"),          // 0-100
+  disposition: text("disposition"),                // PENDING_REVIEW | READY | AUTO_CREATE_BOT
+  source: text("source"),                          // SCHEDULED_RESEARCH | MANUAL | EXTERNAL_AI
+});
+
+## 2. Graduation Gates (Full Export)
+-- From shared/graduationGates.ts
+export const UNIFIED_STAGE_THRESHOLDS = {
+  TRIALS: {
+    minTrades: 50,
+    minWinRate: 35,        // %
+    maxDrawdownPct: 20,    // %
+    minProfitFactor: 1.2,
+    minExpectancy: 10,     // $
+    minSharpe: 0.5,
+    requireHasLosers: true,
+    requireMarketDataProof: true,
+    requireProfitable: true,
+  },
+  PAPER: {
+    minTrades: 100,
+    minWinRate: 40,
+    maxDrawdownPct: 15,
+    minProfitFactor: 1.3,
+    minExpectancy: 15,
+    minSharpe: 0.7,
+    minDays: 5,
+  },
+  SHADOW: {
+    minTrades: 200,
+    minWinRate: 45,
+    maxDrawdownPct: 12,
+    minProfitFactor: 1.4,
+    minExpectancy: 20,
+    minSharpe: 0.9,
+    minDays: 10,
+    requireWalkForwardValidation: true,
+    minWalkForwardConsistency: 0.5,
+    maxOverfitRatio: 2.5,
+  },
+  CANARY: {
+    minTrades: 300,
+    minWinRate: 48,
+    maxDrawdownPct: 10,
+    minProfitFactor: 1.5,
+    minExpectancy: 25,
+    minSharpe: 1.0,
+    minDays: 14,
+    requiresApproval: true,
+    requireStressTestPassed: true,
+  },
+};
+
+## 3. Strategy Archetypes (23 Total)
+-- From shared/strategy-types.ts
+export const STRATEGY_ARCHETYPES = [
+  "breakout", "orb_breakout", "rth_breakout", "breakout_retest",
+  "mean_reversion", "exhaustion_fade",
+  "gap_fade", "gap_fill", "gap_and_go",
+  "reversal", "reversal_hunter",
+  "vwap", "vwap_bounce", "vwap_reclaim", "vwap_scalper",
+  "trend", "trend_following", "trend_ema_cross", "trend_macd",
+  "momentum_surge",
+  "scalping", "micro_pullback", "range_scalper",
+];
+
+## 4. API Endpoints for Grok Integration
+- Create & Promote Candidate:
+  POST /api/strategy-lab/candidates/:id/promote
+  Body: { "target_stage": "TRIALS", "user_id": "grok-integration", "session_id": "auto" }
+
+- Trigger QC Verification:
+  POST /api/strategy-lab/candidates/:candidateId/qc-verification
+
+## 5. Autonomy Loop (Promotion Logic)
+-- From server/scheduler.ts
+async function runAutonomyLoop(): Promise<void> {
+  // Runs every 5 minutes
+  // Computes live metrics → checks graduation gates → promotes if passed
+  // Logs all stage changes
+}
+
+## 6. Example Complete Candidate Payload (Compliant & Ready)
+{
+  "strategyName": "Grok MNQ Trend Momentum Alpha",
+  "archetypeName": "momentum_surge",
+  "entryConditionType": "MOMENTUM_SURGE",
+  "instrumentUniverse": ["MNQ"],
+  "timeframePreferences": ["5m", "15m"],
+  "sessionModePreference": "RTH_US",
+  "hypothesis": "Capture volatility expansion in MNQ after consolidation periods using EMA crossover confirmation with volume filter.",
+  "rulesJson": {
+    "version": "1.0.0",
+    "archetype": "momentum_surge",
+    "entry": {
+      "condition": {
+        "type": "MOMENTUM_SURGE",
+        "trendEmaShort": 9,
+        "trendEmaLong": 21,
+        "macdSignalCross": true
+      },
+      "confirmations": [
+        { "type": "VOLUME", "volumeMultiplier": 1.5 },
+        { "type": "ADX", "minAdx": 25 }
+      ],
+      "invalidations": [
+        { "condition": "NEAR_SUPPORT_RESISTANCE", "bufferTicks": 10 }
+      ]
+    },
+    "exit": {
+      "stopLoss": [
+        { "type": "FIXED_TICKS", "ticks": 16 }
+      ],
+      "takeProfit": [
+        { "type": "FIXED_TICKS", "ticks": 24 }
+      ],
+      "timeStop": { "maxBarsInTrade": 40 }
+    },
+    "risk": {
+      "maxPositionSize": 2,
+      "riskPerTrade": 1.0,
+      "maxDailyLoss": 3.0,
+      "maxOpenPositions": 1
+    },
+    "session": {
+      "mode": "RTH_US",
+      "timezone": "America/New_York"
+    }
+  },
+  "confidenceScore": 75,
+  "noveltyScore": 65,
+  "disposition": "AUTO_CREATE_BOT",
+  "source": "EXTERNAL_AI"
+}
+
+## 7. Direct Database Injection SQL (For Instant Bot Creation)
+INSERT INTO strategy_candidates (
+  strategy_name, archetype_name, entry_condition_type,
+  instrument_universe, timeframe_preferences, session_mode_preference,
+  hypothesis, rules_json, confidence_score, novelty_score,
+  disposition, source
+) VALUES (
+  'Grok MNQ Trend Alpha',
+  'trend_following',
+  'TREND_CONTINUATION',
+  ARRAY['MNQ'],
+  ARRAY['5m', '15m'],
+  'RTH_US',
+  'EMA crossover trend following with volume confirmation...',
+  '{"version":"1.0.0","archetype":"trend_following","entry":{...}}'::jsonb,
+  80,
+  70,
+  'AUTO_CREATE_BOT',
+  'EXTERNAL_AI'
+);
+
+## 8. Current Bottlenecks
+- QC verification budget consumption
+- Regime decay in live markets
+- Strict drawdown limits (25% max)
+- Minimum trade count requirements
+- Overfitting detection in SHADOW stage
+
+# Grok is now fully equipped to generate perfectly compliant strategy candidates
+# that auto-create bots and advance through your rigorous pipeline.
+# Next step: Generate high-confidence candidates targeting your gates.

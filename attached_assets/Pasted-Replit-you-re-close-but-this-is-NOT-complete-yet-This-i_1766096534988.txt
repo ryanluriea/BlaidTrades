@@ -1,0 +1,88 @@
+Replit — you’re close, but this is NOT complete yet. This is SEV-1 and you ARE allowed to modify backend (server/ + shared/) for this hardening. Please stop skipping fixes due to an outdated preference note.
+
+What you fixed (good):
+- System Health drawer now calls /api/integrations/status instead of user-specific /api/integrations.
+- NaN guards added in sizing preview UI.
+
+What is still failing in my UI (must fix with proofs):
+1) System Health still shows BLOCKED in the drawer in my screenshot:
+   - “No market data provider configured”
+   - “No broker configured”
+   - Redis UNKNOWN
+   - Smoke test failed
+   => After your hook change, this must flip if integrations/status shows configured/connected. If it doesn’t, there’s still a mapping/caching/contract mismatch.
+
+2) Bots still mostly show only “Fresh” badge.
+   => The now-state lanes (backtest/runner/evolving/held/etc) must render from real backend snapshot. “Fresh-only” means the canonical state inputs are missing or never change.
+
+3) Accounts are broken:
+   - Sizing preview shows NaN (you added guards; I need the real math to resolve when InstrumentSpec is available).
+   - I created an account, got a “created successfully” toast, but the list still shows “No accounts yet”.
+   - You saw accounts 400 in useAccountsWithLinkedBotsCounts.
+   => This is NOT “verified” until you show DB row inserted + list endpoint returns it + UI refetches.
+
+You skipped the smoke-test response mismatch — do NOT skip. Fix it.
+The smoke test button must be auditable and match the hook contract. Update the server endpoint(s) to return what the frontend expects OR update the hook to accept the server format. Either way: make it consistent.
+
+===========================
+STEP 1 — HARD PROOFS (paste outputs; redact secrets)
+===========================
+A) Health + integrations (these must align with the UI)
+- curl -s http://localhost:5000/api/system/status | jq
+- curl -s http://localhost:5000/api/integrations/status | jq
+- (if exists) curl -s http://localhost:5000/api/scheduler/status | jq
+
+B) Smoke test (button-backed)
+- Identify the exact endpoint the “Test” button calls.
+- curl -s http://localhost:5000/<SMOKE_TEST_ENDPOINT> | jq
+Then:
+- Ensure response matches the UI contract (overallStatus PASS/FAIL/DEGRADED, results array, latencyMs, etc.)
+- If not: fix backend or frontend so it matches. No skipping.
+
+C) Accounts (prove it, don’t claim it)
+1) Before create:
+- curl -s "http://localhost:5000/api/accounts" | jq   (or the real endpoint the page uses)
+2) Create (return id):
+- curl -s -X POST http://localhost:5000/api/accounts -H "Content-Type: application/json" -d '<payload>' | jq
+3) After create:
+- curl -s "http://localhost:5000/api/accounts" | jq
+4) SQL proof (top 10)
+- SELECT id, type, name, equity, created_at FROM accounts ORDER BY created_at DESC LIMIT 10;
+- If there’s a linking table: SELECT * FROM <account_links> ORDER BY created_at DESC LIMIT 10;
+
+If toast says success but list shows empty, one of these is true and must be fixed:
+- create endpoint didn’t insert (fake success)
+- list endpoint is filtering by wrong user_id / type / stage
+- UI query is not invalidating/refetching
+- FE uses a different endpoint than the one you tested
+
+===========================
+STEP 2 — FIXES REQUIRED (backend + frontend)
+===========================
+1) System Health must be truthful
+- Ensure SystemHealth drawer uses only /api/system/status + /api/integrations/status (single source of truth).
+- No stale caching: refetch on drawer open + after verify/test.
+- Redis: if optional and REDIS_URL missing => DEGRADED, not UNKNOWN/FAIL.
+
+2) Smoke test contract consistency (SEV-1)
+- Fix either endpoint response or hook expectations so “Smoke test failed” shows exact failed checks and suggested_fix.
+
+3) Bot badges restored (not Fresh-only)
+- Ensure bots list includes a compact status snapshot:
+  latest backtest status, latest job, runner instance + heartbeat, hold reason.
+- Ensure evaluateCanonicalState has real inputs and produces multiple states.
+
+4) Accounts end-to-end correctness
+- Remove NaN at the source: Sizing Preview must compute using InstrumentSpec tickValue/pointValue/tickSize.
+- If spec missing: show “—” with explicit reason.
+- After create: optimistic insert + invalidate queries; ensure list endpoint returns the new row.
+
+===========================
+DELIVERABLES
+===========================
+1) Paste curl outputs + SQL outputs above.
+2) List exact files changed (server + client) with why.
+3) Provide 1 screenshot showing:
+   - System Health no longer lies (matches integrations)
+   - Bots show multiple now-state badges
+   - Newly created account appears in the accounts list immediately after toast

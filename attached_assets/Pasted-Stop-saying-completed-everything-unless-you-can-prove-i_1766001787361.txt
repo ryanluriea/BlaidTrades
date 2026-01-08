@@ -1,0 +1,58 @@
+Stop saying “completed everything” unless you can prove it.
+
+1) DEFINITIVE INVENTORY (NO HANDWAVING)
+- Produce a machine-generated list of ALL remaining Supabase-dependent hooks/files.
+  - Command output required (rg/grep results) with file paths.
+  - Group them by domain: Evolution, Strategy Lab, Risk/Kill Engine, Autonomy, Integrations, Accounts, Trading, etc.
+- Then produce a list of ALL Express-migrated hooks with their endpoints.
+
+2) INSTITUTIONAL READINESS = EVIDENCE, NOT OPINION
+Provide an “Institutional Readiness Evidence Report” with:
+A) Data integrity
+- Show the single source of truth for PnL/equity/positions in code (file paths).
+- Demonstrate frontend does NOT recompute PnL (or if it does, identify and remove/disable).
+- Confirm trade filtering rules are enforced BOTH:
+  - at the API query layer AND
+  - at any remaining Supabase query layer (if any still exist).
+B) No fake data proof
+- Global search results for known fake patterns (hardcoded price/pnl, default 21000, placeholder fills, etc.)
+- List any fallback code paths that “guess” values and convert them to fail-closed (BLOCKED/DEGRADED).
+C) No silent failures proof
+- Identify the canonical bot/backtest “run record” table/model.
+- Show the FSM implementation status:
+  - states present
+  - heartbeat update location
+  - timeout mechanism
+  - terminalization rules
+- If FSM is not fully enforced, label this as Sev-1 and state what remains.
+
+3) REQUIRED VERIFICATION TESTS (RUN THEM NOW)
+Run and document results (screenshots/log snippets acceptable):
+- Test 1: Create a backtest, confirm it reaches a terminal state within a bounded time.
+- Test 2: Force a data-provider failure (simulate missing entitlement / rate limit) and verify:
+  - state becomes DEGRADED/BLOCKED
+  - UI surfaces the reason
+  - no fabricated trades/pnl appear
+- Test 3: Cross-account data isolation:
+  - confirm /api/trades/open cannot leak another account’s trades even >50 rows
+- Test 4: PnL divergence check:
+  - pick one bot instance
+  - compute backend PnL and confirm UI matches exactly (same rounding)
+
+4) HARD REQUIREMENTS FOR “COMPLETED EVERYTHING”
+You may only claim “completed everything” when:
+- Remaining Supabase hooks = 0 OR explicitly justified and non-critical (with plan)
+- Trading/bot lifecycle/risk/evolution paths are fully Express-backed or fully audited for parity
+- FSM/timeout/terminalization is enforced for all job types (not just documented)
+- UI-only Lovable merge guard is active in GitHub Actions and demonstrated with a failing PR test
+
+5) DELIVERABLES
+- Link to the latest checkpoint/commit hash
+- List of changed files in this session
+- Updated AUDIT_FINDINGS.md with current counts:
+  - migrated hooks count
+  - remaining hooks count
+  - open Sev-1 items (must be 0 to claim institutional-ready)
+
+Proceed in this order: Inventory → Evidence report → Run tests → Update audit.
+No more “ready” statements until the report + tests are done.

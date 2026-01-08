@@ -1,0 +1,117 @@
+ADD-ON (STRAIGHT TAKE) — THIS PLAN IS GOOD, BUT IT’S NOT COMPLETE UNTIL IT PASSES THESE ACCEPTANCE TESTS.
+
+You (Replit) are NOT done when you “implement endpoints.” You’re done when the system *autonomously* produces visible, correct, deterministic states and can’t regress.
+
+========================================================
+0) NON-NEGOTIABLE DEFINITION OF “WORKING”
+========================================================
+A) Autonomy produces jobs without me clicking anything.
+B) botNow is canonical + deterministic and drives the primary badge everywhere.
+C) “Fresh” is NEVER a primary activity badge. It is ONLY a secondary “data recency” pill.
+D) Stage routing is correct: LAB is baseline building; PAPER is execution sim; no accidental graduation.
+E) Proof pack must show REAL transitions over time (not one snapshot).
+
+========================================================
+1) HARD ACCEPTANCE CHECKLIST (FAIL IF ANY ITEM MISSES)
+========================================================
+1.1 Autonomy loop must enqueue at least one job within 2 ticks after restart (in a clean LAB population).
+- If it enqueues 0 jobs, /api/_proof/autonomy must list explicit top reasons.
+
+1.2 Bots page must show at least these states *without manual starts*:
+- BACKTEST_QUEUED (at least 1)
+- BACKTEST_RUNNING (at least 1)
+- BACKTEST_COMPLETED (at least 1)
+- IDLE (at least 1)
+If none show RUNNING/QUEUED, autonomy is still broken.
+
+1.3 Primary badge rules:
+- Primary badge = botNow.state only.
+- If botNow missing: show UNKNOWN_DATA (this should never occur post-ship).
+- Remove ANY code path that substitutes “Fresh” as primary.
+
+1.4 “OK” tooltip / alert icon:
+- If status is OK / NONE / PASS, DO NOT render an alert icon.
+- Alerts only render for WARN/CRITICAL/BLOCKED and must be actionable.
+This is UI noise and violates “institutional.”
+
+1.5 botNow “FRESH” state bug must be permanently fixed:
+- FRESH may ONLY happen if: created < 10 minutes AND no jobs ever AND no backtests ever AND no runner ever.
+- Historical existence must be computed via batched “history exists” query (no heuristics).
+
+1.6 Stage correctness:
+- After bulk revert, ALL non-LAB bots must be LAB and show stageInfo.since updated.
+- The system must not re-promote them instantly unless explicitly configured (promotionMode + gates satisfied).
+- StageReasonCode must be recorded for every stage transition.
+
+========================================================
+2) REQUIRED “REGRESSION GUARDS” (PREVENT THIS FROM COMING BACK)
+========================================================
+2.1 Add a server-side invariant check endpoint:
+GET /api/_proof/invariants
+Returns PASS/FAIL on:
+- bots-overview includes botNow for every bot
+- bots list includes botNow for every bot
+- no primary “Fresh” badge mapping exists
+- autonomy lastTickAt is advancing
+- jobs stuck RUNNING > 15m count
+
+2.2 Add a CI-ish smoke assertion (even if manual for now):
+- Run /api/_proof/invariants at boot; if FAIL, show banner in UI “SYSTEM INCONSISTENT”.
+
+2.3 Lock down API contracts:
+- Define SmokeTestResult + BotNow in shared/types and validate responses server-side (zod or equivalent).
+If response shape drifts, fail loudly.
+
+========================================================
+3) AUTONOMY SCHEDULER: MAKE IT IMPOSSIBLE TO “LOOK IDLE”
+========================================================
+3.1 Concurrency:
+- Default LAB backtest concurrency = 3
+- Add per-symbol throttle (MES/MNQ) to avoid starving.
+
+3.2 Deterministic job selection:
+- LAB picks bots needing baseline first, then refresh stale, then evolve if enabled.
+- Define stale thresholds explicitly (e.g., baseline older than 6h = refresh).
+
+3.3 “No work found” must be explainable:
+- Record reasons summary per tick (e.g., “all bots blocked by gates: 19”, “concurrency limit reached: 3”, etc.).
+
+========================================================
+4) REVERT-TO-LAB MUST BE SAFE AND AUDITED
+========================================================
+4.1 The revert endpoint must:
+- create bot_stage_events rows first
+- update bots stage in one transaction
+- return bot ids changed + counts
+- be idempotent (calling twice doesn’t duplicate wrong rows)
+
+4.2 Immediately after revert:
+- Autonomy should enqueue baseline backtests for the reverted LAB bots (unless baseline exists & fresh).
+
+========================================================
+5) PROOF PACK REQUIREMENTS (MUST SHOW TIME + TRANSITIONS)
+========================================================
+In addition to your listed proofs, include:
+
+5.1 Two snapshots of /api/_proof/autonomy taken 60 seconds apart:
+- lastTickAt must advance
+- planner_runs must increment
+
+5.2 Evidence that jobs are being enqueued by autonomy:
+- show autonomy_planner_runs.jobs_enqueued > 0
+- show bot_jobs rows with created_at matching planner run window
+
+5.3 Bots-overview proof that botNow is not being stripped:
+curl -s http://localhost:5000/api/bots-overview | jq '.data.bots[0].botNow'
+
+========================================================
+6) FINAL NOTE (STRAIGHT TAKE)
+========================================================
+Right now, the reason you “don’t see backtesting/evolving badges” is almost certainly:
+- autonomy isn’t enqueuing jobs (or concurrency = 0 / planner not ticking), OR
+- botNow is incomplete / being stripped in bots-overview/hook transforms, OR
+- UI is showing a *recency* pill as the main badge (bad semantics).
+
+This fix pack must prove all three are dead: autonomy runs, botNow is canonical everywhere, and badges reflect real running/queued work — without me starting anything.
+
+Proceed with the plan, but DO NOT mark complete until every Acceptance item above is green.

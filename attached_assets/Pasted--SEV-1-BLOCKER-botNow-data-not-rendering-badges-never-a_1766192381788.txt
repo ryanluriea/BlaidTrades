@@ -1,0 +1,105 @@
+🚨 SEV-1 BLOCKER: botNow data not rendering → badges never appear
+
+We are NOT deleting bots.
+
+Backtests are real, autonomy is running, metrics reset worked — but UI still shows IDLE because botNow state collapses before render.
+
+This is now a data-flow / precedence bug, not a backend execution issue.
+
+DO THIS EXACTLY (NO NEW UI, NO NEW WINDOWS):
+1️⃣ PROVE botNow DATA AT THE API LAYER
+
+Run and paste actual botNow payload for a bot that JUST ran a backtest:
+
+curl -s http://localhost:5000/api/bots | jq '.bots[0].botNow'
+
+
+We must see one of:
+
+activeJob
+
+OR recentJob
+
+OR state !== IDLE
+
+If botNow already says IDLE → the bug is server-side precedence.
+
+2️⃣ VERIFY RECENT JOB IS BEING SENT
+
+Paste this exact structure from API (not screenshots):
+
+botNow: {
+  state,
+  activeJob,
+  recentJob,
+  jobCounts,
+  lastJobCompletedAt
+}
+
+
+If recentJob exists server-side but is missing client-side → mapping bug.
+
+3️⃣ FIX STATE PRECEDENCE (THIS IS LIKELY THE BUG)
+
+State derivation MUST be:
+
+Priority order (highest → lowest):
+
+activeJob (RUNNING / QUEUED)
+
+recentJob (COMPLETED / FAILED < 2 min)
+
+evolving / improving
+
+idle
+
+fresh (new bot only)
+
+IDLE must NEVER override recent activity.
+
+4️⃣ CONFIRM WHICH ENDPOINT UI USES
+
+Explicitly answer:
+
+Does the bots table use /api/bots or /api/bots-overview?
+
+Whichever it uses must include recentJob and botNow.state.
+
+5️⃣ PNL RESET — UI FILTER BUG
+
+Confirm:
+
+All metrics queries filter by metrics_reset_at
+
+UI is NOT reading stale aggregates
+
+Provide SQL proof:
+
+SELECT
+  bot_id,
+  completed_at,
+  net_pnl
+FROM backtest_sessions
+WHERE completed_at > metrics_reset_at
+ORDER BY completed_at DESC;
+
+
+If UI still shows old PnL → frontend aggregation bug.
+
+6️⃣ FINAL ACCEPTANCE (NO EXCEPTIONS)
+
+This is DONE only when:
+
+✅ At least one bot row shows:
+
+“Backtesting ×N • Xm” (purple)
+OR
+
+“Improving #N • Xm” (blue)
+
+✅ Badge appears inline in bots list
+✅ PnL reflects post-reset runs only
+✅ No new windows, no side panels
+
+Stop debating existence.
+Make the UI reflect what the system is already doing.

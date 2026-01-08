@@ -1,0 +1,123 @@
+MASTER SPEC — SINGLE CONTROL PLANE MIGRATION (SUPABASE EDGE FUNCTIONS → EXPRESS) + CONNECTIONS/KEYS READY
+
+CONTEXT / SOURCE OF TRUTH
+We have a completed Supabase Edge Functions audit showing 99 functions, with SEV-1 split-brain violations:
+- EXECUTION CRITICAL: 27 functions (runner/job lifecycle, kill/promo, brokers, risk, sim-execute-order, runner-tick, strategy-lab control)
+- STATE MUTATING: 21 functions
+- SIDE EFFECT ONLY: 41 functions
+- Many duplicates already exist in Express (/api/runners/*, /api/jobs/*, /api/bots/:id/kill, /api/bots/:id/promote, /api/bots/:id/reconcile, /api/system/status, etc.)
+Active UI call sites still invoke Edge Functions for promote-bot/create-starter-bots/reconcile-bot-execution/system-proof, which is unacceptable.
+
+GOAL (NON-NEGOTIABLE)
+1) Enforce ONE source of truth for bot lifecycle, jobs, runners, trading, risk, backtests, strategy-lab workflows: EXPRESS + Postgres ONLY.
+2) After migration: no Edge Function may start/stop/restart runners, execute/simulate orders, mutate stages, mutate kill state, process jobs, reconcile, or run backtests.
+3) Keys/Connections must be “ready to enter by me” via a single Connections/Status UI + safe-start gates. System must prove keys are used by bots (proof-of-use telemetry).
+4) Must be fail-closed: if integration not configured/connected, runners cannot start; UI shows DEGRADED with trace_id, not fake zeros.
+
+BRANCHING RULES (STRICT)
+- dev branch: backend + schema + telemetry + autonomy gates + integrations registry + migrations
+- ui-lovable branch: UI only (connections panels, popouts, bot explainability viewers)
+Do NOT mix.
+
+PHASE 0 — SAFETY / STOP THE BLEED (IMMEDIATE)
+A) Freeze autonomous control in Supabase:
+- Disable/lock SEV-1 Edge Functions from being callable from UI by removing client invocations immediately.
+- Update UI call sites to Express NOW:
+  - promote-bot → POST /api/bots/:id/promote
+  - create-starter-bots → POST /api/bots/starter-pack
+  - reconcile-bot-execution → POST /api/bots/:id/reconcile
+  - system-proof → GET /api/system/status
+B) Add server-side guard: any legacy Edge Function endpoint call attempts should be surfaced in logs with [EDGE_CALL_BLOCKED] and trace_id.
+
+PHASE 1 — INVENTORY CONFIRMATION (FROM REPO, NOT MEMORY)
+1) Print a definitive list of Edge Functions under supabase/functions/** and classify:
+   - EXECUTION CRITICAL
+   - STATE MUTATING
+   - SIDE EFFECT ONLY
+   - UNUSED
+2) Confirm active UI call sites via ripgrep:
+   - supabase.functions.invoke
+   - functions.supabase.co
+   - createClient / supabase auth usage
+
+PHASE 2 — MIGRATION PLAN (AUTHORITATIVE DECISION TABLE)
+Using the audit’s decision table:
+- DELETE in Supabase (duplicates Express): kill-engine, promote-bot, promotion-engine, demotion-engine, runner-controller, runner-heartbeat, start-runner, restart-runner, job-dispatcher, job-processor, job-watchdog, job-worker, force-tick, autonomy-watchdog, system-proof, and all audit/health/smoke/unused functions.
+- MIGRATE TO EXPRESS (required for autonomy + single control plane):
+  - broker-ironbeam, broker-tradovate (live execution interfaces)
+  - runner-tick (core loop)
+  - sim-execute-order (sim execution)
+  - risk-engine (risk enforcement)
+  - run-backtest + all backtest-* (scheduler/matrix/runner/classify)
+  - historical-data, market-hours (data dependencies)
+  - ALL strategy-lab-* functions (lab workflow)
+- KEEP ONLY IF INTENTIONALLY USING SUPABASE AUTH:
+  - send-2fa-code, verify-2fa-code
+  - (optionally) send-sms-alert as notification side-effect only
+If we KEEP Supabase Auth: clearly document “Supabase = Auth only” and ensure it does NOT run any execution/lifecycle logic.
+If we do NOT keep Supabase Auth: migrate 2FA flows to Express and remove all Supabase secrets entirely.
+
+PHASE 3 — EXPRESS IMPLEMENTATIONS (DEV BRANCH)
+For each migrated capability, implement/ensure in Express:
+- Broker adapters: ironbeam + tradovate
+  - Must use the same safe-start checks: keys missing → fail-closed with error_code=INTEGRATION_KEY_MISSING, suggested_fix, trace_id.
+  - Must log proof-of-use to integration_usage_events (provider, operation, status, latency_ms, bot_id, trace_id).
+- runner-tick / sim-execute-order / risk-engine:
+  - runner-tick MUST call: market-hours + historical-data + risk-engine + execution (sim/live) in a single deterministic pipeline.
+  - No fake prices. If data is unavailable, return DEGRADED and block execution.
+- Backtests and Strategy Lab:
+  - Provide Express endpoints for run-backtest and lab scheduler/worker orchestration.
+  - Store: decision_traces + no_trade_traces + autonomy_scores + profit_variables (or equivalent) with traceable links.
+  - Ensure “why traded” AND “why not traded” are generated and viewable.
+- Autonomy Supervisor:
+  - Keep/finish scheduler + supervisor loop + circuit breaker with proactive kill triggers.
+  - Ensure supervisor loop is internal and cannot conflict with any Edge worker.
+
+PHASE 4 — CONNECTIONS + PROOF OF USE (UI + API)
+Backend (dev):
+- Canonical integrations registry with:
+  - provider, category, required_env_vars, optional_env_vars, supports_verify, docs_url (optional)
+- Endpoints (canonical):
+  - GET /api/integrations/status → configured/connected/last_verified_at/last_used_at/proof_of_use_count_24h/missing_env_vars/error_code/suggested_fix
+  - POST /api/integrations/verify → runs real connectivity tests (non-destructive)
+  - GET /api/system/status → BLOCKED/DEGRADED/OK + autonomy_allowed + blockers[] + bots.byAutonomyTier + scheduler status
+UI (ui-lovable):
+- Upgrade System Status into “Control Plane Observatory”:
+  - Connections tab: provider cards, verify buttons, last used, proof-of-use count, missing vars, suggested fixes
+  - Proof-of-use popout: last N usage events with trace_id, bot_id, operation, status, latency
+  - Per-bot panels:
+    - Why Bot Traded (decision traces)
+    - Why Not Trading (no-trade traces)
+    - Autonomy Score (tier + breakdown + gates)
+  - Must be fail-closed: never show “0 trades/$0 pnl” when degraded; show banner with trace_id.
+
+PHASE 5 — SECRETS / KEYS “READY TO ENTER BY USER”
+Deliver a single “Keys Needed” checklist generated from the integrations registry, grouped:
+- Market data: DATABENTO_API_KEY, POLYGON_API_KEY (etc)
+- Brokers: IRONBEAM_* / TRADOVATE_* (as applicable)
+- AI: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI, GROQ, OPENROUTER, etc
+- Infra: REDIS_URL / QUEUE_REDIS_URL (if used)
+- Auth: SUPABASE_* ONLY if we explicitly keep Supabase Auth
+The app must boot with no keys and report BLOCKED with suggested fixes (not crash, not show fake values).
+When I enter keys, system status must move toward OK and show proof-of-use events as bots operate.
+
+PHASE 6 — ACCEPTANCE TESTS (MUST PROVIDE EVIDENCE)
+Provide command outputs + curl proofs:
+1) No Edge invocation from UI:
+   - rg -n "supabase\\.functions\\.invoke|functions\\.supabase\\.co" client/src -S returns NONE
+2) Supabase Edge not controlling execution:
+   - Document that all SEV-1 Edge functions are deleted/disabled or unreachable from prod path
+3) System status:
+   - GET /api/system/status returns BLOCKED with blockers when keys missing; returns DEGRADED/OK when configured.
+4) Safe-start:
+   - POST /api/runners/start with missing keys returns INTEGRATION_KEY_MISSING + trace_id
+5) Proof-of-use:
+   - Trigger a verify call + one bot tick; confirm integration_usage_events increment and UI shows it.
+
+IMPORTANT IMPLEMENTATION RULES
+- No direct SQL “ad hoc” in main. All schema changes go through proper migrations/db:push on dev.
+- No hardcoded “success” defaults. Fail closed, always.
+- No split-brain: any legacy Supabase execution paths must be removed or blocked.
+
+START NOW
+Begin with PHASE 0 stop-the-bleed (update UI call sites away from edge functions) then proceed in order.

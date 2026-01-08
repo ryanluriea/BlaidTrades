@@ -1,0 +1,65 @@
+REPLIT — GOOD. Now I need INDUSTRY-STANDARD PROOF + HARDENING before I enter real keys.
+
+You said Express-native 2FA + Twilio SMS is implemented and the no-edge guardrail passes. Great.
+Now produce the following proof package + security fixes (no “trust me” answers).
+
+A) MUST-HAVE SECURITY REQUIREMENTS (fix if missing)
+1) Secrets must be encrypted at rest:
+   - TOTP secret stored encrypted using APP_ENC_KEY (AES-GCM or libsodium sealed box).
+   - Never store raw base32 in plaintext.
+2) Backup codes:
+   - Generate 10 codes; display ONCE; store ONLY hashed (argon2/bcrypt).
+   - Constant-time compare on verify.
+3) Rate limiting / lockout:
+   - /api/auth/2fa/verify and /confirm must have per-user + per-IP throttles.
+   - After N failures, temporary lockout with structured error_code.
+4) Auth correctness:
+   - /2fa/setup requires an authenticated session (not userId in body).
+   - /2fa/confirm requires the same session, not arbitrary userId.
+   - /2fa/status requires auth session.
+   - /2fa/disable requires valid TOTP/backup code + fresh session.
+5) Session model:
+   - Login should return requires_2fa + temp_token (short TTL) and NOT set full session cookie until /verify passes.
+   - Cookies must be httpOnly, secure in prod, sameSite strict/lax.
+6) Logging hygiene:
+   - Never log secrets, backup codes, or TOTP codes.
+   - Telemetry events must exclude sensitive fields.
+
+B) REQUIRED END-TO-END PROOF (paste outputs)
+1) Database proof (SQL):
+   - Show columns where 2FA secret is stored and confirm it is encrypted (not readable base32).
+   - Show backup codes are hashed (non-reversible).
+2) Curl proof (full flow):
+   - Register/Login (2FA off) -> success
+   - Setup -> returns otpauth_url/qr (authenticated)
+   - Confirm -> enables 2FA + returns backup codes ONCE
+   - Login -> returns requires_2fa + temp_token (no full session yet)
+   - Verify -> returns full session / cookie
+   - Disable -> requires code, then disabled
+3) Abuse tests:
+   - Verify endpoint rate limit triggers after repeated wrong codes (show error_code + retry_after)
+   - Temp_token expires (show error_code)
+4) SMS proof:
+   - POST /api/alerts/sms/test sends a real SMS (or Twilio API success response)
+   - integration_usage_events row created with status + trace_id
+5) Control-plane proof-of-use:
+   - /api/integrations/status shows:
+     configured=true, connected=true, last_used_at updated, proof_of_use_count_24h increments
+   - /api/system/status reflects blockers removed when keys present
+
+C) UI REQUIREMENTS
+- Settings 2FA screen must work end-to-end with the new Express endpoints:
+  setup QR -> confirm -> show backup codes once -> status -> disable
+- OpsAlerts SMS test must show success/fail + trace_id + proof-of-use.
+
+D) GIT / DEPLOY CLEANUP (IMPORTANT)
+We hit GitHub push rejection earlier due to workflow file scope:
+- Remove or relocate `.github/workflows/pr-ui-guard.yml` OR provide an alternative guardrail that doesn’t require pushing workflows from OAuth.
+- Provide exact steps so I can push dev + ui-lovable without getting blocked.
+
+Deliverables:
+1) List changed files (server + client + schema) and commit hashes grouped by feature.
+2) Paste the proof outputs and screenshots.
+3) Confirm “no Supabase Edge Functions” checks still pass.
+
+Do NOT ask me to input keys until ALL proof above is complete.

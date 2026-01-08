@@ -1,0 +1,356 @@
+MASTER PROMPT — SINGLE CONTROL PLANE + FULL CONNECTIONS + PROOF-OF-USE + AUTONOMY (REPLIT / EXPRESS ONLY)
+
+CONTEXT
+We are building an industry-standard autonomous trading bot platform. We must have ONE control plane (Express) and ONE source of truth (Postgres via DATABASE_URL). We are migrating away from Supabase Edge Functions and Supabase Auth entirely. We previously had many “connections” wired in Lovable/Supabase, but now all integrations must be present and verifiable in this Express stack with a clean “Connections / Control Plane Observatory” UI and proof-of-use telemetry.
+
+NON-NEGOTIABLES
+- Single control plane: Express owns bot lifecycle, execution, jobs, promotion/kill, and autonomy gating.
+- Fail-closed everywhere: if data/integrations are unavailable → show DEGRADED/BLOCKED, disable actions, never show fake “0 trades / $0 pnl”.
+- Every critical endpoint returns { success, trace_id, ... } and uses structured error codes.
+- No Supabase Edge Functions in production path. No split-brain.
+- No Supabase Auth for 2FA. Implement Express-native auth + 2FA (below).
+- Branch discipline:
+  - dev branch: backend + schema + telemetry + autonomy gates + explainability + scheduler
+  - ui-lovable branch: UI components/popouts only (no server/shared/hooks changes)
+
+GOALS (DELIVER ALL)
+1) Connections + Secrets Readiness: system knows what’s configured, what’s connected, what’s being used (proof).
+2) Control Plane Observatory (System Status): BLOCKED / DEGRADED / OK with blockers + suggested fixes.
+3) Proof-of-Use Telemetry: show concrete evidence each provider is being used by bots.
+4) Explainability:
+   - “Why this bot traded” (decision traces)
+   - “Why not trading” (no-trade traces)
+5) Autonomy Score per bot + tiering + gates visualization.
+6) Autonomy readiness: scheduler + supervisor loop + circuit breaker + kill triggers + fail-closed safe start.
+7) Express-native Auth + 2FA (no Supabase auth): enrollment + verify + backup codes + sessioning.
+
+──────────────────────────────────────────────────────────────────────────────
+PART A — INTEGRATION REGISTRY + SAFE START (dev branch)
+──────────────────────────────────────────────────────────────────────────────
+
+A1) Canonical integration registry module
+Create server/integration-registry.ts that defines providers and requirements:
+
+Providers to include (at minimum):
+Market Data:
+- databento (primary CME futures)
+- polygon (backup market data)
+- finnhub (news/alt data optional)
+- alphavantage (optional)
+- fmp (economic calendar optional)
+- fred (macro optional)
+Execution/Brokers:
+- ironbeam (execution)
+- tradovate (optional execution if used)
+AI/LLM:
+- openai
+- anthropic
+- google_gemini
+- groq
+- xai
+- openrouter
+Alt Data:
+- unusual_whales (optional)
+Infra/Services:
+- redis (optional cache/locks)
+- discord (optional alerts)
+(Do not include Supabase as required; we are removing it)
+
+Each provider entry must include:
+- id, label, category
+- required_env_vars (array)
+- optional_env_vars (array)
+- supports_verify (boolean)
+- verify() implementation (safe, timeboxed, no side effects)
+- “suggested_fix” string template for missing keys
+
+A2) Integration status endpoint
+Implement GET /api/integrations/status returning canonical fields:
+{
+  success, trace_id,
+  providers: [
+    {
+      id, label, category,
+      configured: boolean,
+      connected: boolean,
+      last_verified_at,
+      last_used_at,
+      proof_of_use_count_24h,
+      missing_env_vars: string[],
+      error_code: string|null,
+      suggested_fix: string|null
+    }
+  ]
+}
+
+A3) Verify endpoint
+Implement POST /api/integrations/verify { provider_id }:
+- Runs provider.verify() with strict timeout
+- Stores result as a system event + integration usage event (status=VERIFY)
+- Returns structured result with trace_id
+
+A4) Safe-start checks on runner endpoints
+Runner start/restart must FAIL CLOSED if required dependencies missing:
+- If stage requires market data: require databento OR polygon configured+connected
+- If LIVE stage: require execution broker configured+connected AND isTradingEnabled true
+- If AI features required for the action: require at least one LLM provider configured (openai/anthropic/etc) OR degrade and block that AI-dependent action only
+
+Return errors like:
+- INTEGRATION_KEY_MISSING
+- INTEGRATION_VERIFY_FAILED
+- DATA_UNAVAILABLE
+- EXECUTION_BROKER_UNAVAILABLE
+- LIVE_TRADING_DISABLED
+Always include trace_id + suggested_fix.
+
+──────────────────────────────────────────────────────────────────────────────
+PART B — CONTROL PLANE OBSERVATORY (dev branch)
+──────────────────────────────────────────────────────────────────────────────
+
+B1) System status endpoint
+Implement/upgrade GET /api/system/status:
+Returns:
+{
+  success, trace_id,
+  system_status: "OK"|"DEGRADED"|"BLOCKED",
+  autonomy_allowed: boolean,
+  blockers: [
+    { code, severity: "SEV-1"|"SEV-2", message, suggested_fix }
+  ],
+  bots: { byAutonomyTier: { LOCKED, SUPERVISED, LIMITED_AUTONOMY, FULL_AUTONOMY } },
+  scheduler: { active, last_tick_at, loop_health, circuit_breakers: [...] },
+  integrations: { summary counts or embed providers from /api/integrations/status }
+}
+
+B2) Scheduler + supervisor loop
+Ensure Express has:
+- timeout worker (terminates stale jobs; logs FSM transitions)
+- supervisor loop (detect runner down → restart with circuit breaker)
+- circuit breaker (3 failures / 30m opens; blocks restarts; can trigger kill for LIVE)
+- proactive kill triggers on invariant breach (stuck runner, repeated failures, risk breaches)
+All actions must emit system events + trace_id.
+
+B3) Job FSM + persistence
+Confirm:
+- job_run_events records transitions with from/to, reason_code, trace_id, metadata
+- bot_instances reflects runner registry with last_heartbeat_at
+- no silent failures: stale jobs become TIMEOUT with reason HEARTBEAT_TIMEOUT
+
+──────────────────────────────────────────────────────────────────────────────
+PART C — PROOF-OF-USE TELEMETRY (dev branch)
+──────────────────────────────────────────────────────────────────────────────
+
+C1) DB tables
+Add tables (shared/schema.ts + db migration, no ad-hoc SQL):
+1) integration_usage_events
+- id, created_at, provider_id, bot_id nullable, run_id nullable,
+  endpoint/action, status ("OK"|"ERROR"|"VERIFY"),
+  latency_ms, error_code nullable, trace_id, metadata JSONB
+2) profit_variables
+- id, name unique, category, source_integration, variable_type,
+  state ("ACTIVE"|"DEPRECATED"), last_updated_at,
+  used_by_bot_ids JSONB, profit_contribution_estimate nullable, description
+
+C2) Instrumentation
+Every time code calls a provider (market data, broker, LLM, alerts), emit an integration_usage_event.
+Minimum fields: provider_id, bot_id if applicable, status, latency_ms, trace_id, error_code if any.
+Also update provider “last_used_at” (derive from events).
+
+C3) Proof display compatibility
+Expose in /api/integrations/status:
+- proof_of_use_count_24h
+- last_used_at
+- last_error_code_24h (optional)
+So UI can prove “this is actually being used by bots”.
+
+──────────────────────────────────────────────────────────────────────────────
+PART D — EXPLAINABILITY (dev branch + UI in ui-lovable)
+──────────────────────────────────────────────────────────────────────────────
+
+D1) DB tables
+Add:
+1) decision_traces
+- id, bot_id, trade_log_id nullable, created_at,
+  decision_type ("ENTRY"|"EXIT"|"ADJUST"),
+  reason_human, reason_code,
+  signals JSONB, variables_snapshot JSONB,
+  confidence, expected_value, risk_snapshot JSONB,
+  trace_id
+2) no_trade_traces
+- id, bot_id, created_at,
+  suppression_type, suppression_decision,
+  reason_human, reason_code,
+  blocked_by JSONB (gates that blocked),
+  signals JSONB, variables_snapshot JSONB,
+  trace_id
+
+D2) Endpoints
+- GET/POST /api/bots/:id/decision-traces
+- GET/POST /api/bots/:id/no-trade-traces
+Both must support pagination + filtering by time window.
+POST endpoints are internal/system use (runner writes traces); secure them.
+
+D3) “Why not trading” UX
+We already have “Why this bot traded”. Add “Why not trading”:
+- Show latest suppression reasons (risk gate, market closed, no signal, data unavailable, circuit breaker open, etc.)
+- Include trace_id + blocked gates list
+- Do not show misleading “all good” when suppressed.
+
+──────────────────────────────────────────────────────────────────────────────
+PART E — AUTONOMY SCORE PER BOT (dev branch + UI in ui-lovable)
+──────────────────────────────────────────────────────────────────────────────
+
+E1) DB table
+autonomy_scores:
+- bot_id unique
+- autonomy_score (0-100)
+- data_reliability_score
+- decision_quality_score
+- risk_discipline_score
+- execution_health_score
+- supervisor_trust_score
+- autonomy_tier ("LOCKED"|"SUPERVISED"|"LIMITED_AUTONOMY"|"FULL_AUTONOMY")
+- breakdown JSONB
+- last_updated_at
+
+E2) Endpoints
+- GET/POST /api/bots/:id/autonomy-score (upsert)
+- system status must include tier counts
+
+E3) Scoring rules (fail-closed)
+If key signals missing (no proof-of-use, stale heartbeats, data feed errors) → lower relevant subscore and tier.
+Tier gating example:
+- FULL_AUTONOMY requires: supervisor loop active, data feed healthy, broker healthy, risk engine enforcing, no circuit breaker open, proof-of-use > 0 in last 24h, recent decision traces present.
+If any missing → downgrade tier and expose blockers.
+
+──────────────────────────────────────────────────────────────────────────────
+PART F — UI: CONTROL PLANE OBSERVATORY + CONNECTIONS + BOT POP-OUTS (ui-lovable)
+──────────────────────────────────────────────────────────────────────────────
+
+F1) Upgrade System Status page into Control Plane Observatory
+On client:
+- SystemStatus.tsx gets a polished “Control Plane Observatory” layout
+Tabs (minimum):
+- Overview (system_status, autonomy_allowed, blockers w/ suggested_fix)
+- Connections (provider grid)
+- Proof-of-Use (events viewer)
+- Autonomy (tier counts + per-bot autonomy score quick list)
+- Events (system events)
+- AI Ops (LLM usage, errors, latency)
+
+F2) Connections UI
+- List all providers from /api/integrations/status
+- Each row/card shows:
+  - configured / connected
+  - missing env vars
+  - proof_of_use_count_24h
+  - last_used_at
+  - verify button (calls /api/integrations/verify)
+- Detail popout shows last 50 integration_usage_events for that provider.
+
+F3) Bot-level popouts
+- Add a “Why Not Trading” drawer for each bot
+- Add Autonomy Score component on bot details + compact version in bot list
+- Add Decision Traces viewer (“Why Traded”) + No-Trade viewer (“Why Not”)
+- Ensure degraded handling: if endpoints fail, show DegradedBanner + disable dependent actions.
+
+F4) Proof-in-use requirement
+UI must explicitly show “Proof this integration is used by bots” via events count + last_used.
+No “connected” green check without proof-of-use evidence (or label it “Connected but not yet used”).
+
+──────────────────────────────────────────────────────────────────────────────
+PART G — EXPRESS-NATIVE AUTH + 2FA (NO SUPABASE AUTH) (dev + ui-lovable)
+──────────────────────────────────────────────────────────────────────────────
+
+G1) Remove Supabase Auth usage
+- Remove supabase.auth usage from client
+- Remove any UI calls to edge functions: send-2fa-code, verify-2fa-code
+- Supabase keys are NOT required for auth anymore.
+
+G2) Implement Express auth + 2FA (TOTP)
+Backend (dev):
+Data model:
+- users:
+  - twoFactorEnabled BOOLEAN DEFAULT false
+  - twoFactorSecretEncrypted TEXT NULL
+  - twoFactorMethod TEXT DEFAULT 'TOTP'
+  - twoFactorBackupCodesHash JSONB NULL
+  - twoFactorEnrolledAt TIMESTAMP NULL
+  - twoFactorLastVerifiedAt TIMESTAMP NULL
+Crypto:
+- APP_ENC_KEY in env for encrypting TOTP secret at rest
+- backup codes hashed (argon2/bcrypt)
+
+Endpoints (all return trace_id):
+- POST /api/auth/register
+- POST /api/auth/login
+  - if 2FA enabled → { requires_2fa: true, temp_token }
+- POST /api/auth/2fa/setup → returns otpauth_url + QR payload (only once)
+- POST /api/auth/2fa/confirm { code } → enables 2FA + returns backup codes once
+- POST /api/auth/2fa/verify { temp_token, code | backup_code } → returns session
+Sessions:
+- Use HTTP-only cookie sessions stored in Postgres (recommended) OR JWT in httpOnly cookie.
+UI (ui-lovable):
+- Settings: enroll/confirm + show backup codes once
+- Login: handle requires_2fa flow + backup code option
+Acceptance:
+- rg for supabase.auth / edge 2fa functions returns NONE
+- 2FA login works, backup codes one-time use, fail-closed errors shown.
+
+──────────────────────────────────────────────────────────────────────────────
+PART H — SUPABASE EDGE FUNCTIONS AUDIT + MIGRATION PLAN (dev)
+──────────────────────────────────────────────────────────────────────────────
+
+We have a large inventory of Supabase Edge Functions (99) and SEV-1 split-brain risk (runner/job/promotion/kill exist in both places).
+We are choosing: Express-only single control plane.
+
+H1) Immediate rules
+- UI must not call Supabase Edge Functions for:
+  promote-bot, create-starter-bots, reconcile-bot-execution, system-proof, run-backtest, etc.
+- Update client call sites to Express equivalents (rg verify no functions.invoke for those).
+
+H2) Migration targets (must be Express)
+- runner-tick (core trading loop)
+- sim-execute-order
+- risk-engine
+- broker-ironbeam / broker-tradovate
+- strategy-lab-* (lab workflow)
+- backtest-* (scheduler + runner)
+- market-hours, historical-data
+After migration, disable/delete edge versions to eliminate split-brain.
+
+H3) What to do with Supabase keys
+We do NOT need SUPABASE_URL/ANON/SERVICE keys unless we still run any edge functions.
+Target state: remove Supabase secrets from required env.
+
+──────────────────────────────────────────────────────────────────────────────
+DELIVERABLES (MUST PROVIDE)
+1) Exact list of files changed (grouped by dev vs ui-lovable).
+2) New DB tables + migration files (no ad-hoc SQL).
+3) Endpoint list with example responses (OK and fail-closed error).
+4) System Status screenshot/JSON proof showing BLOCKED due to missing keys, then DEGRADED/OK after keys added.
+5) Proof-of-use demo:
+   - after running a bot tick/backtest, show integration_usage_events count increases
+   - show last_used_at updates
+6) Bot explainability demo:
+   - decision trace exists for a trade
+   - no-trade trace exists when bot suppressed
+7) Autonomy score demo:
+   - score breakdown changes based on health (e.g., breaker open reduces tier)
+8) Auth + 2FA demo:
+   - enroll, confirm, login requires 2FA, backup code success
+
+IMPORTANT IMPLEMENTATION NOTES
+- Do not hardcode “fake” values to satisfy UI. Use real data or return 501 with structured errors.
+- Keep a strict error_code catalog; document in replit.md.
+- Add rate limits and timeouts on outbound provider calls.
+- Every provider call is timeboxed and logged to integration_usage_events.
+- Never allow LIVE execution unless:
+  isTradingEnabled=true AND broker connected AND risk engine enforcing AND data feed healthy.
+- UI must surface trace_id whenever degraded/blocked.
+
+START NOW
+Begin by:
+- dev branch: implement registry + /api/integrations/status + /api/system/status enhancements + telemetry tables + safe-start checks
+- ui-lovable: upgrade SystemStatus into Control Plane Observatory + Connections UI + bot popouts (Why Not, Autonomy Score)
+- remove Supabase auth + edge calls for 2FA and implement Express 2FA.

@@ -1,0 +1,60 @@
+# BlaidAgent — Weekend Metrics Analysis & Batch #2 Injection (January 4, 2026)
+# (Single Copy-Paste Block for Replit — Sunday Weekend Update)
+
+## Weekend Metrics Analysis: Strong Start for Grok Cohort
+Thanks for the weekend monitoring data — Grok bots are performing solidly, especially in this persistent bull regime (futures stable over weekend, ES ~6,900, NQ ~25,400 indicative).
+
+Key Insights:
+- **Grok MES Adaptive EMA Trend v1** in PAPER: Excellent Sharpe (1.82 > 0.7 gate), low Max DD (7.6% <15%), Win Rate 39.7% (near 40% gate). Trades: 73 (over min 50). This one's earning alpha fast — expect paper trades to ramp Monday RTH.
+- **Grok MES VWAP Institutional Bounce v1**: High Win Rate (60.8% >>40%), but negative Sharpe (-1.10) signals regime mismatch or optimization needed. Trades: 158 (solid). Low DD (4.4%). Prime for evolution.
+- **Grok ES ORB Retest v1**: Balanced Win Rate (52.4%), Trades: 63 (close to 100 for PAPER). Sharpe -0.26 (needs boost), but high DD (44.2% >>20% gate) — tighten stops?
+- **Grok MNQ Momentum Surge v1**: Trades: 74, Win Rate 33.8% (borderline 35%), Sharpe -0.20, DD 11.7%. Momentum archetype should shine in Monday's tech rally.
+- **Grok MNQ Overnight Reversion v1**: Pending — backtest starting; ETH sessions ideal for mean_reversion.
+
+Overall: 1/5 promoted to PAPER already — Grok outpacing baseline (expect 20–30% promotion rate). High trade counts building quickly. Negative Sharpes on some suggest adding regime filters (e.g., volatility gates) to address decay bottleneck.
+
+## Now What? Immediate Actions
+1. **Force Autonomy Loop**: Run scheduler.ts manually (or wait 5 min) to check for more TRIALS→PAPER promotions based on latest data.
+2. **Query Latest Logs**: `SELECT * FROM grok_injections WHERE timestamp > '2026-01-03';` — track any stage changes.
+3. **Monday RTH Focus (Jan 5, 9:30 ET)**: High volume expected — watch paper trades on the promoted bot. Tech/semiconductor strength favors MNQ/ES strategies.
+4. **Inject Batch #2 Now**: Below are 5 new high-confidence Grok candidates, optimized from metrics (tighter DD controls, higher Sharpe targets via added filters). Inject to expand the factory.
+
+## Batch #2: 5 New Grok Candidates (Ready for SQL Injection)
+All set for AUTO_CREATE_BOT, with Grok badge. Optimized: Added regime/volume filters for better Sharpe/Win Rate, conservative risk for DD <15%.
+
+### 1. Grok MNQ Scalping v1
+```sql
+INSERT INTO strategy_candidates (
+  strategy_name, archetype_name, entry_condition_type,
+  instrument_universe, timeframe_preferences, session_mode_preference,
+  hypothesis, rules_json, confidence_score, novelty_score,
+  disposition, source, created_by_ai, ai_provider
+) VALUES (
+  'Grok MNQ Scalping v1',
+  'scalping',
+  'RANGE_SCALP',
+  ARRAY['MNQ'],
+  ARRAY['5m'],
+  'RTH_US',
+  'Scalps micro ranges in MNQ during consolidation with RSI extremes and volume confirmation to achieve high win rate in low-vol regimes.',
+  '{
+    "version": "1.0.0",
+    "archetype": "scalping",
+    "entry": {
+      "condition": { "type": "RSI_EXTREME", "rsiPeriod": 14, "upper": 70, "lower": 30 },
+      "confirmations": [{ "type": "VOLUME", "volumeMultiplier": 1.2 }]
+    },
+    "exit": {
+      "stopLoss": [{ "type": "FIXED_TICKS", "ticks": 10 }],
+      "takeProfit": [{ "type": "FIXED_TICKS", "ticks": 15 }],
+      "timeStop": { "maxBarsInTrade": 20 }
+    },
+    "risk": { "maxPositionSize": 3, "riskPerTrade": 0.5, "maxDailyLoss": 2.0, "maxOpenPositions": 2 }
+  }'::jsonb,
+  86,
+  84,
+  'AUTO_CREATE_BOT',
+  'EXTERNAL_AI',
+  'Grok xAI',
+  'GROK'
+);

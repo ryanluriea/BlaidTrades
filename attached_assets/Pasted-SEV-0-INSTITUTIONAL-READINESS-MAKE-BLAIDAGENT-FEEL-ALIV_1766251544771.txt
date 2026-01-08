@@ -1,0 +1,188 @@
+SEV-0 / INSTITUTIONAL READINESS: MAKE BLAIDAGENT FEEL ALIVE + PROVABLE (NO EXTRA WINDOWS)
+
+Context / Non-negotiables
+- We already have: autonomy ticks, real Databento bars, strategy rules engine, evolution scaffolding, request logging, proof endpoints.
+- The UI STILL feels dead: bots show “active 2h ago”, badges are sparse, Gen/PnL sometimes looks stale.
+- I do NOT want a separate modal/window for “proof.” I want proof directly on the bot row via badges/tooltips/mini text.
+- Goal: Institutional-grade autonomy + observable truth. If a bot is idle, the row must say WHY and WHEN it will run next.
+
+========================================================
+A) DEFINE INSTITUTIONAL “BOT WORK SLA” (LAB MUST NOT STARVE)
+========================================================
+Implement a hard SLA for LAB:
+- Every LAB bot must have meaningful work at least every LAB_MAX_IDLE minutes.
+- Default targets (tunable via env):
+  - AUTONOMY_TICK_MS = 180000 (3 min)  ✅ OK
+  - LAB_BACKTEST_INTERVAL_MIN = 15
+  - LAB_IMPROVE_AFTER_BACKTEST = true
+  - LAB_EVOLVE_INTERVAL_MIN = 60
+  - LAB_MAX_IDLE_MIN = 20  (if no job in 20 min -> must enqueue something)
+  - LAB_MAX_CONCURRENT_JOBS_GLOBAL = safe default (ex: 2-4)
+  - LAB_MAX_CONCURRENT_JOBS_PER_BOT = 1
+  - LAB_BUDGET_BARS_PER_RUN and/or LAB_BUDGET_RUNTIME_SEC to prevent Replit meltdown
+
+Decision policy (LAB only):
+1) If bot has no valid baseline since metrics_reset_at -> queue BACKTESTER baseline immediately.
+2) Else if now - last_backtest_completed_at >= LAB_BACKTEST_INTERVAL_MIN -> queue BACKTESTER.
+3) Else if last_backtest_completed_at > last_improve_completed_at -> queue IMPROVING (one improvement per backtest).
+4) Else if now - last_evolve_completed_at >= LAB_EVOLVE_INTERVAL_MIN AND improvements_since_last_evolve >= N (configurable) -> queue EVOLVING.
+5) Else if now - last_any_job_completed_at >= LAB_MAX_IDLE_MIN -> queue a “KEEPALIVE_BACKTEST” (or regular BACKTESTER) so row never sits dead for hours in LAB.
+
+Important:
+- Don’t flood jobs. Enforce budgets and concurrency.
+- If Databento fails and stage policy requires real data -> fail job (institutional fail-closed), log reason, and reflect on row.
+
+========================================================
+B) BOT ROW MUST SHOW “WHAT’S HAPPENING” (BADGES + WHY-IDLE, NO MODALS)
+========================================================
+Badges required (primary activity badge):
+- Backtesting • x{attempt} • {elapsed}
+- Improving • #{iteration} • {elapsed}
+- Evolving • Gen {from}->{to} • {elapsed}
+- Queued • {job_type} • {position_in_queue? optional}
+- Failed • {reason_code} • {ago}
+
+Persistence:
+- Activity badges must persist after completion for >= 10 minutes (configurable), NOT 2 minutes.
+- If a bot is idle:
+  - show a subtle “Idle • next run in Xm” pill (or small text) AND a tooltip:
+    “Idle because: last_backtest=..., last_improve=..., waiting for interval, budget, or gating: {reason}”
+  - show “Last work: {job_type} {ago}” (never negative times; clamp).
+
+Fix negative/giant seconds:
+- Ensure all “ago”/elapsed uses server time or clamped client time. Never show negative. Never show absurd values.
+- If the value is older than 24h, show “>24h” not raw seconds.
+
+========================================================
+C) REAL-TIME METRICS UPDATES ON BOT LIST (PNL/TRADES/GEN/SHARPE)
+========================================================
+Requirement:
+- Bot list metrics update without manual refresh.
+- If any of these change: Net PnL, Trades, Sharpe, Win%, MaxDD, Gen -> row should visually pulse/flash briefly.
+
+Implementation:
+- Poll bots overview every 3-5 seconds OR use server-sent events/websocket if available.
+- Ensure query invalidation on:
+  - job completion events
+  - autonomy tick completion
+  - backtest session insert/update
+  - generation increment
+- Add “lastUpdatedAt” per row and use it for pulse animation.
+- Make sure the list is not showing cached/stale derived metrics.
+
+========================================================
+D) GENERATION MUST BE BACKEND TRUTH + LABEL MUST MATCH EVOLUTION
+========================================================
+- Gen label shown in row must reflect authoritative current_generation on bots table (or equivalent).
+- Increment generation ONLY when EVOLVING job completes successfully AND rules materially change.
+- Show Evolving badge while EVOLVING is running:
+  - “Evolving • Gen {current}->{current+1} • {elapsed}”
+- When EVOLVING completes:
+  - immediately update row to show “Gen {new}” and flash.
+
+Click behavior (NO MODAL WINDOW):
+- Clicking “Gen N” should expand inline (accordion inside the row) OR open the existing bot details panel (if you already have it) to a “Generations” section.
+- The “Generations” section must display:
+  - timeline list: Gen 1..N
+  - rules snapshot summary (human readable): entry/exit/invalidation/risk/session constraints
+  - metrics snapshot per generation: trades, net pnl, max dd, sharpe, win rate
+  - provenance: rules_hash, data_source, data_provider, bar_count, start/end ts
+
+This must be the same information used to build Bot Packs:
+- Bot Pack export contains machine data (full rules JSON, hashes, params, constraints, provenance).
+- UI shows the human-readable version of that exact same ruleset + stats.
+
+========================================================
+E) “STRATEGY ACTUALLY USED” PROOF (INSTITUTIONAL SAFETY)
+========================================================
+We had a mapping gap (gap fade unreachable). We need hard protections:
+
+1) Canonical strategy types + normalization
+- One shared enum/source-of-truth for archetype + entry condition types.
+- normalizeArchetype() must map all aliases consistently (spaces/underscores/case).
+- No silent fallthrough. Unknown archetype = FAIL-CLOSED with explicit error surfaced in UI.
+
+2) Exhaustiveness checking
+- Use TypeScript exhaustive switches with assertNever so adding an enum forces handling.
+
+3) Runtime provenance per backtest
+- Each backtest session must store:
+  - archetype, entry_condition_type actually executed
+  - rules_hash
+  - “implementation_verified” boolean (true only if canonical mapping path was used)
+- On the bot row, show a tiny verified indicator:
+  - “Strategy ✓” tooltip: “expected GAP_FADE, executed GAP_FADE, rules_hash=..., session_id=...”
+  - If mismatch: “Strategy !” tooltip showing expected vs actual.
+
+========================================================
+F) STAGE POLICIES MUST MATCH REALITY (NO CLAIMS WITHOUT PROOF)
+========================================================
+If stage policies say CANARY/LIVE requires macro/options/news/broker:
+- Enforce at runtime with fail-closed behavior.
+- Record in job/session provenance which sources were used (and which were missing).
+
+However:
+- LAB does not need all sources. LAB needs determinism, data provenance, and repeatable research.
+- PAPER/SHADOW/CANARY/LIVE progressively require more sources.
+
+========================================================
+G) PROOF PACK (FAST, COPY/PASTE OUTPUTS)
+========================================================
+Add/Update proof endpoints so we can verify in <2 minutes:
+
+1) Autonomy health:
+GET /api/_proof/autonomy
+- runs_last_10_minutes
+- jobs_enqueued_last_10_minutes
+- per-stage counts
+- “SLA breaches” count: # LAB bots idle > LAB_MAX_IDLE_MIN
+
+2) Job cadence:
+GET /api/_proof/jobs
+- recent_jobs (last 50) with job_type, status, bot_id, created/started/completed
+- “queue depth” and “worker active” flags
+
+3) LAB starvation report:
+GET /api/_proof/lab-starvation
+Return a list of LAB bots with:
+- last_backtest_completed_at
+- last_improve_completed_at
+- last_evolve_completed_at
+- last_any_job_completed_at
+- next_due_at
+- idle_reason_code
+- sla_breached boolean
+
+4) Data provenance:
+GET /api/_proof/databento
+- success rate, last 20 requests
+- last 20 sessions with data_source/provider/schema/bar_count/start/end/rules_hash
+
+Acceptance criteria (must PASS):
+- Within 30 minutes, each LAB bot has:
+  - >= 1 backtest
+  - >= 1 improvement (after at least 1 backtest)
+- Within 60-90 minutes, at least some bots have EVOLVING attempts and Gen increments if rules materially change.
+- Bot list shows activity badges for most bots most of the time (or “Idle • next run Xm • reason”).
+- No “2h ago” starvation in LAB unless explicitly explained by budget/rate-limit, and then SLA panel flags it.
+
+========================================================
+H) IMPORTANT: UX REQUIREMENTS (NO NEW WINDOWS)
+========================================================
+- No separate modal windows for proof.
+- Use inline expand/collapse in the row or reuse existing details panel.
+- Badges must be visible and meaningful (not flickering).
+- Show “next run” and “why idle” on row to avoid confusion.
+
+Deliverables
+- Implement the SLA + decision tree + cadence.
+- Implement row-level proof (strategy verified, provenance tooltip, why idle, next run).
+- Implement real-time polling + flash-on-change.
+- Implement generation correctness + inline history view.
+- Provide proof pack outputs + screenshots of:
+  - multiple bots showing Backtesting + Improving badges
+  - at least one bot showing Evolving badge when EVOLVING runs
+  - Gen increments reflected on row after EVOLVING completion
+  - lab-starvation endpoint showing 0 SLA breaches (or explainable ones)
+
+Do NOT suggest deleting bots as a fix. Fix the autonomy engine + observability.

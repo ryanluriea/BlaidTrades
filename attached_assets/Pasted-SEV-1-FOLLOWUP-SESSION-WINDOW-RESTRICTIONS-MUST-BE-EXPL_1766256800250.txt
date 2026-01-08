@@ -1,0 +1,132 @@
+SEV-1 FOLLOWUP: SESSION WINDOW RESTRICTIONS MUST BE EXPLICIT, CONFIGURABLE, AND AUDITABLE (NO HIDDEN FILTERS)
+
+Problem
+We discovered backtests were filtering out most bars due to narrow session windows (e.g. 10:30–14:30 ET), causing 0 trades.
+A patch “widened” sessions + added LAB relaxation to generate trades. That’s progress, BUT:
+
+- Futures trade ~23h/day. Hidden session gating is unacceptable.
+- Any session filtering must be a configurable research dimension, not hard-coded constraints.
+- LAB “relaxation” must be bounded, visible, and must NOT silently apply to PAPER/LIVE.
+
+Goal
+1) Default LAB research should run 24/5 (or “FULL_CME”) unless the bot explicitly chooses otherwise.
+2) Session filtering becomes a first-class config with clear UI + provenance in backtest_sessions.
+3) Research can optionally segment results by session (RTH vs ETH) for institutional reporting.
+4) No more “mystery windows” that block trades.
+
+========================================================
+A) MAKE SESSION MODE A FIRST-CLASS BOT CONFIG
+========================================================
+Add a canonical field for session behavior (persisted):
+- bots.session_mode: one of
+  - FULL_24x5 (default for LAB)
+  - RTH_US (09:30–16:00 ET or CME-defined equity RTH)
+  - ETH (overnight profile)
+  - CUSTOM (explicit start/end + tz)
+- bots.session_timezone (default America/New_York)
+- bots.session_start / bots.session_end only when CUSTOM
+
+Backwards compatibility:
+- If existing strategy rules include session constraints, DO NOT apply them silently.
+- Instead, migrate those into bots.session_mode=CUSTOM (or map to RTH_US) and surface it.
+
+========================================================
+B) STRATEGY RULES MUST NOT “HARD GATE” TIME
+========================================================
+Refactor strategy logic so:
+- Strategy entry/exit rules are time-agnostic by default.
+- Session filtering is applied as a separate preprocessor step ONLY IF session_mode != FULL_24x5.
+- This ensures “setups happen anytime” is supported and testable.
+
+========================================================
+C) LAB CALIBRATION SHOULD TUNE SESSIONS AS A DIMENSION (OPTIONAL)
+========================================================
+Keep the good part: LAB needs to generate baseline trades.
+But do it institutionally:
+
+- Default session_mode for LAB = FULL_24x5
+- If a bot fails baseline (0 trades), calibration may test:
+  1) FULL_24x5
+  2) RTH_US
+  3) ETH
+  4) CUSTOM (optional)
+and choose the first that achieves MIN_TRADES_TARGET under DD caps.
+
+Persist the selected session_mode + parameters per bot, and log the calibration decision.
+
+NO silent widening hacks inside executor. Session choice must be explicit config and logged.
+
+========================================================
+D) FAIL-CLOSED + PROVENANCE (INSTITUTIONAL)
+========================================================
+In backtest_sessions, store:
+- session_mode_used
+- session_timezone_used
+- session_start_used / session_end_used (if custom)
+- session_filter_bar_count (bars after session filtering)
+- total_bar_count (before filtering)
+
+Add a proof endpoint:
+GET /api/_proof/sessions
+Return for last N sessions:
+- bot_id, strategy/archetype, session_mode_used
+- total_bar_count vs session_filter_bar_count
+- total_trades, net_pnl
+This makes it impossible to “lose 83% of bars” silently.
+
+========================================================
+E) UI: SHOW SESSION MODE ON BOT ROW (NO MODAL)
+========================================================
+On the bot row show a small pill:
+- “24/5” or “RTH” or “ETH” or “Custom”
+Tooltip must include:
+- timezone + window if not 24/5
+- “bars kept: X / Y”
+This answers “why trades are zero” instantly.
+
+========================================================
+F) REMOVE “LAB MODE RELAXATION” FROM PAPER BY DEFAULT
+========================================================
+Replit said LAB relaxation is enabled for LAB and PAPER automatically.
+That is NOT institutional.
+
+Change:
+- LAB relaxation: allowed (bounded) and logged
+- PAPER: default to production rules (no relaxation)
+- Add a flag per stage policy if you want paper-relaxed, but default should be OFF.
+
+Store in backtest_sessions:
+- rules_profile_used: PRODUCTION vs LAB_RELAXED
+- relaxed_flags applied (if any)
+
+========================================================
+G) ACCEPTANCE CRITERIA
+========================================================
+Done only when:
+1) A LAB bot can run 24/5 without any session filter and produce trades when market conditions allow.
+2) If session filtering is used, it’s visible on the bot row and stored in backtest_sessions.
+3) No hard-coded per-strategy windows remain that silently gate entries.
+4) PAPER stage runs PRODUCTION rules by default (no LAB relaxation leakage).
+5) Proof endpoints show total bars vs kept bars per session.
+
+Quick SQL checks:
+- Show sessions with heavy filtering:
+SELECT bot_id, total_bar_count, session_filter_bar_count, total_trades
+FROM backtest_sessions
+WHERE created_at > NOW() - INTERVAL '24 hours'
+ORDER BY (session_filter_bar_count::float / NULLIF(total_bar_count,0)) ASC
+LIMIT 25;
+
+- Show any PAPER sessions using relaxed profile (should be 0 unless explicitly enabled):
+SELECT bot_id, rules_profile_used, created_at
+FROM backtest_sessions
+WHERE created_at > NOW() - INTERVAL '24 hours'
+  AND stage = 'PAPER'
+  AND rules_profile_used = 'LAB_RELAXED'
+ORDER BY created_at DESC;
+
+========================================================
+H) IMPORTANT: NO “WE WIDENED IT IN CODE” SHORTCUTS
+========================================================
+We do not want hidden wideners in backtest-executor.
+Session behavior must come from bot config and be recorded per session.

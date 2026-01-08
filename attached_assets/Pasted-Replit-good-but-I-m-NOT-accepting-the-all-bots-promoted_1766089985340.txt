@@ -1,0 +1,131 @@
+Replit — good, but I’m NOT accepting the “all bots promoted LAB→PAPER” as a success until you prove (with evidence) that:
+
+1) the autonomy loop used REAL backtest results (not empty/default metrics),
+2) the market data + broker gates were respected,
+3) instrument integrity (tick size/point value/fees) is correct,
+4) the UI state/badges + Feed accurately reflect what happened.
+
+Also: you changed the event type to AUTONOMY_TIER_CHANGED because of enum limits — acceptable for now, but you must include decision metadata (score + reasons + trace_id) so it’s auditable.
+
+=====================================================================
+A) REQUIRED PROOFS (PASTE OUTPUTS, REDACT SECRETS)
+=====================================================================
+
+1) Autonomy score writes exist and look sane (not null/zeros)
+Run:
+- SELECT COUNT(*) FROM autonomy_scores;
+- SELECT bot_id, autonomy_score, autonomy_tier, last_updated_at 
+  FROM autonomy_scores 
+  ORDER BY last_updated_at DESC 
+  LIMIT 10;
+
+2) Prove promotions were justified by results (NOT automatic / no-metrics)
+Run:
+- SELECT id, name, stage, sim_total_trades, sim_pnl, last_backtest_at, evolution_status
+  FROM bots
+  ORDER BY last_backtest_at DESC NULLS LAST
+  LIMIT 20;
+
+If last_backtest_at is NULL or sim_total_trades = 0 for promoted bots, then the promotion logic is wrong / unsafe. Fix it.
+
+3) Prove backtests actually completed and generated trades + metrics
+Run:
+- SELECT status, COUNT(*) FROM backtest_sessions GROUP BY status ORDER BY status;
+- SELECT id, bot_id, status, started_at, completed_at, trades_count, realized_pnl, max_dd
+  FROM backtest_sessions
+  ORDER BY created_at DESC
+  LIMIT 10;
+
+- SELECT id, bot_id, created_at 
+  FROM trade_logs 
+  ORDER BY created_at DESC 
+  LIMIT 10;
+
+4) Prove the gates were honored (PAPER should not start if providers aren’t configured)
+Paste:
+- curl -s http://localhost:5000/api/integrations/status | jq
+- curl -s http://localhost:5000/api/system/status | jq
+- curl -s http://localhost:5000/api/scheduler/status | jq
+
+If integrations show configured=false but bots got promoted, that’s a gate violation. Fix.
+
+=====================================================================
+B) SAFETY FIX: Promotions MUST be conditional
+=====================================================================
+
+Right now “All bots promoted LAB→PAPER” smells like a logic bug or missing constraints.
+Update autonomy promotion rules so PAPER promotion requires (minimum):
+
+- last_backtest_at IS NOT NULL
+- sim_total_trades >= 20 (or whatever threshold you set)
+- sim_pnl is computed from REALIZED PnL (net of fees)
+- max_dd not NULL and under threshold
+- market data provider configured=true (Databento) AND verified within last 24h OR has proof_of_use_count_24h > 0
+- if paper execution requires broker, then broker configured=true; otherwise allow PAPER with “execution_disabled=true” and show DEGRADED
+
+If these requirements are not met:
+- do NOT promote
+- emit AUTONOMY_TIER_CHANGED with decision=BLOCKED and reasons
+
+=====================================================================
+C) EVENT/AUDIT REQUIREMENTS (NO “UNKNOWN”)
+=====================================================================
+
+Because you had to reuse AUTONOMY_TIER_CHANGED, embed audit fields in metadata:
+- trace_id
+- autonomy_score
+- prev_tier -> new_tier
+- decision (PROMOTE / DEMOTE / HOLD / BLOCKED)
+- reasons[] (explicit codes)
+- inputs snapshot:
+  - sim_total_trades, sim_pnl, max_dd, win_rate, last_backtest_at
+
+Also emit the backtest lifecycle events if not already:
+- BACKTEST_QUEUED / BACKTEST_STARTED / BACKTEST_COMPLETED / BACKTEST_FAILED
+
+=====================================================================
+D) UI GAP: “Fresh” badge only is not acceptable
+=====================================================================
+
+Priority next: restore bot NOW_STATE badges + tooltip reasons.
+
+Deliver:
+1) Identify where “Fresh” comes from (file + line + what field).
+2) Implement a deterministic now_state resolver based on:
+   - bot_jobs (RUNNING/QUEUED/FAILED for BACKTESTER/RUNNER/EVOLVER)
+   - backtest_sessions latest status
+   - last activity event type
+3) Replace yellow “!” with a deterministic DEGRADED/ERROR state + tooltip reason.
+
+Proof:
+- screenshot showing at least:
+  - 1 bot BACKTESTING
+  - 1 bot QUEUED
+  - 1 bot PAPER_RUNNING (or PAPER_READY if execution disabled)
+  - 1 bot DEGRADED with explicit reason
+
+=====================================================================
+E) NEXT: Instrument integrity + correct contract pricing
+=====================================================================
+
+After you paste the proof outputs above, proceed with:
+- Canonical InstrumentSpec (MES/MNQ at minimum)
+- Hard assertion on tick size + price validity
+- Correct futures PnL math (pointValue/tickValue)
+- fees/slippage included
+- diagnostics endpoint: /api/diagnostics/instrument-check?symbol=MNQ
+
+=====================================================================
+F) “Front vs back end issue?” — yes, and this reply covers it
+=====================================================================
+
+This reply explicitly calls out:
+- backend correctness (scores, promotions, gates, backtests, trade logs)
+- frontend correctness (badges, feed evidence, tooltips)
+So yes — send this as the response to align both sides.
+
+=====================================================================
+NOW: PASTE THE PROOFS
+=====================================================================
+
+Reply with the outputs for section A (1–4). If anything is missing/NULL/0, we fix that next before claiming “autonomous system working.”

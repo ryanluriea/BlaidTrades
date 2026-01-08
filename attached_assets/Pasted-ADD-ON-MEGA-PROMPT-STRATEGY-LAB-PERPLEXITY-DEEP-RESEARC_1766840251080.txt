@@ -1,0 +1,378 @@
+ADD-ON MEGA PROMPT — STRATEGY LAB: PERPLEXITY DEEP RESEARCH + SCORING + REGIME BURSTS + CITED EXPLAINERS
+================================================================================
+
+Non-negotiables:
+- Do NOT add any new pages.
+- Do NOT prompt the user to do anything.
+- Everything runs autonomously.
+- Strategy candidates are produced in Strategy Lab and handed off to LAB automatically under existing governance.
+- Live promotion is the only human-confirm step (already exists).
+- Perplexity is research-only. It never trades, never promotes, never executes.
+
+Goal:
+Make Perplexity dig substantially deeper, generate genuinely novel + relevant strategy candidates, score them institutionally, trigger research bursts on regime shifts, and attach a cited “why this exists” explainer to each candidate (rendered within existing Strategy Lab candidate UI elements like tooltips/expanders/panels already present).
+
+================================================================================
+0) DEFINITIONS (internal consistency only)
+================================================================================
+- “Candidate” = proposed strategy concept with fully-specified rules and metadata.
+- “Novel” = not just a renamed classic; must include a distinct hypothesis, regime scope, and at least one differentiating constraint (trigger/filter/exit/positioning).
+- “Source evidence” = citations (URLs) + short quotes/snippets within compliance limits (no long copying).
+- “Confidence” = computed score (0–100) from deterministic rubric (below), not vibes.
+
+================================================================================
+1) PERPLEXITY RESEARCH ENGINE (AUTONOMOUS)
+================================================================================
+Perplexity runs as an autonomous Research Engine with:
+- Scheduled cycles (baseline cadence)
+- Event-driven burst cycles (regime-switch triggers)
+- Portfolio-aware diversification goals (avoid cloning same idea)
+
+Outputs are always:
+- machine-usable
+- deterministic schema
+- fully rule-specified
+- cite-backed explainers
+
+No vague “could” language. No hand-waving. No defaults.
+
+================================================================================
+2) DEEPENED RESEARCH MODES — B) EDGE ARCHAEOLOGY (EXPANDED)
+================================================================================
+Objective:
+Unearth obscure, niche, and institutional-grade edges, including ones not widely documented in retail sources.
+
+B1) SOURCE LAYERS (must search across all layers, not just one)
+- Academic: SSRN, arXiv, NBER-style discussions, university repositories
+- Market microstructure / execution research: papers on spreads, volatility, order flow, auction dynamics
+- Exchange/clearing/regulatory: CME/ICE docs, margin changes, contract specs, roll mechanics, settlement quirks
+- Institutional commentary: sell-side notes summaries (where publicly referenced), volatility research blogs, quant interviews
+- Retail-to-pro “dark corners”: niche forums/discord writeups that reference measurable rules (must be validated or downweighted)
+
+B2) EDGE CATEGORIES (must attempt all categories each cycle)
+1) Microstructure edges
+   - opening/closing auction effects (where applicable)
+   - liquidity vacuums and refill patterns
+   - spread widening/narrowing proxies
+   - “failed breakout” frequency under volatility regimes
+   - micro pullback structures after impulse
+
+2) Volatility structure edges
+   - compression → expansion triggers (range-to-trend transitions)
+   - volatility mean reversion windows
+   - intraday volatility seasonality
+
+3) Session transition edges (futures-specific)
+   - overnight inventory unwind behavior
+   - RTH open impulse continuation vs fade regimes
+   - lunch-hour behavior vs post-lunch impulse
+   - pre-close positioning / settlement gravity hypotheses
+
+4) “Constraint-based” edges
+   - only trade when conditions reduce false positives:
+     - trend filter + volatility filter + time filter (optional)
+   - exit-as-edge:
+     - time-based exits
+     - volatility-based trailing
+     - partials at structure levels
+
+5) Contract mechanics edges (futures reality)
+   - continuous contract roll distortions and how to avoid them
+   - tick-size/tick-value effects on scalps
+   - session gap handling and implied “carry” behavior
+   - contract-specific behavior differences (MES vs ES, MNQ vs NQ)
+
+6) Failure-mode mining
+   - For each candidate edge, Perplexity must explicitly enumerate:
+     - when it fails
+     - how to detect “do not trade” windows
+     - how to reduce blow-ups (risk governor constraints)
+
+B3) EDGE VALIDATION REQUIREMENTS (research-time, not backtest-time)
+Perplexity must provide:
+- at least 2 independent sources OR 1 high-quality primary source
+- an “operationalization plan”:
+  - exact signals required
+  - proxy signals if direct data unavailable
+- a falsifiable hypothesis:
+  - “If X, then expect Y within Z bars; otherwise invalidate”
+
+B4) OUTPUT TYPES FROM EDGE ARCHAEOLOGY
+Perplexity must output at least:
+- 2 “institutional classic” candidates (robust, lower novelty risk)
+- 2 “hybrid” candidates (blend of known + new constraint)
+- 1 “high-novelty” candidate (experimental, explicitly flagged)
+
+================================================================================
+3) DEEPENED RESEARCH MODES — C) NOVEL STRATEGY SYNTHESIS (EXPANDED)
+================================================================================
+Objective:
+Generate strategies that are not just re-skins. Synthesis must create new rule systems from multiple independent mechanisms.
+
+C1) SYNTHESIS METHODS (must use ≥2 per novel candidate)
+1) Mechanism stacking
+   - Combine:
+     - regime filter
+     - trigger
+     - confirmation
+     - risk governor
+     - exit governor
+   - Each layer must be justified.
+
+2) Contradiction exploitation
+   - Use cases where indicator families disagree:
+     - trend says “on” but volatility says “no”
+     - mean reversion says “enter” but structure says “wait”
+   - Strategy becomes: “trade only the contradiction resolution.”
+
+3) Conditional strategy switching (policy)
+   - One bot, multiple sub-policies:
+     - if regime=A use mean reversion
+     - if regime=B use breakout continuation
+   - Must be explicit and deterministic.
+
+4) Anti-pattern inversion
+   - Identify a common retail rule and invert only when a filter indicates crowd-trap probability:
+     - “breakout entries” become “breakout failure fade” under certain conditions
+
+5) Risk-as-signal synthesis
+   - Use drawdown/volatility/stop-frequency feedback to adapt:
+     - if stop frequency spikes → tighten entries or switch policy
+
+6) “Outcome-shaping exits”
+   - Entry can be simple; exit is edge:
+     - volatility-based trailing
+     - structure-based partials
+     - time stop + profit stop combo
+
+C2) NOVELTY CHECK (hard)
+Perplexity must provide a “Novelty Justification”:
+- list closest known strategies and why this is distinct (specific rule deltas)
+- at least one unique gating constraint or exit mechanic
+- “what makes this revolutionary” must be measurable, not marketing
+
+C3) REQUIRED ARTIFACTS FOR EACH NOVEL CANDIDATE
+- Rule spec (entry/exit/risk)
+- “Mechanisms list” (what it is combining)
+- “Expected regime” (where it should work)
+- “Expected failure mode”
+- “Minimum data requirements” (what inputs needed)
+- “Simplified baseline variant” (if too complex, provide a pared-down v0)
+
+================================================================================
+4) CANDIDATE OBJECT SCHEMA (STRICT)
+================================================================================
+Perplexity must return candidates in strict JSON (no extra prose in the payload).
+Example shape (must conform):
+
+{
+  "strategy_name": "...",
+  "archetype_id": "...",                       // canonical
+  "entry_condition_type": "...",               // canonical
+  "instrument_universe": ["MES", "MNQ"],        // can include more
+  "timeframe_preferences": ["1m", "5m", "15m"], // optional
+  "session_mode_preference": "FULL_24x5|RTH|CUSTOM",
+  "hypothesis": "...",
+  "rules": {
+    "entry": [... explicit rules ...],
+    "exit": [... explicit rules ...],
+    "risk": [... explicit rules ...],
+    "filters": [... explicit rules ...],
+    "invalidation": [... explicit rules ...]
+  },
+  "novelty_justification": {
+    "closest_known": ["..."],
+    "distinct_deltas": ["..."],
+    "why_it_matters": "..."
+  },
+  "data_requirements": {
+    "required": ["OHLCV", "..."],
+    "optional": ["options_flow", "macro", "news_sentiment"],
+    "proxies": [{"need":"...", "proxy":"..."}]
+  },
+  "evidence": [
+    {
+      "title": "...",
+      "url": "...",
+      "source_tier": "PRIMARY|SECONDARY|TERTIARY",
+      "snippet": "<=25 words",
+      "supports": ["hypothesis|filter|exit|risk"]
+    }
+  ],
+  "confidence": {
+    "score": 0,
+    "breakdown": { ... rubric below ... }
+  },
+  "explainers": {
+    "why_this_exists": "... (cited explainer text, concise)",
+    "how_to_falsify": "...",
+    "expected_failure_modes": ["..."],
+    "what_to_watch": ["..."]
+  }
+}
+
+No “random”. No silent fallthrough. Unknown archetypes must be rejected fail-closed.
+
+================================================================================
+5) CONFIDENCE SCORING LOGIC (INSTITUTIONAL RUBRIC, 0–100)
+================================================================================
+Implement deterministic scoring for Perplexity outputs.
+
+Score components (weights add to 100):
+
+A) Evidence Quality (0–25)
+- 25: ≥2 independent high-quality sources OR 1 strong primary source + reproducible rationale
+- 15: mixed sources, partial primary, still coherent
+- 5: mostly tertiary chatter
+- 0: no citations or unverifiable claims
+
+B) Operational Clarity (0–20)
+- 20: rules are explicit, implementable, falsifiable, no ambiguity
+- 10: implementable but missing one critical element (exit/risk/invalidation)
+- 0: vague or discretionary
+
+C) Novelty with Justification (0–15)
+- 15: clear distinct deltas, not a rename, measurable novelty
+- 8: hybrid but not truly unique
+- 0: clone
+
+D) Regime Fit Strength (0–15)
+- 15: explicitly tied to a regime definition and reasoned mechanism
+- 8: generic “works always” claim
+- 0: contradicts itself
+
+E) Risk Governance Completeness (0–15)
+- 15: includes risk + invalidation + stop logic + failure detection
+- 8: partial
+- 0: none
+
+F) Data Feasibility (0–10)
+- 10: required inputs are available in our stack (OHLCV minimum, plus optional sources)
+- 5: requires data we don’t have but provides proxies
+- 0: requires unavailable data with no proxy
+
+Confidence score = sum(weighted components).
+Attach breakdown per candidate.
+
+Hard gates:
+- If Operational Clarity < 10 → candidate cannot be auto-instantiated (must be rejected or parked).
+- If Evidence Quality < 8 AND Novelty > 10 → mark as EXPERIMENTAL and downrank.
+
+================================================================================
+6) REGIME-SWITCH TRIGGERS (RESEARCH BURSTS)
+================================================================================
+Perplexity must run “deep research bursts” when the system detects a regime shift.
+
+Define regime states (internal):
+- VOLATILITY_SPIKE
+- VOLATILITY_COMPRESSION
+- TRENDING_STRONG
+- RANGE_BOUND
+- LIQUIDITY_THIN
+- NEWS_SHOCK
+- MACRO_EVENT_CLUSTER
+
+Trigger conditions (examples; implement with available telemetry):
+1) Volatility Spike
+- realized vol (intraday) exceeds N-day baseline by threshold
+- or ATR% jump beyond threshold
+
+2) Volatility Compression
+- ATR% drops below threshold for sustained window
+- range contraction in last X bars
+
+3) Trend Strength
+- ADX proxy or EMA slope proxy exceeds threshold
+- consecutive directional closes beyond threshold
+
+4) Range Bound
+- low trend proxy + repeated mean reversion behavior
+- breakout failure rate rises
+
+5) News Shock
+- sentiment spike or macro event cluster detected
+- economic calendar high-impact event windows (if available/working)
+
+When triggered:
+- Run Perplexity “Burst Research Pack”:
+  - 3 strategy candidates specific to the new regime
+  - 1 “defensive” strategy (risk-off / reduced exposure)
+  - 1 “opportunistic” strategy (expansion capture)
+- Candidates must explicitly mention:
+  - “triggered_by_regime = …”
+  - “why this regime favors this mechanism”
+
+No UI. Everything logs + candidates appear normally.
+
+================================================================================
+7) “WHY THIS STRATEGY EXISTS” EXPLAINER (CITED, DIGESTIBLE)
+================================================================================
+For every candidate, attach a concise explainer that appears inside existing Strategy Lab candidate UI (expandable panel / tooltip / existing details drawer).
+
+Constraints:
+- Must include citations list (URLs)
+- Must include at least:
+  - Mechanism (what behavior it exploits)
+  - Conditions (when it should work)
+  - Failure modes (when it shouldn’t)
+  - What invalidates it
+- Must be short enough to be digestible; no walls of text.
+- Must include 1–3 short snippets (<=25 words each).
+
+Format example (string, rendered in existing UI):
+- “Mechanism: …”
+- “Works best when: …”
+- “Fails when: …”
+- “Invalidation: …”
+- “Evidence: [1] [2] …”
+
+================================================================================
+8) AUTONOMOUS HANDOFF RULES (STRATEGY LAB → LAB)
+================================================================================
+No user action required.
+
+Candidate selection policy:
+- Each cycle choose a balanced set:
+  - 1–2 high confidence (score >= 75)
+  - 1 medium confidence (55–74) diversified
+  - 1 experimental (<=54) only if novelty is high and operational clarity passes
+- Avoid duplication:
+  - Do not create 10 mean reversion variants unless regime specifically calls for it.
+
+Handoff policy:
+- Candidates are instantiated and sent through the standard LAB pipeline automatically.
+- Promotion remains gated by existing rules and the live confirm step.
+
+================================================================================
+9) PROOF & AUDITABILITY (NO NEW PAGES)
+================================================================================
+Within existing tables/logging:
+- Each candidate stores:
+  - evidence citations
+  - confidence breakdown
+  - “triggered_by_regime” if applicable
+  - “novelty justification”
+  - “rules hash” for reproducibility
+
+Minimum proof requirement:
+- For any candidate instantiated, we can show:
+  - exact rules used
+  - citations used to justify the hypothesis
+  - confidence breakdown
+  - regime trigger (if any)
+
+================================================================================
+10) ACCEPTANCE CRITERIA
+================================================================================
+This work is done when:
+
+1) Perplexity outputs candidates with strict JSON + citations + rubric breakdown.
+2) Candidates show a “why this exists” explainer inside existing Strategy Lab candidate UI.
+3) Confidence scoring deterministically ranks candidates.
+4) Regime switch triggers reliably generate deep research bursts.
+5) Strategy Lab continuously generates diverse candidates, including truly novel ones.
+6) No user steps, no new pages, no manual triggers.
+
+================================================================================
+END PROMPT
+================================================================================

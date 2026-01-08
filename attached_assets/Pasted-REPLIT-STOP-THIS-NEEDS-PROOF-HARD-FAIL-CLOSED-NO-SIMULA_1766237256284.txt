@@ -1,0 +1,158 @@
+REPLIT — STOP. THIS NEEDS PROOF + HARD FAIL-CLOSED (NO “SIMULATED_FALLBACK”)
+
+You just claimed SEV-0 is complete (real Databento + real strategies + real evolution). Good — now PROVE IT and remove any “demo escape hatches.”
+
+========================
+A) NON-NEGOTIABLE RULES
+========================
+1) NO SIMULATED FALLBACK IN ANY “INSTITUTIONAL” MODE
+- “automatic fallback to simulated data if API unavailable” is NOT acceptable.
+- In institutional mode, missing data must FAIL CLOSED:
+  - Job status = FAILED
+  - reasonCode = MARKET_DATA_UNAVAILABLE
+  - visible in UI + /api/_proof/jobs
+- You may keep fallback ONLY behind an explicit dev flag, default OFF:
+  - ALLOW_SIM_FALLBACK=false (default)
+  - If true, it must stamp every session/trade with DATA_SOURCE=SIMULATED_FALLBACK and UI must scream it.
+
+2) EVERY BACKTEST SESSION MUST RECORD ITS DATA PROVENANCE
+- backtest_sessions MUST persist:
+  - data_source: DATABENTO_REAL | SIMULATED_FALLBACK
+  - provider: DATABENTO
+  - schema: OHLCV-1m (or whatever)
+  - start_ts/end_ts
+  - bar_count
+  - raw_request_id or a reproducible query fingerprint (symbol, timeframe, start/end, dataset)
+- If any of these are missing: FAIL CLOSED.
+
+3) STRATEGY LOGIC MUST BE INSPECTABLE + VERSIONED
+- For each bot run:
+  - store strategy_rules_json snapshot used for that session
+  - store hash (rules_hash)
+- No randomness. No hidden param drift.
+
+4) EVOLUTION MUST CHANGE RULES OR IT DOESN’T COUNT
+- EVOLVING completion must include:
+  - before_rules_hash, after_rules_hash
+  - diff summary (what changed)
+  - why (mutation objective)
+  - performance deltas on re-backtest
+
+========================
+B) FAST PROOF (RUN THESE NOW)
+========================
+Run in Replit Shell and paste outputs.
+
+1) PROVE autonomy is ticking recently
+curl -s http://localhost:5000/api/_proof/autonomy | jq .
+
+2) PROVE jobs are being created recently
+curl -s http://localhost:5000/api/_proof/jobs | jq .
+
+3) PROVE backtest sessions show REAL databento provenance
+-- Show last 25 sessions with provenance fields
+SELECT
+  id, bot_id, status, created_at, completed_at,
+  symbol, timeframe,
+  data_source, provider, schema,
+  start_ts, end_ts, bar_count,
+  total_trades, net_pnl
+FROM backtest_sessions
+ORDER BY created_at DESC
+LIMIT 25;
+
+ACCEPTANCE: data_source must be DATABENTO_REAL for ALL institutional runs.
+If ANY are SIMULATED_FALLBACK, that’s a SEV-0 fail unless explicit dev flag enabled.
+
+4) PROVE trade timestamps line up with session range (no fabricated time)
+SELECT
+  t.session_id, MIN(t.entry_ts) AS min_entry, MAX(t.exit_ts) AS max_exit, COUNT(*) AS trades
+FROM backtest_trades t
+GROUP BY t.session_id
+ORDER BY MAX(t.exit_ts) DESC
+LIMIT 10;
+
+5) PROVE Databento is actually queried (no placebo)
+- Add server logs (or a “proof” endpoint) that returns last N Databento requests:
+  - symbol, start/end, timeframe, bars_returned, latency_ms, http_status
+Then run:
+curl -s http://localhost:5000/api/_proof/databento | jq .
+
+========================
+C) REMOVE FAKENESS: MAKE DATA FAIL-CLOSED
+========================
+Implement this now:
+
+1) Add env flag:
+ALLOW_SIM_FALLBACK=false (default)
+
+2) In Databento fetch path:
+- if Databento call fails and ALLOW_SIM_FALLBACK=false:
+  - throw error
+  - mark backtest job FAILED with reasonCode MARKET_DATA_UNAVAILABLE
+  - write into jobRunEvents + error_logs
+  - do NOT generate bars/trades
+
+3) In backtest session creation:
+- data_source MUST be set (required)
+- If missing: throw and fail job
+
+4) Update System Health:
+- Market Data Live should show:
+  - Databento configured? yes/no
+  - Last successful request time
+  - Last failure time + error
+- If provider not configured: System Health = FAIL and blocks CANARY/LIVE (fine)
+
+========================
+D) BADGES + UI PROOF (NO EXTERNAL WINDOWS)
+========================
+I want badges in the bots list only. No separate windows required.
+
+1) Show “Backtesting / Improving / Evolving” on the row when those jobs are active.
+2) Persist completed activity badge for 10 minutes (muted) so I can see the system is alive.
+3) FIX the “-17976s ago” issue permanently by clamping:
+elapsedSeconds = max(0, now - completed_at)
+
+PROOF:
+- Provide AUTHENTICATED screenshot showing multiple bots with:
+  - Backtesting • xN • {elapsed}
+  - Improving • #N • {elapsed}
+  - Evolving • {elapsed}
+- If bots are “Idle”, show “Next scheduled run in Xm” tooltip (LAB cadence visibility).
+
+========================
+E) STRATEGY / EVOLUTION PROOF
+========================
+1) Print the exact rules for ONE bot’s current generation (entry/exit/risk/session)
+curl -s http://localhost:5000/api/bots/{BOT_ID}/rules | jq .
+
+2) Show evolution history for that bot (gen increments, diffs, objectives)
+curl -s http://localhost:5000/api/bots/{BOT_ID}/generations | jq .
+
+SQL PROOF:
+SELECT
+  bot_id, generation, created_at,
+  objective, before_rules_hash, after_rules_hash,
+  rules_diff_summary
+FROM bot_generations
+WHERE bot_id = '{BOT_ID}'
+ORDER BY generation DESC
+LIMIT 20;
+
+ACCEPTANCE:
+- after_rules_hash must differ from before_rules_hash to count a generation increment
+- must show non-empty diff summary
+
+========================
+F) FINAL ACCEPTANCE CHECKLIST (PASS/FAIL)
+========================
+PASS only if:
+- All institutional backtests show data_source = DATABENTO_REAL
+- No simulated fallback unless ALLOW_SIM_FALLBACK=true (and clearly labeled)
+- Backtests produce deterministic results on rerun (same data, same rules)
+- Multiple bots are continuously cycling in LAB (Backtest → Improve → Evolve) on cadence
+- Badges are visible and accurate in the bots list
+- Generation increments only on real rule changes with stored diffs + re-backtest deltas
+
+If any step fails, do not claim “institutional-ready.” Fix and re-run the proof pack.

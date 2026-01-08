@@ -1,0 +1,431 @@
+AUTHORITATIVE MASTER DIRECTIVE — BLAIDAGENT AUTONOMY, CONTROL PLANE & EXPLAINABILITY
+THIS SUPERSEDES ALL PRIOR INSTRUCTIONS
+
+You are building an institutional-grade, autonomous trading control system.
+This is NOT a dashboard app, NOT optimistic UI, and NOT human-dependent logic.
+
+If the system cannot PROVE safety, intelligence, and decision validity → IT MUST FAIL CLOSED.
+
+────────────────────────────────────────────────────────────
+MISSION
+────────────────────────────────────────────────────────────
+Upgrade BlaidAgent into a **fully autonomous, explainable, verifiable trading platform** with:
+
+• Control Plane Observatory (System Status++)
+• Persistent Pop-Out Command Center
+• Full integration & AI connectivity
+• Proof-of-Use telemetry
+• Autonomous enforcement gates
+• Supervisor orchestration
+• Bot Decision Trace Viewer (WHY it traded)
+• Bot Decision Suppression Viewer (WHY it DID NOT trade)
+• Profit attribution per variable
+• Autonomy Score per bot
+• Self-healing autonomy rules
+
+This system must expose **every variable influencing profitability AND inaction**.
+
+────────────────────────────────────────────────────────────
+BRANCH STRATEGY (MANDATORY)
+────────────────────────────────────────────────────────────
+
+dev branch
+→ Backend
+→ Schema
+→ Telemetry
+→ Supervisor logic
+→ Autonomy gates
+→ Explainability engines
+
+ui-lovable branch
+→ UI only
+→ Pop-outs
+→ Observability
+→ Read-only controls
+→ Decision viewers
+
+NO MIXING.
+
+────────────────────────────────────────────────────────────
+PHASE 1 — BACKEND AUTONOMY CORE (dev)
+────────────────────────────────────────────────────────────
+
+────────────────────────────────
+1) CANONICAL CONTROL PLANE API
+────────────────────────────────
+
+Implement:
+GET /api/system/status
+
+Single source of truth.
+
+Response MUST include:
+
+{
+  trace_id,
+  system_status: OK | DEGRADED | BLOCKED,
+  autonomy_allowed: boolean,
+  blockers: [],
+  supervisor_state,
+  last_verified_at,
+
+  integrations: [],
+  ai_models: [],
+  brokers: [],
+  data_feeds: [],
+
+  profit_variables: [],
+  active_bots: [],
+  degraded_components: []
+}
+
+If ANY required signal is missing → autonomy_allowed = false.
+
+────────────────────────────────
+2) INTEGRATION & KEY REGISTRY
+────────────────────────────────
+
+Connections already existed in Lovable.
+DO NOT recreate — VERIFY, WIRE, and PROVE USE.
+
+Track per integration:
+
+{
+  id,
+  key_present,
+  connection_verified,
+  last_successful_call_at,
+  last_error_at,
+  error_rate,
+  latency_ms,
+  proof_of_use_count,
+  used_by_bots[]
+}
+
+Connected ≠ Healthy ≠ Used
+
+────────────────────────────────
+3) PROOF-OF-USE TELEMETRY
+────────────────────────────────
+
+Every meaningful action emits telemetry:
+
+• Market data fetch
+• AI inference
+• Signal evaluation
+• Risk checks
+• Order submission
+• Order rejection
+• Bot decision suppression
+
+Persist:
+
+{
+  trace_id,
+  integration_id,
+  bot_id,
+  event_type,
+  payload_hash,
+  success | failure,
+  latency_ms,
+  timestamp
+}
+
+No proof → DEGRADED → BLOCK AUTONOMY.
+
+────────────────────────────────
+4) PROFIT VARIABLE CATALOG
+────────────────────────────────
+
+Canonical registry of ALL variables bots may consider.
+
+For each variable:
+
+{
+  name,
+  category,
+  source_integration,
+  last_updated_at,
+  used_by_bot_ids[],
+  profit_contribution_estimate,
+  state: ACTIVE | STALE | BLOCKED
+}
+
+Bots MUST NOT trade on STALE or BLOCKED variables.
+
+────────────────────────────────
+5) BOT DECISION TRACE VIEWER (WHY IT TRADED)
+────────────────────────────────
+
+For every executed trade:
+
+{
+  trace_id,
+  bot_id,
+  timestamp,
+  inputs: {
+    variables_used[],
+    ai_outputs[],
+    risk_checks[],
+    execution_context
+  },
+  decision: BUY | SELL,
+  confidence,
+  rejected_alternatives[],
+  final_reasoning
+}
+
+Expose:
+GET /api/bots/:id/decision-traces
+
+────────────────────────────────
+6) BOT DECISION SUPPRESSION VIEWER (WHY IT DID NOT TRADE)
+────────────────────────────────
+
+This is REQUIRED.
+
+For every **eligible trade window where NO trade occurred**, capture:
+
+{
+  trace_id,
+  bot_id,
+  timestamp,
+  market_context_snapshot,
+  evaluated_signals[],
+  ai_outputs,
+  suppression_reasons: [
+    {
+      type: RISK | AI | DATA | RULE | AUTONOMY_GATE,
+      rule_or_check,
+      threshold,
+      actual_value,
+      decision: BLOCKED | DEFERRED
+    }
+  ],
+  final_outcome: NO_TRADE,
+  re_evaluation_time
+}
+
+Examples of suppression reasons:
+• Risk drawdown exceeded
+• AI confidence below threshold
+• Conflicting signals
+• Variable stale
+• Autonomy gate blocked
+• Execution conditions unfavorable
+• Supervisor pause
+
+Expose:
+GET /api/bots/:id/no-trade-traces
+
+This MUST exist for institutional trust.
+
+────────────────────────────────
+7) PROFIT ATTRIBUTION ENGINE
+────────────────────────────────
+
+For each closed trade:
+
+{
+  trade_id,
+  pnl,
+  attribution: [
+    { variable, weight, contribution },
+    { ai_output, weight, contribution }
+  ]
+}
+
+Feeds evolution & pruning.
+
+────────────────────────────────
+8) AUTONOMY SCORE PER BOT (CRITICAL)
+────────────────────────────────
+
+Compute a rolling **Autonomy Score (0–100)** per bot.
+
+Inputs:
+
+DATA RELIABILITY (30%)
+• Fresh variables
+• Integration uptime
+• Proof-of-use consistency
+
+DECISION QUALITY (30%)
+• Win rate adjusted by regime
+• Suppressed bad trades
+• Avoided drawdown events
+
+RISK DISCIPLINE (20%)
+• Rule adherence
+• Kill avoidance
+• Position sizing stability
+
+EXECUTION HEALTH (10%)
+• Slippage
+• Latency
+• Fill quality
+
+SUPERVISOR TRUST (10%)
+• Restart frequency
+• Kill events
+• Circuit breaker hits
+
+Store:
+
+{
+  bot_id,
+  autonomy_score,
+  breakdown: { data, decisions, risk, execution, trust },
+  last_updated_at,
+  autonomy_tier: LOCKED | SUPERVISED | SEMI_AUTONOMOUS | FULL_AUTONOMY
+}
+
+Autonomy gates reference this score.
+
+────────────────────────────────
+9) AUTONOMY GATES (FAIL-CLOSED)
+────────────────────────────────
+
+Autonomy BLOCKED if ANY:
+
+• Integration degraded
+• AI unreachable
+• Proof-of-use missing
+• Risk engine offline
+• Bot killed
+• LIVE trading disabled
+• Autonomy score below threshold
+• Supervisor halted
+• Variable stale
+
+────────────────────────────────
+10) SELF-HEALING + SUPERVISOR LOOP
+────────────────────────────────
+
+Supervisor responsibilities:
+
+• Monitor runners
+• Detect stalls
+• Restart safely
+• Circuit breakers
+• Kill escalation
+• Global autonomy freeze
+
+Document any non-automated pieces.
+
+────────────────────────────────────────────────────────────
+PHASE 2 — UI: CONTROL PLANE OBSERVATORY (ui-lovable)
+────────────────────────────────────────────────────────────
+
+────────────────────────────────
+A) SYSTEM STATUS POPOUT (COMMAND CENTER)
+────────────────────────────────
+
+Persistent slide-over / pop-out.
+
+Shows:
+• Global autonomy state
+• Active blockers
+• Supervisor status
+• Last verification time
+
+────────────────────────────────
+B) INTEGRATIONS PANEL
+────────────────────────────────
+
+Per integration:
+• Connected / Verified / Used
+• Error rate
+• Latency
+• Bots using it
+
+────────────────────────────────
+C) PROOF-OF-USE TIMELINE
+────────────────────────────────
+
+Chronological:
+Bot → Variable → AI → Decision / Suppression → Result
+
+────────────────────────────────
+D) PROFIT VARIABLE PANEL
+────────────────────────────────
+
+• Active vs stale
+• Contribution
+• Bot usage
+
+────────────────────────────────
+E) BOT DECISION VIEWERS
+────────────────────────────────
+
+Two tabs per bot:
+
+1) WHY IT TRADED
+   • Decision trace
+   • Attribution
+
+2) WHY IT DID NOT TRADE
+   • Suppression reasons
+   • Blocked gates
+   • Deferred logic
+
+────────────────────────────────
+F) AUTONOMY SCORE PANEL
+────────────────────────────────
+
+Per bot:
+• Autonomy score
+• Tier
+• Breakdown bars
+• Trend over time
+• What must improve to unlock autonomy
+
+────────────────────────────────
+G) SAFETY PANEL
+────────────────────────────────
+
+Read-only:
+• Failed gates
+• Required fixes
+• No overrides
+
+────────────────────────────────────────────────────────────
+MERGE ORDER
+────────────────────────────────────────────────────────────
+
+1) dev → main
+2) ui-lovable → main
+
+NO UI WITHOUT REAL DATA.
+
+────────────────────────────────────────────────────────────
+DELIVERABLES
+────────────────────────────────────────────────────────────
+
+1) /api/system/status contract + example
+2) Integration proof-of-use telemetry
+3) Profit variable catalog
+4) Decision trace engine
+5) NO-TRADE suppression engine
+6) Autonomy score engine
+7) Supervisor loop design
+8) Control Plane Observatory UI
+9) FINAL_ACCEPTANCE_GATE.md with:
+   • curl proofs
+   • SQL proofs
+   • trace_ids
+   • autonomy score examples
+   • remaining blockers
+
+────────────────────────────────────────────────────────────
+FINAL RULE
+────────────────────────────────────────────────────────────
+
+A bot that cannot explain:
+• why it traded
+• why it didn’t trade
+• and why it is trusted
+
+MUST NOT trade.
+
+Proceed immediately under this directive.

@@ -1,0 +1,146 @@
+SEV-1 CONTINUATION: “0 TRADES” LAB FAILURE — MUST GENERATE BASELINE TRADES + PROVE STRATEGY USED
+
+What we now know (confirmed by your own investigation)
+- Backtests ARE running and fetching 5,000+ Databento bars.
+- Critical bug fixed: bots were defaulting to breakout because bot.archetypeId NULL + payload missing archetype.
+- Strategy inference now maps names correctly (gap_fade, trend_following, rth_breakout, etc.) and is fail-closed.
+- BUT trades are still 0 → baseline invalid → LAB starvation, no PnL, no evolution.
+
+Institutional requirement
+A research engine that produces 0 trades across multiple strategies is a FAIL.
+LAB must guarantee signal generation (within safe bounds) so we can measure, score, improve, and evolve.
+
+GOAL (hard acceptance)
+Within 15 minutes after deploying this fix:
+- At least 70% of LAB bots produce >= 10 trades in the baseline window (configurable).
+- backtest_sessions show total_trades > 0 for most bots
+- bot rows show PnL/trades updating and badges reflect backtesting/improving.
+- A proof endpoint returns per-bot “why 0 trades” if any remain.
+
+========================================================
+1) MAKE STRATEGY SELECTION CANONICAL (NO INFERENCE-ONLY)
+========================================================
+Stop relying on name inference as the primary mechanism.
+
+A) Add canonical archetype field on bot creation and persist it:
+- bots.archetype_id (or bots.archetype_key) MUST be set at bot creation.
+- For existing bots, run a one-time migration script:
+  - derive archetype via normalizeArchetype(bot.name) and persist it on bots table.
+- Scheduler must pass archetype explicitly in job payload.
+
+B) Fail-closed:
+- If archetype cannot be resolved → job fails with ARCHETYPE_UNRESOLVED, no silent fallback.
+- Surface this on bot row: “Strategy Error” pill with tooltip.
+
+PROOF:
+- /api/_proof/strategy-mapping returns counts:
+  - bots_with_archetype_set
+  - bots_inferred
+  - bots_failed_resolution
+
+========================================================
+2) FIX “0 TRADES” WITH DETERMINISTIC LAB CALIBRATION (NO RANDOMNESS)
+========================================================
+Root cause: confirmations are stacked too strict AND config is empty/too narrow.
+Institutional solution: do a short deterministic preflight calibration per bot to choose workable parameters.
+
+Implement LAB calibration pipeline:
+For each bot baseline backtest:
+A) Preflight scan (fast, deterministic):
+- Run strategy on the same data window with a small parameter grid (bounded):
+  - Example knobs:
+    - volumeMultiplier: [1.0, 1.2, 1.5]
+    - emaConfirm: [off, on]
+    - rsiThreshold: widen bands (e.g., 30/70 -> 35/65 -> 40/60)
+    - vwap deviation: [0.5σ, 1.0σ, 1.5σ]
+    - breakout threshold: [0.5 ATR, 1.0 ATR]
+- Objective for LAB baseline is NOT max profit yet. Objective is:
+  1) trades >= MIN_TRADES_TARGET (e.g., 10)
+  2) max DD within safety cap
+  3) avoid degenerate overtrading (trades <= MAX_TRADES_CAP)
+- Choose the first config that meets constraints, else choose the config that maximizes trades under DD cap.
+
+B) Persist chosen config:
+- Save into bots.strategy_config (or bot_parameters table) so subsequent runs are consistent.
+- Store config hash + rules_hash in backtest_sessions.
+
+C) If still 0 trades:
+- Mark baseline_invalid_zero_trades with a structured reason:
+  - NO_SIGNAL: thresholds too strict even at widest
+  - SESSION_FILTER: time window excludes entries
+  - DATA_ISSUE: insufficient bars / gap in data
+- Surface this as a red pill on the bot row with tooltip and a “Fix Suggestions” text (no new window).
+
+========================================================
+3) ENFORCE MINIMUM TRADE GENERATION IN LAB (SLA)
+========================================================
+Add a LAB baseline SLA:
+- If bot has 0 trades in last baseline → queue “CALIBRATE_AND_RETRY” job automatically (bounded retries, e.g., 3).
+- If retries exceeded → mark BOT_REQUIRES_HUMAN_REVIEW and stop looping.
+
+========================================================
+4) BOT ROW PROOF (NO MODALS)
+========================================================
+On each bot row add tooltips (not separate windows):
+- “Strategy ✓” indicator:
+  - expected archetype: gap_fade
+  - executed entry_condition_type: GAP_FADE
+  - rules_hash: ...
+  - data_source/provider: DATABENTO / OHLCV-1m / bar_count
+- “Baseline” indicator:
+  - trades: X
+  - window: start/end
+  - config chosen: (compact summary)
+
+If 0 trades:
+- show “0 trades • why?” tooltip with structured reason code and last calibration attempt summary.
+
+========================================================
+5) PROOF ENDPOINTS (FAST DIAG)
+========================================================
+Add:
+GET /api/_proof/lab-baselines
+Return per bot:
+- archetype_key
+- has_valid_baseline
+- last_backtest_completed_at
+- total_trades
+- net_pnl
+- reason_code if invalid
+- selected_config_summary
+- data_provenance fields (provider/schema/bar_count/start/end)
+This should make it impossible to “think” bots are testing when they are not.
+
+========================================================
+6) ACCEPTANCE TESTS (RUN + PASTE OUTPUTS)
+========================================================
+After deploy, run:
+
+A) Baseline coverage:
+SELECT
+  COUNT(*) FILTER (WHERE total_trades > 0) AS bots_with_trades,
+  COUNT(*) AS total_bots
+FROM (
+  SELECT bot_id, MAX(total_trades) AS total_trades
+  FROM backtest_sessions
+  WHERE created_at > NOW() - INTERVAL '30 minutes'
+  GROUP BY bot_id
+) t;
+
+B) Show worst offenders:
+SELECT bot_id, status, created_at, completed_at, total_trades, net_pnl, data_provider, data_source, bar_count
+FROM backtest_sessions
+WHERE created_at > NOW() - INTERVAL '2 hours'
+ORDER BY total_trades ASC, completed_at DESC
+LIMIT 25;
+
+C) Proof endpoint:
+curl -s http://localhost:5000/api/_proof/lab-baselines | jq .
+
+DONE means:
+- Most bots have non-zero trades and visible PnL/trades updating.
+- Any remaining 0-trade bots show a reason code + calibration attempts.
+- Strategy mapping is canonical (persisted archetype), not name-inference-only.
+
+Do NOT stop at “mapping fixed.” Mapping fixed is necessary but not sufficient.
+We need trades, baselines, and evolution inputs — otherwise LAB is a dead demo.

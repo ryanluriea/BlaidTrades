@@ -1,0 +1,77 @@
+Proceed with A (full fix). You have permission to change server/ for these two SEV-1 issues.
+
+MASTER DIRECTIVE (INDUSTRY STANDARD)
+- Express is canonical control plane.
+- No privileged endpoint should ever require `user_id` in the request body.
+- Auth must be derived from server-side session/JWT context.
+- Client must always send auth (cookies or bearer) consistently.
+- Errors must be structured: { success:false, error_code, trace_id } and correct HTTP codes (401/403/4xx).
+- Provide proof via curl + DB queries + UI steps.
+
+TASK 1 — FIX “Seed starter bots” (remove `user_id required`)
+1) Backend: server/routes.ts (POST /api/bots/starter-pack)
+   - Replace:
+     const { user_id, resetExisting, confirmReset } = req.body;
+     if (!user_id) return 400 "user_id required";
+   - With:
+     const sessionUserId = req.session?.userId || req.user?.id || null;   // whichever is canonical in this app
+     if (!sessionUserId) return 401 { success:false, error_code:"AUTH_REQUIRED", trace_id }
+     const { resetExisting, confirmReset } = req.body;
+   - Pass sessionUserId through to storage layer.
+   - Log: [STARTER_PACK_REQUEST|DENIED|SUCCESS] with trace_id (NO PII besides userId is ok in server logs if already saying it elsewhere, but don’t log tokens/secrets)
+
+2) Frontend: client/src/lib/http.ts
+   - If we’re using cookie sessions: ensure every request includes `credentials: "include"`.
+   - If we’re using bearer tokens: ensure Authorization header is attached (but do NOT pass user_id).
+
+3) Frontend: BotsSubNav.tsx (or wherever seed triggers)
+   - Keep payload as { resetExisting, confirmReset } only.
+   - On 401 AUTH_REQUIRED: show “Session expired—please sign in again”.
+
+4) Proofs (must include in response)
+   - BEFORE: reproduce 400 “user_id required”
+   - AFTER:
+     - Unauthed -> 401 AUTH_REQUIRED with trace_id
+     - Authed -> 200 success and created bots count
+   - DB proof: bots created for the authenticated user_id (select count where user_id=sessionUserId).
+
+TASK 2 — RESTORE ARCHETYPES (seed + endpoint correctness)
+5) Confirm table name and columns:
+   - shared/schema.ts strategyArchetypes definition
+   - server/storage.ts getStrategyArchetypes()
+
+6) Seed strategy_archetypes with the archetypes we had on Lovable
+   - Create a deterministic seed path (pick one):
+     A) scripts/seed-archetypes.ts (recommended) run on demand
+     B) migration/seed inside db:push pipeline (if you have a seeding pattern already)
+     C) POST /api/archetypes/seed (dev-only guarded) for one-click restore
+   - Include at minimum the archetypes you previously shipped (same ids/names). If the exact list isn’t available, recreate a starter catalog (10–20) but DO NOT leave empty.
+
+7) Ensure GET /api/archetypes returns:
+   { success:true, items:[...], trace_id }
+   - If empty, return success:true but include `warning_code:"ARCHETYPES_EMPTY"` and suggested_fix so it’s visible.
+
+8) UI: Create New Bot modal
+   - Keep using useArchetypes() -> /api/archetypes
+   - Add better empty state:
+     “No archetypes available (seed required)” + “Seed archetypes” button (only if you add POST seed endpoint; otherwise link to docs)
+
+9) Proofs (must include)
+   - SQL: SELECT count(*) FROM strategy_archetypes; (must be >0)
+   - Curl: GET /api/archetypes returns items length >0
+   - UI: screenshot/video showing archetypes list populates.
+
+IMPLEMENTATION NOTES
+- This is NOT a “UI-only workaround.” Do the server fix properly.
+- Do not reintroduce Supabase Edge Functions.
+- Keep trace_id on all responses and do not log secrets.
+
+DELIVERABLE
+- A single PR-ready patch with:
+  - server/routes.ts fixed starter-pack auth
+  - client/src/lib/http.ts auth consistency
+  - archetype seeding mechanism + populated dataset
+  - proofs (curl + SQL snippets) in replit.md or PR description
+
+START NOW—DO NOT ASK MORE QUESTIONS
+- Implement Task 1 + Task 2 fully, then paste the proof outputs.

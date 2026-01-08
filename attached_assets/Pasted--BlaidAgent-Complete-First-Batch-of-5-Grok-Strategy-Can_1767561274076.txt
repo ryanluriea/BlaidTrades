@@ -1,0 +1,55 @@
+# BlaidAgent — Complete First Batch of 5 Grok Strategy Candidates
+# (One Single Copy-Paste Block — All 5 Ready for Direct SQL Injection — January 04, 2026)
+
+## Instructions
+Copy and paste any or all of these SQL INSERT statements directly into your database console (PostgreSQL/Replit DB).
+Each will:
+- Create a fully compliant strategy candidate
+- Auto-create a bot at TRIALS stage (due to disposition: 'AUTO_CREATE_BOT')
+- Apply Grok badge and provenance (created_by_ai = 'Grok xAI', ai_provider = 'GROK')
+- Optimize for fast passage through TRIALS gates
+
+Run them one by one or all at once.
+
+### 1. Grok MNQ Momentum Surge v1
+```sql
+INSERT INTO strategy_candidates (
+  strategy_name, archetype_name, entry_condition_type,
+  instrument_universe, timeframe_preferences, session_mode_preference,
+  hypothesis, rules_json, confidence_score, novelty_score,
+  disposition, source, created_by_ai, ai_provider
+) VALUES (
+  'Grok MNQ Momentum Surge v1',
+  'momentum_surge',
+  'MOMENTUM_SURGE',
+  ARRAY['MNQ'],
+  ARRAY['5m', '15m'],
+  'RTH_US',
+  'Captures explosive directional moves in MNQ when short EMA crosses above long EMA with strong volume and ADX confirmation, avoiding chop near key levels.',
+  '{
+    "version": "1.0.0",
+    "archetype": "momentum_surge",
+    "entry": {
+      "condition": { "type": "MOMENTUM_SURGE", "trendEmaShort": 8, "trendEmaLong": 21, "macdSignalCross": true },
+      "confirmations": [
+        { "type": "VOLUME", "volumeMultiplier": 1.8 },
+        { "type": "ADX", "minAdx": 30 }
+      ],
+      "invalidations": [
+        { "condition": "NEAR_SUPPORT_RESISTANCE", "bufferTicks": 12 }
+      ]
+    },
+    "exit": {
+      "stopLoss": [{ "type": "FIXED_TICKS", "ticks": 20 }],
+      "takeProfit": [{ "type": "FIXED_TICKS", "ticks": 32 }],
+      "timeStop": { "maxBarsInTrade": 35 }
+    },
+    "risk": { "maxPositionSize": 3, "riskPerTrade": 1.0, "maxDailyLoss": 3.0, "maxOpenPositions": 1 }
+  }'::jsonb,
+  88,
+  82,
+  'AUTO_CREATE_BOT',
+  'EXTERNAL_AI',
+  'Grok xAI',
+  'GROK'
+);

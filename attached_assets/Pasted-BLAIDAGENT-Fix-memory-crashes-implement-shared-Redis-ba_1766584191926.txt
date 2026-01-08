@@ -1,0 +1,102 @@
+BLAIDAGENT: Fix memory crashes + implement shared Redis bars cache (NOT in Node heap)
+
+PROBLEM:
+- Node heap hits limit and crashes (heapUsed ~490MB / heapTotal ~521MB)
+- Goal is to cache Databento bars so bots share them and we reduce API usage
+- Autoscale currently allows multiple machines -> risks duplicating in-process caches
+
+REQUIREMENTS:
+1) Bars caching must be Redis-backed and shared across machines.
+2) Node must never keep unbounded bars/log arrays in memory.
+3) Add hard caps + observability so memory never silently climbs.
+
+--------------------------------------------
+A) REPLIT DEPLOYMENT GUIDANCE (DO IN PARALLEL)
+--------------------------------------------
+- Recommend setting autoscale max machines to 1 while debugging.
+- If needed for stability, increase machine RAM one tier temporarily.
+- Note: scaling machines must not be relied on; real fix is Redis + worker isolation.
+
+--------------------------------------------
+B) REDIS BARS CACHE (SHARED)
+--------------------------------------------
+Create module: /server/market/barsCache.ts
+
+API:
+- getBarsCached(params): returns bars
+- params include: symbol, timeframe, sessionMode, startTs, endTs, provider=databento
+
+Behavior:
+1) Build a deterministic cache key:
+   bars:{symbol}:{tf}:{sessionMode}:{start}:{end}
+   (If key too long, hash the range and store metadata)
+2) Attempt Redis GET
+   - On hit: return decompressed bars
+   - On miss:
+     - acquire Redis lock (SET NX PX) to prevent stampede
+     - fetch from Databento once
+     - compress payload (gzip or zstd)
+     - Redis SET with TTL (default 12h, configurable)
+     - release lock
+     - return bars
+3) Store cache stats:
+   - redis counters: bars_cache_hit, bars_cache_miss, bars_cache_set, bars_cache_bytes
+   - expose in System Status UI panel
+
+Data format:
+- Prefer compact structure: arrays of numbers (ts, o, h, l, c, v) rather than array of objects
+- Compression required before Redis SET
+
+TTL + eviction:
+- Ensure every key has TTL
+- Validate Redis has maxmemory and maxmemory-policy = allkeys-lru (or set it if managed)
+
+--------------------------------------------
+C) REMOVE IN-PROCESS BAR RETENTION
+--------------------------------------------
+Audit codebase:
+- Search for Map/Set/array storing bars or candles across requests/sessions
+- Remove or replace with tiny LRU (maxEntries <= 200, TTL <= 5m)
+- Ensure backtest executor does not keep full bars + full indicator arrays + full logs simultaneously
+
+Backtests must:
+- Request bars via getBarsCached()
+- Process bars in chunks where possible
+- Drop references after each phase (no global retention)
+
+--------------------------------------------
+D) MEMORY OBSERVABILITY + LOAD SHEDDING
+--------------------------------------------
+Add: /server/ops/memorySentinel.ts
+- Every 10s record memoryUsage (rss, heapUsed, heapTotal, external, arrayBuffers)
+- Record event loop delay
+- Log structured JSON + optionally persist to DB
+
+Add safety:
+- If heapUsed/heapTotal > 0.80:
+  - block heavy endpoints (/backtest, /training, bars bulk download)
+  - return 503 with reason “MEMORY_PRESSURE”
+  - show banner in admin UI
+
+Optional:
+- Heap snapshot trigger when >0.85 for >30s (feature-flagged)
+
+--------------------------------------------
+E) ACCEPTANCE TESTS
+--------------------------------------------
+1) Cache test:
+- Run 3 backtests on same symbol/timeframe/range
+- First run must be Redis MISS + SET
+- Subsequent runs must be Redis HIT with zero Databento calls
+2) Memory stability:
+- Run 10 bots + 3 backtests queued for 30 minutes
+- HeapUsed must not monotonically climb; should stabilize <70% after warmup
+3) Autoscale-safe:
+- Confirm cache works across machines (shared Redis)
+- Confirm no in-process cache dependence
+
+DELIVERABLES:
+- barsCache.ts implemented + wired everywhere bars are fetched
+- memorySentinel + load shedding
+- System Status “Bars Cache” + “Memory” panels with stats
+- Removal of any unbounded in-process bar/log storage

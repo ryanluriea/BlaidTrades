@@ -1,0 +1,220 @@
+MEGA PROMPT — INSTITUTIONAL FEATURE COMPLETION (AUTONOMY ASSUMED)
+================================================================================
+
+Context:
+BlaidAgent is already fully autonomous across LAB → PAPER → SHADOW → CANARY.
+Do NOT introduce any user prompts, confirmations, settings, or manual steps.
+Do NOT add new pages, routes, or navigation.
+All work must integrate into existing backend logic and existing bot list UI
+(rows, badges, tooltips, modals only).
+
+This prompt defines ONLY missing or incorrect features that must be completed
+or corrected to reach institutional-grade behavior.
+
+--------------------------------------------------------------------------------
+1. LAB OVERDUE / IDLE STATE CORRECTION
+--------------------------------------------------------------------------------
+
+Problem:
+Bots remain marked "overdue" even while producing valid work or after
+completing jobs.
+
+Fix:
+- “overdue” may ONLY appear when:
+  - no active job
+  - no queued job
+  - SLA window exceeded
+- Once ANY job starts, completes, or is queued:
+  → overdue must clear immediately
+- Add explicit idle_reason_code values:
+  - SLA_BREACH
+  - WAITING_ON_DATA
+  - WAITING_ON_WORKER
+  - SATURATED
+  - HEALTHY_IDLE
+
+UI:
+- Badge text must reflect reason (tooltip only)
+- Never show persistent overdue for healthy bots
+
+--------------------------------------------------------------------------------
+2. SESSION FILTERING DEFAULT (FUTURES-CORRECT)
+--------------------------------------------------------------------------------
+
+Problem:
+Time windows were implicitly restricting futures strategies.
+
+Fix:
+- Default session_mode = FULL_24x5 for ALL futures bots
+- Session filtering is OPT-IN only (used for research tagging, not gating)
+- Session data may inform weighting or diagnostics but must NOT block entries
+
+Persistence:
+- backtest_sessions must record:
+  - session_mode_used
+  - session_filter_bar_count (for analytics only)
+
+UI:
+- Optional pill showing FULL_24x5 (no interaction)
+
+--------------------------------------------------------------------------------
+3. STRATEGY EXECUTION VERIFICATION (PROOF, NOT ASSUMPTION)
+--------------------------------------------------------------------------------
+
+Problem:
+Previously bots could silently fall back to incorrect strategies.
+
+Required:
+- Every backtest and trade must persist:
+  - archetype_expected
+  - archetype_executed
+  - entry_condition_type
+  - rules_hash
+
+Fail-closed:
+- If mismatch occurs → job fails with explicit error
+- NO fallback to breakout or defaults
+
+UI:
+- Bot row tooltip must show:
+  “Strategy verified: GAP_FADE → GAP_FADE”
+- Red badge if mismatch ever occurs
+
+--------------------------------------------------------------------------------
+4. LAB BASELINE GENERATION GUARANTEE
+--------------------------------------------------------------------------------
+
+Problem:
+Bots could loop indefinitely with 0 trades or invalid baselines.
+
+Fix:
+- LAB backtests MUST generate a minimum viable trade set
+- LAB-only relaxation is allowed ONLY to establish baseline
+- Relaxation flags must be recorded per session
+
+Persist:
+- relaxed_flags_applied[]
+- baseline_valid = true | false
+- baseline_failure_reason
+
+Once baseline_valid = true:
+- Production rules apply (no relaxation leakage)
+
+--------------------------------------------------------------------------------
+5. GENERATION INTEGRITY & TRACEABILITY
+--------------------------------------------------------------------------------
+
+Problem:
+Generation numbers exist but lack enforceable meaning.
+
+Required:
+- Generation increments ONLY when:
+  - rules_hash changes materially
+  - behavior change threshold exceeded
+- Store full diff:
+  - rules_before
+  - rules_after
+  - metrics_delta
+
+UI:
+- Clicking “Gen N” opens existing modal
+- Show chronological evolution timeline
+- Show rule diffs + performance deltas
+- Same data used in bot pack exports (no divergence)
+
+--------------------------------------------------------------------------------
+6. METRIC REAL-TIME CONSISTENCY
+--------------------------------------------------------------------------------
+
+Problem:
+Metrics update inconsistently or appear stale.
+
+Fix:
+- Bot rows must update automatically when:
+  - PnL changes
+  - trades increment
+  - generation increments
+  - status changes
+- Flash-on-change animation for:
+  - PnL
+  - trades
+  - win %
+  - drawdown
+  - generation
+
+Hard rule:
+- If backend updates but UI does not reflect it → bug
+
+--------------------------------------------------------------------------------
+7. MULTI-SOURCE DATA UTILIZATION TRANSPARENCY
+--------------------------------------------------------------------------------
+
+Problem:
+Integrations exist but usage is opaque.
+
+Required:
+- Every bot must expose:
+  - which data sources contributed to decisions
+  - last_used_at per source
+- Sources may include:
+  Databento, Unusual Whales, FRED, News, AI providers
+
+UI:
+- Tooltip or modal only (no new pages)
+- No configuration controls
+
+--------------------------------------------------------------------------------
+8. AUTOMATIC FAILURE & DEGRADATION HANDLING
+--------------------------------------------------------------------------------
+
+Problem:
+Bots may remain active despite degradation.
+
+Fix:
+- Automatic detection of:
+  - edge decay
+  - instability
+  - regime failure
+- System must:
+  - reduce priority
+  - re-enter improvement cycle
+  - or auto-prune
+
+Persist:
+- degradation_reason
+- timestamp
+- metrics snapshot
+
+--------------------------------------------------------------------------------
+9. INSTITUTIONAL SAFETY GUARANTEES
+--------------------------------------------------------------------------------
+
+Hard requirements:
+- No silent defaults
+- No implicit fallbacks
+- No fake or placeholder metrics
+- No strategy ambiguity
+- No UI states that contradict backend truth
+
+All decisions must be:
+- deterministic
+- auditable
+- reproducible
+
+--------------------------------------------------------------------------------
+ACCEPTANCE CRITERIA
+--------------------------------------------------------------------------------
+
+This work is complete when:
+
+- Overdue badges only appear when truly blocked
+- Futures bots trade without artificial time gating
+- Every trade can prove which strategy executed
+- Baselines always converge or fail explicitly
+- Generations represent real evolution
+- Metrics update live and truthfully
+- Data source usage is visible and provable
+- Bots self-correct or self-retire without intervention
+
+================================================================================
+END PROMPT

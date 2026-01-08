@@ -1,0 +1,154 @@
+REPLIT MASTER PROMPT — Notifications Control Plane (Discord-first) + Proof-of-Use + Fail-Closed
+
+GOAL
+Implement an industry-grade notifications system that is Discord-first (webhook-based) with full Control Plane visibility and proof-of-use telemetry. This must integrate with the existing “Connections / System Status / Autonomy” architecture so we can see what’s configured, what’s actually being used by the system/bots, and what’s blocking autonomy.
+
+HARD RULES
+1) NEVER ask me to paste secrets into chat. Only tell me what to put into Replit Secrets.
+2) Single control plane: no Supabase Edge Functions. Do not call /functions/v1 anywhere. The guardrail script must remain green.
+3) Fail-closed for security/execution/autonomy; no fake data; no placeholder “OK” states.
+4) PII + secret hygiene: never log webhook URLs, full phone numbers, or message contents. Store only masked/derived metadata.
+5) Every critical operation must produce a trace_id and write proof-of-use telemetry.
+
+WHAT TO BUILD
+
+A) Discord as the canonical notifications provider
+Create a provider module:
+- server/providers/notify/discordWebhook.ts
+  - Exports:
+    - verifyDiscordConfig(): { configured:boolean, missing:string[], suggestedFix:string }
+    - sendDiscord({ channel, title, message, severity, metadata, correlationId }): Promise<{ deliveryId }>
+  - Use Discord Webhooks (HTTP POST).
+  - Support multiple channels via separate webhook env vars.
+
+Required Replit Secrets (Discord):
+- DISCORD_WEBHOOK_OPS
+- DISCORD_WEBHOOK_TRADING
+- DISCORD_WEBHOOK_AUTONOMY
+Optional:
+- DISCORD_WEBHOOK_ALERTS (general)
+- DISCORD_WEBHOOK_LAB (strategy lab)
+- DISCORD_WEBHOOK_AUDIT (audits)
+If you support multiple webhooks dynamically, implement a strict allowlist mapping (no arbitrary URLs from clients).
+
+B) Express endpoints (notifications + verification)
+Add Express-native endpoints (session-authenticated):
+
+1) POST /api/notifications/discord/test
+- Purpose: verify a configured webhook by sending a test message.
+- Body: { channel: "ops"|"trading"|"autonomy"|"alerts"|"lab"|"audit" }
+- Must:
+  - require session auth
+  - rate limit (per user + per IP)
+  - fail-closed if webhook missing
+  - return: { success:true, provider:"discord", deliveryId, trace_id }
+  - on missing config: 503 structured error:
+    { success:false, error_code:"INTEGRATION_KEY_MISSING", provider:"discord", missing_env_vars:[...], suggested_fix:"...", trace_id }
+
+2) POST /api/notifications/emit
+- Purpose: one canonical internal entrypoint (used by bots/system) to emit events.
+- Body (validated strictly):
+  {
+    channel: "ops"|"trading"|"autonomy"|"alerts"|"lab"|"audit",
+    eventType: string,
+    severity: "INFO"|"WARN"|"ERROR"|"CRITICAL",
+    title: string,
+    message: string,
+    correlationId?: string,
+    metadata?: object
+  }
+- Must:
+  - require session auth for UI calls
+  - support internal calls from server scheduler (no session) using an internal guard (e.g., SERVER_INTERNAL_TOKEN) OR route-level allowlist (same-process only). Do not expose open unauthenticated send.
+  - sanitize and truncate message fields (Discord limits) and strip secrets.
+  - fail-closed if webhook missing for the selected channel.
+
+C) Integration Registry + System Status (Control Plane)
+Update server/integration-registry.ts:
+- Add provider id: "discord"
+- category: "notifications"
+- required_env_vars: at least DISCORD_WEBHOOK_OPS (and/or whichever are mandatory for your ops mode)
+- supports_verify: true
+
+Update GET /api/integrations/status:
+- Include discord provider with canonical fields:
+  configured, connected, last_verified_at, last_used_at,
+  proof_of_use_count_24h, missing_env_vars, error_code, suggested_fix
+
+Update GET /api/system/status:
+- Include a Notifications section and autonomy blockers:
+  - If “ops alerts enabled” but DISCORD webhook missing → blocker with suggested_fix
+  - If autonomy requires “incident channel” and it’s missing → blocker with suggested_fix
+- Roll up tier counts and include “notificationsReady” gate:
+  - notificationsReady = discord configured for required channels
+  - if false, system_status should become DEGRADED or BLOCKED depending on severity of missing channel.
+
+D) Proof-of-use telemetry (industry standard)
+Use existing telemetry table if present (integration_usage_events). If it doesn’t exist, create it (schema + storage + endpoints) in a reproducible way (no ad-hoc non-repeatable DB changes).
+Log every notify attempt:
+- provider: "discord"
+- operation: "send_webhook"
+- status: "SUCCESS" | "FAILED"
+- latency_ms
+- trace_id
+- metadata: { channel, severity, eventType, titleLen, messageLen }
+DO NOT store webhook URLs or full message body in DB.
+Store only sizes and safe labels.
+
+E) UI upgrades: Connections + System Status (Discord proof + popouts)
+(UI work belongs on ui-lovable if you’re branching; otherwise keep clean commits.)
+
+1) Connections tab:
+- Show Discord tile with:
+  - Configured/Connected
+  - Missing env vars
+  - Proof-of-use count (last 24h)
+  - Last used timestamp
+  - “Verify” button → POST /api/notifications/discord/test
+- Add “View usage” popout:
+  - last 20 usage events for provider=discord
+  - show timestamp, status, channel, latency, trace_id
+
+2) System Status:
+- Add Notifications panel:
+  - shows required channels and their status
+  - shows gate state: OK / DEGRADED / BLOCKED
+  - show “Proof-of-use” snippet (last 5 events)
+  - include a “Copy trace_id” action
+
+F) Bot-level explainability add-ons (requested)
+Ensure bot detail UI includes:
+- “Why Traded” and “Why Not Traded” panels
+- Autonomy score per bot (tier + breakdown)
+And add notifications hooks:
+- When a bot is BLOCKED from autonomy by gates, emit a Discord message to #autonomy (rate-limited, deduped per bot per time window).
+- When a LIVE bot is killed by invariant breach, emit CRITICAL to #trading and #ops.
+
+G) Guardrails + proofs
+1) Maintain scripts/no-supabase-edge.sh and ensure it passes.
+2) Add scripts/proof-discord-notify.sh:
+   - calls /api/integrations/status and confirms discord provider appears
+   - calls /api/notifications/discord/test for ops channel
+   - queries telemetry (integration_usage_events) and prints latest discord event
+3) Update replit.md with:
+   - required env vars
+   - curl examples and expected success/503 outputs
+   - how to verify proof-of-use in UI
+
+ACCEPTANCE CRITERIA
+1) Guardrail passes: zero Supabase Edge Function calls in client and server.
+2) /api/integrations/status shows discord with configured/missing env vars correctly.
+3) /api/notifications/discord/test:
+   - returns 503 structured error when webhook missing
+   - returns success with deliveryId + trace_id when configured
+4) Proof-of-use telemetry logs each send attempt (no webhook URL / no message body stored).
+5) UI shows Discord configured + proof-of-use counts + usage popout.
+6) Autonomy/system status includes notifications gate with blockers + suggested fixes.
+
+DELIVERABLES
+- Code changes (server + client)
+- Updated replit.md sections: “Notifications = Discord”
+- Proof scripts + curl proof commands
+- Demonstration evidence: screenshots of Connections tile + System Status + usage popout
+
+START NOW. Production quality, fail-closed, verifiable. No placeholders.

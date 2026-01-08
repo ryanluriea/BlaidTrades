@@ -1,0 +1,78 @@
+Reply to Replit (tight, actionable, and closes the gaps)
+
+Thanks — diagnostics + trade-level breakdown is the right direction, and the validation flags look legit.
+
+However, this proof pack still fails “institutional/autonomous readiness” in 2 critical ways:
+
+1) RUNNER ENDPOINTS ARE NOT ACCEPTED YET
+- You did NOT implement /api/runners/stop (you said “handled via status update”).
+- Your “no auth test” did NOT fail-closed with AUTH_REQUIRED — it returned 400 bot_id required. That means auth is not being enforced at the top of the handler.
+- “Auth test blocked” is not acceptable as evidence. Add a local proof path that works with session auth (or a server-side test harness endpoint in dev only).
+
+DO THIS:
+A) Implement:
+- POST /api/runners/stop  (session auth required)
+B) For start/restart/stop:
+- First line must enforce session auth:
+  if (!req.session?.userId) return 401 { success:false, error_code:"AUTH_REQUIRED", trace_id }
+- Then validate body (bot_id / botId)
+C) Add a dev-only proof route guarded by NODE_ENV !== "production":
+- GET /api/_proof/runners/:botId
+returns:
+{ runner_instance, latest_job, last_heartbeat_at, canonical_state, trace_id }
+So we can prove end-to-end without “needs cookie” handwaving.
+
+2) PAPER STAGE GATES ARE TOO LOOSE FOR AN “INSTITUTIONAL” CLAIM
+Right now you have:
+PAPER requires databento only, broker not enforced.
+
+That’s fine ONLY if PAPER is strictly sim execution (no broker calls, no accidental live orders) and you can prove it. If PAPER is intended to be “paper execution through broker APIs” or “shadow routing,” then broker must be required and verified.
+
+Pick one and implement it deterministically:
+
+OPTION A (Recommended / Industry standard):
+- PAPER runners require broker integration configured=true (ironbeam keys present)
+- Connected/verified can be DEGRADED, but configured must be true
+Update:
+getRequiredIntegrationsForStage('PAPER') => ['databento','ironbeam']
+And add error_code: BROKER_REQUIRED_FOR_PAPER with suggested_fix.
+
+OPTION B (If PAPER is pure-sim):
+- Enforce a hard safety switch:
+  PAPER runner must never call broker providers
+  and must log an activity event when it chooses SIM path
+Add:
+PAPER_EXECUTION_MODE = "SIM_ONLY" (explicit)
+and in runner code assert broker client is never instantiated.
+
+PROOF REQUIRED FOR WHICHEVER OPTION YOU CHOOSE:
+- curl /api/integrations/status showing ironbeam configured true/false
+- Attempt to start PAPER runner when ironbeam not configured:
+  must BLOCK with deterministic error_code + suggested_fix (Option A),
+  OR must START but emit explicit “SIM_ONLY” proof event (Option B).
+
+3) BACKTEST DIAGNOSTICS: ONE ISSUE TO FIX
+Your diagnostics show max_drawdown_pct = 21.0081.
+Your earlier stricter LAB→PAPER gate said max DD ≤ 20%.
+So either:
+- adjust the gate threshold, or
+- ensure this backtest would not allow promotion.
+Prove with SQL:
+- show the bot’s stage and the gate decision inputs (trades, win rate, max dd, has losers, proof-of-use).
+- show the exact autonomy decision event payload.
+
+WHAT I NEED NEXT (PASTE OUTPUTS)
+1) Runner proofs:
+- grep proof for start/restart/stop routes
+- curl unauth for start/restart/stop => 401 AUTH_REQUIRED
+- curl auth proof via dev proof route (or a server-side test harness)
+- SQL from bot_instances after start/restart/stop transitions
+
+2) Stage gate change:
+- Either Option A or Option B implemented + proofs above
+
+3) Promotion integrity:
+- A single bot’s full “why it promoted” evidence:
+  autonomy_scores row + latest backtest diagnostics + activity event payload + current stage
+
+Once those 3 are done, we’re back to “institutionally ready” territory.

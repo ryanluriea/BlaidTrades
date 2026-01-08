@@ -1,0 +1,263 @@
+MEGA ADD-ON PROMPT — STRATEGY LAB ↔ LAB CLOSED-LOOP AUTONOMY (FINAL)
+(BlaidAgent / Extension Only / No New Pages / Real Data Only)
+
+CONTEXT (DO NOT RE-EXPLAIN):
+BlaidAgent is already a fully autonomous system. Strategy Lab generates and refines strategies. LAB executes, validates, degrades, and promotes them. The only manual action is confirming Live promotion. This prompt fixes missing logic, UI clarity, and closed-loop behavior. Do not introduce mock data, placeholders, or demo-only flows.
+
+=====================================================
+A. SINGLE SOURCE OF TRUTH: STRATEGY ↔ BOT HANDOFF
+=====================================================
+
+A strategy is NOT “for show” once sent to LAB.
+
+When a Strategy Candidate is sent to LAB:
+- It MUST immediately instantiate one or more real LAB bots
+- Those bots MUST appear on the Bots page under LAB stage
+- The Strategy Candidate card MUST link to the bot_id(s) created
+- “Sent to LAB” is NOT a holding state — it is an execution state
+
+If a strategy appears in “Sent to LAB” but no bot exists:
+→ That is a bug and must be eliminated.
+
+Required guarantees:
+- Every “Sent to LAB” strategy has ≥1 active LAB bot
+- Every LAB bot references its originating strategy_id
+- Lineage is bidirectional and auditable
+
+=====================================================
+B. STRATEGY LAB ↔ LAB CLOSED-LOOP FEEDBACK SYSTEM
+=====================================================
+
+Implement a fully automatic bi-directional lifecycle:
+
+1. Strategy Lab → LAB
+   - Strategy Lab generates Strategy Candidates using:
+     • Perplexity deep research
+     • Internal LAB performance history
+     • Regime-aware hypothesis generation
+   - Each candidate is packaged as a formal executable strategy spec:
+     • Entry logic
+     • Exit logic
+     • Invalidation logic
+     • Regime assumptions
+     • Risk envelope
+     • Expected frequency
+   - Sending to LAB:
+     • Instantiates LAB bots immediately
+     • Uses real market data only
+     • Applies LAB relaxation rules where applicable
+     • Assigns contract sizing based on confidence
+     • Records lineage (strategy_id, generation, parent_id)
+
+2. LAB → Strategy Lab (Automatic Recycling)
+   LAB must continuously evaluate bots and recycle them ONLY AFTER
+   they have had a fair evaluation window.
+
+=====================================================
+C. BOT EVALUATION WINDOW (NO PREMATURE RECYCLING)
+=====================================================
+
+LAB bots MUST be given a minimum chance before recycling:
+
+Minimum evaluation requirements (ALL must be met before recycling):
+- ≥ N trades (configurable by strategy type)
+- ≥ X sessions traded
+- ≥ Y market regimes observed OR timeout reached
+
+Only AFTER this window may recycling triggers apply.
+
+=====================================================
+D. LOCKED RECYCLE THRESHOLDS
+=====================================================
+
+Once minimum evaluation is satisfied, recycle when ANY occur:
+
+- Sharpe < threshold
+- Max drawdown breach
+- Expectancy divergence
+- Regime mismatch
+- Entry underperformance vs hypothesis
+- Exit inefficiency
+- Liquidity / volatility mismatch
+- Bot marked Degraded or Stalled
+- SLA breach
+
+When triggered:
+- Extract full strategy + bot config
+- Attach performance diagnostics
+- Attach failure classification
+- Attach regime context
+- Send to Strategy Lab as Rework Candidate
+
+NO user input required.
+
+=====================================================
+E. KILL vs TWEAK vs REPLACE RULES (FORMALIZED)
+=====================================================
+
+Strategy Lab MUST decide one of:
+
+1. TWEAK
+   - Minor parameter / timing / filter adjustments
+   - Same core hypothesis
+   - Version increment (v2, v3…)
+
+2. REPLACE
+   - Hypothesis invalid but domain still viable
+   - Fork new strategy
+   - Preserve lineage
+
+3. KILL
+   - Structural failure
+   - Regime-invalid
+   - No viable repair
+
+Rules:
+- Multiple failures across regimes escalate to REPLACE or KILL
+- KILLED strategies cannot auto-respawn without new research
+
+=====================================================
+F. LIVE PROMOTION GATES (NON-NEGOTIABLE)
+=====================================================
+
+A bot may ONLY be eligible for Live promotion when:
+
+- Confidence Tier A
+- Stable Sharpe
+- Controlled drawdown
+- No degradation flags
+- Regime robustness confirmed
+- Minimum live-sim parity achieved
+
+Live promotion ALWAYS requires manual confirmation.
+Everything before that is autonomous.
+
+=====================================================
+G. PERPLEXITY RESEARCH SYSTEM (DEEPER)
+=====================================================
+
+Implement multi-tier research modes:
+
+1. Continuous Scan
+   - Always on
+   - Broad, low-cost discovery
+
+2. Focused Burst
+   - Triggered by:
+     • Degradation clusters
+     • Regime transitions
+     • Confidence collapse
+
+3. Frontier Mode
+   - Long-horizon
+   - Novel mechanics
+   - Cross-asset effects
+   - Never-before-tested strategies
+
+4. Regime Switch Triggers
+   - Volatility shifts
+   - Liquidity changes
+   - Session behavior divergence
+
+=====================================================
+H. CONFIDENCE SCORING (FORMAL MATH)
+=====================================================
+
+Confidence Score ∈ [0,100]
+
+Score =
+- Research Confidence (30%)
+- Structural Soundness (25%)
+- Historical Validation (30%)
+- Regime Robustness (15%)
+
+Mapped tiers:
+- Tier A: 80–100
+- Tier B: 60–79
+- Tier C: 40–59
+- Tier D: <40
+
+Confidence MUST:
+- Update dynamically
+- Be explainable
+- Affect sizing + LAB priority
+
+=====================================================
+I. “WHY THIS STRATEGY EXISTS” (MANDATORY)
+=====================================================
+
+Every strategy must include:
+- Targeted inefficiency
+- Why it matters NOW
+- Regime fit
+- Why prior strategies fail
+- Falsification conditions
+- Research citations
+
+This is a research memo, not marketing.
+
+=====================================================
+J. STRATEGY LAB UI — FIXES (NO NEW PAGES)
+=====================================================
+
+1. LIST VIEW ONLY
+   - Strategy Candidates tab: list
+   - Sent to LAB tab: list (NOT grid)
+   - Chronological, infinite scroll
+   - Real-time updates
+
+2. TWO TABS
+   - Strategy Candidates
+   - In LAB (linked directly to bots)
+
+3. STRATEGY CARD CONTENT (REAL DATA ONLY)
+   - Name
+   - Confidence score + tier
+   - Win rate
+   - R:R
+   - Frequency
+   - Risk
+   - Regime
+   - Intent
+   - Entry / Exit / Invalidation
+   - Confidence Breakdown
+   - Why This Strategy Exists
+   - Lineage
+   - Linked bot(s) when in LAB
+
+4. ACTIONS
+   - Send to LAB
+   - In LAB (disabled)
+   - Drill-in (read-only)
+
+5. PLUS BUTTON (TOP RIGHT)
+   - Creates custom research session ONLY
+   - Does NOT interrupt autonomy
+   - No mandatory config to run core system
+
+=====================================================
+K. AUTONOMY GUARANTEES
+=====================================================
+
+- Strategy Lab runs continuously
+- LAB recycles automatically
+- No user prompts
+- No babysitting
+- No fake data
+- No demo flows
+
+=====================================================
+FINAL REQUIREMENT
+=====================================================
+
+This must result in:
+- Clear strategy ↔ bot linkage
+- No “for show” states
+- Continuous learning loop
+- Improving strategies over time
+- Institutional-grade behavior
+
+Do not add new pages.
+Do not break existing flows.
+Do not introduce mock data.
+Implement as an extension only.

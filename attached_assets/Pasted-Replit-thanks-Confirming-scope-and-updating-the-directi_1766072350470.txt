@@ -1,0 +1,88 @@
+Replit — thanks. Confirming scope and updating the directive so we’re aligned.
+
+1) Naming + placement (confirmed)
+- The tab SHOULD be called “Feed”.
+- This replaces / evolves the existing Fleet-style view into a social-media-style activity feed for bots.
+- Feed is the canonical place to see *everything bots do* over time.
+
+2) Purpose of the Feed (not just UI)
+The Feed is NOT cosmetic. It is the canonical human-readable projection of real system activity.
+
+The Feed must reflect REAL events emitted by the system, including:
+- Trades (entered, exited, rejected)
+- “Why traded” and “Why not traded” outcomes
+- Bot promotions / demotions
+- Graduations
+- Runner lifecycle (start, stop, restart, kill)
+- Job lifecycle (queued, started, timed out, failed, completed)
+- Autonomy tier changes
+- Risk blocks / gate failures
+- Backtests and lab actions
+
+The Feed UI can be frontend-only, but:
+- Events shown must already exist or be emitted by real backend actions
+- Each event must be tied to a trace_id
+- No fake / placeholder / synthetic events
+
+3) Feed behavior requirements
+- Reverse chronological (newest first)
+- Infinite scroll
+- Event cards grouped by category
+- Clickable event → opens a detail drawer
+- Detail drawer must support:
+  - Copy trace_id
+  - Copy job_id (if present)
+  - Deep links to:
+    • Why Traded
+    • Why Not Traded
+    • Decision Traces
+    • Autonomy Score (if applicable)
+
+4) Filters (confirmed + required)
+Filters must work together:
+- Time range: 1h / 24h / 7d / 30d / All
+- Category:
+  • Trading
+  • Bot Lifecycle
+  • Runners & Jobs
+  • Autonomy
+  • Backtesting
+  • System
+- Severity (INFO / WARN / ERROR / CRITICAL)
+
+5) Autonomy visibility
+- Bot detail pages must show:
+  - Autonomy tier
+  - Autonomy score breakdown
+  - Gate pass/fail state
+- The Feed must surface events for:
+  - AUTONOMY_TIER_CHANGED
+  - AUTONOMY_SCORE_UPDATED (if applicable)
+
+6) Scope exclusions (important)
+- Do NOT work on Discord notifications
+- Do NOT work on SMS, Twilio, AWS SNS, or alerts
+- This task is Feed + explainability only
+
+7) Acceptance proof required (paste outputs)
+Please include copy/paste proof of:
+
+A) Real event emission
+- Promote or demote a bot → Feed shows event with trace_id
+- Reconcile a bot → Feed shows reconciliation event
+- Runner/job lifecycle event → Feed shows timeout / restart / failure
+- Trade or no-trade decision → Feed links to decision context
+
+B) Explainability wiring
+- From Feed → open event → jump to Why Traded / Why Not Traded
+- From Feed → open event → view Autonomy score if relevant
+
+C) Tenant isolation
+- Confirm Feed only shows events for the authenticated user
+
+8) Deliverables in your next response
+- Files changed (client vs server)
+- Screenshot or click path: Dashboard → Feed → Event → Detail drawer
+- Example trace_id and where it resolves
+
+Once the Feed is solid and trusted, we’ll revisit notifications later.

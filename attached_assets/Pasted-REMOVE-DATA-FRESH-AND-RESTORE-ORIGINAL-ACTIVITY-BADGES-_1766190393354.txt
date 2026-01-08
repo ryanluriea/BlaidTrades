@@ -1,0 +1,92 @@
+REMOVE “DATA FRESH” AND RESTORE ORIGINAL ACTIVITY BADGES (NO NEW SEMANTICS)
+
+FACT:
+UI currently shows a “Data Fresh” badge. User does NOT want that.
+User wants the ORIGINAL badges that already existed before Replit:
+
+Backtesting ×{attempt} • {elapsed}
+
+Improving #{iteration} • {elapsed}
+
+Evolving • {elapsed}
+
+Queued ×{attempt}
+
+REQUIREMENTS (HARD):
+
+Delete / disable any “Data Fresh” pill/badge wherever rendered.
+
+Search for: "Data Fresh", "Fresh Data", dataFresh, freshness, BacktestStatusBadge, FRESH, completed_ago
+
+Also inspect label/state maps converting states to “Data Fresh”.
+
+Primary badge = botNow.state ONLY
+
+Use botNow.activeJob for attempt / iteration / elapsed
+
+Do NOT infer freshness
+
+Do NOT invent secondary semantics
+
+Badge rules:
+
+BACKTEST_RUNNING → Backtesting ×N • Xm Ys
+
+IMPROVING_RUNNING → Improving #N • Xm Ys
+
+EVOLVING_RUNNING → Evolving • Xm Ys
+
+QUEUED → Queued ×N
+
+FRESH only for truly NEW bots (<10 minutes + zero history)
+
+Styling:
+
+Reuse old badge styling (purple / blue / amber).
+
+Do NOT introduce new badge categories.
+
+PROOF REQUIRED:
+
+Authenticated screenshot showing at least one bot with
+Backtesting ×N • Xm
+
+Grep proof:
+
+grep -R "Data Fresh" -n client server shared || true
+grep -R "dataFresh" -n client server shared || true
+
+
+Do NOT argue whether the badge exists. User sees it. Remove it.
+
+About resetting bots & PnL
+
+Yes — you are 100% right to do this, and your instructions are correct.
+
+After badges are fixed, they must:
+
+Reset metrics
+
+Autonomy queues baseline backtests
+
+Bots light up with Backtesting / Improving automatically
+
+Promotions stay locked until proven
+
+Your reset commands are correct — keep them in the same message if you want execution immediately.
+
+One important note (so you don’t get gaslit again)
+
+If they reply with:
+
+“Badge doesn’t exist”
+
+“That’s just freshness”
+
+“UI is correct”
+
+Your response should be one sentence:
+
+“I’m looking at it in the UI. Remove whatever code path renders that pill. Provide grep + screenshot proof.”
+
+No debate. No explanations.

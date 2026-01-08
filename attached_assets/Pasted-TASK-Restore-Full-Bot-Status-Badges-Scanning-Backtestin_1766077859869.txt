@@ -1,0 +1,101 @@
+TASK: Restore Full Bot Status Badges (Scanning / Backtesting / Evolving / Promoting / Running) — “Fresh only” is a regression
+
+CURRENT SYMPTOM
+On /bots, every bot only shows a “Fresh” badge (data recency). There are no badges for:
+- queued / running backtests
+- scanning / looking for setups
+- runner active / paper trading
+- evolving / generation creation
+- promotion/demotion/graduation events
+We previously had this working on Lovable.
+
+GOAL
+Bring back institution-grade bot operational states and badges so the list view communicates what each bot is doing NOW, not just that it was recently updated.
+
+HYPOTHESIS (most likely root causes)
+1) Backend state not being persisted:
+   - bot_jobs runs but bot_activity_state / bot_instances isn’t updated
+   - no “current_state” field written during worker loops
+2) Frontend not consuming state:
+   - table row badge is driven only by timestamps (“Fresh”) and ignores state
+3) State mapping mismatch:
+   - unknown enum/value => fallback badge (“Fresh”)
+4) Branch mismatch:
+   - the previous “Lovable” status resolver exists but wasn’t merged into this branch
+
+STEP 1 — FIND THE EXACT SOURCE OF “Fresh”
+A) Locate the UI component that renders the “Fresh” badge:
+- Search in client for “Fresh” (case-sensitive) and find the exact component/file.
+- Identify the exact input that drives it (e.g., last_updated_at, updated_at, last_signal_at, etc.)
+- Document: file + line + field used.
+
+B) Confirm whether UI currently has any logic that reads:
+- bot_jobs status
+- bot_activity_state.current_state
+- bot_instances.runner_state
+- backtest_sessions.status
+If it DOES exist, explain why it’s not being hit. If it does NOT exist, it needs to be implemented.
+
+STEP 2 — DEFINE CANONICAL BOT “NOW STATE” (Backend truth)
+We need a single canonical resolver (backend OR shared util) that computes a bot’s now_state from actual runtime tables.
+
+Priority order (example):
+1) If there is an active runner instance -> NOW_STATE = RUNNING (substate: SCANNING / IN_POSITION / COOLDOWN)
+2) Else if a BACKTESTER job is RUNNING -> NOW_STATE = BACKTESTING
+3) Else if a BACKTESTER job is QUEUED -> NOW_STATE = BACKTEST_QUEUED
+4) Else if EVOLVER job running -> NOW_STATE = EVOLVING
+5) Else if last_activity within X min but no active jobs -> NOW_STATE = IDLE_RECENT (Fresh)
+6) Else -> NOW_STATE = IDLE
+
+Also support lifecycle overlays:
+- PROMOTING / DEMOTING / GRADUATING (when those actions are happening / just happened)
+- DEGRADED / ERROR (if last job failed, circuit breaker open, or risk blocks)
+
+REQUIREMENT:
+This resolver must be deterministic and evidence-based using DB state, not guesswork.
+
+STEP 3 — EMIT & PERSIST STATE DURING WORKERS (if missing)
+Audit worker loops (scheduler/backtest worker/autonomy loop/runner loop):
+- On job start, write:
+  - bot_activity_state.current_state = BACKTESTING / EVOLVING / RUNNING etc
+  - activity_events: BACKTEST_STARTED / EVOLVE_STARTED / RUNNER_STARTED
+- On completion/failure, write:
+  - bot_activity_state.current_state = IDLE or next state
+  - activity_events: *_COMPLETED / *_FAILED with error_code + suggested_fix
+
+If there is no bot_activity_state table, use existing tables (bot_jobs + bot_instances) and add minimal column(s) needed.
+
+STEP 4 — UI: SHOW BADGES PROPERLY
+On bots list rows:
+- Replace “Fresh-only” display with a badge derived from canonical now_state:
+  - BACKTESTING (spinner)
+  - BACKTEST QUEUED
+  - EVOLVING
+  - RUNNING (SCANNING / IN_POSITION)
+  - PROMOTED / DEMOTED / GRADUATED (recent event chip)
+  - ERROR / DEGRADED (yellow “!” explained clearly)
+Keep “Fresh” as a secondary indicator only (small dot or tooltip), not the main badge.
+
+Also add hover tooltip:
+- “Derived from: job=BACKTESTER status=RUNNING (started 2m ago), last_event=BACKTEST_STARTED trace_id=…”
+So it’s auditable.
+
+STEP 5 — PROOF PACK (no hand-waving)
+Provide:
+1) File+line where “Fresh” comes from today
+2) SQL proof for 3 bots showing:
+   - their bot_jobs status
+   - their backtest_sessions status
+   - their bot_activity_state/instance state (whatever canonical source is)
+3) Screenshot (or JSON dump) showing at least:
+   - 1 bot “BACKTESTING”
+   - 1 bot “BACKTEST QUEUED”
+   - 1 bot “RUNNING/SCANNING” (if runner enabled)
+   - 1 bot “DEGRADED/ERROR” if applicable
+4) List exact files changed
+
+IMPORTANT
+- Do not create fake states.
+- If state data truly isn’t being written, fix backend emission first.
+- If state is written but UI doesn’t show it, fix the UI resolver/mapping.
+- Explain what the yellow “!” means (it currently looks like “Unknown”) and make it deterministic (e.g., DEGRADED due to last job failed / missing proof-of-use / gate blocked).

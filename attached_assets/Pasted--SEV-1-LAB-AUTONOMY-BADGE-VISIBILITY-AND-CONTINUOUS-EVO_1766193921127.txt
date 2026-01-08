@@ -1,0 +1,145 @@
+🚨 SEV-1: LAB AUTONOMY, BADGE VISIBILITY, AND CONTINUOUS EVOLUTION (FINAL SPEC)
+
+We’ve confirmed the foundation works (data, backtests, autonomy, metrics reset).
+What remains is correct LAB behavior and visibility.
+
+A) BADGES — REQUIRED & NON-NEGOTIABLE
+You MUST show these badges when jobs exist:
+
+Backtesting • x{attempt} • {elapsed}
+
+Improving • #{iteration} • {elapsed}
+
+Evolving • {elapsed}
+
+Queued • x{attempt}
+
+Rules:
+
+Badge source = botNow.state + botNow.activeJob
+
+If an EVOLVING job exists → show “Evolving” badge
+
+If an IMPROVING job exists → show “Improving” badge
+
+If a BACKTEST job exists → show “Backtesting” badge
+
+Badge precedence:
+
+Evolving > Improving > Backtesting > Queued
+
+If a job completed recently:
+
+Persist badge in muted form for ≥10 minutes
+
+“Idle” shows no badge unless bot is truly NEW (<10 min since creation)
+
+🚫 Do NOT invent or display:
+
+“Data Fresh”
+
+“Fresh”
+
+Any recency-only badge replacing activity
+
+B) LAB CONTINUOUS EVOLUTION LOOP (CORE FIX)
+
+LAB bots MUST NOT STARVE.
+
+Required LAB behavior:
+
+Each LAB bot continuously cycles:
+
+Backtest → Improve → (occasionally) Evolve → Backtest → Improve → …
+
+Minimum rules:
+
+Backtest Cadence
+
+IF stage = LAB
+AND no active job
+AND last_backtest_completed_at > LAB_BACKTEST_INTERVAL (e.g. 15–30 min)
+→ queue BACKTEST
+
+
+Improvement Cadence
+
+IF stage = LAB
+AND last_backtest_completed_at > last_improvement_at
+→ queue IMPROVING
+
+
+Evolution Trigger
+
+IF N improvements completed
+AND evolution interval passed
+→ queue EVOLVING
+
+
+Idle is allowed ONLY when:
+
+within cooldown window
+
+OR budget throttling applies
+
+OR awaiting next scheduled run
+
+Idle without a next action = BUG.
+
+C) EXPECTED “ALIVE” STATE (ACCEPTANCE CRITERIA)
+
+This is done ONLY when:
+
+LAB bots are generating jobs every hour
+
+Backtesting / Improving / Evolving badges are visible most of the time
+
+Improvement iteration counters increase
+
+Evolution events occur and are visible
+
+PnL changes over time AFTER reset
+
+No manual triggering is required
+
+Bots may idle briefly, but never indefinitely
+
+D) PROOF REQUIRED
+
+Screenshot (authenticated) showing:
+
+At least one Backtesting
+
+At least one Improving
+
+At least one Evolving badge
+
+SQL proof:
+
+SELECT job_type, status, COUNT(*)
+FROM bot_jobs
+WHERE created_at > now() - interval '60 minutes'
+GROUP BY 1,2
+ORDER BY 1,2;
+
+
+Confirm badge persistence window ≥10 minutes.
+
+E) FINAL NOTE
+
+This is not feature creep.
+This is the minimum behavior of a real trading research engine.
+
+The data is real.
+The autonomy exists.
+The LAB brain must stay ON.
+
+If you want, next we can:
+
+tune cadence safely
+
+add cost/budget governors
+
+define promotion readiness metrics
+
+But first: LAB must stay alive, visible, and evolving.

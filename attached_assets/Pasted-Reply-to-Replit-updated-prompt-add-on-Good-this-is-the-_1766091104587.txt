@@ -1,0 +1,104 @@
+Reply to Replit (updated prompt / add-on):
+
+Good — this is the right direction. BUT I need proof, not summaries, and we still have 3 remaining deliverables you marked pending that are required for “institutional-ready”:
+
+1) Diagnostics endpoint (required)
+Implement: GET /api/backtests/:id/diagnostics
+Return JSON with (NO secrets):
+- backtest_id, bot_id, symbol, timeframe
+- data_start, data_end, sampling_method, seed
+- trades_count
+- winners_count, losers_count
+- biggest_winner, biggest_loser
+- gross_pnl, net_pnl, fees_total, slippage_total
+- equity_curve_sample (first 10 + last 10 points)
+- max_drawdown_pct (computed from that curve)
+- validation flags:
+  - uses_instrument_spec=true
+  - pnl_includes_fees=true
+  - pnl_includes_slippage=true
+  - price_respects_tick=true
+
+Then RUN and paste outputs (redact nothing except keys; there should be no keys):
+- curl -s http://localhost:5000/api/backtests?limit=5 | jq
+- pick 1 completed backtest id:
+  curl -s http://localhost:5000/api/backtests/<ID>/diagnostics | jq
+
+2) Backtest sampling (required)
+Right now we still cannot prove “full history” or robustness.
+Implement sampling now and persist fields in backtest_sessions:
+- data_start, data_end
+- sampling_method: RANDOM_WINDOWS or WALK_FORWARD
+- seed (int)
+Minimum: RANDOM_WINDOWS:
+- choose N windows (ex: 20) across last 2 years
+- window length 30–60 days
+- store per-window results OR store “aggregate + worst-window” metrics
+Then prove it with:
+- curl -s http://localhost:5000/api/backtests/<ID> | jq
+(showing these fields populated)
+
+3) UI “Now State” badges (required)
+“Fresh” only is not acceptable. We need visible states:
+- Backtesting (queued/running/completed/failed)
+- Evolving
+- Paper Sim Running
+- Blocked (tooltip reason + gate)
+- Degraded (tooltip)
+This must be derived from real backend state:
+- latest bot_jobs
+- latest backtest_sessions
+- last activity event
+No guessing.
+
+Also: your “strict gates” must NOT promote to an execution-capable stage unless broker is connected+verified.
+If PAPER is meant to be sim-only, rename it in UI to PAPER_SIM to avoid ambiguity.
+
+========================================
+PROOF PACK REQUIRED (paste actual outputs)
+========================================
+A) Show gates are enforced:
+- curl -s http://localhost:5000/api/integrations/status | jq
+- curl -s http://localhost:5000/api/system/status | jq
+
+B) Show promotions obey broker rule:
+- SQL or API proof:
+  SELECT stage, COUNT(*) FROM bots GROUP BY stage;
+  SELECT id, name, stage, autonomy_tier, last_backtest_at FROM bots ORDER BY last_backtest_at DESC LIMIT 10;
+
+C) Show drawdown is now credible:
+- SQL proof:
+  SELECT id, bot_id, total_trades, winners, losers, net_pnl, max_drawdown_pct
+  FROM backtest_sessions
+  WHERE status='completed'
+  ORDER BY completed_at DESC
+  LIMIT 10;
+I expect losers > 0 for most strategies and max_drawdown_pct not all 0.
+
+D) Show instrument integrity:
+- Provide the InstrumentSpec object for MNQ + MES as returned by your code (no secrets).
+- Provide one sample trade from trade_logs showing:
+  entry_price, exit_price, qty, pnl, fees, slippage, symbol
+
+E) Show “proof-of-use” moved due to backtests (not just verify):
+- SELECT integration, operation, status, COUNT(*) 
+  FROM integration_usage_events
+  GROUP BY integration, operation, status;
+
+========================================
+One more correction
+========================================
+You said “All 5 strategy functions updated”.
+Confirm how many archetype strategies exist and which are simulated.
+If we seeded 20 archetypes but only 5 are implemented, we must:
+- mark unsupported archetypes as “NOT_IMPLEMENTED” and BLOCK backtests for them (with BACKTEST_FAILED + suggested_fix), OR
+- implement all 20.
+
+========================================
+Finally — answer these explicitly in the proof response:
+1) Are backtests sampling random windows across years? Show fields.
+2) Are fees + slippage applied? Show diagnostics breakdown.
+3) Are bots using assigned instruments? Show per-bot symbol used by executor.
+4) Why did anything get promoted to PAPER while broker was degraded? Confirm resolved with either PAPER_SIM rename or broker gate.
+
+Do NOT summarize. Paste the proofs and list exact files changed.

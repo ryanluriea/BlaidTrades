@@ -1,0 +1,124 @@
+========================================================
+PART X — AUTONOMOUS FAILURE FEEDBACK LOOP (LAB → STRATEGY LAB)
+========================================================
+This system MUST include an explicit, autonomous feedback loop where underperforming LAB bots are routed BACK into Strategy Lab for re-research, refinement, or replacement.
+
+This is NOT optional and must be first-class.
+
+--------------------------------------------------------
+A) WHEN A LAB BOT IS SENT BACK TO STRATEGY LAB
+--------------------------------------------------------
+A LAB bot must automatically generate a Strategy Lab feedback event when ANY of the following conditions occur (thresholds configurable but defaulted):
+
+• Sustained underperformance:
+  - Net PnL < -X R over N trades
+  - OR Sharpe below minimum for M cycles
+• Structural degradation:
+  - Win rate collapse > Δ% vs baseline
+  - Max drawdown breach vs expected profile
+• Regime mismatch:
+  - Bot archetype no longer aligns with detected regime
+• Stagnation:
+  - No improvement across K evolution cycles
+• Redundancy:
+  - Bot is outperformed by a newer strategy with similar archetype/signature
+• Risk pathology:
+  - Excessive stop-outs
+  - Asymmetric losses
+  - Risk flags repeatedly triggered
+
+These detections MUST be computed server-side using existing LAB telemetry (no UI inference).
+
+--------------------------------------------------------
+B) HOW FAILED LAB BOTS RE-ENTER STRATEGY LAB
+--------------------------------------------------------
+When triggered, the system must:
+
+1) Create a **Strategy Lab Feedback Research Task** with:
+   - Source bot_id
+   - Source archetype + rules_hash
+   - Failure reason codes (enumerated)
+   - Performance deltas vs baseline
+   - Regime snapshot at failure time
+   - Evidence hashes + timestamps
+
+2) Automatically launch a **targeted Perplexity deep research burst** scoped to:
+   - Fixing the specific failure mode
+   - Exploring adjacent archetypes
+   - Searching for regime-appropriate replacements
+   - Proposing parameter relaxations or structural changes
+
+3) Mark the originating bot as:
+   - `RESEARCHING_REPLACEMENT`
+   - OR `RESEARCHING_REPAIR`
+   (no user intervention)
+
+--------------------------------------------------------
+C) STRATEGY LAB OUTPUT TYPES FOR FAILED BOTS
+--------------------------------------------------------
+Strategy Lab may produce ONE OR MORE of the following outputs:
+
+• Refined strategy (same archetype, adjusted logic)
+• Variant strategy (adjacent archetype)
+• Replacement strategy (different archetype, same intent)
+• Merge candidate (fold logic into better-performing strategy)
+• Retirement recommendation (explicitly documented)
+
+Each output MUST include:
+- “Why the previous strategy failed”
+- “What changed and why”
+- Confidence score + breakdown
+- Novelty score vs original bot
+- Explicit linkage to the failed bot_id
+
+--------------------------------------------------------
+D) AUTONOMOUS DISPOSITION BACK TO LAB
+--------------------------------------------------------
+For outputs generated from failed LAB bots:
+
+• If confidence >= threshold:
+  - Auto-create replacement or refined bot in LAB
+  - Link lineage: failed_bot_id → new_bot_id
+• If confidence mid-range:
+  - Queue for further research or genetic recombination
+• If confidence low:
+  - Retire and archive with documented failure learnings
+
+NO USER PROMPTS.
+NO MANUAL REVIEW REQUIRED.
+
+--------------------------------------------------------
+E) UI REQUIREMENTS (NO NEW PAGES)
+--------------------------------------------------------
+On Strategy Candidate Cards originating from LAB failures:
+
+Add a subtle badge:
+  “From LAB feedback”
+
+Expose (collapsed by default):
+• Failed bot name + gen
+• Failure reason summary
+• Performance snapshot at failure
+• Regime at failure time
+
+On the LAB bot row (existing UI):
+• Show status:
+  - “Sent to Strategy Lab”
+  - “Being Re-researched”
+  - “Replacement Testing”
+
+--------------------------------------------------------
+F) INSTITUTIONAL GUARANTEES
+--------------------------------------------------------
+• Every failed bot must leave an audit trail
+• Every re-research cycle must be hash-linked to its source bot
+• Strategy Lab must learn from failures — not just generate new ideas
+• The system must continuously prune weak edges and reinforce strong ones
+• No silent deaths, no silent replacements
+
+This closes the loop:
+STRATEGY LAB → LAB → FAILURE → STRATEGY LAB → IMPROVED STRATEGY → LAB
+
+========================================================
+END ADD-ON
+========================================================

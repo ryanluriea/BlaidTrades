@@ -1,0 +1,217 @@
+REPLIT — SEV-1 “Institutional Readiness” Fix Pack (UI/Backend mismatch + Accounts + Badges + Health Gates)
+
+Context (Observed in UI Screenshots)
+- System Health drawer shows OVERALL: BLOCKED with:
+  - “No market data provider configured”
+  - “No broker configured”
+  - Redis: UNKNOWN
+  - Smoke test failed
+- Meanwhile other proofs previously claimed system_status OK / databento connected / etc. => This is a resolver/UI-data mismatch and/or stale endpoint usage.
+- Bots table shows almost only “Fresh” badge; missing the expected now-state badges (Scanning/Looking/Backtesting/Runner/Evolving/etc).
+- Add Trading Account modal shows Sizing Preview: “Final Contracts: NaN”.
+- After creating an account: toast says success, but Accounts page still shows “No accounts yet”.
+
+Goal
+Make the app institutionally auditable: the UI must reflect the true backend state and all autonomy stages must have deterministic, observable status + account routing + sizing math that never yields NaN.
+
+===========================================================
+A) SYSTEM HEALTH: FIX DATA CONTRACT + ELIMINATE UI/BACKEND MISMATCH
+===========================================================
+
+A1) Confirm which endpoints the System Health drawer uses RIGHT NOW
+- Identify the exact frontend fetch calls powering the drawer and “Smoke test failed”.
+- Print file paths + line numbers (e.g., client/src/**/SystemHealth*.tsx).
+- If it uses older endpoints or mock data, replace with canonical:
+  - GET /api/system/status
+  - GET /api/integrations/status
+  - POST /api/integrations/verify (optional, manual)
+  - GET /api/scheduler/status (optional)
+
+A2) Make /api/system/status the single source of truth for UI gating
+Requirements for response fields (no guesswork):
+{
+  system_status: "OK|DEGRADED|BLOCKED",
+  autonomy_allowed: boolean,
+  primary_blocker?: { code, message, suggested_fix },
+  blockers: [{ code, severity, message, suggested_fix }],
+  components: {
+    market_data_live: { status:"OK|DEGRADED|FAIL", provider, configured, connected, last_verified_at, proof_of_use_count_24h, suggested_fix },
+    brokers: { status, provider, configured, connected, suggested_fix },
+    redis: { status, configured, connected, suggested_fix },
+    scheduler: { status, workers: {...}, circuit_breakers: {...} },
+    risk_engine: { status, suggested_fix },
+    audit: { status, last_run_at, suggested_fix }
+  }
+}
+
+A3) Fix “No market data provider configured” mismatch
+- If integrations/status shows databento configured/connected but system drawer says none:
+  - Trace the exact boolean path that produces the blocker (file+line).
+  - Ensure the system health resolver checks the same integration registry + same env var names + same “configured” logic as integrations/status.
+  - Ensure the frontend is not rendering stale cached data (invalidate queries on drawer open + after verify).
+
+A4) Redis status should be institutional + non-confusing
+- If REDIS_URL is missing and Redis is OPTIONAL: mark DEGRADED (not UNKNOWN/FAIL).
+- If REDIS_URL exists but connection fails: mark FAIL with suggested_fix.
+- Add a lightweight ping in the health check (timeout < 500ms) and cache result for ~10s.
+
+A5) “Smoke test failed” must show the exact failing checks
+- Whatever the “Test” button triggers: return a structured report:
+{
+  trace_id,
+  results: [
+    { check_id, status:"PASS|WARN|FAIL", error_code?, message, suggested_fix }
+  ],
+  summary: { pass, warn, fail }
+}
+- UI must render the failing check list, not a generic toast.
+
+HARD PROOFS (paste outputs; redact secrets)
+- curl -s http://localhost:5000/api/system/status | jq
+- curl -s http://localhost:5000/api/integrations/status | jq
+- curl -s http://localhost:5000/api/scheduler/status | jq   (if exists)
+- Trigger the UI “Test” and paste the returned JSON.
+
+===========================================================
+B) BOT BADGES: RESTORE NOW-STATE LANES (NOT JUST “FRESH”)
+===========================================================
+
+B1) Identify why bots only show “Fresh”
+- Find where “Fresh” is derived and why other states are never reached:
+  - EvaluateCanonicalState logic inputs: bot_instances, bot_jobs, backtest_sessions/latest, improvement_state, evolution loop state, last_heartbeat_at, etc.
+- Confirm the bots list API includes the needed fields. If the UI expects fields not included, fix API response to include a compact “status snapshot” per bot.
+
+B2) Define the canonical now-state model (single enum)
+Example (you can adjust names, but must be deterministic):
+IDLE
+LOOKING_FOR_SETUP
+BACKTEST_QUEUED
+BACKTEST_RUNNING
+BACKTEST_FAILED
+SIM_READY
+PAPER_READY
+RUNNER_STARTING
+RUNNER_RUNNING
+RUNNER_STALLED
+EVOLVING
+PROMOTION_HELD
+KILLED
+
+B3) Make the bots list query return enough data to render lane badges
+Minimal per-bot fields required:
+- stage, mode, evolution_status
+- last_backtest_at, latest_backtest_status
+- latest_job_type/status/updated_at (BACKTESTER/RUNNER/EVOLVER)
+- instance_status + last_heartbeat_at
+- any hold reason / why_not_promoted / next_action
+
+B4) Tooltip for yellow “!” icon must be explicit
+- The icon must map to a reason code (never “Unknown”).
+- On hover: show reason, last_update_at, suggested fix (example: “MISSING_RUNNER: No runner instance heartbeat in 90s”).
+
+Proof requirement
+- Provide 1 screenshot showing at least 4 different badge states across bots (not all Fresh).
+- Provide 1 JSON snippet for a bot showing the status snapshot used to render badges.
+
+===========================================================
+C) MARKET DATA + BROKERS: WHAT’S “INSTITUTIONAL STANDARD” HERE?
+===========================================================
+
+C1) Clarify stage requirements (fail-closed)
+- LAB/BACKTEST: requires historical market data only (Databento) -> broker NOT required.
+- PAPER: can be (choose and implement explicitly):
+  Option 1 (standard): broker NOT required; uses simulated execution; still requires live market data
+  Option 2 (stricter): broker required even for paper
+Pick ONE and make:
+- integration-registry stage requirements match it
+- system health drawer labels match it
+- runner start gates enforce it
+
+C2) Ensure provider verification state is visible
+- integrations/status must show last_verified_at and proof_of_use_count_24h.
+- system/status must surface those values in Components.
+
+===========================================================
+D) ACCOUNTS: FIX “NaN” SIZING + “TOAST SUCCESS BUT NO ROW”
+===========================================================
+
+D1) Fix NaN sizing preview (must never happen)
+The sizing formula needs:
+- equity (number)
+- riskPct (number)
+- stopTicks (number)
+- tickValue (number) from InstrumentSpec for selected symbol
+Compute:
+risk$ = equity * (riskPct/100)
+riskPerContract$ = stopTicks * tickValue
+finalContracts = floor(risk$ / riskPerContract$) (bounded by maxContractsPerTrade, min 0)
+If any input missing:
+- show “—” with a clear inline message (e.g., “Select equity source” or “Instrument spec unavailable”)
+- do NOT display NaN.
+
+Implementation details:
+- Validate inputs and types at the form layer.
+- Ensure InstrumentSpec loads before calculation (or provide fallback map for MES/MNQ/ES).
+- If equity is coming from “Share equity across bots” / account creation step, ensure it’s a real number before step 2.
+
+D2) Fix account creation UI consistency
+Symptom: toast success but list shows “No accounts yet”.
+This usually means one of:
+- create endpoint returns success but didn’t insert
+- insert succeeded but list query is filtered (wrong stage/type)
+- list query not refetched / cache not invalidated
+- UI is reading from a different endpoint/table than create writes to
+
+Required fixes:
+- On successful create: invalidate accounts query + refetch.
+- Also add optimistic insert so user sees the row instantly.
+- Add server-side response with created account id + normalized fields.
+- Ensure Accounts page uses the same canonical endpoint as create.
+
+Proof requirements
+- Paste:
+  - curl GET accounts (before)
+  - curl POST create account (response)
+  - curl GET accounts (after)
+- Screenshot showing the newly created account row visible immediately after toast.
+
+===========================================================
+E) “SANDBOX” vs “PAPER TRADING” ACCOUNT TYPES (STANDARDIZE)
+===========================================================
+
+E1) Decide semantics (and update copy)
+Recommendation (clear + non-redundant):
+- Sandbox = Strategy Lab / Evolution sim account (fast, internal, used for backtests/evolution)
+- Paper Trading = realistic simulated execution (uses live data + slippage/fees, no broker)
+- Live Trading = real broker execution
+
+E2) Stage routing defaults must exist and be visible
+- A “Stage Routing Defaults” panel should map:
+  LAB -> Sandbox account (or no account required for pure backtests)
+  PAPER -> Paper account
+  SHADOW/CANARY/LIVE -> explicit accounts
+- If PAPER bots are promoted but no PAPER account exists:
+  - show HOLD badge + reason: “NO_PAPER_ACCOUNT_CONFIGURED”
+  - don’t silently run.
+
+===========================================================
+F) DELIVERABLES (NO HAND-WAVING)
+===========================================================
+
+1) File/line references for:
+- System Health drawer fetch sources
+- The exact blocker booleans for “No market data provider configured” + “No broker configured”
+- Where “Fresh” badge is computed and why others aren’t
+- Account sizing calculation code producing NaN
+- Accounts create/list endpoints + query cache invalidation
+
+2) Proof pack
+- curl outputs for system/integrations/scheduler + accounts create/list
+- SQL (top 10) showing accounts inserted (table names as in this codebase)
+- At least one screenshot showing:
+  - System Health not lying (matches integrations)
+  - Badges show multiple states
+  - Account appears after create, and sizing preview is numeric
+
+3) Don’t broaden scope silently
+- If you change stage gating (e.g., require broker for PAPER), list that as an explicit breaking change and update UI copy accordingly.

@@ -1,0 +1,66 @@
+REPLIT — STOP ASKING. APPLY THESE CRITICAL BACKEND FIXES NOW. NO SKIPS.
+
+CONTEXT
+We are ONLY using Replit for this project now. replit.md “preferences” are NOT blockers. You have full clearance to modify server/shared/hooks as needed to ship a working institutional system.
+
+SEV-1 ROOT CAUSE (CONFIRMED)
+Autonomy loop ticks exist in autonomy_planner_runs, but baseline backtests never enqueue after metrics resets.
+queueBaselineBacktest() in server/backtest-executor.ts returns early if ANY completed backtest exists:
+  const existingSession = await storage.getLatestBacktestSession(botId);
+  if (existingSession && existingSession.status === "completed") return existingSession.id;
+This ignores metrics_reset_at. If completed backtests are older than metrics_reset_at, we must enqueue a new baseline backtest job/session.
+
+MANDATORY FIX #1 — Make queueBaselineBacktest respect metrics_reset_at
+1) Load bot.metrics_reset_at (and/or pass it into queueBaselineBacktest).
+2) When checking existing completed backtest session:
+   - Only treat as valid baseline if completed_at > metrics_reset_at (or metrics_reset_at is null).
+3) If metrics_reset_at is set and the latest completed backtest is before it:
+   - DO NOT return early.
+   - Enqueue baseline backtest job/session as intended.
+4) Ensure jobs_enqueued counters only increment when a job/session is actually created.
+
+MANDATORY FIX #2 — Health summary source of truth
+health-summary currently reads from autonomy_loops table (empty/outdated) but planner runs are in autonomy_planner_runs.
+Update health-summary to report autonomy health from autonomy_planner_runs:
+- autonomyLoopsTotal = count(runs in last 10m)
+- autonomyLoopsHealthy = count(status='SUCCESS' and finished_at not null) in last 10m
+- lastAutonomyTickAt = max(finished_at) in last 10m
+Do NOT rely on autonomy_loops table unless you are also actively writing to it.
+
+MANDATORY FIX #3 — Prove jobs really enqueue and run
+After applying Fix #1, run this proof pack and paste outputs:
+
+A) Show that at least 1 bot with metrics_reset_at now gets a queued baseline backtest:
+- SQL:
+  SELECT id, name, stage, metrics_reset_at FROM bots WHERE metrics_reset_at IS NOT NULL ORDER BY metrics_reset_at DESC LIMIT 5;
+  SELECT bot_id, job_type, status, created_at FROM bot_jobs ORDER BY created_at DESC LIMIT 20;
+  SELECT bot_id, status, created_at, completed_at FROM backtest_sessions ORDER BY created_at DESC LIMIT 20;
+
+B) Curl proof:
+  curl -s http://localhost:5000/api/_proof/autonomy | jq .
+  curl -s http://localhost:5000/api/_proof/jobs | jq .
+
+C) Confirm non-zero:
+- queued jobs > 0 OR running jobs > 0
+- a new backtest_session created AFTER metrics_reset_at
+
+MANDATORY FIX #4 — Restore REAL activity badges (remove “Data Fresh”)
+- Remove the “Data Fresh” badge/pill entirely.
+- Show activity badges ONLY from botNow.state + botNow.activeJob:
+  - Backtesting ×{attempt} • {elapsed}
+  - Improving #{iteration} • {elapsed}
+  - Evolving • {elapsed}
+  - Queued ×{attempt}
+- “Fresh” only for newly created bots with ZERO history (no jobs/backtests/instances) and created_at < 10 minutes.
+
+MANDATORY FIX #5 — Stage + promotion correctness for reset
+We reverted all bots to LAB and locked them. That’s fine.
+But autonomy must still enqueue baseline backtests in LAB even under stage locks.
+Stage locks must block promotions, NOT baseline backtests.
+
+DELIVERABLES
+1) Exact files changed list + key line ranges
+2) Proof pack outputs (SQL + curl)
+3) Screenshot (authenticated) showing at least one bot with “Backtesting ×N • Xm” badge
+4) Screenshot of System Health no longer lying about autonomy loop count (should reflect autonomy_planner_runs)
+NO “preferences” blockers. NO “skipped”. SHIP IT.

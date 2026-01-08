@@ -1,0 +1,150 @@
+# BlaidTrades Render Blueprint
+# Deploy with: Connect GitHub repo to Render, it auto-detects this file
+
+databases:
+  - name: blaidtrades-db
+    plan: pro
+    databaseName: blaidtrades
+    user: blaidtrades
+    ipAllowList: []
+
+services:
+  # Main API + WebSocket Server
+  - type: web
+    name: blaidtrades-api
+    runtime: node
+    plan: standard
+    buildCommand: npm install && npm run build
+    startCommand: node --experimental-specifier-resolution=node --enable-source-maps dist/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: WORKER_MODE
+        value: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: blaidtrades-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: blaidtrades-redis
+          type: redis
+          property: connectionString
+      # Required Session/Auth Secrets - MUST SET IN RENDER DASHBOARD
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      # API Keys - Set these in Render Dashboard
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: XAI_API_KEY
+        sync: false
+      - key: GOOGLE_GEMINI_API_KEY
+        sync: false
+      - key: PERPLEXITY_API_KEY
+        sync: false
+      - key: DATABENTO_API_KEY
+        sync: false
+      - key: POLYGON_API_KEY
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: FMP_API_KEY
+        sync: false
+      - key: FRED_API_KEY
+        sync: false
+      - key: NEWS_API_KEY
+        sync: false
+      - key: MARKETAUX_API_KEY
+        sync: false
+      - key: UNUSUAL_WHALES_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: IRONBEAM_USERNAME_1
+        sync: false
+      - key: IRONBEAM_PASSWORD_1
+        sync: false
+      - key: IRONBEAM_API_KEY_1
+        sync: false
+      - key: TRADOVATE_USERNAME
+        sync: false
+      - key: TRADOVATE_PASSWORD
+        sync: false
+      - key: TRADOVATE_APP_ID
+        sync: false
+    autoDeploy: true
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetMemoryPercent: 80
+      targetCPUPercent: 70
+
+  # Background Worker for Backtests/Evolution
+  - type: worker
+    name: blaidtrades-worker
+    runtime: node
+    plan: standard
+    buildCommand: npm install && npm run build
+    startCommand: node --experimental-specifier-resolution=node --enable-source-maps dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WORKER_MODE
+        value: true
+      - key: MAX_HEAVY_BACKTEST_CONCURRENCY
+        value: 4
+      - key: MAX_LIGHT_BACKTEST_CONCURRENCY
+        value: 8
+      - key: DATABASE_URL
+        fromDatabase:
+          name: blaidtrades-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: blaidtrades-redis
+          type: redis
+          property: connectionString
+      # Required Session/Auth Secrets - auto-generated
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      # API Keys for AI/Data providers
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: DATABENTO_API_KEY
+        sync: false
+      - key: POLYGON_API_KEY
+        sync: false
+    autoDeploy: true
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetMemoryPercent: 75
+      targetCPUPercent: 80
+
+  # Redis for caching and job queues
+  - type: redis
+    name: blaidtrades-redis
+    plan: standard
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []

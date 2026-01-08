@@ -1,0 +1,242 @@
+🚨🚨 SEV-0 ESCALATION: PLATFORM MUST TRANSITION FROM DEMO → INSTITUTIONAL REALITY
+
+This is no longer a UI, badge, or scheduler issue.
+
+You have now explicitly confirmed:
+
+“This is a well-architected demo platform, not an institutional trading system.”
+
+That is not acceptable.
+We have repeatedly and explicitly required institutional-grade, real-data, real-logic readiness.
+
+We are not asking for “eventually” or “later.”
+We are asking for the platform to stop pretending work is real when it is simulated.
+
+🔴 CURRENT STATE (UNACCEPTABLE)
+
+You have confirmed ALL of the following:
+
+❌ Backtests are mock / simulated
+
+❌ Strategy logic is randomized
+
+❌ “Evolution” is cosmetic
+
+❌ Databento is not actually driving historical or live analysis
+
+❌ Broker connectivity exists in name only
+
+❌ PnL is not derived from real execution or real historical fills
+
+❌ LAB appears “alive” visually but is not performing real research
+
+This means:
+
+LAB bots are not learning, improving, or evolving in any real sense.
+
+That violates the entire purpose of this platform.
+
+🟢 REQUIRED STATE (NON-NEGOTIABLE)
+
+We are not asking if this is possible.
+We are asking you to implement it now, step by step.
+
+PHASE 1 — REAL DATA BACKTESTING (MANDATORY)
+REQUIREMENTS
+
+Databento Historical Data MUST be used
+
+CME futures (MES, MNQ, ES, NQ)
+
+Proper session handling (RTH/ETH)
+
+Correct tick/second resolution
+
+Deterministic, replayable datasets
+
+Backtests must be real
+
+No random walks
+
+No mocked candles
+
+No fabricated trades
+
+Trades must come from:
+
+real bar data
+
+real entry/exit rules
+
+real fills (with slippage + fees)
+
+Proof
+
+Show the exact Databento query used
+
+Show bar counts
+
+Show timestamp ranges
+
+Show deterministic re-runs produce same results
+
+If backtests are not real, everything above them is meaningless.
+
+PHASE 2 — REAL STRATEGY LOGIC (NO RANDOMNESS)
+REQUIREMENTS
+
+Each bot must have explicit, inspectable rules:
+
+Entry conditions (price, time, indicators, structure)
+
+Exit conditions (TP, SL, time stop, invalidation)
+
+Risk rules (size, max loss, scaling)
+
+Session rules (RTH/ETH, no-trade windows)
+
+These rules must be:
+
+Stored
+
+Versioned
+
+Shown in UI
+
+Exported in Bot Packs
+
+Used verbatim in backtests
+
+❌ “Archetypes that generate random behavior” are not acceptable.
+
+PHASE 3 — REAL EVOLUTION (NOT COSMETIC)
+REQUIREMENTS
+
+Evolution must mean actual change:
+
+Parameter mutation
+
+Rule variation
+
+Risk constraint tuning
+
+Entry/exit threshold changes
+
+Generation increments ONLY when:
+
+An EVOLVING job materially changes the rule set
+
+The new generation re-backtests
+
+Performance deltas are measured
+
+Generation history must show:
+
+What changed
+
+Why it changed
+
+What improved or degraded
+
+If evolution doesn’t change logic, it is fake.
+
+PHASE 4 — LAB CONTINUOUS RESEARCH (INSTITUTIONAL STANDARD)
+
+LAB bots must behave like a research desk:
+
+Continuous backtesting
+
+Continuous improvement
+
+Periodic evolution
+
+Clear job cadence (not idle starvation)
+
+Idle LAB bots are acceptable only when:
+
+All cadence rules are satisfied
+
+No scheduled work is due
+
+Idle because “nothing triggered” is not acceptable.
+
+PHASE 5 — BROKER + LIVE READINESS (PARALLEL TRACK)
+
+We are NOT asking to trade live today, but:
+
+Broker connectivity must be real
+
+Market data must be real
+
+Paper trading must be execution-accurate
+
+This is required to validate:
+
+Slippage assumptions
+
+Latency impact
+
+Fill realism
+
+Risk engine correctness
+
+🔐 ACCEPTANCE CRITERIA (NO EXCEPTIONS)
+
+This is considered institutionally ready only when:
+
+Backtests use real historical market data
+
+Strategies have real logic
+
+Evolution changes strategy behavior
+
+LAB bots are continuously researching
+
+PnL reflects actual strategy outcomes
+
+UI badges reflect real work
+
+Metrics change because real computation happened
+
+Until then, the system must not be represented as institutional-grade.
+
+⚠️ IMPORTANT TONE CHECK
+
+This is not hostility — this is clarity.
+
+You’ve built a strong architectural shell.
+Now you must put a real engine inside it.
+
+We are not interested in:
+
+demos
+
+placeholders
+
+simulated intelligence
+
+cosmetic evolution
+
+We are building a real trading research platform.
+
+🧭 NEXT STEP (DO THIS)
+
+Reply with:
+
+A concrete implementation plan for:
+
+Real Databento backtesting
+
+Real strategy logic
+
+Real evolution mechanics
+
+A clear order of execution
+
+A timeline
+
+A statement confirming:
+
+“After Phase 1–3, LAB bots will be performing real institutional research.”
+
+Anything less is not acceptable.

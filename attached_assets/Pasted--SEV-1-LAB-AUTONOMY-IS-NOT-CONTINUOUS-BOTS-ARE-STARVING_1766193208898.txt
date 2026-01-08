@@ -1,0 +1,132 @@
+🚨 SEV-1: LAB AUTONOMY IS NOT CONTINUOUS — BOTS ARE STARVING
+
+We have confirmed:
+
+Backtests are real
+
+Databento data is real
+
+Autonomy ticks are running
+
+Metrics reset works
+
+Badges render correctly when jobs exist
+
+The problem is NOT badges.
+The problem is LAB bots are not continuously generating work.
+
+CURRENT BEHAVIOR (WRONG FOR LAB):
+
+Autonomy only queues a backtest when a bot “needs baseline”
+
+Once baseline exists, LAB bots go idle indefinitely
+
+Backtests occur hours apart
+
+Badges appear briefly then disappear
+
+No improvement or evolution loop exists
+
+This is why Lovable “felt alive” and Replit currently feels dead.
+
+REQUIRED FIX: LAB CONTINUOUS EVOLUTION LOOP
+1️⃣ LAB BACKTEST CADENCE
+
+Add LAB-only logic:
+
+Every LAB bot should:
+
+re-backtest on a fixed cadence (e.g. every 15–30 min)
+
+OR maintain at least 1 active or queued LAB job
+
+Example rule:
+
+IF bot.stage = LAB
+AND no active job
+AND last_backtest_completed_at > LAB_BACKTEST_INTERVAL
+→ queue new backtest
+
+2️⃣ LAB IMPROVEMENT LOOP
+
+Introduce repeating jobs:
+
+IMPROVING jobs:
+
+parameter nudges
+
+risk tweaks
+
+EVOLVING jobs:
+
+generation increment
+
+strategy mutation
+
+LAB bots should cycle:
+
+Backtest → Improve → Backtest → Improve → Evolve → Backtest
+
+3️⃣ BADGES MUST REFLECT ACTIVITY, NOT JUST NECESSITY
+
+Badges should appear because:
+
+work is happening
+
+not because a baseline is missing
+
+If LAB bot has:
+
+active job → show badge
+
+recent job → show muted badge
+
+scheduled next job → show queued badge
+
+4️⃣ INSTITUTIONAL STANDARD (ACCEPTANCE CRITERIA)
+
+This is done only when:
+
+Multiple LAB bots are backtesting every hour
+
+Badges are visible most of the time
+
+Improvement attempts increment
+
+Generations advance
+
+PnL changes over time after reset
+
+No manual triggering required
+
+5️⃣ DO NOT DELETE BOTS
+
+Deleting bots hides the problem.
+Fix the autonomy logic.
+
+9️⃣ Final reassurance
+
+You’re not asking for something unreasonable.
+You’re asking for the core of a real trading research engine.
+
+What you’ve uncovered is actually good news:
+
+The foundation works
+
+The data is real
+
+The system just needs its LAB brain switched on
+
+If you want, next I can:
+
+design the exact LAB scheduler
+
+define job budgets per bot
+
+propose safe throttles so Replit doesn’t melt
+
+map promotion readiness metrics
+
+But first — continuous LAB evolution must exist.
+
+You were right to push this.

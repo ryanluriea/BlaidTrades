@@ -1,0 +1,206 @@
+SEV-1 FIX PACK: BADGE “-17976s AGO” BUG + REAL-TIME BOT LIST METRICS (PNL/SHARPE/TRADES/GEN) + INSTITUTIONAL-GRADE UI FEEL
+
+Context (current observed bugs)
+- In Bots list I’m seeing “Evolving • -17976s ago” (negative elapsed). That is objectively wrong and makes the system feel fake.
+- I want the Bots list to feel alive: when backtests/improvements/evolutions complete, I should SEE it in the list without opening extra windows.
+- I want the list metrics to update in near real-time: Net P&L, Max DD, Sharpe, Win%, Trades, Gen label, etc. If a value changes, it should briefly “flash”/highlight so it’s obvious.
+- I do NOT want “Data Fresh” or any “recency-only” pills. Activity badges only (Backtesting / Improving / Evolving / Queued / Trading / Scanning / Idle). Keep it simple.
+
+GOALS / ACCEPTANCE CRITERIA
+A) No negative elapsed times anywhere. Ever.
+B) If a bot is IMPROVING or EVOLVING or BACKTESTING (or just completed within the last N minutes), the badge must be visible on the row (no separate window).
+C) Bot list metrics update automatically (poll/SSE/WS) and visually highlight changes (PnL, trades, gen, sharpe, etc.).
+D) All badge and metric data must be “backend truth” (derived from botNow + latest computed metrics) and consistent across /api/bots and /api/bots-overview.
+E) Provide proof: SQL + API + 1 authenticated screenshot showing:
+   - At least 1 bot with “Backtesting • xN • Xm Ys”
+   - At least 1 bot with “Improving • #N • Xm Ys”
+   - At least 1 bot with “Evolving • Xm Ys” (when it runs)
+   - No negative elapsed. No “Data Fresh”.
+
+========================================================
+PHASE 1 — FIX THE NEGATIVE ELAPSED (“-17976s ago”) BUG
+========================================================
+
+1) Identify where “{elapsed} ago” is computed and fix it at the SOURCE OF TRUTH.
+   Likely locations:
+   - server/compute-bot-now.ts (botNow.recentJob / activeJob / state timestamps)
+   - client badge renderer (BotStatusBadgeLanes / BotTableRow) if it computes “ago” from timestamps
+
+2) Canonical time fields (do this consistently):
+   For an active job:
+   - startedAt (ISO string or epoch ms)
+   - elapsedSeconds (server-computed) OR compute safely client-side
+
+   For a recently completed job:
+   - completedAt (ISO or epoch ms)
+   - sinceSeconds = now - completedAt
+
+3) HARD RULES to prevent negative time:
+   - Always parse timestamps in the SAME UNIT (ms vs seconds).
+   - If any diff is negative, clamp to 0 and log a WARN once per bot (not spam).
+   - If timestamp missing/invalid, show no “ago” suffix (don’t show garbage).
+
+4) Implementation requirements:
+   - If server sends elapsedSeconds: ensure it is computed from Date.now() (ms) minus startedAt (ms), then /1000, floor, clamp >= 0.
+   - If client computes “ago”: use a single helper:
+     getSinceSeconds(ts):
+       - parse ts -> epochMs
+       - diffMs = Date.now() - epochMs
+       - if diffMs < 0 => 0
+       - return floor(diffMs/1000)
+
+5) Proof:
+   - Add a small test harness or a dev-only log line when a negative diff would have happened:
+     [TIME_SANITY] bot_id=... field=completedAt parsed=... now=... diffMs=... clamped=...
+   - Provide 1 screenshot showing “Evolving • 0s ago” at minimum (never negative).
+
+========================================================
+PHASE 2 — BADGES MUST BE VISIBLE ON THE ROW (NO EXTRA WINDOWS)
+========================================================
+
+1) Badge display contract (single lane, row-level)
+   - Primary Activity badge shows ONLY the current activity state:
+     BACKTEST_RUNNING  => “Backtesting • x{attempt} • {elapsed}”
+     BACKTEST_QUEUED   => “Backtesting • x{attempt} • Queued”
+     IMPROVING_RUNNING => “Improving • #{iteration} • {elapsed}”
+     IMPROVING_QUEUED  => “Improving • #{iteration} • Queued”
+     EVOLVING_RUNNING  => “Evolving • {elapsed}”
+     EVOLVING_QUEUED   => “Evolving • Queued”
+     (Optional if relevant to your app)
+     RUNNER_TRADING    => “Trading”
+     RUNNER_SCANNING   => “Scanning”
+     IDLE              => no activity badge (or subtle “Idle” if you insist, but I prefer no badge)
+
+2) Persistence window (so it doesn’t blink and vanish)
+   - If a job COMPLETED/FAILED within the last 10 minutes (not 2 minutes), show a MUTED “Completed” version:
+     “Backtesting • xN • 3m ago”
+     “Improving • #N • 1m ago”
+     “Evolving • 20s ago”
+   - 10 minutes is intentional so the list feels alive even with 15–30m cadence.
+
+3) Remove any non-activity “Data Fresh” or “Fresh” pills from the bots list.
+   - No recency pills on the row. Only activity.
+
+4) Proof:
+   - Provide authenticated screenshot of bots list where at least 2 bots show active/recent badges simultaneously.
+
+========================================================
+PHASE 3 — REAL-TIME METRICS UPDATES ON BOT LIST (INSTITUTIONAL FEEL)
+========================================================
+
+I want the bots list to update automatically and visually signal changes.
+
+Option A (fast + safe): Polling (recommended first)
+- Use React Query (or existing fetch) with:
+  - refetchInterval: 3000–5000ms on Bots page ONLY
+  - refetchOnWindowFocus: true
+  - staleTime: 0 (or small)
+- Only for bots table endpoints: /api/bots-overview (prefer) and /api/bots if needed.
+
+Option B (best UX): SSE (Server-Sent Events)
+- Add GET /api/stream/bots-overview (SSE) that pushes “bot changed” events:
+  - { botId, fieldsChanged, newSnapshotVersion }
+- Frontend listens and invalidates/refetches query on events.
+
+Option C: WebSockets
+- Similar to SSE but heavier. Only do if SSE isn’t viable.
+
+I’m ok starting with Option A immediately, then upgrading to SSE.
+
+Visual “flash” on changes
+- When a bot row’s numeric metric changes (PnL, trades, sharpe, maxDD, win%, gen):
+  - briefly highlight that cell or the entire row for 600–900ms
+  - use a subtle pulse/glow that matches our theme (no new colors, just existing accents with opacity)
+- Implement by storing previous snapshot per botId and comparing on each fetch.
+  - If value changed, set a transient “changed” flag and clear it via timeout.
+
+Also: ensure Gen label updates live
+- When generation changes, update “Gen N” immediately and highlight the generation pill.
+
+Performance constraints
+- Do NOT poll the entire app globally. Only the Bots list page.
+- Use lightweight payload (bots-overview) and avoid N+1.
+
+Proof
+- Provide a short screen recording or at least logs showing:
+  - Polling interval active
+  - A bot completes a job
+  - Its PnL/trades change on the list without manual refresh
+  - The updated fields flash
+
+========================================================
+PHASE 4 — VERIFY THE WORK IS REAL (NO FAKE PNL / WRONG INSTRUMENT)
+========================================================
+
+1) Instrument correctness proof
+- For each backtest session:
+  - store symbol used (e.g., MES, MNQ) and data provider (Databento)
+  - store date range (start/end)
+  - store bar timeframe and bar count
+- Expose minimal proof in the UI tooltip (on badge hover) WITHOUT opening a modal:
+  - “MES • 30D • 1m bars • Databento • 175k bars” (example)
+- Provide SQL proof query:
+  SELECT id, bot_id, symbol, data_provider, start_at, end_at, bar_count, total_trades, net_pnl
+  FROM backtest_sessions
+  ORDER BY created_at DESC
+  LIMIT 10;
+
+2) “Too fast” completion sanity
+- If backtests are completing in seconds, confirm what’s being tested:
+  - Is it using cached data?
+  - Is the bar range small?
+  - Are you using aggregated bars?
+- Add one “sanity metric” per session:
+  - compute_time_ms
+  - bars_processed
+  - trades_generated
+- If compute_time_ms < threshold but bar_count is huge, something is off.
+
+========================================================
+DELIVERABLES REQUIRED (NO GUESSING)
+========================================================
+
+1) Code changes:
+- Fix negative elapsed time at source + add clamp
+- Ensure badges show activity only, with 10-minute persistence
+- Add bots list real-time updates (polling first) + flash-on-change visuals
+- Add minimal proof tooltip metadata (symbol/provider/range) on badge hover (no modal)
+
+2) Proof pack (paste outputs):
+A) API proofs
+- curl -s http://localhost:5000/api/_proof/autonomy | jq .
+- curl -s http://localhost:5000/api/_proof/jobs | jq .
+- curl -s http://localhost:5000/api/bots-overview | jq '.bots[0].botNow'
+
+B) SQL proofs
+-- last 25 jobs
+SELECT bot_id, job_type, status, created_at, started_at, completed_at
+FROM bot_jobs
+ORDER BY created_at DESC
+LIMIT 25;
+
+-- last 25 sessions
+SELECT bot_id, status, created_at, completed_at, total_trades, net_pnl, symbol, data_provider
+FROM backtest_sessions
+ORDER BY created_at DESC
+LIMIT 25;
+
+C) Grep proof (ensure no “Data Fresh”)
+grep -R "Data Fresh" -n client server shared || true
+grep -R "dataFresh" -n client server shared || true
+
+D) UI proof
+- 1 authenticated screenshot of bots list showing:
+  - at least 1 Backtesting badge with elapsed (non-negative)
+  - at least 1 Improving badge with elapsed (non-negative)
+  - no “Data Fresh”
+  - visible row metric update behavior (if possible, provide short recording; if not, logs showing changed values + flash trigger)
+
+========================================================
+IMPORTANT UX NOTES (DO NOT IGNORE)
+========================================================
+- I want badges on the row. I do not want a separate window to understand what’s happening.
+- I want the system to feel alive like Lovable did, but with backend truth and institutional-grade proof.
+- If anything is missing from the UI because of caching or transforms stripping fields, fix the data flow so botNow + recentJob + generation + metrics are preserved end-to-end (overview endpoint -> hook -> row component).
+
+Proceed now. No more “it doesn’t exist” if I can see it. Fix the rendering path so it cannot happen.

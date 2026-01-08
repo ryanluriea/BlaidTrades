@@ -1,0 +1,211 @@
+REPLIT — IMPLEMENT THE MVP AUTONOMY LOOP (BACKTEST → SCORE → PROMOTE/DEMOTE → EVOLVE → REPEAT) WITH HARD PROOFS
+
+We seeded 20 starter bots + 20 archetypes successfully. That part is done.
+What’s missing is the actual autonomous lifecycle execution: backtests don’t run, jobs aren’t consumed, and nothing is promoting/demoting/evolving.
+
+I want you to implement an industry-standard MVP autonomy loop in Express (single control plane), with deterministic gates, throttling, telemetry, and Activity Feed proof events. NO HAND-WAVING — ship code + paste evidence outputs.
+
+------------------------------------------------------------
+PRIMARY GOAL
+After this patch, I should see:
+- backtest_sessions rows being created AND completed
+- trade logs created (at least one bot completes a backtest with >0 trades)
+- integration_usage_events increment from real market-data fetch (not just verify)
+- Activity Feed shows BACKTEST_QUEUED → STARTED → COMPLETED for seeded bots
+- autonomy loop creates at least one “Gen 2” evolved bot when criteria triggers (or on demand)
+- promotions/demotions/graduations fire based on deterministic rules (at least simulated for LAB/PAPER)
+
+IMPORTANT SAFETY/ARCHITECTURE
+- Express is canonical authority. No Supabase Edge Functions. Guardrail must still pass.
+- LIVE can remain fail-closed (BLOCKED) if risk-engine isn’t fully verified. That’s fine.
+- LAB/BACKTEST should NOT be blocked if market data is configured.
+
+------------------------------------------------------------
+SCOPE OVERVIEW (WHAT TO BUILD)
+A) A REAL BACKTEST EXECUTOR (MVP)
+B) A JOB CONSUMER / WORKER LOOP that actually processes BACKTESTER jobs
+C) A POST-SEED KICKOFF that enqueues baseline backtests immediately after starter-pack
+D) AN AUTONOMY SUPERVISOR LOOP that scores results and promotes/demotes/evolves bots automatically
+E) FULL TELEMETRY + FEED PROOFS so I can verify everything is actually happening
+
+------------------------------------------------------------
+1) BACKTEST EXECUTION (MINIMUM VIABLE, BUT REAL)
+You already have CRUD endpoints + backtest_sessions table + activity logger helpers, but execution is missing.
+
+Implement:
+- server/backtest-executor.ts (or similar)
+- It takes: bot_id, archetype_id (or bot strategy config), timeframe, symbol, date range
+- It fetches historical bars from configured provider (Databento primary, Polygon fallback)
+- It simulates trades deterministically based on the bot’s archetype rules
+- It writes:
+  - backtest_sessions: status transitions + final metrics
+  - trade_logs (or canonical trades table): entries/exits for the simulation
+  - integration_usage_events: provider=databento/polygon, endpoint=historical_bars, status=OK, latencyMs, trace_id
+
+MVP STRATEGY IMPLEMENTATION REQUIREMENT
+Start with 1–2 archetype families implemented end-to-end (not all 20 at once):
+Example MVP set:
+- Breakout Retest (ORB-ish logic)
+- Mean Reversion (VWAP fade or simple z-score band)
+
+Rules can be simple but must produce trades:
+- Define explicit entry criteria
+- Define explicit exit criteria (stop, target, time-based)
+- Enforce max positions, slippage model (simple), commission (optional)
+- Must produce >0 trades in at least one backtest
+
+Backtest lifecycle events (REQUIRED):
+Emit activity_events per bot:
+- BACKTEST_QUEUED
+- BACKTEST_STARTED
+- BACKTEST_COMPLETED (include: trades_count, realized_pnl, sharpe, max_dd, win_rate, trace_id)
+- BACKTEST_FAILED (include error_code + suggested_fix)
+
+NOTE: /api/backtests/:id/run is currently a stub. Replace it so it truly executes (or call executor from worker).
+
+------------------------------------------------------------
+2) JOB CONSUMER / WORKER (BACKTESTER)
+You have a scheduler that can create jobs, but “nothing consumes them.”
+
+Implement a worker loop in server/scheduler.ts (or existing scheduler module):
+- Poll bot_jobs (or your canonical jobs table) for job_type=BACKTESTER (or BACKTEST) with status=QUEUED
+- Claim a job with row-level locking to prevent double processing
+- Mark RUNNING, run backtest executor, then mark COMPLETED/FAILED
+- Concurrency limit: 2–4 max parallel backtests
+- Circuit breaker: open after 3 consecutive failures within 30 minutes; pause new backtests for a cooldown
+
+Write job events / transitions if you already have job_run_events:
+- QUEUED → RUNNING → COMPLETED/FAILED/TIMEOUT
+- Include trace_id and reason_code
+
+------------------------------------------------------------
+3) POST-SEED KICKOFF (INDUSTRY STANDARD)
+When POST /api/bots/starter-pack succeeds:
+- Automatically enqueue baseline backtests for each newly created bot (or any bot missing a baseline)
+- Throttle: do not enqueue unlimited; enqueue as QUEUED and let worker consume with concurrency control
+- Emit events:
+  - STARTER_PACK_CREATED
+  - BACKTEST_QUEUED per bot
+
+Definition of “baseline backtest” (MVP):
+- timeframe: 1m or 5m
+- lookback: last 10–30 trading days (enough to produce signals)
+- symbol derived from bot (MNQ/MES etc.)
+
+Add a safety toggle:
+- allow “autoKickoffBacktests”: true by default for starter-pack, but can be disabled with a flag for debugging.
+
+------------------------------------------------------------
+4) AUTONOMY SUPERVISOR LOOP (PROMOTE / DEMOTE / EVOLVE)
+Create an autonomy loop that runs on a schedule (e.g., every 2–5 minutes):
+- It evaluates bots in LAB/BACKTEST_ONLY/PAPER
+- It reads latest baseline backtest metrics (if missing → queue backtest)
+- It computes a deterministic “autonomy score” + tier based on metrics
+- It triggers:
+  - Promote: LAB → PAPER (or LAB → SHADOW if that’s your design) when passing gates
+  - Demote: when degrading or failing gates
+  - Evolve: when underperforming for N cycles or when score below threshold
+
+MVP AUTONOMY GATES (DETERMINISTIC)
+Define minimum gates for LAB promotion:
+- trades_count >= 20 (or 10 for MVP)
+- realized_pnl > 0 OR profit_factor > 1.05
+- max_drawdown <= X (e.g., 2% of sim equity, or fixed points)
+- no critical errors in last run
+
+Autonomy score breakdown (store in autonomy_scores table you already created):
+- data_reliability_score (provider verified + proof-of-use)
+- decision_quality_score (profitability + win rate + profit factor)
+- risk_discipline_score (drawdown + stop adherence if modeled)
+- execution_health_score (job success rate, no timeouts)
+- supervisor_trust_score (stability over last N cycles)
+
+REQUIRED EVENTS (FEED PROOF)
+Emit activity events for lifecycle:
+- AUTONOMY_SCORE_UPDATED
+- AUTONOMY_TIER_CHANGED
+- PROMOTED / DEMOTED / GRADUATED
+- EVOLVED_GENERATION_CREATED (include parent_bot_id, new_bot_id, generation, mutation_summary)
+- AUTONOMY_GATE_BLOCKED (include gate failures + suggested_fix)
+- KILL_TRIGGERED (if invariants breached)
+
+GENERATIONS (MVP)
+Add fields if needed:
+- bots.generation (int) default 1
+- bots.parent_bot_id (uuid nullable)
+If you prefer no schema change, store in bot.metadata JSON — but it must be queryable for UI feed.
+
+Evolution MVP behavior:
+- When bot fails gates for 3 cycles OR score < threshold:
+  - create a new bot as Gen+1 with mutated parameters (stop/target size, session window, entry threshold)
+  - immediately queue baseline backtest for Gen+1
+  - mark parent bot as “superseded” (optional) but do not delete history
+
+------------------------------------------------------------
+5) SYSTEM HEALTH / GATES MUST MATCH REALITY
+Fix system/status so it accurately reflects configured providers:
+- If DATABENTO_API_KEY exists → market data configured=true (even if not verified yet)
+- If at least one broker credential set exists → broker configured=true (connected=false until verify)
+- If Redis is optional → mark DEGRADED, not BLOCKED
+
+If system/status says “No market data provider configured” but integrations/status shows databento configured=true → that is a resolver/registry mismatch bug. Fix it.
+
+Add/confirm these endpoints produce canonical structured output:
+- GET /api/integrations/status
+- POST /api/integrations/verify
+- GET /api/system/status
+- GET /api/scheduler/status
+
+------------------------------------------------------------
+6) UI CONFIRMATION (NO GUESSING)
+Ensure I can confirm it’s working in-app:
+- Feed shows the new lifecycle events clearly
+- System Health drawer/panel shows:
+  - bots seeded count
+  - backtests queued/running/completed/failed counts
+  - last proof-of-use timestamp per provider (24h count)
+  - a safe button: “Kickoff Testing Now” that:
+    1) runs integrations/verify for primary providers
+    2) enqueues baseline backtests for bots missing them
+    3) shows progress counters
+
+If UI-only constraints exist, prioritize backend proofs + existing feed.
+
+------------------------------------------------------------
+DELIVERABLES (REQUIRED PROOF PACKAGE)
+After implementing, paste outputs (redact secrets; keep trace_id):
+1) Integrations/gates:
+- curl -s http://localhost:5000/api/integrations/status | jq
+- curl -s -X POST http://localhost:5000/api/integrations/verify -H "Content-Type: application/json" -d '{"provider":"databento"}' | jq
+- curl -s -X POST http://localhost:5000/api/integrations/verify -H "Content-Type: application/json" -d '{"provider":"polygon"}' | jq
+- curl -s -X POST http://localhost:5000/api/integrations/verify -H "Content-Type: application/json" -d '{"provider":"ironbeam"}' | jq
+- curl -s http://localhost:5000/api/system/status | jq
+- curl -s http://localhost:5000/api/scheduler/status | jq
+
+2) Backtest execution proof (must be non-empty):
+SQL (top 10):
+- SELECT id, bot_id, status, trades_count, realized_pnl, started_at, completed_at, created_at FROM backtest_sessions ORDER BY created_at DESC LIMIT 10;
+- SELECT id, bot_id, created_at FROM trade_logs ORDER BY created_at DESC LIMIT 10;  (or canonical trades table)
+- SELECT provider, count(*) FROM integration_usage_events WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY provider;
+
+3) Activity feed proof:
+- SELECT event_type, bot_id, created_at FROM activity_events ORDER BY created_at DESC LIMIT 30;
+
+4) Minimum success criterion:
+- Show at least ONE seeded bot with:
+  - latest backtest status=COMPLETED
+  - trades_count > 0
+  - realized_pnl not null
+  - feed includes BACKTEST_COMPLETED for that bot
+
+5) Exact files changed (no silent refactors):
+- List filenames + what changed in each
+
+------------------------------------------------------------
+DEFINITION OF DONE
+- Seeding creates bots AND within minutes the system queues and runs baseline backtests automatically
+- Proof-of-use counters move due to actual backtest market-data calls
+- Feed shows the lifecycle events
+- Autonomy loop updates scores and creates at least one generation/evolution event (or provides a manual trigger endpoint to force one for proof)
+
+Proceed with server/ changes and deliver the proofs above.

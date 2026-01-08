@@ -1,0 +1,138 @@
+ADD-ON (STRAIGHT TAKE) — THIS IS NOT “DONE” YET. FINISH IT TO SPEC.
+
+What you shipped is a good start (batched botNow, no N+1), but it does NOT meet the institutional requirement I set:
+
+✅ Good:
+- You eliminated N+1 by batching latest jobs/instances/backtests (DISTINCT ON)
+- /api/bots returns a botNow object (proof via curl)
+- You fixed the ANY()/uuid array casting issue
+
+❌ Still broken / not to spec (must fix now):
+1) WRONG botNow CONTRACT
+- You returned botNow with fields like runner_state/job_state/evolution_state/health_state.
+- The requirement is a single canonical botNow.state + reasonCode + since + stageGate + runner + activeJob + lastBacktest.
+- Your current shape forces the UI to “interpret” again → that’s exactly how we end up with “Fresh-only” badges.
+
+2) YOU LEFT CLIENT-SIDE FALLBACKS (“client-side fallback preserved”)
+- This is unacceptable. Any fallback will reintroduce “Fresh” defaults or mismatched states.
+- The UI must render from server botNow ONLY. If botNow is missing, show UNKNOWN_DATA (and log it).
+
+3) STAGE GATE EVALUATION IS MISSING (you admitted it)
+- “checkStageGates returns empty” means bots can show OK while actually blocked, or vice versa.
+- This is one of the main reasons Lovable felt “alive” and this doesn’t: the system isn’t surfacing gate truth.
+
+4) PRECEDENCE LOGIC IS NOT EXPLICIT / NOT VERIFIED
+- You said “partial precedence logic.” That means states can be wrong when multiple things exist (runner + backtest job + backtest session).
+- Must implement explicit precedence exactly as specified.
+
+5) NO PROOF PACK COMPLETION
+- You did not paste:
+  - curl output of /api/bots with botNow in the required shape
+  - SQL proof for bots in different states
+  - Authenticated UI screenshot showing multiple states (not login page)
+
+We are NOT moving on until these are completed.
+
+=========================================================
+TASKS — DO THESE NOW (NO SKIPS)
+=========================================================
+
+A) REPLACE botNow SHAPE WITH CANONICAL CONTRACT
+Implement canonical botNow exactly:
+
+botNow: {
+  state: string,
+  reasonCode?: string,
+  since?: string,
+  stageGate?: {
+    allowed: boolean,
+    blockers: { code: string, severity: "info"|"warn"|"critical", fix?: string }[]
+  },
+  runner?: { status: string, lastHeartbeatAt?: string, stale: boolean },
+  activeJob?: { id: string, type: string, status: string, createdAt: string },
+  lastBacktest?: { id: string, status: string, completedAt?: string, trades?: number, netPnl?: number }
+}
+
+Map your current runner_state/job_state/evolution_state/health_state into ONE canonical botNow.state using explicit precedence (below).
+Keep health_score only if needed separately (not as state).
+
+B) EXPLICIT PRECEDENCE (MUST MATCH THIS ORDER)
+Compute botNow.state deterministically:
+
+1) If bot killed or has fatal error -> state=ERROR (reasonCode)
+2) If stageGate.allowed=false -> state=BLOCKED_BY_GATES (include blockers)
+3) If active job RUNNING:
+   - if BACKTESTER -> BACKTEST_RUNNING
+   - if EVOLVER -> EVOLVING
+   - if RUNNER -> RUNNER_STARTING (or RUNNER_RUNNING if instance says running)
+4) If queued job exists:
+   - BACKTESTER -> BACKTEST_QUEUED
+   - RUNNER -> RUNNER_STARTING
+5) If runner exists:
+   - heartbeat fresh -> RUNNER_RUNNING
+   - heartbeat stale -> RUNNER_STALE
+6) If stage requires baseline backtest and none exists -> NEEDS_BACKTEST
+7) If created recently and no activity -> FRESH (ONLY this case)
+8) Else -> IDLE
+
+C) STAGE GATE EVALUATION (NO “empty”)
+Implement stageGate evaluation using canonical truth:
+- required integrations = getRequiredIntegrationsForStage(stage)
+- readiness + verify timestamps (e.g., verified within 24h)
+- autonomy_allowed from /api/readiness or system status
+- output blockers with suggested fixes (machine-readable)
+
+Example blockers:
+- MARKET_DATA_NOT_VERIFIED (warn) fix: “Run /api/integrations/verify databento”
+- BROKER_NOT_CONFIGURED (critical) fix: “Set IRONBEAM_* secrets + verify”
+- AUTONOMY_DISABLED (critical) fix: “Resolve readiness blockers”
+
+D) API CONTRACT
+- GET /api/bots must include canonical botNow for each bot (no guesswork required in UI)
+- GET /api/bots/:id must return the same botNow structure
+
+E) UI — REMOVE FALLBACKS / NO GUESSES
+- BotTableRow + badge lanes MUST use bot.botNow.state
+- Remove evaluateCanonicalState fallback (or gate it behind dev-only flag OFF by default)
+- If botNow missing: show UNKNOWN_DATA badge with tooltip “botNow missing from API” (and log)
+
+F) FIX “ONLY FRESH BADGE” SYMPTOM
+- Ensure botNow.state is never defaulted to FRESH unless rule #7 is true.
+- If runner/jobs/backtests exist, state MUST reflect them.
+- Ensure /api/bots query includes the latest backtest + job + runner for each bot (already batched—keep that).
+
+=========================================================
+PROOF PACK — REQUIRED OUTPUTS (PASTE)
+=========================================================
+1) API proof (canonical shape):
+curl -s http://localhost:5000/api/bots?limit=5 | jq '.data[] | {name, stage, botNow}'
+
+2) SQL proof for 3 bots (pick IDs and paste results):
+- backtest job bot:
+  SELECT id, bot_id, job_type, status, created_at, started_at, completed_at
+  FROM bot_jobs WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 5;
+  SELECT id, bot_id, status, completed_at, total_trades, net_pnl
+  FROM backtest_sessions WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 3;
+
+- runner bot:
+  SELECT id, bot_id, status, last_heartbeat_at
+  FROM bot_instances WHERE bot_id='<ID>' ORDER BY updated_at DESC LIMIT 3;
+  SELECT id, bot_id, job_type, status, created_at
+  FROM bot_jobs WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 5;
+
+- blocked by gates bot (if any):
+  Provide stage + required integrations + which blocker triggered
+
+3) UI proof:
+- Authenticated screenshot showing at least 3 DIFFERENT badge states (not login page)
+
+=========================================================
+DELIVERABLES
+=========================================================
+- Exact files changed list
+- Location (file + line numbers) of computeBotsNow() and state precedence mapping
+- Confirmation client-side fallback removed/disabled
+- Confirmation stageGate now returns non-empty blockers when appropriate
+
+NO MORE “Would you like me to implement X next?”
+Just do the above, then paste the proof pack.

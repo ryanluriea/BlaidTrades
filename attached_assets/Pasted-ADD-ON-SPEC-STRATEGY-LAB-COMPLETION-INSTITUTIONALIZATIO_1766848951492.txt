@@ -1,0 +1,249 @@
+ADD-ON SPEC: STRATEGY LAB COMPLETION & INSTITUTIONALIZATION
+===========================================================
+
+Context:
+BlaidAgent is fully autonomous. Strategy Lab is not a manual workflow tool — it is an always-on research engine that discovers, evaluates, explains, and routes strategies into LAB automatically. The user may optionally create custom sessions, but the system must function fully without user input.
+
+DO NOT add new pages.
+All enhancements must be implemented within the existing Strategy Lab page and LAB pipelines.
+
+------------------------------------------------------------
+1. STRATEGY LAB OPERATING MODES (NO USER FRICTION)
+------------------------------------------------------------
+
+Implement THREE operating modes that run autonomously:
+
+A) Continuous Scan (DEFAULT, AUTO-ON)
+- Always running when markets are open
+- Continuously generates strategy candidates
+- Uses Perplexity + internal data + regime detection
+- Feeds Strategy Candidates into the page automatically
+
+B) Regime Burst Mode (AUTO-TRIGGERED)
+- Triggered when:
+  - Volatility regime flips
+  - Correlation structure breaks
+  - Macro regime changes (FRED, rates, CPI, liquidity)
+- Temporarily increases Perplexity depth, breadth, and novelty
+- Explicitly searches for strategies relevant ONLY to the new regime
+
+C) Custom Session Mode (OPTIONAL)
+- User can create a session (existing modal stays)
+- Used for:
+  - Focused research (single symbol, timeframe, idea)
+  - Experimental / exotic research
+- Sessions do NOT block Continuous Scan
+
+IMPORTANT:
+The “No Sessions Yet” empty state should ONLY appear when:
+- No custom sessions exist
+- Continuous Scan is still allowed to run silently
+
+The Strategy Lab page must feel ACTIVE even with zero sessions.
+
+------------------------------------------------------------
+2. STRATEGY CANDIDATE CARD (EXACT LAYOUT SPEC)
+------------------------------------------------------------
+
+Each Strategy Candidate must render as a rich card with the following structure:
+
+[ HEADER ]
+- Strategy Name (auto-generated)
+- Status Pill:
+  - NEW
+  - VALIDATED
+  - SENT TO LAB
+  - RECYCLED (from failed LAB bot)
+- Confidence Score (0–100) with color gradient
+- Regime Badge(s): e.g. “Volatility Expansion”, “Range Compression”
+
+[ CORE METRICS ROW ]
+- Expected Win Rate (range)
+- Expected R:R
+- Expected Trade Frequency
+- Risk Profile (Low / Medium / High)
+- Market Type: Trend / Range / Mean Reversion / Volatility
+
+[ STRATEGY INTENT (MANDATORY) ]
+Human-readable explanation of the inefficiency being exploited:
+Examples:
+- “Liquidity vacuum after overnight imbalance”
+- “Dealer gamma unwind near VWAP”
+- “Volatility overreaction during macro compression”
+
+This section is REQUIRED and immutable once created.
+
+[ MECHANICS SUMMARY ]
+Bullet summary of:
+- Entry logic (high level)
+- Exit logic
+- Invalidation conditions
+- Risk controls
+
+NO raw code here — human-digestible rules only.
+
+[ WHY THIS STRATEGY EXISTS ]
+Auto-generated explanation including:
+- Research citations (Perplexity sources)
+- Market structure rationale
+- Why this edge exists NOW (time sensitivity)
+
+[ CONFIDENCE BREAKDOWN (EXPANDABLE) ]
+Show weighted components:
+- Research Strength
+- Regime Alignment
+- Novelty / Crowdedness
+- Historical Analogy
+- Risk Asymmetry
+
+[ ACTIONS ]
+- Primary CTA: “Send to LAB”
+- Secondary: “Watch”, “Archive”, “Compare”
+
+------------------------------------------------------------
+3. FORMAL CONFIDENCE SCORING MODEL
+------------------------------------------------------------
+
+Confidence Score (0–100) MUST be computed as:
+
+Confidence =
+  (0.30 * Research Strength) +
+  (0.25 * Regime Alignment) +
+  (0.15 * Novelty Score) +
+  (0.15 * Historical Analogy Match) +
+  (0.15 * Risk Asymmetry Score)
+
+Where:
+
+Research Strength:
+- Source count
+- Source quality
+- Cross-source agreement
+- Penalize speculative or uncited claims
+
+Regime Alignment:
+- + score if strategy explicitly matches current regime
+- − score if regime mismatch
+- 0 if regime neutral
+
+Novelty Score:
+- Penalize if similar strategy already exists in LAB or archive
+- Reward unique intent + mechanics combinations
+
+Historical Analogy:
+- Match against past regimes where similar edges worked
+- Boost if analogy is tight and data-backed
+
+Risk Asymmetry:
+- Downside boundedness
+- Failure speed vs success speed
+- Stop efficiency
+
+Confidence MUST decay over time unless refreshed by:
+- New research
+- Regime persistence
+- LAB performance feedback
+
+------------------------------------------------------------
+4. PERPLEXITY DEEP RESEARCH TIERS
+------------------------------------------------------------
+
+Perplexity must operate in THREE tiers automatically:
+
+Tier A — Validation Research
+- Known edges
+- Confirming institutional logic
+- Used for refinement and confidence boosting
+
+Tier B — Adaptive Research
+- Strategies emerging due to regime shifts
+- New combinations of known mechanics
+- Triggered heavily during Regime Burst Mode
+
+Tier C — Exploratory / Revolutionary Research
+- Never-before-seen structures
+- Cross-market or cross-asset analogies
+- Allowed to fail more often
+- High novelty, high upside
+
+Each Strategy Candidate must declare its Tier.
+
+------------------------------------------------------------
+5. LAB ↔ STRATEGY LAB FEEDBACK LOOP (CRITICAL)
+------------------------------------------------------------
+
+Implement automatic recycling:
+
+If a LAB bot:
+- Underperforms beyond thresholds
+- Shows structural failure
+- Fails regime robustness
+
+Then:
+- It is automatically sent BACK to Strategy Lab
+- Marked as “RECYCLED”
+- Includes failure memory:
+  - Why it failed
+  - Under what regime
+  - What mechanics broke
+
+Perplexity + Genetics must use this failure memory to:
+- Propose repaired variants
+- Or declare the strategy invalid under certain regimes
+
+This prevents zombie strategies and wasted cycles.
+
+------------------------------------------------------------
+6. STRATEGY LINEAGE & MEMORY (NO UI BLOAT)
+------------------------------------------------------------
+
+Every Strategy Candidate must store:
+- Parent strategy (if recycled or evolved)
+- Mutation reason
+- Rule deltas (human-readable)
+- Expected behavioral change
+- Actual LAB outcome (when available)
+
+This data powers:
+- Trust
+- Explainability
+- Intelligent evolution
+- Rollbacks
+
+------------------------------------------------------------
+7. SESSION UX CLARIFICATION
+------------------------------------------------------------
+
+The Strategy Lab page should have:
+
+- A visible “Research Active / Paused” indicator
+- A simple Play / Pause control for Continuous Scan
+- “New Session” button remains for optional custom research
+- REMOVE the feeling that a session is required to function
+
+The system should feel like:
+“I’m watching an autonomous research engine work.”
+
+------------------------------------------------------------
+8. HARD CONSTRAINTS
+------------------------------------------------------------
+
+- Do NOT add new pages
+- Do NOT require user input to function
+- Do NOT block Continuous Scan behind sessions
+- Do NOT surface raw research noise
+- Everything must be explainable, auditable, and autonomous
+
+------------------------------------------------------------
+DELIVERABLES EXPECTED
+------------------------------------------------------------
+
+1. Updated Strategy Lab page behavior (no dead empty states)
+2. Strategy Candidate Card rendered exactly as specified
+3. Formal confidence scoring implemented
+4. Perplexity deep research tiers wired
+5. LAB ↔ Strategy Lab recycling loop active
+6. Confidence decay + regime bursts live
+7. Full autonomy preserved
+
+This completes Strategy Lab as an institutional-grade research engine.

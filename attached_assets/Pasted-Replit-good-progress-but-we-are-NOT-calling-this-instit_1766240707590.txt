@@ -1,0 +1,149 @@
+Replit — good progress, but we are NOT calling this “institutional-ready” until you deliver the PROOF PACK + close the remaining loopholes.
+
+========================
+0) CRITICAL: “dev mode allows simulated fallback by default” is NOT OK unless it is impossible to confuse with real.
+========================
+Requirements:
+- ALLOW_SIM_FALLBACK must default to FALSE everywhere (dev included) unless I explicitly set it TRUE.
+- If fallback is enabled, UI + API must scream it:
+  - backtest_sessions.data_source = SIMULATED_FALLBACK
+  - a visible badge/pill on the bot row: “SIM DATA” (only if fallback used)
+  - /api/_proof/databento must report counts of SIMULATED_FALLBACK sessions
+- If ALLOW_SIM_FALLBACK=false and Databento fails: job must FAIL CLOSED with:
+  - job.status=FAILED
+  - job.reason_code=MARKET_DATA_UNAVAILABLE or DATA_PROVENANCE_VIOLATION (pick one and standardize)
+  - jobRunEvents + error_logs row with the same trace_id
+
+Deliver a grep proof + env defaults proof:
+- show default config file / env loader where ALLOW_SIM_FALLBACK defaults FALSE
+- grep -R "ALLOW_SIM_FALLBACK" client server shared
+
+========================
+1) PROOF PACK — PASTE OUTPUTS (NO SUMMARY)
+========================
+Run these and paste raw output:
+
+A) Autonomy is ticking:
+curl -s http://localhost:5000/api/_proof/autonomy | jq .
+
+Acceptance: runs_last_10_minutes >= 2 and verdict PASS.
+
+B) Jobs exist and are recent:
+curl -s http://localhost:5000/api/_proof/jobs | jq .
+
+Acceptance: recent_jobs show created_at/completed_at within last 10 minutes during LAB cadence.
+
+C) Databento proof endpoint:
+curl -s http://localhost:5000/api/_proof/databento | jq .
+
+Acceptance:
+- allow_sim_fallback: false
+- sessions_real_count increases over time
+- sessions_sim_count must be 0 (unless I intentionally turn it on)
+- recent_requests must show success=true with bars_returned > 0
+
+D) SQL: last 25 sessions MUST include provenance fields:
+SELECT
+  id, bot_id, status, created_at, completed_at,
+  symbol, timeframe,
+  data_source, data_provider, data_schema,
+  data_start_ts, data_end_ts, bar_count, raw_request_id,
+  rules_hash,
+  total_trades, net_pnl
+FROM backtest_sessions
+ORDER BY created_at DESC
+LIMIT 25;
+
+Acceptance:
+- data_source = DATABENTO_REAL for institutional runs
+- bar_count > 0
+- raw_request_id populated or reproducible fingerprint present
+- symbol matches bot’s configured symbol (NO cross-symbol contamination)
+
+E) SQL: Databento request log exists and aligns with sessions:
+SELECT
+  id, created_at, symbol, timeframe, start_ts, end_ts,
+  bars_returned, latency_ms, success, error_code, request_fingerprint
+FROM databento_requests
+ORDER BY created_at DESC
+LIMIT 50;
+
+Acceptance:
+- at least 1 successful request per backtest batch
+- bars_returned aligns with requested range/timeframe
+
+========================
+2) BADGES MUST BE VISIBLE IN THE LIST (NO EXTRA WINDOWS)
+========================
+I want the bots list itself to show activity, otherwise it looks dead.
+
+Requirements:
+- Show “Backtesting / Improving / Evolving” when active.
+- Persist recent activity badges for 10 minutes after completion (muted) so we can see the system is alive.
+- Fix the negative time bug everywhere (clamp to 0):
+  - no “-17976s ago” ever.
+- If bot is idle, show a small “Next run in Xm” helper (LAB cadence transparency).
+
+PROOF:
+- Provide AUTHENTICATED screenshot showing multiple bots in list with badges:
+  - Backtesting • xN • {elapsed}
+  - Improving • #N • {elapsed}
+  - Evolving • {elapsed}
+  - plus at least one “recent” muted badge with “Xm ago”
+
+========================
+3) CONTINUOUS LAB LOOP MUST BE QUANTIFIED (NOT “FEELS ALIVE”)
+========================
+Define + log budgets:
+
+- LAB_BACKTEST_INTERVAL_MIN (default: 15)
+- LAB_IMPROVE_AFTER_BACKTEST (true)
+- LAB_EVOLVE_AFTER_N_IMPROVES (default: 3)
+- LAB_EVOLVE_MIN_INTERVAL_MIN (default: 60)
+- MAX_CONCURRENT_JOBS_GLOBAL and MAX_CONCURRENT_JOBS_PER_BOT
+- A per-tick summary record: how many backtests/improves/evolves queued
+
+PROOF:
+- Show last 10 autonomy_planner_runs summary_json with counts:
+SELECT
+  created_at, bots_evaluated, jobs_enqueued, summary_json
+FROM autonomy_planner_runs
+ORDER BY created_at DESC
+LIMIT 10;
+
+Acceptance:
+- jobs_enqueued > 0 on multiple ticks
+- IMPROVING appears regularly
+- EVOLVING appears after thresholds
+
+========================
+4) STILL MISSING: “REAL EVOLUTION” HASH + DIFF (REQUIRED)
+========================
+You said this is deferred — it cannot be deferred if you’re claiming institutional readiness.
+
+Requirements:
+- bot_generations must store:
+  - before_rules_hash
+  - after_rules_hash
+  - diff_summary (human readable)
+  - objective
+  - rebacktest_session_id (or performance delta fields)
+- Generation increments ONLY when hashes differ.
+
+PROOF SQL:
+SELECT
+  bot_id, generation, created_at, objective,
+  before_rules_hash, after_rules_hash, diff_summary, rebacktest_session_id
+FROM bot_generations
+ORDER BY created_at DESC
+LIMIT 25;
+
+Acceptance:
+- before_rules_hash != after_rules_hash for any gen increment
+- diff_summary not empty
+- rebacktest_session_id points to a session with DATABENTO_REAL provenance
+
+========================
+5) DO NOT CLAIM “INSTITUTIONAL READY” UNTIL ALL ACCEPTANCE CHECKS PASS
+========================
+If any part fails (especially SIM fallback showing up), treat as SEV-0 and fix immediately.

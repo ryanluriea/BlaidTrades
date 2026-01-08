@@ -1,0 +1,116 @@
+Replit — add an “Institutional Instrument Integrity + Bot Health” hardening pass for the new autonomy/backtest loop.
+
+NON-NEGOTIABLE GOAL
+Backtests/sim MUST use the bot’s assigned instrument (symbol + contract), pull real historical prices from the configured provider, and compute PnL using correct tick size + point value. Zero fake fallback prices. If data is missing or invalid, fail loudly with events + error codes.
+
+PART A — INSTRUMENT/TRADING SPEC ENFORCEMENT
+1) Canonical InstrumentSpec
+- Create/confirm a single canonical InstrumentSpec object used by:
+  backtest executor, paper sim executor, risk engine, PnL calc, UI summary
+- Fields (minimum):
+  symbol (e.g., MES, MNQ)
+  exchange (CME)
+  tick_size
+  point_value (contract multiplier)
+  currency
+  session_template (RTH/ETH windows + timezone)
+  min_price_increment / rounding rules
+  commission_per_contract (optional default)
+  slippage_ticks (optional default)
+- Source of truth:
+  Prefer a local instrument map in code for now (deterministic), with a TODO for future dynamic lookup.
+
+2) Hard Assertions (fail closed)
+For EVERY backtest run:
+- Assert bot.symbol is set AND maps to InstrumentSpec
+- Assert fetched bars are sane:
+  - no NaN/NULL OHLC
+  - timestamps strictly increasing
+  - price range sanity check per symbol (configurable bounds)
+  - rounding to tick_size
+- Assert any order fill price aligns to tick grid and within bar high/low unless using a defined fill model.
+
+If ANY assertion fails:
+- Mark backtest FAILED
+- Emit BACKTEST_FAILED activity event with:
+  error_code, message, suggested_fix, trace_id, bot_id, symbol
+- Increment telemetry for provider error (but DO NOT produce fake prices).
+
+PART B — MARKET DATA USAGE MUST BE PROVABLE
+1) Proof-of-use telemetry
+Whenever backtest fetches historical bars:
+- Write integration_usage_events row:
+  provider=databento (or chosen provider)
+  category=market_data
+  op=HISTORICAL_BARS
+  symbol, timeframe, bars_requested, bars_returned, latency_ms
+  trace_id
+- integrations/status proof_of_use_count_24h MUST increment from real backtests (not only verify calls).
+
+2) Resolver correctness
+If DATABENTO_API_KEY (etc.) is present, integrations/status should show configured=true.
+If verify passes, connected=true.
+system/status must NOT claim “No market data provider configured” when integrations show configured=true.
+If data provider is configured but not verified, system/status should be DEGRADED (warn), not BLOCKED for LAB/BACKTEST flows.
+
+PART C — BACKTEST ENGINE INSTITUTIONAL DEFAULTS (MVP)
+Implement/confirm deterministic backtest settings:
+- Timezone handling (exchange-local or configured; no mixed UTC/local bugs)
+- RTH filter obeyed when requested (e.g., RTH mode in UI)
+- Fill model explicitly defined:
+  - Market orders fill at next bar open OR midpoint OR configurable
+  - Limit orders fill only if touched (price within bar range)
+- PnL computation:
+  pnl = (exit_price - entry_price) * point_value * qty - commissions - slippage_cost
+  slippage_cost = slippage_ticks * tick_size * point_value * qty
+- Tick rounding:
+  every entry/exit/fill rounded to nearest valid tick increment
+
+PART D — BOT LIFECYCLE / EVOLUTION / PROMOTION TESTABILITY
+We need to TEST the entire autonomy lifecycle, not just “backtest completed”:
+1) Lifecycle events emitted deterministically:
+- STARTER_PACK_CREATED
+- BACKTEST_QUEUED / STARTED / COMPLETED / FAILED
+- SIM_READY (when metrics meet baseline)
+- PROMOTED / DEMOTED (LAB <-> PAPER <-> SHADOW etc.)
+- GRADUATED
+- AUTONOMY_GATE_BLOCKED (with exact gate + boolean inputs)
+Every event includes: bot_id, symbol, stage, generation, trace_id, minimal metrics.
+
+2) Promotion/Demotion rules as a versioned policy
+- Put rules in one place (e.g., autonomy-policy.ts)
+- Include policy version in events so we can audit why something changed.
+
+PART E — FIX THE YELLOW “!” = UNKNOWN
+That “Unknown” status icon must be explainable and never ambiguous.
+1) Trace what the icon is bound to (exact field / computed status)
+- Provide file + line numbers for the UI mapping and the API field feeding it.
+2) Change contract so Unknown only happens if:
+- there is genuinely no data yet (new bot, no backtest, no heartbeat)
+and in that case the tooltip MUST say why:
+- “No backtest has run yet” OR “Runner has not checked in” OR “Awaiting health snapshot”
+3) Add a server-side status resolver that always returns:
+- status: OK | DEGRADED | BLOCKED | UNKNOWN
+- reason_code + suggested_fix
+4) Add a “Why is this Unknown?” click action that opens the EventDetailDrawer filtered to that bot + reason.
+
+PART F — REQUIRED PROOF PACK (NO HAND-WAVING)
+1) Curl proof that a real backtest fetches bars and increments proof-of-use:
+- Run a backtest for one seeded bot (MES and MNQ examples)
+- Show integration_usage_events rows created by backtests
+2) DB proofs:
+- backtest_sessions shows status transitions queued->running->completed with non-null metrics
+- trade_logs populated for at least 1 backtest with >0 trades
+3) UI proof:
+- Feed shows BACKTEST_COMPLETED with symbol + trades_count + realized_pnl
+- Unknown “!” resolved into a concrete reason for at least one bot (or disappears once backtest runs)
+
+DELIVERABLES
+- Exact files changed (server + client)
+- A short “instrument integrity” doc in replit.md describing:
+  tick_size, point_value assumptions per symbol (MES, MNQ, etc.)
+  fill model
+  PnL formula
+  sanity checks + failure modes
+- A one-click internal diagnostic:
+  POST /api/diagnostics/instrument-check { botId } => returns spec + last bars sample + tick rounding + price sanity result (no secrets)

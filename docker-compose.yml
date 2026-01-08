@@ -1,0 +1,114 @@
+# Docker Compose for local development and testing
+# Simulates the AWS ECS production architecture locally
+#
+# Usage:
+#   1. Copy .env.docker.example to .env.docker
+#   2. Fill in your secrets in .env.docker
+#   3. Run: docker compose --env-file .env.docker up
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # PostgreSQL Database (Aurora-compatible)
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: blaidtrades-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-blaidtrades}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-blaidtrades}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-blaidtrades} -d ${POSTGRES_DB:-blaidtrades}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Redis (ElastiCache-compatible)
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: blaidtrades-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # API Server (ECS API Service equivalent)
+  # =============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blaidtrades-api
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env.docker
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-blaidtrades}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-blaidtrades}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # =============================================================================
+  # Worker Service (ECS Worker Service equivalent)
+  # =============================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: blaidtrades-worker
+    env_file:
+      - .env.docker
+    environment:
+      NODE_ENV: production
+      WORKER_MODE: "true"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-blaidtrades}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-blaidtrades}
+      REDIS_URL: redis://redis:6379
+      MAX_HEAVY_BACKTEST_CONCURRENCY: "2"
+      MAX_LIGHT_BACKTEST_CONCURRENCY: "4"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: blaidtrades-network

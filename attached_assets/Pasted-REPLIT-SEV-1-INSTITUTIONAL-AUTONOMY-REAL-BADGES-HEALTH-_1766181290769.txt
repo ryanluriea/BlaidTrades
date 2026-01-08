@@ -1,0 +1,197 @@
+REPLIT — SEV-1 “INSTITUTIONAL AUTONOMY + REAL BADGES + HEALTH TRUTH” FIX PACK (NO MORE PLACEHOLDERS)
+
+CONTEXT (WHAT’S BROKEN RIGHT NOW)
+- UI System Health drawer shows: “Market Data Live: Provider not configured”, “Brokers: Connected 0”, “Redis: Not configured (UNKNOWN)”, “Audit: Not run (UNKNOWN)”
+  …even though we already have Databento + Ironbeam working elsewhere at times. This means the Health Drawer is reading the WRONG SOURCE OF TRUTH or is mapping/guarding wrong.
+- Bots are all in LAB but autonomy is not visibly doing work (no BACKTESTING / IMPROVING / EVOLVING badges firing), and we should not need manual job starts.
+- Someone introduced a “Data Fresh” badge/pill. Remove it. Ryan wants the original activity badges (Backtesting xN with elapsed time; Improving #N; etc.) like the old screenshot.
+
+NON-NEGOTIABLE GOALS
+1) System Health must reflect REAL integration truth (Databento/Ironbeam/Redis) from canonical server endpoints and DB verification timestamps — no “Provider not configured” when it IS configured.
+2) Autonomy must actually enqueue work for LAB bots (baseline backtests + improvement cycles) without user clicks, and we must PROVE it via endpoints + SQL + UI.
+3) Badges must be the ORIGINAL semantics:
+   - PRIMARY ACTIVITY badge(s) driven by botNow.state + botNow.activeJob (Backtesting, Improving, Evolving, Runner Starting/Running, Queued, etc.)
+   - NO “Data Fresh” badge/pill anywhere.
+   - “Fresh” should NEVER appear unless bot truly has no history AND is newly created (timeboxed).
+4) All bots must remain in LAB until we re-graduate with clean gates. No surprise promotions. Promotions must respect stage locks + manual mode.
+5) We must ship a proof pack at the end.
+
+========================================================
+PHASE A — FIX SYSTEM HEALTH DRAWER (CANONICAL TRUTH)
+========================================================
+A1) Define ONE canonical endpoint used by System Health UI:
+- Use GET /api/readiness (preferred) OR GET /api/smoke-test (tiered) — pick one and standardize.
+- The UI must NOT separately call old /integrations/status or any legacy mapping that returns empty/incorrect fields unless it’s guaranteed consistent.
+
+A2) Ensure readiness/smoke-test includes:
+- Market data provider truth (databento) => configured, connected, last_verified_at, latency
+- Broker provider truth (ironbeam) => configured, connected, last_verified_at, latency
+- Redis truth => configured/connected/latency (optional)
+- Audit => if “not run”, show as INFO/OPTIONAL not UNKNOWN (or show last audit run timestamp if available)
+- Bot Fleet => OK with counts, never blocks
+
+A3) Fix the “Provider: Not configured / Connected: 0” bug:
+- Identify why Health Drawer shows Market Data Live “Not configured” while Databento is configured.
+  Common causes:
+  - wrong provider ids (e.g., expecting “market_data_live” but DB stores “databento”)
+  - endpoint returns “integrations” but UI expects “providers”
+  - auth/session mismatch leading to empty integrations array
+  - caching stale response / query key collisions
+- Patch: enforce a normalized provider registry on server: providerId ∈ {databento, polygon, ironbeam, tradovate, redis} and return exactly those ids from readiness.
+- Add a server-side “normalization layer” so legacy DB ids map to canonical ids.
+
+A4) Make the “Run Smoke Test” / “Validate Broker” / “Verify Market Data” buttons actually perform verification:
+- If we use last_verified_at gates, then clicking Validate Broker should run a broker ping and set last_verified_at.
+- Same for Market Data.
+- If buttons are already wired, ensure they call the correct endpoint and update UI immediately (invalidate query, no waiting).
+
+A5) IMPORTANT GATING RULE:
+- Overall system may be WARN if LIVE/CANARY is blocked — that’s fine.
+- But PAPER/LAB autonomy and backtesting must NOT be blocked by “Market Data Live” verification. LAB needs historical data provider health (databento) not “live entitlement verification”.
+- Fix gate logic: separate “MarketDataHistorical” vs “MarketDataLive” (or separate checks in readiness), and only block LIVE/CANARY on Live check.
+
+DELIVERABLE A:
+- Screenshot of System Health showing Databento PASS, Ironbeam PASS (or explicitly “Not required for LAB”), Redis PASS/DEGRADED, Audit INFO/OK — and no bogus “Provider not configured”.
+
+========================================================
+PHASE B — AUTONOMY MUST ENQUEUE WORK (NO MANUAL STARTS)
+========================================================
+B1) LAB Scheduling Contract (deterministic):
+For each LAB bot:
+- If no completed baseline backtest exists since metrics_reset_at (or since last stage reset) => enqueue BASELINE_BACKTEST job
+- If baseline exists and is stale (configurable, e.g., > 6h or market session boundary) => enqueue REFRESH_BACKTEST job
+- After baseline passes minimum trade count => enqueue IMPROVE (evolution/improvement) job on a cadence (e.g., 1 at a time per bot, global concurrency cap)
+
+B2) Concurrency:
+- Add global caps: maxBacktestsRunning, maxImproveRunning, maxTotalJobs
+- Add per-bot cap: never run >1 active job per bot
+- Add “stuck job detector” (timeouts) and auto-mark failed + requeue with attempt++ (bounded retries)
+
+B3) Planner proof persistence (if not already):
+- /api/_proof/autonomy must show last N planner ticks with:
+  - started_at, finished_at, bots_evaluated, jobs_enqueued
+  - a summary of why jobs were NOT enqueued (e.g., “baseline exists”, “job already running”, “stage locked”, etc.)
+- /api/_proof/jobs must show:
+  - queued/running/completed counts
+  - top stuck jobs
+  - last job per bot
+
+B4) Triggering after reset:
+- After bulk revert to LAB and metrics reset, autonomy must enqueue baseline backtests within one loop tick, without user action.
+
+DELIVERABLE B:
+- Curl outputs from:
+  - GET /api/_proof/autonomy
+  - GET /api/_proof/jobs
+showing jobs_enqueued > 0 after reset/revert and bots moving through states.
+
+========================================================
+PHASE C — BULK REVERT TO LAB + STAGE LOCK + NO SURPRISE PROMOTION
+========================================================
+C1) Implement/verify POST /api/admin/revert-to-lab:
+- Transactional
+- Writes audit trail (bot_stage_events)
+- Sets:
+  - stage = LAB
+  - stage_reason_code = BULK_REVERT_SEV1_RESET
+  - promotion_mode = MANUAL
+  - stage_locked_until = now + 24h (or configurable) to prevent immediate re-promotion while we validate
+
+C2) Ensure autonomy loop respects:
+- promotion_mode = MANUAL => no promotions
+- stage_locked_until in future => no stage changes
+
+C3) Execute the bulk revert for ALL bots (include PAPER/SHADOW/CANARY/LIVE if any remain).
+- Provide a dryRun preview and the final execution output.
+
+DELIVERABLE C:
+- Stage counts after revert: all LAB.
+- SQL proof from bot_stage_events showing revert entries.
+
+========================================================
+PHASE D — RESET P&L/METRICS CLEANLY (SO RESULTS ARE INSTITUTIONAL)
+========================================================
+D1) Implement/verify POST /api/admin/reset-metrics:
+- Sets metrics_reset_at on bots (or a global reset table)
+- Ensures all computed metrics (PnL, trades, sharpe, maxDD, win%) are derived ONLY from executions/backtests after reset timestamp
+- Autonomy must treat “no completed backtest since reset” as NEEDS_BACKTEST
+
+D2) IMPORTANT:
+- Do NOT delete historical records blindly.
+- Use reset timestamps as the canonical boundary.
+
+DELIVERABLE D:
+- SQL showing a bot has metrics_reset_at set and that “latest completed backtest since reset” is null => triggers baseline.
+
+========================================================
+PHASE E — RESTORE REAL ACTIVITY BADGES (REMOVE “DATA FRESH”)
+========================================================
+E1) Remove “Data Fresh” UI completely.
+- Delete that pill/label from BotTableRow/BotStatusBadgeLanes.
+- No replacement. This was never requested.
+
+E2) Restore original badge semantics (like old screenshot):
+- Show Backtesting badge when:
+  - botNow.state == BACKTEST_RUNNING OR botNow.activeJob.type == BACKTEST and status RUNNING
+  - Include attempt suffix: “Backtesting ×{attempt}”
+  - Include elapsed time: “Backtesting ×2 • 7m” (or tooltip)
+- Show Improving badge when:
+  - botNow.state == IMPROVING_RUNNING/QUEUED (or activeJob.type IMPROVE)
+  - Include iteration: “Improving #1”
+- Show Evolving similarly if that job type exists.
+- Show Queued states when queued.
+- If IDLE, show no “Fresh” unless truly NEW:
+  Fresh rule MUST be:
+  - bot created < 10 min ago
+  - AND no history exists (no jobs ever, no backtest sessions ever, no runner instance ever)
+  - Otherwise never show Fresh.
+
+E3) Remove “OK” alert icon/tooltips:
+- Only show warning/error icon when there is a WARN/DEGRADED/BLOCKED reason.
+- If status is OK, render nothing (no icon, no tooltip “OK”).
+
+E4) Ensure bots-overview and bots endpoints preserve botNow:
+- No transforms stripping fields in hooks or mappers.
+
+DELIVERABLE E:
+- Screenshot of bots list showing at least:
+  - one bot “Backtesting ×N • Xm”
+  - one bot “Improving #N”
+  - one bot queued
+  - and no “Data Fresh” anywhere.
+
+========================================================
+PHASE F — FINAL PROOF PACK (MANDATORY OUTPUTS)
+========================================================
+F1) Curl proof:
+curl -s http://localhost:5000/api/bots?limit=10 | jq '.data[] | {id,name,stage,botNow}'
+curl -s http://localhost:5000/api/_proof/autonomy | jq '.'
+curl -s http://localhost:5000/api/_proof/jobs | jq '.'
+curl -s http://localhost:5000/api/readiness | jq '.'
+
+F2) SQL proof for 3 representative bots (pick ids from curl):
+- Jobs:
+SELECT id, bot_id, job_type, status, attempt, iteration, created_at, started_at, completed_at
+FROM bot_jobs WHERE bot_id='<BOT_ID>' ORDER BY created_at DESC LIMIT 10;
+- Instances:
+SELECT id, bot_id, status, last_heartbeat_at, updated_at
+FROM bot_instances WHERE bot_id='<BOT_ID>' ORDER BY updated_at DESC LIMIT 5;
+- Backtests:
+SELECT id, bot_id, status, completed_at, total_trades, net_pnl, created_at
+FROM backtest_sessions WHERE bot_id='<BOT_ID>' ORDER BY created_at DESC LIMIT 5;
+- Stage events:
+SELECT id, bot_id, from_stage, to_stage, reason_code, created_at
+FROM bot_stage_events WHERE bot_id='<BOT_ID>' ORDER BY created_at DESC LIMIT 10;
+
+F3) UI screenshots:
+- Bots page showing active badges
+- System Health showing correct provider truth and correct gating (LAB not blocked)
+
+========================================================
+WHAT YOU MUST NOT DO
+- Do NOT add new weird labels like “Data Fresh”.
+- Do NOT require manual job starts to see activity badges.
+- Do NOT say “skipped”.
+- Do NOT promote bots out of LAB during this stabilization window.
+
+SHIP IT END-TO-END.

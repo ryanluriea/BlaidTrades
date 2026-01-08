@@ -1,0 +1,103 @@
+SEV-1: RESTORE BOT “NOW-STATE” BADGES (EVIDENCE-BASED, NO HAND-WAVING)
+
+CONTEXT
+- Redis is now CONNECTED. Do NOT spend time on Redis.
+- Backtests + autonomy loop exist. The UI still shows only “Fresh” for some bots and missing the rest of the expected badges (searching/setup, scanning, backtesting, evolving, runner states, promotions/demotions, etc.).
+- We previously had richer badge behavior (Lovable). We need it institutionally correct: badges must reflect REAL backend state deterministically.
+
+GOAL
+Make the Bot Table and Bot Detail show correct, live “Now-State” badges derived from canonical backend truth:
+- Example states: IDLE, NEEDS_BACKTEST, BACKTEST_QUEUED, BACKTEST_RUNNING, BACKTEST_COMPLETED, RUNNER_REQUIRED, RUNNER_STARTING, RUNNER_RUNNING, RUNNER_STALE, EVOLVING, PROMOTION_PENDING, BLOCKED_BY_GATES, ERROR, etc.
+Exact labels are less important than: (1) deterministic, (2) backed by evidence, (3) matches real job/instance states.
+
+STEP 1 — HARD PROOFS: VERIFY DATA EXISTS
+Run and paste outputs (redact secrets). We are proving whether the UI has the data it needs.
+
+A) Bots list payload shape (critical)
+- curl -s http://localhost:5000/api/bots?limit=30 | jq '.data[0] | keys'
+- curl -s http://localhost:5000/api/bots?limit=5 | jq '.data[] | {id,name,stage,mode,last_backtest_at,sim_total_trades,sim_pnl}'
+If the endpoint includes botNow / canonicalState, print it:
+- curl -s http://localhost:5000/api/bots?limit=5 | jq '.data[] | {id,name,botNow,canonicalState,health,runner,activeJob}'
+
+B) Jobs and instances exist (prove badges should show more than “Fresh”)
+- curl -s http://localhost:5000/api/scheduler/status | jq
+SQL proof:
+- SELECT job_type, status, COUNT(*) FROM bot_jobs GROUP BY job_type,status ORDER BY job_type,status;
+- SELECT status, COUNT(*) FROM bot_instances GROUP BY status;
+- SELECT status, COUNT(*) FROM backtest_sessions GROUP BY status;
+
+C) Single bot deep proof (pick 1 botId that is “Fresh” in UI)
+- curl -s http://localhost:5000/api/bots/<BOT_ID>/backtests/latest | jq
+- curl -s http://localhost:5000/api/_proof/runners/<BOT_ID> | jq   (dev-only route ok)
+SQL:
+- SELECT id, bot_id, job_type, status, created_at, started_at, completed_at, error_message FROM bot_jobs WHERE bot_id='<BOT_ID>' ORDER BY created_at DESC LIMIT 10;
+- SELECT id, bot_id, status, last_heartbeat_at FROM bot_instances WHERE bot_id='<BOT_ID>' ORDER BY updated_at DESC LIMIT 3;
+
+PASS CONDITION FOR STEP 1
+We must be able to show: the bot has either recent jobs OR a runner instance OR backtests, yet the UI still shows only “Fresh”. That proves the BREAK is in evaluator/mapping/render, not the backend job system.
+
+STEP 2 — TRACE THE BADGE PIPELINE (FILE+LINE REQUIRED)
+Find the exact code path that produces the “Fresh” badge and why other badges aren’t appearing.
+
+Provide:
+1) The component that renders the badges in the bot table
+   - file: client/src/components/bots/...
+   - line numbers
+2) The evaluator that derives canonical state
+   - file: client/src/... (e.g. canonicalStateEvaluator / botHealth / evaluateCanonicalState)
+   - line numbers
+3) The data source feeding the component
+   - hook or endpoint mapping (useBots / useBotList / useLiveReadiness etc.)
+   - line numbers
+
+Then answer these yes/no with proof:
+- Does the bot list query INCLUDE jobs/instances/backtest summary needed for badge evaluation?
+- If not included, does the evaluator silently fall back to “Fresh”/default?
+- Are there schema casing mismatches (snake_case vs camelCase) causing undefined checks?
+- Is the evaluator expecting statuses that don’t match actual DB values (e.g., RUNNING vs running)?
+- Is the evaluator looking at the wrong stage/field (e.g., “fleet key” vs “feed label” style mismatch)?
+
+STEP 3 — FIX (MINIMAL, INSTITUTIONAL)
+Fix the smallest layer that is wrong. Do NOT “type assert” your way out unless unavoidable; prefer truthful mapping.
+
+Allowed fix patterns:
+A) If the API payload lacks required fields:
+   - Extend GET /api/bots to include a compact “nowState” object per bot:
+     {
+       botNow: {
+         state, reasonCode, since, activeJob?, runner?, lastBacktest?, gates?
+       }
+     }
+   - Must be computed server-side from canonical sources (bot_jobs, bot_instances, backtest_sessions, autonomy gates).
+B) If payload already has the fields but UI can’t see them:
+   - Fix the mapping in the hook (response adapter) and casing.
+C) If evaluator logic is wrong:
+   - Update evaluator to use ONLY canonical inputs, with explicit precedence order.
+
+PRECEDENCE ORDER (example)
+1) Hard error / kill / blocked gates -> ERROR / BLOCKED
+2) Active job RUNNING -> show job state (BACKTEST_RUNNING / EVOLVING / etc.)
+3) Job QUEUED -> QUEUED badge
+4) Runner status + heartbeat -> RUNNER_RUNNING / RUNNER_STALE
+5) Needs backtest (no session exists) -> NEEDS_BACKTEST
+6) Otherwise -> IDLE (not “Fresh”)
+
+IMPORTANT: “Fresh” should mean ONLY one thing (e.g. recently created and no activity yet), not a fallback for missing data.
+
+STEP 4 — PROVE THE FIX
+After changes, paste:
+- Before/after screenshot of bot table badges (authenticated)
+- curl -s http://localhost:5000/api/bots?limit=5 | jq '.data[] | {name, botNow}'
+- For the same BOT_ID from Step 1C, show:
+  - jobs list output + runner proof + UI badge now matching those facts
+
+DELIVERABLES
+1) Evidence outputs from Step 1
+2) File/line trace from Step 2
+3) Exact files changed list
+4) Proof of correct badge behavior for at least:
+   - a bot with a running/queued backtest
+   - a bot with a running runner
+   - a bot with no activity (should show IDLE or FRESH only if truly new)
+
+DO NOT say “it should be working.” Show evidence that it IS working.

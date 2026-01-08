@@ -1,0 +1,119 @@
+REPLIT — FINALIZE SINGLE CONTROL PLANE + REMOVE SUPABASE EDGE/AUTH + HARD PROOF (NO SPLIT-BRAIN)
+
+You reported:
+- All 26 secrets configured
+- Integration registry expanded + live stack resolver updated
+- UI migrated off most Supabase functions.invoke calls
+- Remaining: Settings.tsx 2FA + OpsAlertsSection SMS
+
+We need to finish to “industry standard” with ZERO split-brain risk.
+
+HARD REQUIREMENTS (NON-NEGOTIABLE)
+1) Single control plane: Express is the ONLY system allowed to:
+   - promote/demote/kill
+   - start/restart/reconcile runners
+   - job FSM mutations
+   - execute orders (sim + live)
+   - start backtests / write backtest state
+   - write decision/no-trade traces, autonomy scores, profit variables, telemetry
+
+2) Supabase Edge Functions MUST NOT be used in production path at all.
+   - No UI calls to supabase.functions.invoke (ANYWHERE)
+   - No internal server calls to Supabase functions for trading logic
+   - Remove Supabase keys from required env (unless explicitly needed for something we keep)
+
+3) We are NOT using Supabase Auth for 2FA.
+   - Migrate 2FA to Express-native auth or disable 2FA entirely until Express 2FA is done.
+   - Do NOT leave “temporary” Supabase auth in Settings.tsx.
+
+4) Proof over claims: deliver concrete verification evidence (tests + greps + logs + screenshots).
+
+DELIVERABLES
+A) Code Proof
+- `rg -n "supabase\\.functions\\.invoke|createClient\\(|SUPABASE_" client/src server` must return NONE for any execution/state-mutating flow.
+- If any Supabase client remains, it must be isolated to a clearly non-trading purpose AND approved.
+
+B) CI / Guardrails (Industry standard)
+- Add a CI check script `scripts/no-supabase-edge.sh` that fails if:
+  - any `supabase.functions.invoke` exists in client/src
+  - any `/functions/v1/` calls exist
+  - any `SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_SERVICE_KEY` are required for runtime
+- Add runtime guard in Express: if request attempts to use an edge-function endpoint base URL, log SEV-1 and block.
+
+C) Express 2FA (Required)
+Implement Express-native auth + TOTP 2FA (no Supabase):
+Backend (dev branch):
+- users table fields:
+  - two_factor_enabled boolean default false
+  - two_factor_secret_encrypted text null
+  - two_factor_backup_codes_hash jsonb null
+  - two_factor_enrolled_at timestamp null
+- APP_ENC_KEY required for encryption at rest
+- Endpoints (all return trace_id):
+  - POST /api/auth/register
+  - POST /api/auth/login (returns requires_2fa + temp_token when enabled)
+  - POST /api/auth/2fa/setup (returns otpauth_url + qr payload once)
+  - POST /api/auth/2fa/confirm (enables + returns backup codes ONCE)
+  - POST /api/auth/2fa/verify (temp_token + code|backup_code -> session)
+- Use httpOnly cookie sessions (preferred) or JWT httpOnly cookie.
+UI (ui-lovable branch):
+- Update Settings.tsx to use Express endpoints (remove all supabase 2fa calls).
+- Add 2FA enrollment UI + login challenge UI.
+- Fail-closed banners if auth endpoints degraded.
+
+D) SMS Alerts (Decide + Implement)
+We must not depend on Supabase for SMS alerts either.
+- If we use Twilio: add TWILIO_* env vars + POST /api/alerts/sms test endpoint + usage telemetry
+- If we use another provider: implement similarly.
+Update OpsAlertsSection.tsx to call Express endpoint.
+
+E) “Connections + Proof-of-Use” must show REAL evidence of being used
+Backend must emit integration_usage_events for:
+- market data fetches (databento/polygon/etc)
+- broker actions (ironbeam/tradovate)
+- LLM calls (openai/anthropic/gemini/groq/xai/openrouter)
+- news/alt data calls (unusual whales/newsapi/marketaux)
+Expose:
+- GET /api/integrations/status: configured, connected, last_used_at, proof_of_use_count_24h, missing_env_vars, error_code, suggested_fix
+UI must show:
+- “Connected but not yet used” if proof_of_use_count_24h == 0
+- A “Usage Events” popout with last 50 events per provider including trace_id
+
+F) Live Stack Resolver — Acceptance Tests
+Provide tests that prove priority failover works.
+Create `server/tests/liveStackResolver.test.ts` (or equivalent) covering:
+- If Databento configured+healthy -> chosen primary
+- If Databento missing/failing -> Polygon chosen
+- If Ironbeam acct1 failing -> acct2 -> acct3 -> Tradovate
+- If all brokers failing and stage LIVE -> start/restart blocked with EXECUTION_BROKER_UNAVAILABLE
+
+G) Update UI to Express: FINAL SWEEP
+Run:
+- `rg -l "supabase\\.functions\\.invoke" client/src`
+This must be empty.
+If not empty, migrate every call:
+- promote-bot -> POST /api/bots/:id/promote
+- create-starter-bots -> POST /api/bots/starter-pack
+- run-backtest -> POST /api/bots/:id/backtests/run (or existing Express route)
+- reconcile-bot-execution -> POST /api/bots/:id/reconcile
+- system-proof -> GET /api/system/status
+- ALL remaining edge calls -> Express equivalents or remove
+
+H) Final Proof Package (must be included in your response)
+1) Output of greps proving no Supabase invokes
+2) List of files changed (dev vs ui-lovable)
+3) Curl proofs:
+   - /api/system/status (OK/DEGRADED/BLOCKED examples)
+   - /api/integrations/status shows proof_of_use_count_24h > 0 after running a tick/backtest
+   - Runner start denied when LIVE and broker missing (proper error_code + suggested_fix)
+4) Screenshots:
+   - Control Plane Observatory shows all providers, proof-of-use, and blockers
+   - Bot details: Autonomy score + “Why traded” + “Why not trading”
+5) Confirm “Supabase Edge Functions are no longer required” and list any remaining Supabase remnants (should be NONE).
+
+START NOW
+1) Migrate 2FA off Supabase (Express TOTP + UI)
+2) Migrate SMS alerts off Supabase (Express endpoint + provider)
+3) Enforce “no Supabase edge” guardrails (CI + runtime)
+4) Final sweep to ensure NO supabase.functions.invoke
+5) Provide full proof package

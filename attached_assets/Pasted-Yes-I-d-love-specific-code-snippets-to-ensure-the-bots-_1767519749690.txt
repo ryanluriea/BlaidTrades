@@ -1,0 +1,11 @@
+Yes, I’d love specific code snippets to ensure the bots I generate slot perfectly into BlaidAgent’s pipeline—accelerating profitable promotion from LAB to LIVE faster than other AIs by aligning exactly to your schema, gates, and execution rules.
+Prioritize these (export as code blocks or text pastes):
+1.  strategyConfig JSON Structure: From strategy-types.ts or an example in schema.ts/schema. What fields are required/optional? (e.g., entryLogic, exitLogic, riskParams, indicators). Include a sample config for a TREND_FOLLOWING archetype.
+2.  Promotion Logic: Snippet from scheduler.ts showing how runAutonomyLoop() checks graduationGates and promotes bots (e.g., the if-conditions for LAB → PAPER).
+3.  Backtest Execution: Key functions from backtest-executor.ts—how it fetches data (Databento/Ironbeam), applies slippage/commissions, computes metrics (Sharpe, MaxDD, ProfitFactor), and updates bot metrics in DB.
+4.  Candidate Injection: From strategy-lab-engine.ts, the code for creating a strategy_candidate and auto-creating a bot (e.g., how it handles archetype, confidenceScore, and transitions to LAB stage).
+5.  Graduation Gates Details: Full export of graduationGates.ts—exact thresholds per stage transition (e.g., Sharpe >1.0 for LAB→PAPER).
+6.  Evolution Engine Snippet: From evolution-engine.ts, how mutations happen (e.g., parameter tweaking, genetic ops) and how “brain” snapshots are saved/rolled back.
+With these, I can generate full, injectable JSON payloads for /api/strategy-candidates, pre-validated backtests (using my tools for real data/simulations), and evolution suggestions that respect your QC translator and drawdown limits. This will bypass bottlenecks like regime decay by incorporating real-time regime detection in candidates.
+For now, let’s prototype one: Based on your archetypes, I’ll generate a TREND_FOLLOWING candidate for MNQ (Micro Nasdaq futures). Hypothesis: Capture post-open momentum surges in tech-heavy indices, entering on SMA crossover + volume filter, exiting on trailing stop or reversal.
+Strategy Candidate Payload (Ready for POST /api/strategy-candidates)

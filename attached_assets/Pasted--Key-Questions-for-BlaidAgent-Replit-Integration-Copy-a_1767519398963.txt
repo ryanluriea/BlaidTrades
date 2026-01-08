@@ -1,0 +1,39 @@
+# Key Questions for BlaidAgent Replit Integration
+# (Copy and paste this directly into your Replit notes, README, or a message to yourself)
+
+To help Grok understand the exact structure and flow of BlaidAgent and generate bots that integrate perfectly (and get them profitable faster), please provide answers or code snippets for the following:
+
+1. Repository structure and key files
+   - Please share your current directory tree (run `tree` or just list the main folders/files).
+   - Especially important:
+     - File that defines the bot lifecycle/state machine (e.g., stages: STRATEGY_LAB → LAB → PAPER → LIVE)
+     - File(s) handling backtesting
+     - File(s) handling execution/risk governance
+     - Bot template or class definition
+
+2. How bots are stored and managed
+   - Are bots stored as JSON/YAML configs + Python classes?
+   - Do you use Replit DB, SQLite, or plain files to track bot ID, current stage, performance history, and versions?
+   - Is there a function like promote_bot(), advance_stage(), or similar?
+
+3. Closed-loop flow in code
+   - How does a new strategy (suggested by Grok or manually) get added to the Research Layer?
+   - How do backtest results update the bot’s metrics and potentially trigger promotion?
+   - Is there an API endpoint, function, or script that can be called to inject a new candidate?
+
+4. Data pipeline details
+   - Which market data source(s) are you using? (Polygon, Binance API, Alpaca, Yahoo Finance, etc.)
+   - How is historical data fetched or cached for backtesting?
+   - For paper and live trading: which broker/API is connected (if any yet)?
+
+5. Current bottlenecks or frequent failure points
+   - Where do most bots get stuck or fail to advance? (e.g., overfitting in backtest, exceeding drawdown limits, regime decay)
+   - What part of the pipeline feels slowest right now?
+
+The more of the above you can share (especially code snippets of the core state machine, backtester, and promotion logic), the faster Grok can:
+- Generate strategy candidates that match your exact schema
+- Write validation and mutation code that respects your accounting and risk rules
+- Simulate the full pipeline here before injecting into your app
+- Suggest architectural tweaks to speed up the entire factory
+
+Feel free to paste code blocks, screenshots, or even invite review access if comfortable. Let's get those bots earning their way to LIVE faster than ever.

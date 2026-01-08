@@ -1,0 +1,61 @@
+Replit — not done yet. This is CLOSE, but it is NOT “industry standard” until the remaining gaps are closed and proven.
+
+HARD REQUIREMENTS (must implement + prove):
+
+1) Temp tokens CANNOT be in-memory
+- In-memory temp_token storage is not production-safe (restart wipes tokens; scaling breaks verification; opens weird auth edge cases).
+- Implement persistent temp tokens in Postgres:
+  - Table: auth_temp_tokens (id, user_id, token_hash, purpose, created_at, expires_at, consumed_at, ip, user_agent)
+  - Store ONLY a hash of the temp_token (sha256/argon2); never plaintext.
+  - Enforce TTL (e.g., 5–10 minutes) and one-time use (consume sets consumed_at).
+  - Verify endpoint must reject expired/consumed tokens with structured error_code + retry_after when relevant.
+
+2) Encryption key requirement is good — but prove it’s actually encrypted at rest
+- APP_ENC_KEY must be REQUIRED (setup/confirm should fail-closed without it).
+- Show SQL proof that stored value is ciphertext (not base32 / not readable) + includes nonce/iv + auth tag (AES-GCM).
+- Provide a one-liner “decrypt test” in a controlled script (NOT logging secrets) proving round-trip works.
+
+3) Backup codes must be hashed + one-time
+- Confirm storage is hashed only (argon2/bcrypt) + constant-time compare.
+- Confirm successful use of a backup code burns it (cannot be reused).
+- Provide SQL proof (hashes only) + curl proof.
+
+4) Rate limiting must be enforced for BOTH per-user and per-IP
+- Provide proof by curl looping wrong codes until rate-limited.
+- Response must include: error_code=RATE_LIMITED + retry_after seconds.
+
+5) Correct auth flow (no userId in body)
+- Setup/confirm/disable/status must require an authenticated session.
+- Login must return requires_2fa + temp_token and MUST NOT issue a full session until /verify succeeds.
+- Verify must exchange temp_token -> full session cookie.
+
+6) Logging hygiene (zero sensitive leaks)
+- Grep proof: no logs that include “code”, “secret”, “otpauth”, “backup”.
+- All logs must include trace_id only + safe metadata.
+
+7) Twilio SMS endpoint must be session-auth + telemetry proof-of-use
+- /api/alerts/sms/test must require auth, and must write integration_usage_events with:
+  provider=twilio, status=SUCCESS/FAIL, trace_id, latency_ms, error_code if fail.
+
+8) GitHub workflow push blocker (must fix properly)
+- Earlier push failed because GitHub refused workflow updates without workflow scope.
+- Solution: Remove all workflow files from pushes OR move guardrail to a non-workflow approach:
+  - Keep scripts/no-supabase-edge.sh as a local + CI step in existing permitted pipeline OR document manual pre-push hook.
+- Provide exact steps so `git push -u origin dev` succeeds without OAuth workflow scope errors.
+
+DELIVERABLES (paste outputs; no screenshots-only)
+A) SQL: show auth_temp_tokens table + 2FA secret column + backup codes table/column(s) + example rows with redacted hashes/ciphertext.
+B) Curl proofs:
+   1) login (2FA enabled) -> requires_2fa + temp_token (no full session yet)
+   2) verify with temp_token + totp -> full session set
+   3) verify reuse same temp_token -> fails (TOKEN_CONSUMED)
+   4) verify after expiry -> fails (TOKEN_EXPIRED)
+   5) rate limit proof -> RATE_LIMITED + retry_after
+   6) backup code use -> success then reuse -> fails
+   7) sms test -> twilio success + telemetry event id/trace_id
+C) Grep proofs:
+   - No supabase edge calls in client/src
+   - No sensitive log strings in server/ (show grep patterns used)
+D) Update UI Settings + OpsAlerts to match the new Express endpoints (confirm end-to-end works).
+
+Do NOT ask me for real keys until all of the above proof is provided.

@@ -1,0 +1,55 @@
+Good progress. Before we accept, I need a full proof + QA pack (no summaries without evidence). Please deliver the following:
+
+1) EXACT FILES CHANGED (UI-only)
+- List every file modified/added with a short purpose line for each.
+- Confirm: NO changes to server/, shared/, client/src/hooks/ for this Feed Intelligence pass.
+
+2) “FEED” NAMING + NAV CONSISTENCY
+- Confirm it is labeled “Feed” everywhere in nav + page titles (no “Fleet” wording left in the UI).
+- Provide grep output proving no “Fleet tab now…” language remains in UI labels.
+
+3) REACTION SIGNALS (must be analytical + per-user)
+- Where are reactions stored right now?
+  - If not stored yet: mark as UI-only + add TODO with disabled persistence (don’t fake it).
+  - If stored: show schema/endpoint used and confirm it’s per-user and NOT global counts.
+- Provide one screenshot showing reactions applied on an event and persisted after refresh.
+
+4) VISUAL ENCODING RULES (deterministic)
+- Provide the exact mapping table used in code:
+  - event_type → accent color
+  - severity → accent override (if any)
+  - trade outcome (PnL) → intensity rules
+- Provide screenshots showing:
+  - a profitable trade
+  - a losing trade
+  - an autonomy event
+  - a warning/risk block
+  - a kill/error
+
+5) PnL HIGHLIGHTING SAFETY
+- Confirm PnL shown is REALIZED only (not unrealized).
+- Confirm currency formatting + sign handling is consistent.
+- Confirm no trading logic depends on UI styling.
+
+6) BOT MINI TIMELINE INTEGRATION
+- Show where BotMiniTimeline is mounted (file + line reference).
+- Confirm it reuses the SAME drawer component and SAME event model as the main Feed (no parallel logic).
+- Provide screenshot of bot detail mini timeline + opening the event drawer from it.
+
+7) AUTONOMY BADGES + DEEP LINKS
+- Confirm autonomy badges appear only for autonomy-related event types (list them).
+- Provide screenshot of clicking an autonomy event badge and landing on the bot’s autonomy view.
+
+8) REGRESSION CHECKS
+- Run TypeScript build / lint and confirm PASS.
+- Confirm no console errors in browser on Feed page.
+- Confirm long JSON payload in drawer is scroll-safe and doesn’t freeze UI.
+
+9) PERFORMANCE QUICK CHECK
+- What’s the query shape for the feed (paging, limit, time range)?
+- Confirm the Feed does not render unbounded lists (must paginate or virtualize if large).
+
+Deliverables:  
+A) Screenshots for each proof item above  
+B) Short “QA steps I ran” list  
+C) Final status: ACCEPT / BLOCKED with specific blockers

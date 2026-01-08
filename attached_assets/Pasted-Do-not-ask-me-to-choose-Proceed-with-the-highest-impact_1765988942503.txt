@@ -1,0 +1,45 @@
+Do not ask me to choose. Proceed with the highest-impact, lowest-risk implementation from the BlaidAgent “REAL SOFTWARE” Pack.
+
+RULES:
+- Minimal diffs only. No rewrites.
+- Replit is primary. GitHub is source of truth. Lovable UI-only.
+- No fake/mock data. Fail closed. No silent failures.
+- Any DB/schema changes must be proposed first with a small migration plan and cannot be half-done.
+
+PHASE 0 — BASELINE (NOW)
+0.1 Create a branch: dev-hardening (off dev)
+0.2 Add these repo governance files at root (if missing):
+  - REPO_OWNERSHIP.md (use the pack’s text)
+  - .env.example (use the pack’s keys, no secrets)
+  - README.md (quick start for Replit + local)
+0.3 Add Replit run config:
+  - .replit (optimized for this repo’s actual dev command)
+  - Ensure the preview runs reliably and logs are visible
+0.4 Add scripts:
+  - scripts/preflight.mjs (env validation + fail-fast)
+  - scripts/guard-ui-only.sh (UI allowlist enforcement)
+0.5 Add GitHub Actions:
+  - .github/workflows/pr-ui-guard.yml (blocks non-UI files on ui-lovable → dev PRs)
+0.6 Produce a concise checklist in replit.md: “How to work (Replit vs Lovable)”
+
+PHASE 1 — AUDIT (SAME PR)
+1.1 Run an audit pass and output a Findings table (Sev-1/2/3) covering:
+  - fake data / hardcoded price/PnL fallbacks
+  - duplicated PnL/equity calculations (front vs back)
+  - “RUNNING forever” backtests (null metrics)
+  - silent failure patterns (swallowed errors, missing awaits, missing terminalization)
+  - provider failure handling (must degrade/block, never invent)
+1.2 For the top 3 Sev-1 issues: propose minimal patch diffs and implement them ONLY if they do not require large schema redesign.
+
+PHASE 2 — NO SILENT FAILURES CONTRACT (NEXT PR, BUT PREP NOW)
+2.1 Identify the exact place(s) where bot runs/backtests are tracked and where status changes happen.
+2.2 Propose the FSM + required fields mapping to current tables/models.
+2.3 If schema changes are needed, write the smallest migration plan (tables/columns/indexes) and the exact code touchpoints. Do NOT implement schema changes until the plan is approved by me.
+
+DELIVERABLES (MANDATORY)
+- Link me to the PR/commit list (or list all changed files + why)
+- Show the exact commands to run in Replit to verify
+- Give me a 10-step verification checklist (UI + logs + DB checks)
+- Explicitly state anything you could NOT do and why
+
+START NOW WITH PHASE 0 AND PHASE 1 IN ONE PR.

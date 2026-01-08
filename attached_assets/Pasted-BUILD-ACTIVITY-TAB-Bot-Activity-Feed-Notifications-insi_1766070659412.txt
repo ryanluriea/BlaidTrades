@@ -1,0 +1,190 @@
+BUILD: “ACTIVITY” TAB (Bot Activity Feed + Notifications) inside Fleet page
+
+GOAL
+Replace/upgrade the current Fleet page’s “Fleet Activity” empty area into a real-time-ish Activity Feed (like a social feed, but for bots). This feed is the canonical place to see everything bots did: trades, promotions/demotions, graduations, runner lifecycle, autonomy gates, kills/restarts, backtests, decision traces (“why traded”), no-trade traces (“why not traded”), and notifications (Discord-first). Must be industry-grade: filterable, searchable, auditable (trace_id), and “proof of use” visible.
+
+NON-NEGOTIABLES
+- Single control plane: Express-only. No Supabase Edge Function calls anywhere.
+- Real data only. No placeholder/demo data unless explicitly toggled behind a DEV flag.
+- Fail-closed UI: if feed endpoint degraded/unavailable, show DegradedBanner and disable “actions” (but still render existing page).
+- Activity feed entries must be immutable/auditable (append-only).
+- Every event includes trace_id if available.
+- Must support both “Fleet” (all bots) and “Individual” (single bot context) views using same components.
+
+UI/UX
+1) Navigation
+- Add/rename a top sub-tab: “Activity” (next to Fleet/Evolution/Strategy Lab/etc.) OR convert the existing “Fleet” view into:
+  - Fleet Overview (existing cards)
+  - Activity (new feed view)
+Pick whichever fits current routing best, but do NOT create a brand new app section — keep within Bots area.
+
+2) Layout (Activity Tab)
+- Top bar:
+  - Search input (by bot name, symbol, event type, stage, trace_id)
+  - Filters dropdown: event types, stage (Lab/Paper/Shadow/Canary/Live), severity (INFO/WARN/ERROR/CRITICAL), bot(s), time range
+  - Toggle: “Only Notifications” (shows notify events only)
+  - Toggle: “Only Trading-critical” (execution, risk blocks, runner restarts, order actions)
+- Main feed:
+  - Infinite scroll (cursor-based)
+  - Each item = compact card with:
+    - Left: icon by event type
+    - Title: “Bot X promoted to SHADOW”, “Bot Y took trade”, “Runner restarted”, “Discord alert sent”, etc.
+    - Subline: timestamp, stage, symbol, qty, pnl (when relevant)
+    - Metadata chips: event_type, severity, stage, provider, account
+    - Right: “View details” (drawer/modal)
+  - Item details drawer shows:
+    - Full payload (pretty JSON viewer)
+    - trace_id
+    - links to relevant entities:
+      - Bot details
+      - Trade log row (if trade)
+      - Decision trace / No-trade trace (if present)
+      - Integration usage proof (if relevant)
+- “Pinned system banners” at top:
+  - If system_status=BLOCKED/DEGRADED show a compact status strip that links to System Status page.
+
+3) Feed items should feel like “social”
+- Group repeated events optionally (e.g. “Bot A executed 8 trades today” collapsible group)
+- Use “Today / Yesterday / Earlier” separators
+- Show “reaction-like” quick tags (not social reactions, but quick filters): “Show all from this bot”, “Show all runner events”, etc.
+
+DATA MODEL
+Create a canonical activity_events table (append-only) OR reuse existing system-events if already close enough. Prefer new table if needed for clarity/scale.
+
+Table: activity_events
+- id (uuid pk)
+- created_at (timestamp, default now)
+- user_id (uuid, nullable if system-wide but for now keep user-scoped)
+- bot_id (uuid, nullable for system events)
+- event_type (text enum-ish)
+- severity (text: INFO|WARN|ERROR|CRITICAL)
+- stage (text nullable: LAB|PAPER|SHADOW|CANARY|LIVE)
+- symbol (text nullable)
+- account_id (uuid nullable)
+- provider (text nullable: databento/polygon/ironbeam/tradovate/openai/etc)
+- trace_id (text nullable)
+- title (text)  // short human readable
+- summary (text nullable) // 1-line summary
+- payload (jsonb) // full details
+- dedupe_key (text nullable) // optional for collapsing spammy events
+Indexes:
+- (user_id, created_at desc)
+- (bot_id, created_at desc)
+- (event_type, created_at desc)
+- gin index on payload (optional)
+
+EVENT TYPES (minimum set)
+- TRADE_EXECUTED
+- TRADE_EXITED
+- ORDER_BLOCKED_RISK
+- PROMOTED
+- DEMOTED
+- GRADUATED
+- BACKTEST_STARTED
+- BACKTEST_COMPLETED
+- BACKTEST_FAILED
+- RUNNER_STARTED
+- RUNNER_RESTARTED
+- RUNNER_STOPPED
+- JOB_TIMEOUT
+- KILL_TRIGGERED
+- AUTONOMY_TIER_CHANGED
+- AUTONOMY_GATE_BLOCKED
+- INTEGRATION_VERIFIED
+- INTEGRATION_USAGE_PROOF
+- NOTIFY_DISCORD_SENT
+- NOTIFY_DISCORD_FAILED
+
+INGESTION / INSTRUMENTATION
+Implement a small helper:
+logActivityEvent({userId, botId?, eventType, severity, title, summary?, payload, traceId?, stage?, symbol?, provider?, accountId?})
+
+Wire this helper into key locations that already exist:
+- Bot promotion/demotion endpoints
+- Runner start/restart/reconcile endpoints
+- Job heartbeat/timeout terminalization
+- Kill triggers + kill events
+- Backtest start/finish/fail endpoints
+- Notification emit endpoint (Discord-first)
+- Integration verify endpoint + integration usage telemetry
+- Decision traces / No-trade traces creation (log an activity event pointing to the trace)
+
+IMPORTANT: Do not double-log if existing telemetry already inserts. If integration_usage_events exists, add a “INTEGRATION_USAGE_PROOF” activity event for the first usage per provider per hour (or store a pointer).
+
+API
+1) GET /api/activity
+Query params:
+- cursor (optional)
+- limit (default 50, max 200)
+- botId (optional)
+- types (csv optional)
+- severity (csv optional)
+- stage (csv optional)
+- q (search string optional)
+- from, to (timestamps optional)
+Return:
+{
+  success: true,
+  data: {
+    items: ActivityEvent[],
+    nextCursor: string | null
+  },
+  trace_id
+}
+Search behavior:
+- q matches title/summary + trace_id + symbol + bot name (join) if cheap
+- If expensive, implement basic title/summary/trace_id first, then expand later.
+
+2) POST /api/activity/test (dev-only)
+- Creates a single activity event for UI testing.
+- Must be behind NODE_ENV !== 'production' AND require admin flag.
+
+UI IMPLEMENTATION
+- Add client hook: useActivityFeed(params) using existing http helper + react-query.
+- Create components:
+  - ActivityFiltersBar
+  - ActivityFeedList
+  - ActivityEventCard
+  - ActivityEventDrawer (JSON viewer + related links)
+  - ActivityEmptyState
+  - DegradedBanner usage if endpoint degraded
+- Integrate into Bots page:
+  - Add “Activity” tab and route
+  - Reuse the same design tokens (dark grid, glass cards, same button styles).
+  - Must look native with the existing BlaidAgent theme.
+
+REAL-TIME (PHASE 2, but scaffold now)
+- Do NOT add websockets yet unless already used.
+- Add lightweight polling:
+  - When on Activity tab: refetch every 10–20s
+  - Pause polling when tab not active / page hidden
+- Add “New events” pill if items arrive above fold.
+
+PROOF / ACCEPTANCE
+Provide proof like we’ve been doing:
+- SQL: show last 20 activity events after performing:
+  - promote bot
+  - start runner (denied + allowed case)
+  - send discord test notification
+  - backtest start/completed
+- UI: screenshot of Activity feed populated with real events
+- Ensure:
+  - filtering works
+  - search works for trace_id
+  - drawer shows payload + links
+  - degraded handling works (force 503 on /api/activity) => banner + disabled actions
+
+DELIVERABLES
+- Code changes (server + client)
+- Migration for activity_events (drizzle/migration preferred; if direct SQL used, ALSO add schema.ts definitions so it’s reproducible)
+- Update replit.md with “Activity Feed” section and how to verify it.
+- Do not regress guardrail: no Supabase Edge function calls.
+
+NOTE ON NOTIFICATIONS
+Discord-first:
+- The Activity feed should show NOTIFY_DISCORD_SENT / FAILED events and include a pointer to integration usage proof.
+- Do not require me to “configure keys” except webhook URLs. Show missing env vars cleanly in integrations/status and system/status.
+
+START NOW
+Implement Activity events table + logging helper + /api/activity + Activity tab UI + instrumentation for at least: promotions, runner start/restart, job timeouts, discord notify emit.
+Then iterate to trades/backtests/decision-traces.

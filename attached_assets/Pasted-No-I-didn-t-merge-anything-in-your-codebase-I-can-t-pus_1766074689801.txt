@@ -1,0 +1,112 @@
+No — I didn’t “merge” anything in your codebase. I can’t push commits to your Replit project from here.
+
+What I *did* do was consolidate everything you pasted into ONE cleaned, non-hand-wavy “evidence-based audit + fix” message you can send to Replit.
+
+Also: your message above includes the same request twice (the long one + the shorter duplicate). Don’t send both — it dilutes the ask. Send ONE version.
+
+Here’s the single merged version to send (clean, not duplicated, and it includes the key requirements Replit must prove):
+
+---
+
+Replit — thanks for the SEV-1 Fix Proofs pack. Starter pack + archetype seeding look fixed (session auth enforced, 20 bots + 20 archetypes confirmed, credentials: include added, guardrail passes).
+
+Now the remaining problem: the 20 seeded bots are NOT autonomously “testing” yet, and System Health shows BLOCKED (no market data provider configured, no broker configured, Redis unknown) + “Smoke test failed”. I need an evidence-based audit that proves the scheduler/backtest pipeline is running (or proves exactly which gate is blocking it), and then I need you to make it kick off automatically in an industry-standard way.
+
+CONTEXT (CONFIRMED DONE)
+- POST /api/bots/starter-pack uses session auth (no body user_id). Bots inserted: 20.
+- POST /api/archetypes/seed works. Archetypes inserted: 20.
+- client http.ts uses credentials: 'include'.
+- Single control plane guardrail passes.
+So the missing piece is NOT seeding/auth — it’s orchestration + gates + job/backtest execution.
+
+GOALS
+1) Prove the app is actually reading the secrets at runtime (NOT just that they exist in Replit secrets).
+2) Prove market data provider + broker are detected as configured/connected in integration registry.
+3) Prove scheduler/runner/backtest pipeline is creating and completing work for the 20 bots (or prove why blocked).
+4) Make bots begin autonomous testing immediately (at minimum: backtests), with telemetry + Feed events as proof.
+
+STEP 1 — HARD PROOFS (RUN THESE AND PASTE OUTPUTS; REDACT SECRETS)
+A) Integrations + gates
+- curl -s http://localhost:5000/api/integrations/status | jq
+- curl -s -X POST http://localhost:5000/api/integrations/verify -H "Content-Type: application/json" -d '{"provider":"databento"}' | jq
+- curl -s -X POST http://localhost:5000/api/integrations/verify -H "Content-Type: application/json" -d '{"provider":"polygon"}' | jq
+- curl -s -X POST http://localhost:5000/api/integrations/verify -H "Content-Type: application/json" -d '{"provider":"ironbeam"}' | jq
+- curl -s http://localhost:5000/api/system/status | jq
+- curl -s http://localhost:5000/api/scheduler/status | jq   (if exists)
+
+REQUIREMENTS FOR “CONFIGURED”
+integrations/status must expose per provider:
+configured, connected, missing_env_vars, last_verified_at, proof_of_use_count_24h, error_code, suggested_fix
+If system/status says “No market data provider configured” while integrations/status shows databento configured=true, that’s a resolver/registry mismatch bug — fix it.
+
+B) Backtests/jobs visibility (prove work exists)
+Use API endpoints if present; otherwise SQL proofs. I need proof that work is being created + completed.
+
+Preferred API proofs:
+- GET /api/bots?limit=50 (or equivalent)
+- GET /api/bots/:id/backtests (or equivalent)
+- GET /api/jobs OR /api/backtests (or equivalent)
+
+Fallback SQL proofs (top 10 rows):
+- SELECT id, name, mode, created_at FROM bots ORDER BY created_at DESC LIMIT 5;
+- SELECT id, bot_id, status, started_at, completed_at, created_at FROM backtests ORDER BY created_at DESC LIMIT 10;  (or actual table)
+- SELECT id, bot_id, created_at FROM trade_logs ORDER BY created_at DESC LIMIT 10; (or equivalent)
+
+STEP 2 — WHY ARE WE STILL “BLOCKED” IN SYSTEM HEALTH?
+- Trace the exact code path generating:
+  “No market data provider configured”
+  “No broker configured”
+  “Redis not configured / UNKNOWN”
+- Provide file + line numbers + the exact boolean inputs.
+- Fix any mismatch so:
+  - If DATABENTO_API_KEY exists -> Market Data Live must not be “Not configured”
+  - If broker keys exist -> Brokers must show configured (even if connected=false until verify)
+  - Redis should not BLOCK unless actually required (otherwise DEGRADED)
+
+STEP 3 — SMOKE TEST FAILED (SHOW ROOT CAUSE)
+- Identify which smoke test ran and what checks failed.
+- Return a failure report object with:
+  check_id, status, error_code, message, suggested_fix, trace_id
+- Logs must be PII-safe (no keys).
+
+STEP 4 — AUTONOMOUS TESTING KICKOFF (INDUSTRY STANDARD)
+Implement a deterministic kickoff path:
+
+A) Post-seed kickoff
+When POST /api/bots/starter-pack succeeds:
+- enqueue baseline backtests for the created bots (or bots missing baseline)
+- throttle concurrency (2–4 at a time) + circuit breaker protection
+
+B) Feed proof events
+Emit activity_events:
+STARTER_PACK_CREATED
+BACKTEST_QUEUED
+BACKTEST_STARTED
+BACKTEST_COMPLETED (include trades_count, realized_pnl, sharpe, max_dd, trace_id)
+If it cannot run, emit BACKTEST_FAILED with error_code + suggested_fix.
+
+C) Proof-of-use telemetry
+Whenever backtest pulls market data, write integration_usage_events so proof_of_use_count_24h increments.
+No hand-waving: the counter must move once backtests run.
+
+STEP 5 — HOW I CAN CONFIRM IN THE UI
+Add/improve a “Kickoff Testing” control:
+- shows counts: queued/running/completed/failed
+- shows last proof-of-use timestamp + count (24h)
+- one button “Kickoff Testing Now”:
+  1) runs /api/integrations/verify for primaries
+  2) queues baseline backtests for bots missing them
+  3) refreshes Feed
+
+DELIVERABLES
+1) Paste curl outputs from Step 1 + short “gate flip” report (BLOCKED -> DEGRADED/OK)
+2) Proof at least 1 seeded bot completed a backtest with >0 trades (not null metrics)
+3) Exact file list changed + why (no silent refactors)
+
+IMPORTANT
+- Don’t tell me “they should be running” — show evidence.
+- If fail-closed is intended, system/status must clearly tell me exactly what’s missing and how to fix it.
+
+---
+
+If you want, paste whatever Replit replies with, and I’ll help you sanity-check whether their “proof” actually proves anything.

@@ -1,0 +1,45 @@
+Approved. Lift the restriction.
+
+You are now authorized to modify files under client/src/hooks/** for the sole purpose of completing the Supabase → Express API migration required for institutional readiness.
+
+NON-NEGOTIABLE SCOPE:
+ALLOWED:
+- Replace Supabase client queries with fetch(credentials: 'include') calls to the existing Express endpoints
+- Enforce server-authoritative filtering (no client-side ownership/stage enforcement)
+- Add response.ok checks and structured error propagation
+- Fix React Query keys and cache invalidation to match Express routes
+- Ensure default trade filters: is_invalid = false AND source_type != 'TEST'
+- Fail closed: missing/errored data must surface explicit error states (not empty arrays)
+
+NOT ALLOWED:
+- No architectural rewrites
+- No renaming or changing hook public signatures unless strictly required
+- No UI redesign or component refactors
+- No changes to packages/core risk or PnL logic
+- No introduction of new state management frameworks
+
+EXECUTION ORDER (MANDATORY):
+1) SEV-1 hooks first:
+   - Trading lifecycle (useTrading, trades, open positions, events feed)
+   - Jobs / runs lifecycle (creation, heartbeat, terminalization)
+   - Runner control (start / restart / reconcile)
+   - Bot lifecycle (instances, status, kill/resurrect awareness)
+2) SEV-2 hooks
+3) SEV-3 hooks
+
+FOR EACH BATCH:
+- Work on a dedicated branch (e.g., hook-migration-sev1)
+- Provide a list of hooks migrated (file paths)
+- Provide endpoint mapping (hook → API routes)
+- Run and report verification:
+  a) Provider failure → DEGRADED/BLOCKED (no fabricated trades/PnL)
+  b) Backtest/job reaches terminal state (no stuck RUNNING)
+  c) Cross-account isolation (including >50 row scenario)
+  d) PnL parity: backend == UI for a selected bot instance
+- Update AUDIT_FINDINGS.md with migrated count, remaining count, and any Sev-1 gaps
+
+QUALITY BAR:
+- If an Express endpoint cannot fully meet the contract, return 501 Not Implemented with a structured error and mark it Sev-1.
+- No silent failures. No fake data. No partial success responses.
+
+Proceed now with SEV-1 hook migration in a single PR.

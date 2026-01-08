@@ -1,0 +1,269 @@
+BLAIDAGENT “READY STANDARDS” MASTER LIST
+(Production-grade, institutional-style, no fake data, no silent failures)
+
+========================================================
+A) THE DEFINITION OF “READY”
+========================================================
+You are “ready” ONLY when ALL are true:
+1) One source of truth for: trades, positions, PnL, equity, drawdowns, exposure.
+2) Every run/job has a terminal state (COMPLETED/FAILED/BLOCKED/CANCELED) + audit trail.
+3) Provider/broker failures fail CLOSED (DEGRADED/BLOCKED) — never “0 trades”, never fabricated prices.
+4) Stage parity: Backtest, Paper, Live use the same pipeline; only adapters differ.
+5) Data isolation: per-user, per-account, per-bot; no cross-leak possible by query.
+6) Deterministic math: tick size, point value, rounding, fees/slippage explicit & tested.
+7) Observability: logs + traces + metrics + alerts; you can explain every PnL number.
+8) Security: authZ enforced server-side; secrets never in client; no privilege escalation.
+
+========================================================
+B) NON-NEGOTIABLE CORE CONTRACTS (MUST IMPLEMENT)
+========================================================
+
+B1) Canonical Ledger Contract (Single Source of Truth)
+- Create/confirm a canonical “trade ledger” / “events” model that everything derives from.
+Minimum required:
+- order_intents (signal -> risk-approved intent)
+- executions/fills (actual fills or simulated fills)
+- position_events (open/add/reduce/close)
+- equity_events (realized/unrealized snapshots OR derivable)
+Rules:
+- UI NEVER computes PnL except formatting; backend (core) is authoritative.
+- Backtest/paper/live all write the same event types.
+
+B2) Stage Parity Contract (One pipeline, different adapters)
+Pipeline (same for all stages):
+Strategy -> Signal -> Risk -> OrderIntent -> ExecutionAdapter -> Ledger -> Metrics
+Adapters:
+- BACKTEST adapter: uses historical bars/ticks and simulated fills.
+- PAPER adapter: uses live data feed and simulated fills (or paper broker) but writes same ledger.
+- LIVE adapter: uses broker execution + broker confirmations -> writes same ledger.
+Rules:
+- Risk is identical in all stages (limits may differ by config, not by code path).
+
+B3) No Silent Failures Contract (Jobs/Runs FSM)
+All bot runs/backtests/jobs MUST:
+- Have states: CREATED, QUEUED, RUNNING, DEGRADED, BLOCKED, COMPLETED, FAILED, CANCELED
+- Record heartbeat while RUNNING
+- Auto-terminalize on timeout (FAILED/TIMEOUT)
+- Write an event record for EVERY transition with reason_code + trace_id
+Hard rule:
+- COMPLETED requires non-null metrics OR an explicit reason why metrics are absent (usually not allowed).
+
+B4) Fail-Closed Data Contract
+If data provider missing/entitlement/rate limit:
+- status -> DEGRADED or BLOCKED
+- UI shows the reason
+- computations that depend on missing data return 409 METRICS_INCOMPLETE or 503 DATA_UNAVAILABLE
+- never fabricate price/pnl/trades
+
+========================================================
+C) DATABASE / SCHEMA REQUIREMENTS (SMALLEST “READY” SET)
+========================================================
+(Do not ship “stubs”; if not implemented return 501 and mark Sev-1)
+
+C1) job_runs (or bot_jobs) table must include:
+- id, bot_id, stage/mode, status, start_ts, end_ts
+- last_heartbeat_at
+- status_reason_code, status_reason_human
+- trace_id, input_hash
+- data_sources_used (json)
+- metrics (json) OR normalized columns
+- error (json)
+
+C2) job_run_events (audit trail for state transitions)
+- id, run_id, from_status, to_status, reason_code, reason, created_at, trace_id, metadata(json)
+
+C3) kill_events (persistence required)
+- id, bot_id, actor, reason_code, reason, created_at, trace_id, metadata(json)
+
+C4) instruments table (schema-backed, not hardcoded)
+- symbol, exchange, tick_size, point_value, currency, min_qty, max_qty, session, is_active, updated_at
+
+C5) broker_account_events (link/unlink + risk settings changes)
+- id, broker_account_id, user_id, action, reason, created_at, trace_id, metadata(json)
+
+C6) trade_logs filtering rules
+- is_invalid boolean
+- source_type enum (LIVE, PAPER, BACKTEST, TEST)
+Hard rule: default API filters exclude is_invalid=true and source_type=TEST.
+
+========================================================
+D) API HARDENING REQUIREMENTS
+========================================================
+D1) AuthZ server-side everywhere
+- Every endpoint validates user_id and ownership in SQL (not in memory).
+- Never trust client-sent status/stage; server sets it.
+
+D2) Error standards
+- All non-success responses are structured:
+  { error_code, message, trace_id, details?, next_steps? }
+- No endpoint returns 200 if it failed to persist or update critical state.
+
+D3) 501 policy for incomplete endpoints
+- If contract not met, do NOT “approximate.”
+- Return 501 with missing_requirements and log an audit event.
+
+D4) Input validation
+- Zod (or equivalent) on every write endpoint.
+- Normalize snake_case/camelCase if legacy clients exist, but validate final shape strictly.
+
+========================================================
+E) HOOK MIGRATION / DATA PATH CONSOLIDATION (GET TO ZERO DRIFT)
+========================================================
+Goal: ONE data path. Either:
+- fully Express API, or
+- fully Supabase — but not mixed for critical trading state.
+
+Ready standard for trading:
+- Trading/bot lifecycle/risk/kill/evolution MUST all use the same backend API layer with the same filtering and authZ.
+
+Minimum “ready” order:
+1) Trading + RunnerControl + Jobs + Trades + Positions (must be fully migrated)
+2) RiskEngine + KillEngine (must be fully real, event-backed)
+3) Backtests + Autonomy proof + Audits (terminalization + determinism)
+4) Evolution/StrategyLab (can be later ONLY if not used for live trading; otherwise must be migrated too)
+
+If any critical path still uses Supabase hooks:
+- you must confirm it applies the same filters and ownership checks.
+
+========================================================
+F) PNL / METRICS “READY” REQUIREMENTS
+========================================================
+F1) Canonical PnL math in ONE place (packages/core)
+- tick size, point value, fees, commissions, slippage model
+- rounding rules
+- realized/unrealized definitions
+- FIFO/LIFO/netting rules explicitly defined and tested
+F2) Metrics must be reproducible
+- given ledger + config snapshot + input_hash -> metrics recompute matches stored metrics
+F3) Backtest completion rules
+- backtest cannot be COMPLETED with null metrics
+- if zero trades: must be explicitly proven (signal count = 0, risk blocks, etc.) and logged
+
+========================================================
+G) OBSERVABILITY (YOU NEED THIS FOR INSTITUTIONAL CLAIMS)
+========================================================
+G1) Traceability
+- trace_id created at request start; propagated through jobs and events
+- logs include: user_id, bot_id, run_id, trace_id, stage
+
+G2) Metrics to emit (at least)
+- job counts by status, avg runtime, timeout count
+- provider error rate, entitlement errors
+- order intents count, fills count
+- pnl calc errors, ledger gaps
+
+G3) Alerts (minimum)
+- stuck RUNNING jobs > threshold
+- provider failure spike
+- cross-account query anomalies (0 results where expected >0; or sudden large)
+
+========================================================
+H) SECURITY & SAFETY (LIVE-TRADING PREP)
+========================================================
+H1) Environment + secrets
+- all secrets in env only; never in client bundle
+- .env.example committed; .env ignored
+
+H2) Permission model
+- stage-based permissions:
+  - only allow LIVE actions for users/accounts explicitly enabled
+  - “promotion safety switch” for live
+
+H3) Rate limiting
+- protect trading endpoints + job triggers
+
+H4) Idempotency
+- kill/resurrect, start/restart runner, create job endpoints must be idempotent with idempotency keys or server-side dedupe
+
+========================================================
+I) TESTING (THE ONLY WAY TO CLAIM “READY”)
+========================================================
+I1) Unit tests (core)
+- PnL calculations
+- risk checks (max contracts, daily loss, trailing dd, etc.)
+- ledger netting + position state
+
+I2) Integration tests (API)
+- trade filtering: is_invalid/source_type
+- cross-account isolation
+- job FSM transitions + timeout terminalization
+- provider failure -> DEGRADED/BLOCKED and 409/503 responses
+- runner start/restart behavior
+
+I3) E2E “Stage Parity” tests
+For same strategy config (where possible):
+- backtest vs paper should not diverge structurally (signals/risk decisions)
+- metrics consistency checks
+
+I4) Chaos tests (controlled)
+- drop provider responses
+- delay heartbeat
+- force partial writes -> ensure system fails closed
+
+========================================================
+J) RELEASE CHECKLIST (BINARY GO/NO-GO)
+========================================================
+A release is allowed only if:
+- Sev-1 findings = 0
+- Stub endpoints = 0 (or 501 + not used in production paths)
+- “No silent failures” contract enforced in code + verified with tests
+- provider failure shows correct degraded state and blocks metrics
+- PnL parity verified (backend vs UI) on at least 3 bots
+- cross-account isolation verified with >50 row test
+- rollback plan exists (tagged release, migration rollback steps)
+
+========================================================
+K) WHAT TO TELL REPLIT TO DO NEXT (EXECUTION ORDER)
+========================================================
+1) Produce definitive inventory: remaining Supabase hooks and all Express endpoints (machine-generated output)
+2) Convert any “simplified/stub” endpoints to:
+   - full contract implementation OR 501 + Sev-1
+3) Implement the missing persistence tables:
+   - job_run_events, kill_events, instruments, broker_account_events
+4) Enforce FSM terminalization + timeout worker across ALL job types
+5) Replace hardcoded instruments with instruments table
+6) Implement capital allocation + profitability audit fail-closed rules (409 METRICS_INCOMPLETE)
+7) Write the verification pack:
+   - 4 required tests (provider fail, backtest terminal, cross-account, pnl parity)
+   - CI runs them (or at minimum a repeatable script)
+8) Only then claim “ready”
+
+========================================================
+L) ONE “DO THIS NOW” PROMPT FOR REPLIT (PASTE THIS)
+========================================================
+You are implementing “READY STANDARDS” for BlaidAgent. No rewrites, minimal diffs, no stubs. If you cannot meet a contract, return 501 with structured error and mark Sev-1.
+
+PHASE 1 (THIS PR):
+1) Inventory report (machine-generated):
+   - list remaining Supabase hooks/files
+   - list Express-migrated hooks/endpoints
+2) Remove all stubs/simplified behavior:
+   - implement fully OR return 501 Not Implemented with:
+     {error_code, message, missing_requirements, next_steps, trace_id}
+3) Add persistence tables + migrations:
+   - job_run_events, kill_events, instruments, broker_account_events
+4) Enforce “No Silent Failures” FSM:
+   - RUNNING heartbeat
+   - timeout -> FAILED/TIMEOUT
+   - all transitions recorded in job_run_events
+5) Replace hardcoded instruments with instruments table
+6) Update AUDIT_FINDINGS.md:
+   - Sev-1 must include any remaining stub/501 or missing contract
+
+PHASE 2 (VERIFICATION):
+Run and document results for:
+- provider failure -> DEGRADED/BLOCKED (no fake trades/pnl)
+- backtest reaches terminal state with non-null metrics OR fails with reason
+- cross-account isolation test (including >50 rows)
+- pnl parity test (backend vs UI exact match)
+
+DELIVERABLES:
+- changed files list
+- migration diff + rollback steps
+- verification checklist + actual outputs/logs
+
+Proceed now.
+
+========================================================
+END MASTER LIST
+========================================================

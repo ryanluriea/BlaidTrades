@@ -1,0 +1,79 @@
+ADD-ON PROMPT — Feed Intelligence & Engagement Layer
+
+This add-on extends the existing “Feed” without changing its core purpose or scope.
+
+1) Reaction Signals (non-social, analytical)
+Each Feed event card should support lightweight reaction signals that are NOT public/social, but analytical:
+
+Supported reactions:
+- 👍 PROFITABLE / POSITIVE OUTCOME
+- ⚠️ RISK / WARNING
+- 🧠 AUTONOMY INSIGHT
+- ❌ ERROR / FAILURE
+
+Rules:
+- Reactions are optional
+- Stored per user (not global counts)
+- Used to help the user visually scan outcomes over time
+- Reactions must NEVER affect trading logic (display-only)
+
+2) Visual Encoding in the Feed
+Feed cards should use subtle, professional visual encoding:
+- Green accent → profitable trade / successful outcome
+- Red accent → loss / error / kill / failure
+- Amber accent → risk block / degraded / warning
+- Blue / neutral → informational or lifecycle events
+
+This should be:
+- Minimal (no emojis in core UI)
+- Consistent with existing design system
+- Accessible (contrast-safe)
+
+3) Per-Bot Mini Timelines
+Each bot detail page should include a “Recent Activity” mini timeline:
+- Last 10–20 Feed events for that bot
+- Same event card structure, compact layout
+- Clickable → opens the same event detail drawer as the main Feed
+- This is NOT a separate data source — it reuses the Feed event model
+
+4) PnL-Aware Highlighting (read-only)
+For trade-related Feed events:
+- Display realized PnL if available
+- Use soft intensity (not large numbers):
+  - Strong green → outsized positive outcome
+  - Muted green → small win
+  - Muted red → small loss
+  - Strong red → outsized loss
+- No aggregation or analytics logic added here (display-only)
+
+5) Autonomy Intelligence Surfacing
+For events tied to autonomy:
+- AUTONOMY_TIER_CHANGED
+- AUTONOMY_SCORE_UPDATED
+- GATE_BLOCKED / GATE_PASSED
+
+Enhancements:
+- Small “Autonomy” badge on the Feed card
+- Clicking opens the autonomy breakdown drawer
+- Show which gates influenced the event (pass/fail snapshot)
+
+6) UX Guardrails
+- No fake engagement metrics
+- No likes, comments, followers, or social feeds
+- This is a system observability + explainability surface, not a social network
+- Everything must map to real emitted events
+
+7) Acceptance Proof (additive)
+Please include:
+- Screenshot of Feed with reaction signals applied
+- Screenshot of bot detail mini timeline
+- Example trade Feed event with PnL highlighting
+- Example autonomy-related Feed event with autonomy drawer opened
+
+This add-on should make the Feed feel:
+- Alive
+- Explainable
+- Trustworthy
+- Useful at a glance
+
+Do not expand scope beyond this add-on.

@@ -1,0 +1,79 @@
+Stop. This is not production readiness.
+
+“Functional for development” is unacceptable for BlaidAgent. We need institutional-grade: deterministic, auditable, fail-closed, and non-stubbed.
+
+NEW RULE: You may not add “stub/simplified” endpoints. If an endpoint can’t meet the contract, it must return 501 Not Implemented with a clear reason + be flagged Sev-1 in AUDIT_FINDINGS.md. No silent partial behavior.
+
+IMMEDIATE ACTIONS (NO NEW FEATURES):
+1) REVERT STUBBING / FALSE FUNCTIONALITY
+- Identify every endpoint you “simplified” or stubbed.
+- For each, either:
+  A) implement it to the production contract (below), OR
+  B) return 501 with a structured error:
+     { error_code, message, missing_requirements, next_steps, trace_id }
+- Update AUDIT_FINDINGS.md: any stub/501 is Sev-1 until implemented.
+
+2) PRODUCTION CONTRACTS (MUST IMPLEMENT)
+A) Kill Engine
+- Persist kill events in DB (kill_events table) with:
+  id, bot_id, actor, reason_code, reason, created_at, metadata(json), trace_id
+- POST /api/bots/:id/kill must:
+  - write kill_event row
+  - set bot.killed_at
+  - set all running instances to STOPPED with reason
+  - be idempotent (killing twice does not corrupt state)
+- POST /api/bots/:id/resurrect must:
+  - write kill_event row (RESURRECT)
+  - clear killed_at
+  - NOT auto-restart unless explicitly requested
+- GET kill-events must read from kill_events (not inferred)
+
+B) Risk Engine / Instruments
+- Instruments must be schema-backed, not hardcoded.
+- Create instruments table with:
+  symbol, exchange, tick_size, point_value, currency, min_qty, max_qty, session, is_active, updated_at
+- Endpoints must read from DB and validate symbol exists.
+- No “static list” in routes.ts.
+
+C) Broker Account Linking
+- Strict validation:
+  - cannot link without required risk settings
+  - prevent cross-user linking
+  - enforce allowed ranges (max contracts, daily loss, etc.)
+- Write an audit event on link/unlink:
+  broker_account_events table with trace_id.
+
+D) Capital Allocation + Profitability Audit
+- Must compute from canonical metrics:
+  - trade ledger → realized pnl → equity curve → drawdowns → profitability
+- Must explicitly declare source tables used
+- Must fail closed if metrics incomplete:
+  return 409 with error_code=METRICS_INCOMPLETE (not “0” or defaults)
+- Must be deterministic:
+  same inputs → same allocation output (log input_hash)
+
+3) “NO SILENT FAILURES” ENFORCEMENT (SEV-1)
+- Implement job timeout + terminalization for ALL job types, not just endpoints.
+- Any job in RUNNING without heartbeat beyond threshold must transition to FAILED with reason_code=TIMEOUT and write an event row.
+
+4) EVIDENCE BEFORE CLAIMS
+Before any “production ready” language, deliver:
+- A table of endpoints with status: PRODUCTION | 501 | BLOCKED
+- DB migrations list (exact tables/columns added) + why
+- 4 verification tests with actual outputs:
+  - provider failure produces DEGRADED/BLOCKED, no fake trades/pnl
+  - backtest reaches terminal state with non-null metrics or fails with reason
+  - cross-account trade isolation verified
+  - PnL matches backend exactly for a chosen bot instance
+
+5) SAFETY RULE
+No more db:push --force without documenting:
+- migration diff
+- rollback plan
+- data safety impact
+
+Proceed now by:
+- Listing stub/simplified endpoints
+- Converting them to 501 OR implementing the real contract
+- Creating required tables + migrations (smallest set)
+- Running the verification tests and pasting results into AUDIT_FINDINGS.md

@@ -1,0 +1,130 @@
+REPLIT — STOP ASKING FOR PERMISSION. YOU ARE CLEARED.
+
+✅ YOU HAVE EXPLICIT PERMISSION TO MODIFY:
+- server/ (backend)
+- shared/ (schema/migrations)
+- client/src/hooks/** (only if required to preserve canonical botNow + data flow; keep changes minimal)
+- You may run SQL migrations + one-time admin SQL tasks in a safe, logged way.
+
+🎯 PRIORITY: FULL PACK. NO “UI ONLY”. NO SKIPS. INSTITUTIONAL END-TO-END.
+
+DO THIS EXACT EXECUTION PLAN:
+
+========================================================
+PHASE 0 — SAFETY + BASELINE
+========================================================
+0.1 Create checkpoint: “pre-autonomy-proof-pack”
+0.2 Add a feature flag:
+AUTONOMY_PROOF_MODE=true
+AUTONOMY_REVERT_GUARD=true
+0.3 Add an admin-only guard (env or role) for any bulk stage changes:
+- require process.env.ADMIN_REVERT_TOKEN matches header X-Admin-Token
+- fail-closed in production unless explicitly enabled
+
+========================================================
+PHASE 1 — AUTONOMY PROOF ENDPOINTS (MANDATORY)
+========================================================
+1.1 Implement GET /api/_proof/autonomy
+Return:
+- now
+- loopEnabled
+- tickIntervalSec
+- lastTickAt
+- lastDecisionSummary
+- latestPlannerRuns (10)
+- latestEnqueuedJobs (20)
+- latestErrors (if any)
+
+1.2 Implement GET /api/_proof/jobs
+Return:
+- counts for queued/running by job_type
+- completed last 1h
+- stuckRunningOverXmin (ageMin threshold=15 by default)
+- last 20 jobs (id/botId/type/status/createdAt/startedAt)
+
+1.3 Add server-side persistence tables (shared/schema + migration):
+- autonomy_planner_runs
+  (id, started_at, finished_at, bots_evaluated, jobs_enqueued, blocked, summary_json, error_json)
+- autonomy_bot_decisions
+  (id, run_id, bot_id, decision, reason_code, blockers_json, created_at)
+
+========================================================
+PHASE 2 — PLANNER MUST ENQUEUE WORK (NO MANUAL STARTS)
+========================================================
+2.1 Locate the autonomy loop tick.
+2.2 Enforce deterministic scheduling rules:
+
+LAB:
+- If no baseline backtest: enqueue BACKTEST_BASELINE
+- If baseline stale > X hours: enqueue BACKTEST_REFRESH
+- Maintain target concurrency (default 3) across LAB bots
+
+PAPER/SHADOW/CANARY/LIVE:
+- If stage requires runner and no runner: enqueue RUNNER_START (if broker+data verified)
+- If gates fail: record decision BLOCKED_BY_GATES with blockers
+
+2.3 Record every tick in autonomy_planner_runs + per-bot decisions in autonomy_bot_decisions
+2.4 Make “0 jobs enqueued” return explicit reasonsTop.
+
+========================================================
+PHASE 3 — BADGES: PRIMARY ACTIVITY vs DATA RECENCY
+========================================================
+3.1 Primary badge MUST be botNow.state only
+3.2 Data recency pill is secondary:
+- “Backtest: fresh/stale/no baseline”
+3.3 Remove ANY “default to Fresh” behavior
+If botNow missing: show “UNKNOWN_DATA” with tooltip.
+
+3.4 Add hover debug tooltip on primary badge:
+- state + since
+- reasonCode
+- activeJob
+- runner heartbeat + stale
+- gate blockers
+
+========================================================
+PHASE 4 — REVERT ALL NON-LAB BOTS BACK TO LAB (WITH AUDIT)
+========================================================
+4.1 Add bot_stage_events table + migration:
+(id, bot_id, from_stage, to_stage, reason_code, actor, created_at)
+
+4.2 Add ADMIN endpoint:
+POST /api/admin/revert-to-lab
+Body: { includeStages: ["PAPER","SHADOW","CANARY","LIVE"], reasonCode }
+Guards:
+- require X-Admin-Token
+- require AUTONOMY_REVERT_GUARD=true
+
+Implementation:
+- insert stage events
+- update bots stage + stage_updated_at + stage_reason_code
+- return counts
+
+========================================================
+PHASE 5 — PROOF PACK OUTPUTS (PASTE BACK)
+========================================================
+5.1 curl proofs:
+curl -s http://localhost:5000/api/_proof/autonomy | jq
+curl -s http://localhost:5000/api/_proof/jobs | jq
+
+5.2 SQL proofs:
+SELECT job_type, status, COUNT(*) FROM bot_jobs WHERE status IN ('QUEUED','RUNNING') GROUP BY 1,2;
+SELECT to_stage, reason_code, COUNT(*) FROM bot_stage_events WHERE reason_code='BULK_REVERT_REBASELINE' GROUP BY 1,2;
+
+5.3 Screenshot (authenticated) showing:
+- at least one bot BACKTEST_RUNNING
+- at least one bot BACKTEST_QUEUED
+- primary badge is activity; recency is a small pill
+- stages show LAB after revert
+
+========================================================
+DELIVERABLES
+========================================================
+- Full list of files changed
+- Migrations created
+- Endpoints implemented
+- Proof outputs included
+- NO “preferences restrict me” language ever again in this repo.
+- NO SKIPS.
+
+START NOW.

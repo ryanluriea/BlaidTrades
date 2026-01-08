@@ -1,0 +1,179 @@
+NO “DATA FRESH” — RESTORE ORIGINAL ACTIVITY BADGES + BULK REVERT ALL BOTS TO LAB + AUTONOMY MUST START WORK
+
+You are cleared for FULL stack changes (server + shared + client). Stop shipping workaround pills. “Data Fresh” must be removed everywhere. We are restoring the ORIGINAL badge behavior shown in the attached screenshot (e.g., “Backtesting • x2” and “Improving • #1”) and making autonomy actually enqueue work after reset.
+
+========================================================
+0) SUCCESS CRITERIA (PASS/FAIL)
+========================================================
+PASS only if ALL are true:
+
+A) There is ZERO “Data Fresh” text anywhere in the UI.
+B) Bot rows show “Backtesting / Queued / Improving / Evolving / Runner …” badges like the screenshot:
+   - Purple badge: “Backtesting • xN” (attempt count)
+   - Blue badge: “Improving • #N” (iteration/gen)
+   - These appear when jobs are queued/running, and disappear when idle.
+C) All bots are reverted to LAB and STAY in LAB (no auto-promote back to PAPER unless explicitly enabled later).
+D) Within 1–2 autonomy ticks after reset, at least 3 bots are actively backtesting (or queued if concurrency limited), proving the autonomy loop is scheduling.
+E) Proof pack included: curl outputs + SQL proofs + screenshot of badges while jobs RUNNING.
+
+========================================================
+1) REMOVE “DATA FRESH” PILL COMPLETELY (UI)
+========================================================
+Find and delete any “Data Fresh” / “Fresh” secondary pill that is based on recency.
+Do NOT replace it with “Fresh” or any other recency label.
+
+Rules:
+- Recency is tooltip-only, never a labeled pill.
+- If you want to show recency, use an icon (dot/info) with tooltip:
+  “Last backtest: <time> • Trades: <n> • Net: <pnl>”
+- Do not display “OK” as a notification either.
+
+Required edits:
+- client/src/components/bots/BotTableRow.tsx
+  - Remove the “Data Fresh” pill rendering block entirely.
+  - Remove any logic that adds a pill based on “freshness”.
+- client/src/components/bots/BotStatusBadgeLanes.tsx (or wherever badge lanes are composed)
+  - Ensure the primary lane renders ONLY “activity” badges (Backtesting / Improving / etc.).
+  - No recency badges. No “Fresh”.
+
+========================================================
+2) RESTORE “REAL” BADGES (LIKE SCREENSHOT) USING CANONICAL botNow
+========================================================
+We are restoring the old semantics:
+- Purple activity badge: BACKTESTING with attempt count (x2)
+- Blue activity badge: IMPROVING with iteration count (#1)
+- These are NOT new visuals—match the existing styling as closely as possible.
+
+Backend MUST provide the exact fields needed to render these badges deterministically:
+
+botNow (minimum required for UI):
+botNow: {
+  state: "BACKTEST_RUNNING" | "BACKTEST_QUEUED" | "IMPROVING_RUNNING" | "IMPROVING_QUEUED" | "IDLE" | "RUNNER_RUNNING" | "RUNNER_STARTING" | "RUNNER_STALE" | "BLOCKED" | "ERROR" | ...
+  since: ISO string
+  activeJob?: {
+    id: string
+    type: "BACKTEST" | "IMPROVE" | "EVOLVE" | "RUNNER_START" | ...
+    status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED"
+    createdAt: ISO
+    startedAt?: ISO
+    attempt?: number            // renders as xN for backtesting
+    iteration?: number          // renders as #N for improving/evolving
+    progress?: { pct?: number, etaSec?: number }
+  }
+  lastBacktest?: { completedAt?: ISO, totalTrades?: number, netPnl?: number, status?: string }
+  stageInfo?: { stage: "LAB"|"PAPER"|..., promotionMode: "MANUAL"|"AUTO", since?: ISO, reasonCode?: string }
+  stageGate?: { allowed: boolean, blockers: [...] }
+}
+
+Compute attempt/iteration WITHOUT N+1:
+- Add a batched aggregate query per bot_id:
+  - backtest_attempts = COUNT(*) FILTER (WHERE job_type='BACKTEST')
+  - improve_iterations = COUNT(*) FILTER (WHERE job_type IN ('IMPROVE','EVOLVE'))
+- Or if job rows already have attempt/iteration, use those. But guarantee values in botNow.
+
+UI rendering:
+- If botNow.state == BACKTEST_RUNNING:
+    show purple badge: “Backtesting • x<attempt>”
+    show tooltip: “Running <elapsed> • Attempt x<attempt>”
+- If BACKTEST_QUEUED:
+    show purple badge: “Backtest queued • x<attempt>”
+- If IMPROVING_RUNNING:
+    show blue badge: “Improving • #<iteration>”
+- If IMPROVING_QUEUED:
+    show blue badge: “Improve queued • #<iteration>”
+- If IDLE:
+    show no activity badge (or subtle “Idle”, but DO NOT show “Fresh”)
+
+========================================================
+3) BULK REVERT ALL BOTS TO LAB (AND MAKE IT STICK)
+========================================================
+Right now you have 20 LAB and 1 PAPER, and PAPER is flipping back.
+We will revert ALL non-LAB to LAB and LOCK stage changes for 24h so it can’t auto-promote.
+
+Implement/Update admin endpoint:
+POST /api/admin/revert-to-lab
+- Must be transactional
+- Must write an audit trail row per bot into bot_stage_events (already exists or create if missing)
+- Must set:
+  bots.stage = 'LAB'
+  bots.promotion_mode = 'MANUAL'
+  bots.stage_reason_code = 'BULK_REVERT_SEV1_RESET'
+  bots.stage_updated_at = now()
+  bots.stage_locked_until = now() + interval '24 hours'
+  bots.stage_lock_reason = 'SEV1_RESET_FREEZE'
+
+And in autonomy promotion logic:
+- If now() < stage_locked_until => NEVER change stage (record decision reasonCode='STAGE_LOCKED')
+- If promotion_mode != 'AUTO' => NEVER change stage
+
+Provide curl commands:
+# DRY RUN
+curl -s -X POST http://localhost:5000/api/admin/revert-to-lab \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: dev-admin-secret" \
+  -d '{"dryRun": true, "includeIds": true}'
+
+# EXECUTE
+curl -s -X POST http://localhost:5000/api/admin/revert-to-lab \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: dev-admin-secret" \
+  -d '{"dryRun": false, "reasonCode":"BULK_REVERT_SEV1_RESET", "setPromotionMode":"MANUAL", "lockHours":24}'
+
+========================================================
+4) AUTONOMY MUST START BACKTESTING AFTER RESET (NO MANUAL STARTS)
+========================================================
+Current problem: “jobs_enqueued: 0” because system thinks everything is “done”.
+After SEV1 reset, we MUST enqueue baseline work.
+
+Policy:
+- When stage_reason_code == 'BULK_REVERT_SEV1_RESET' (recent, within 24h) OR stage_locked_until is set:
+  - Schedule baseline backtest for LAB bots regardless of recency.
+  - Concurrency limit is fine (e.g., 2–3 at a time), but queue must fill.
+
+Implementation:
+- In autonomy tick:
+  - select LAB bots where:
+      (no active job) AND (not currently running) AND (stageGate.allowed == true)
+  - enqueue BACKTEST jobs until concurrency cap.
+  - Write autonomy_planner_runs + autonomy_bot_decisions (already implemented).
+  - Ensure job status transitions are recorded so badges show RUNNING/QUEUED.
+
+========================================================
+5) PROOF PACK (MANDATORY OUTPUTS)
+========================================================
+Paste outputs:
+
+(1) After revert execution:
+curl -s http://localhost:5000/api/bots?limit=10 | jq '.data[] | {name, stage: .stage, promotion: .promotionMode, botNow: .botNow.state, job: .botNow.activeJob}'
+
+(2) Prove stage lock is set:
+psql:
+SELECT stage, promotion_mode, stage_locked_until, stage_reason_code
+FROM bots
+ORDER BY stage DESC;
+
+(3) Prove autonomy is enqueuing:
+curl -s http://localhost:5000/api/_proof/autonomy | jq '.latestRun.summary'
+curl -s http://localhost:5000/api/_proof/jobs | jq '.counts'
+
+(4) Prove at least one bot has running/queued backtest job:
+SELECT id, bot_id, job_type, status, created_at, started_at, completed_at
+FROM bot_jobs
+WHERE job_type='BACKTEST'
+ORDER BY created_at DESC
+LIMIT 10;
+
+(5) Screenshot (authenticated) showing at least one row with:
+- Purple “Backtesting • xN”
+- Blue “Improving • #N” (if improve/evolve job running/queued)
+- NO “Data Fresh” anywhere
+
+========================================================
+6) DELIVERABLES LIST
+========================================================
+At the end, output:
+- Exact files changed list (server/shared/client)
+- Any migrations added
+- Confirmation: “Data Fresh removed” + “All bots reverted to LAB and locked” + “Autonomy enqueuing baseline backtests” + “Badges match screenshot”
+
+NO SKIPS. NO NEW RANDOM PILLS. SHIP IT.

@@ -1,0 +1,116 @@
+MASTER PROMPT — CONNECT ALL API KEYS + PROOF-OF-USE + CONTROL PLANE (PRODUCTION)
+
+GOAL
+I am ready to enter my real API keys. Implement a secure, industry-standard “Connections + Proof of Use + Autonomy Gates” flow so I can connect EVERY integration and immediately see:
+1) configured vs connected
+2) verify results
+3) proof-of-use (last_used_at, last_used_by_bot_id, count_24h)
+4) autonomy readiness per bot and system-wide (BLOCKED/DEGRADED/OK)
+
+NON-NEGOTIABLE SECURITY RULES
+- NEVER log secrets. NEVER return secrets in API responses. NEVER store secrets in Postgres.
+- All secrets must live in ENV (Replit Secrets) OR an external secret manager (if already configured). Prefer Replit Secrets.
+- Any “save key” UI should only POST to a server endpoint that validates format and then instructs user to set Replit Secrets (or uses Replit’s secret API if available in this environment). If cannot programmatically set secrets, the UI must show exact “copy/paste into Replit Secrets” instructions.
+- Redact secrets in UI: show only last 4 chars + masked display.
+- All verify endpoints return trace_id, never secret.
+
+ASSUMPTIONS / CONTEXT
+- server/integration-registry.ts exists and defines providers + required_env_vars + optional_env_vars + supports_verify.
+- Endpoints exist and are canonical:
+  GET /api/integrations/status
+  POST /api/integrations/verify
+  GET /api/system/status
+  integration_usage_events table exists and is used for proof-of-use.
+- Safe-start checks already block runner start/restart when keys missing (INTEGRATION_KEY_MISSING) or data unavailable (DATA_UNAVAILABLE).
+
+WHAT TO BUILD (FULL APPROACH)
+A) CONNECTIONS UX (System Status → Connections tab + popout)
+Upgrade the existing SystemStatus page into a “Control Plane Observatory” experience:
+
+1) Connections tab/table:
+- Rows = each provider from integration registry (databento, polygon, ironbeam, tradovate, openai, anthropic, discord, supabase, etc)
+- Columns:
+  Provider | Category | Configured | Connected | Last Verified | Last Used | Used by Bot | Proof Count 24h | Actions
+- “Actions”:
+  - Verify button (calls POST /api/integrations/verify { provider })
+  - “How to connect” button opens a popout drawer/modal with:
+    - Required env vars list
+    - Optional env vars list
+    - Copy-to-clipboard env var names
+    - Link-style hints (no raw URLs needed) and a checklist
+    - “I’ve set the secrets” confirm toggle that re-runs Verify
+
+2) Popout “Connection Detail” drawer/modal:
+- Shows:
+  - configured status (missing_env_vars list)
+  - verify history (last_verified_at, last_verify_status, trace_id)
+  - proof-of-use chart (counts last 24h, last_used_at, last_used_by_bot_id)
+  - recent integration_usage_events (last 20) with status + latency + trace_id + endpoint label
+- Must clearly differentiate:
+  - NOT CONFIGURED (missing env vars)
+  - CONFIGURED BUT NOT CONNECTED (verify failed)
+  - CONNECTED (verify ok)
+  - DEGRADED (connected but failing / high error rate / stale)
+
+B) PROOF-OF-USE TELEMETRY (REAL, NOT PLACEHOLDER)
+Instrument integration calls so bots generate proof.
+- Anywhere we call a provider (Databento/Polygon/broker/LLM/Discord), log an integration_usage_events record with:
+  user_id, bot_id (if known), provider, operation, status, http_status, latency_ms, trace_id, error_code
+- Add helper: logIntegrationUsage({ provider, operation, botId?, userId?, status, latencyMs, httpStatus?, errorCode?, traceId? })
+- Ensure /api/integrations/status derives:
+  proof_of_use_count_24h
+  last_used_at
+  last_used_by_bot_id
+from integration_usage_events ONLY.
+
+C) SYSTEM STATUS / AUTONOMY GATES (BLOCKED/DEGRADED/OK)
+Enhance the System Status tab:
+- Summary card shows system_status, autonomy_allowed, blockers (with suggested_fix)
+- Add “Autonomy Gates” section with:
+  dataFeedsHealthy, brokerConnected, llmConnected, supervisorLoopActive, timeoutWorkerActive, riskEngineConnected
+- Must be fail-closed: if required providers missing OR verify failing -> BLOCKED.
+- Show tier_counts from autonomy_scores and “Autonomy readiness by bot” (list or table).
+
+D) “WHY NOT” + “WHY THIS TRADED” + AUTONOMY SCORE PER BOT
+Bot Details improvements:
+1) Why This Bot Traded viewer:
+- Uses decision_traces; show rationale, variables used, confidence, links to trade_log if exists.
+2) Why This Bot Did NOT Trade viewer:
+- Uses no_trade_traces; show suppression reasons (risk, data missing, regime mismatch, cooldown, etc).
+3) Autonomy Score per bot:
+- Show tier + numeric score and breakdown (data reliability, execution health, discipline, decision quality, supervisor trust)
+- Add “What’s blocking autonomy?” panel that lists blockers specific to that bot (missing key, verify fail, runner down, etc).
+
+E) ACCEPTANCE / VERIFICATION (REQUIRED)
+Provide evidence outputs after implementation:
+1) With NO secrets set:
+- /api/system/status = BLOCKED with INTEGRATION_KEY_MISSING and suggested_fix.
+2) After I set secrets:
+- /api/integrations/status shows configured=true and connected=true (verify ok) for each configured provider.
+3) Proof-of-use:
+- Trigger one real provider call path (or a safe test call) and show:
+  integration_usage_events row created
+  /api/integrations/status last_used_at updates
+4) Runner safe-start:
+- Start denied when BLOCKED
+- Start allowed when required integrations are configured+verified (still must respect LIVE trading gate and kill state)
+5) UI:
+- Connections tab shows correct statuses and a popout detail view with events + trace_id.
+
+IMPLEMENTATION CONSTRAINTS
+- No storing secrets in DB.
+- All UI states must handle degraded safely: never display “0 trades / $0 pnl” when data unavailable.
+- Use existing UI components/tokens; no redesign beyond adding popout/modal and tables.
+- Keep code changes minimal, production-grade, and fully typed.
+
+DELIVERABLES
+1) List of files changed
+2) Any new components added
+3) A short runbook for me:
+   - exactly which Replit Secrets keys to set for each provider
+   - the order to verify
+   - how to confirm proof-of-use is working
+4) Evidence: curl outputs + trace_ids demonstrating BLOCKED → OK and proof-of-use working.
+
+START NOW.
+Do not ask clarifying questions. Build the full implementation.

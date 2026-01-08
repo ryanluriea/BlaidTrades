@@ -1,0 +1,142 @@
+MERGED ADD-ON — CLOSE ALL LOOP HOLES (NO SKIPS) + MAKE BADGES CANONICAL
+
+Context / What’s already done (do NOT regress):
+- Redis module: CONNECTED + optional classification works
+- /api/readiness: PASS (Databento PASS, Ironbeam PASS, Redis PASS, Risk Engine PASS)
+- BacktestStatusBadge: fixed “never” → “N/A” + improved tooltip grammar (“Backtest completed 5m ago”)
+- replit.md: canonical stage definitions already present
+- Proof pack: endpoints passing
+- One minor console warning remains: DialogContent missing Description / aria-describedby
+
+Problem that remains (SEV-1 UX/Truth):
+- Badges are still not showing real “now state” (only “Fresh” appears), and bots do not visibly show states like:
+  looking for setup / queued / backtesting / evolving / runner running / blocked by gates
+- Root cause: botNow was SKIPPED. That is the canonical truth object that badges need.
+- Institutional standard requires badges be driven by backend truth (jobs/instances/backtests/gates), not guessed in UI.
+
+NON-NEGOTIABLE: NO MORE SKIPS
+We are cleared to modify server/shared + frontend. Finish the whole thing end-to-end.
+
+=========================================================
+A) KEEP + VERIFY EXISTING FIXES (DO NOT REVERT)
+=========================================================
+1) Redis + readiness
+- Keep Redis connected + optional tiering (does not block critical)
+- Ensure /api/readiness still returns PASS and includes per-component details
+
+2) BacktestStatusBadge polish
+- Keep “N/A” (not “never”) when no backtest exists
+- Keep grammatically correct tooltips
+- Ensure tooltips use consistent ISO timestamps / relative formatting
+
+3) Accessibility warning (finish it)
+Fix the console warning:
+- Add <DialogDescription> (or aria-describedby={undefined} explicitly handled) for every DialogContent that triggers:
+  “Missing Description or aria-describedby={undefined} for {DialogContent}”
+Deliverable: grep file/line where DialogContent is missing description + fix.
+
+=========================================================
+B) SHIP CANONICAL botNow (SERVER) — THIS UNBLOCKS BADGES
+=========================================================
+GOALS
+1) GET /api/bots returns per-bot botNow so badges are deterministic and never default to “Fresh” due to missing data
+2) Bot table + bot detail badges render from botNow ONLY (no guessing)
+3) Provide proof that badges match real bot_jobs / bot_instances / backtest_sessions
+
+Implement:
+- computeBotNow(botId)
+- computeBotsNow(botIds[]) (BATCHED, no N+1)
+and wire into GET /api/bots (and bot detail endpoint if exists)
+
+botNow minimum shape:
+botNow: {
+  state: string,   // IDLE, FRESH, NEEDS_BACKTEST, BACKTEST_QUEUED, BACKTEST_RUNNING, BACKTEST_COMPLETED,
+                   // RUNNER_REQUIRED, RUNNER_STARTING, RUNNER_RUNNING, RUNNER_STALE,
+                   // EVOLVING, PROMOTION_PENDING, BLOCKED_BY_GATES, ERROR
+  reasonCode?: string,
+  since?: string, // ISO
+  stageGate?: {
+    allowed: boolean,
+    blockers: { code: string, severity: "info"|"warn"|"critical", fix?: string }[]
+  },
+  runner?: { status: string, lastHeartbeatAt?: string, stale: boolean },
+  activeJob?: { id: string, type: string, status: string, createdAt: string },
+  lastBacktest?: { id: string, status: string, completedAt?: string, trades?: number, netPnl?: number }
+}
+
+CANONICAL INPUTS (no heuristics):
+- bot_instances (latest per bot): status + last_heartbeat_at
+- bot_jobs (latest queued/running/active per bot): type/status/timestamps
+- backtest_sessions (latest per bot): status + completed_at + key metrics
+- gates: getRequiredIntegrationsForStage(stage) + /api/readiness (provider verified) + autonomy gates
+
+STATE PRECEDENCE (explicit in code):
+1) killed/error -> ERROR (reasonCode)
+2) blocked by gates -> BLOCKED_BY_GATES (include blockers)
+3) active job RUNNING -> BACKTEST_RUNNING / EVOLVING / RUNNER_STARTING (based on type)
+4) queued job exists -> BACKTEST_QUEUED / RUNNER_STARTING
+5) runner exists:
+   - heartbeat fresh -> RUNNER_RUNNING
+   - heartbeat stale -> RUNNER_STALE
+6) if stage requires baseline backtest and none exists -> NEEDS_BACKTEST
+7) if created recently and no activity -> FRESH (ONLY THIS CASE)
+8) else -> IDLE
+
+PERFORMANCE (mandatory):
+- NO per-bot queries
+- Use batched DISTINCT ON (bot_id) queries to fetch:
+  latest job per bot (by created_at desc)
+  latest instance per bot (by updated_at desc)
+  latest backtest per bot (by created_at desc)
+Compute botNow in memory.
+
+=========================================================
+C) UI — BADGES MUST USE botNow (NO GUESSING)
+=========================================================
+- Update Bot table row badge lanes to render from bot.botNow.state (and related fields)
+- Remove any fallback logic that defaults to “Fresh” if state derivation fails
+- If botNow missing: show UNKNOWN_DATA badge with tooltip “botNow missing from API” (should never happen after B)
+
+Also ensure these states are represented visually (lane badges / tooltips):
+- NEEDS_BACKTEST
+- BACKTEST_QUEUED / RUNNING / COMPLETED / FAILED
+- RUNNER_REQUIRED / RUNNING / STALE
+- EVOLVING
+- BLOCKED_BY_GATES (show which gate)
+- ERROR (show reasonCode)
+
+=========================================================
+D) PROOF PACK (MANDATORY — PASTE OUTPUTS)
+=========================================================
+1) API proof:
+curl -s http://localhost:5000/api/bots?limit=5 | jq '.data[] | {name, stage, botNow}'
+
+2) SQL proof (pick bots that demonstrate each state):
+- One bot with queued/running backtest job
+- One bot with running runner instance
+- One bot blocked by gates (if any)
+
+Provide:
+SELECT id, bot_id, job_type, status, created_at, started_at, completed_at
+FROM bot_jobs
+WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 5;
+
+SELECT id, bot_id, status, last_heartbeat_at
+FROM bot_instances
+WHERE bot_id='<ID>' ORDER BY updated_at DESC LIMIT 3;
+
+SELECT id, bot_id, status, completed_at, total_trades, net_pnl
+FROM backtest_sessions
+WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 3;
+
+3) UI proof:
+Authenticated screenshot of bot table showing multiple badge states (not only “Fresh”)
+
+=========================================================
+E) DELIVERABLES (NO SILENT CHANGES)
+=========================================================
+- Exact files changed list
+- Location (file + line numbers) of computeBotsNow implementation
+- Confirmation that BacktestStatusBadge “N/A” + tooltip grammar remains intact
+- Confirmation the DialogContent accessibility warning is eliminated
+- Confirmation: “NO SKIPPED ITEMS” — botNow shipped end-to-end with badges wired to it

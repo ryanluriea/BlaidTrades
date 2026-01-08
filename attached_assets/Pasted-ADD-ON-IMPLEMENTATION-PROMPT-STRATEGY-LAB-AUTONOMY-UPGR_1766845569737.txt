@@ -1,0 +1,209 @@
+ADD-ON IMPLEMENTATION PROMPT — STRATEGY LAB AUTONOMY UPGRADE (NO NEW PAGES)
+
+Context:
+BlaidAgent is a fully autonomous trading research and execution platform.
+Strategy Lab is responsible for discovering, inventing, and improving trading strategies.
+LAB is responsible for testing, evolving, and promoting them.
+The user does NOT configure Strategy Lab to make it run — it must run continuously and autonomously.
+
+DO NOT add new pages.
+DO NOT require user input to start Strategy Lab.
+The existing modal is an advanced override only.
+
+----------------------------------------------------------------
+1. AUTONOMOUS STRATEGY LAB EXECUTION (DEFAULT PLAY MODE)
+----------------------------------------------------------------
+
+Implement a default “Always-On” Strategy Lab loop:
+
+- Strategy Lab begins running automatically when the app is active
+- No modal, no configuration required
+- A single ▶︎ Play / ⏸ Pause control exists on the Strategy Lab page header
+- If paused, background research halts
+- If playing, Strategy Lab continuously generates Strategy Candidates
+
+Default parameters are inferred automatically from:
+- Active LAB universe (CME Core by default)
+- Current market regime (volatility, trend strength, liquidity)
+- Performance gaps in existing LAB bots
+- Recent failures, stagnation, or drawdown patterns
+
+The existing “New Strategy Session” modal remains available as:
+- Advanced override only
+- Genetics-only sessions
+- Forced universe / contract constraints
+
+----------------------------------------------------------------
+2. PERPLEXITY-POWERED DEEP STRATEGY RESEARCH ENGINE
+----------------------------------------------------------------
+
+Integrate Perplexity as a persistent research agent with three operating depths:
+
+A. Continuous Scan (Low Cost)
+- Monitors:
+  - Market regime shifts
+  - Volatility compression/expansion
+  - Structural changes (session behavior, correlations)
+- Generates lightweight hypotheses
+
+B. Focused Research Bursts (Triggered)
+Triggered automatically when:
+- Multiple LAB bots underperform in same archetype
+- Regime switch detected
+- Drawdown clusters detected
+- Strategy stagnation (no gen improvement N cycles)
+
+Perplexity performs:
+- Academic + practitioner research
+- Cross-market analog discovery
+- Options flow + futures structure synthesis
+- Identification of underused or emerging edges
+
+C. Frontier Research Mode (Exploratory)
+- Generates never-before-tested strategy concepts
+- Cross-pollinates:
+  - Market microstructure
+  - Options flow timing
+  - Session behavior anomalies
+  - Macro regime asymmetries
+- Explicitly allowed to propose “non-consensus” strategies
+
+----------------------------------------------------------------
+3. STRATEGY CONFIDENCE SCORING (FORMAL MATH)
+----------------------------------------------------------------
+
+Each Strategy Candidate receives a Confidence Score ∈ [0,100]:
+
+Confidence = 
+  0.30 * Research Validity +
+  0.25 * Regime Alignment +
+  0.20 * Market Structure Fit +
+  0.15 * Differentiation Score +
+  0.10 * Risk Coherence
+
+Where:
+
+Research Validity:
+- Citation quality (academic > institutional > practitioner)
+- Cross-source agreement
+- Historical relevance to current regime
+
+Regime Alignment:
+- Volatility regime match
+- Trend vs mean-reversion compatibility
+- Liquidity environment fit
+
+Market Structure Fit:
+- Timeframe appropriateness
+- Session relevance (RTH/ETH/FULL)
+- Instrument behavior match
+
+Differentiation Score:
+- Distance from existing LAB strategies
+- Novel signal combinations
+- Non-overlapping failure modes
+
+Risk Coherence:
+- Logical stop placement
+- Risk symmetry
+- Scalability to micros → minis
+
+Confidence tiers:
+- 80–100: Priority Candidate → Auto-send to LAB
+- 60–79: Queue for validation
+- 40–59: Watchlist / combine genetically
+- <40: Archive with citations
+
+----------------------------------------------------------------
+4. STRATEGY CANDIDATE CARD (EXACT MOCK)
+----------------------------------------------------------------
+
+Each candidate renders as a card with:
+
+------------------------------------------------
+Strategy Name
+Confidence: 87 / 100   |   Regime: Volatility Expansion
+------------------------------------------------
+Why This Strategy Exists
+- 2–4 sentence explanation
+- Tied directly to Perplexity research
+- Includes citations and reasoning
+
+Core Logic Summary
+- Entry logic (plain English)
+- Exit logic (plain English)
+- Risk model
+
+Differentiators
+- What this does differently vs current LAB bots
+
+Expected Behavior
+- Win rate range
+- Trade frequency
+- Drawdown profile
+
+Actions (autonomous defaults):
+- Auto-send to LAB (if confidence ≥ threshold)
+- Hold for genetics
+- Archive
+
+------------------------------------------------
+
+NO manual approval required for LAB entry.
+
+----------------------------------------------------------------
+5. LAB ↔ STRATEGY LAB FEEDBACK LOOP (CRITICAL)
+----------------------------------------------------------------
+
+Implement automatic reverse-flow:
+
+- Any LAB bot that:
+  - Underperforms benchmark
+  - Stagnates across generations
+  - Exhibits regime mismatch
+  - Shows structural weakness
+
+Is automatically sent back to Strategy Lab with:
+- Performance summary
+- Failure modes
+- Regime context
+- Signal attribution
+
+Strategy Lab then:
+- Refines the strategy
+- Mutates logic
+- Recombines via genetics
+- Or replaces it entirely
+
+This loop requires no user action.
+
+----------------------------------------------------------------
+6. GENETICS + RESCUE PATHS
+----------------------------------------------------------------
+
+Genetics sessions automatically pull from:
+- High-confidence archived ideas
+- Failed LAB strategies
+- Partial winners with strong subcomponents
+
+Allow:
+- Cross-archetype recombination
+- Risk model inheritance
+- Signal timing swaps
+
+----------------------------------------------------------------
+7. UX RULES (DO NOT BREAK AUTONOMY)
+----------------------------------------------------------------
+
+- Strategy Lab runs even if the user never opens a modal
+- The modal never blocks execution
+- No “required fields” to start research
+- The page should feel alive immediately
+
+----------------------------------------------------------------
+FINAL REQUIREMENT:
+This is an augmentation, not a rewrite.
+No new pages.
+No user prompts.
+No manual gating.
+Everything flows autonomously unless explicitly paused.

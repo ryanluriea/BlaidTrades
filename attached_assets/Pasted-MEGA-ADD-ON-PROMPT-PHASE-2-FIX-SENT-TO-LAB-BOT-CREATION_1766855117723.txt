@@ -1,0 +1,349 @@
+MEGA ADD-ON PROMPT (PHASE 2) — FIX “SENT TO LAB” BOT CREATION + LOCK EVAL WINDOWS + SPEC STATE MACHINE + SQL QUERIES
+(BlaidAgent / Extension Only / No New Pages / Real Data Only / Autonomous)
+
+CONTEXT (DO NOT RE-EXPLAIN):
+Strategy Lab candidates that are “Sent to LAB” must create real LAB bots that appear on the Bots page. If “Sent to LAB” is not creating bots, it is broken. We will (1) diagnose why, (2) fix the pipeline, (3) lock minimum evaluation windows by strategy type, (4) implement kill/tweak/replace decisions with hard rules, (5) wire the full recycle loop with explicit state transitions and auditable provenance. NO mock data. NO placeholders. NO new pages.
+
+=====================================================
+0) DEFINITIONS (CANONICAL)
+=====================================================
+
+A) Strategy Candidate
+- A researched strategy spec in Strategy Lab, not yet instantiated as bot(s).
+
+B) Sent to LAB
+- A Strategy Candidate that has created >=1 LAB bot and is under validation now.
+
+C) In LAB (Strategy Lab tab)
+- A view that shows strategies actively under validation, each linked to bots.
+
+D) Rework Candidate
+- A failed/underperforming LAB bot packaged as a “strategy revision request” sent back to Strategy Lab.
+
+=====================================================
+1) DIAGNOSE WHY “SENT TO LAB” DOESN’T CREATE BOTS (DO THIS FIRST)
+=====================================================
+
+Implement a “fail-closed” diagnostic path for the send-to-lab action.
+
+1.1 Instrumentation (mandatory)
+Add trace_id and event logging across the entire send-to-lab pipeline:
+- UI click/dispatch
+- API handler entry
+- DB transaction start/end
+- bot creation insert(s)
+- job enqueue insert(s)
+- any background worker pickup
+- any errors/timeouts
+
+Log fields (minimum):
+- trace_id
+- strategy_candidate_id
+- strategy_id (if materialized)
+- created_bot_ids[]
+- created_job_ids[]
+- stage="LAB"
+- user_id (owner)
+- timestamps
+- error_code + error_message (if any)
+
+1.2 Fail-Closed Rules
+If “Send to LAB” completes but created_bot_ids.length === 0:
+- Return HTTP 500 with error_code="SEND_TO_LAB_NO_BOTS_CREATED"
+- Do NOT mark candidate as “Sent to LAB”
+- Emit error event + store in error_logs
+
+If bots are created but do not show on Bots page:
+- That is a query/filter mismatch bug → fix Bots page query so LAB bots are visible.
+
+1.3 Common Root Causes to explicitly check
+- UI sets “sent_to_lab=true” but never calls bot-create API
+- API returns success before transaction commit
+- stage incorrectly set (e.g., “LAB” vs “Lab”)
+- bots created but filtered out by default filters
+- bots created without ownership/user_id and thus excluded
+- bots created without required flags (is_active, enabled, etc.)
+- “Sent to LAB” tab is reading from a different table than Bots page (desync)
+
+=====================================================
+2) FIX THE PIPELINE: “SEND TO LAB” MUST ATOMICALLY CREATE BOTS + JOBS
+=====================================================
+
+2.1 DB Transaction Contract (atomic)
+“Send to LAB” must be one transaction that:
+- materializes a strategy record (if candidate only)
+- creates bot(s)
+- creates initial lab validation jobs
+- updates candidate state to “SENT_TO_LAB”
+- writes provenance rows and events
+If ANY step fails → rollback everything.
+
+2.2 Required Data Model (use existing tables if present; only add columns if missing)
+We need auditable linkage:
+- strategy_candidates.id
+- strategies.id (canonical strategy record)
+- bots.strategy_id (FK)
+- bots.strategy_candidate_id (optional but recommended)
+- bots.stage (LAB)
+- bot_jobs.bot_id + job_type (BASELINE_BACKTEST / VALIDATION / EVOLUTION)
+- backtest_sessions.bot_id + strategy_id + provenance fields
+
+If these columns already exist, standardize usage; if missing, add minimal columns only.
+
+2.3 “Sent to LAB” state definition
+A candidate is “Sent to LAB” IFF:
+- exists at least one bot where bot.strategy_id = strategy.id AND bot.stage='LAB' AND bot.is_active=true
+AND
+- exists at least one queued/running validation job OR a completed baseline session
+
+Compute state from reality (bots/jobs), not a boolean flag alone.
+
+=====================================================
+3) LOCK MINIMUM EVALUATION WINDOWS (GIVE BOTS A CHANCE)
+=====================================================
+
+Implement minimum evaluation requirements by strategy archetype (default values below; configurable):
+
+3.1 Base Minimums (global floor)
+A bot cannot be recycled until it has met ALL:
+- min_trades >= 30
+- min_days >= 3 (calendar days with at least 1 trade)
+- min_sessions >= 2 distinct session_ids (or day partitions)
+- min_bars_seen >= 20,000 (or equivalent) OR timeout reached
+- min_market_regimes >= 2 (by your regime classifier) OR timeout reached
+Timeout override: if bot is catastrophic (hard breach), allow early kill only.
+
+3.2 Archetype-Specific Minimums (defaults)
+- mean_reversion: 60 trades, 5 days, 2 regimes
+- trend_following / trend_continuation: 30 trades, 7 days, 2 regimes
+- breakout / rth_breakout: 40 trades, 5 days, 2 regimes
+- vwap_touch / vwap_bounce: 50 trades, 5 days, 2 regimes
+- range_scalp: 80 trades, 3 days, 2 regimes
+- momentum_surge: 50 trades, 5 days, 2 regimes
+- gap_fade / gap_fill: 25 trades, 10 trading days OR 20 occurrences evaluated (since gaps are rarer)
+
+3.3 Catastrophic Early Exit (only these allow early recycle)
+Allow recycle before minimum window ONLY if:
+- max_drawdown breaches “hard_dd_limit” (see Section 4)
+- data integrity failure (no bars / invalid prices)
+- execution failure (stuck positions, SLA breach with no recovery)
+- strategy is logically invalid (fails invariants repeatedly)
+
+Otherwise: no thrash. Let it run.
+
+=====================================================
+4) LOCK RECYCLE THRESHOLDS (HARD NUMBERS)
+=====================================================
+
+Use risk-adjusted metrics with sample checks.
+
+4.1 Sample sufficiency gating
+Do not judge Sharpe/Expectancy until:
+- trades >= 30 AND days >= 3
+Before then, only enforce catastrophic rules.
+
+4.2 Thresholds (defaults, tune later)
+- soft_sharpe_floor = 0.2  (below → eligible for recycle after mins)
+- hard_sharpe_floor = -0.2 (below → strong recycle signal)
+- soft_expectancy_floor = 0.0
+- hard_expectancy_floor = -0.1R per trade
+- max_dd_soft = 6R
+- max_dd_hard = 10R
+- stall_limit_minutes = 120 (if should be trading but no events; plus SLA)
+- regime_mismatch_score > 0.7 triggers research burst
+
+4.3 “Degraded” definition
+A bot is Degraded if:
+- performance decays > X% from baseline (rolling window)
+OR
+- regime mismatch persists > N sessions
+OR
+- recurring SLA/stall events
+
+=====================================================
+5) FORMALIZE KILL vs TWEAK vs REPLACE (DETERMINISTIC)
+=====================================================
+
+After minimum evaluation, classify outcome:
+
+5.1 TWEAK
+Choose TWEAK when:
+- hypothesis still plausible
+- failure is parameter/timing/execution sensitivity
+- the bot is close: Sharpe within [-0.2, 0.2] OR expectancy near 0
+Actions:
+- adjust parameters within bounded deltas
+- preserve hypothesis + archetype
+- bump version v+1
+- resubmit to LAB automatically (new bot or new strategy_version)
+
+5.2 REPLACE
+Choose REPLACE when:
+- hypothesis appears weak but domain is valid
+- failure repeats across >=2 regimes
+- structural weakness in entry/exit logic
+Actions:
+- fork new hypothesis
+- preserve lineage as sibling strategy
+- resubmit to LAB
+
+5.3 KILL
+Choose KILL when:
+- catastrophic DD breach OR
+- repeated failure across >=3 regimes OR
+- no viable repair found after 2 tweak iterations
+Actions:
+- mark strategy lineage as killed
+- stop auto-respawning
+- require Frontier/Focused research to create a new descendant
+
+Hard limits:
+- max_tweak_iterations = 2
+- max_replace_iterations = 2 per parent lineage before pausing and requiring deeper research
+
+=====================================================
+6) SPEC THE STATE MACHINE (AUDITABLE)
+=====================================================
+
+6.1 Strategy Candidate State (computed from reality)
+- DISCOVERED
+- SCORED
+- READY_TO_SEND
+- SENT_TO_LAB (bots exist + jobs exist)
+- VALIDATING (baseline/validation running)
+- NEEDS_REWORK (recycle triggered)
+- REWORKING (perplexity burst running)
+- REPLACED or TWEAKED (new version created)
+- KILLED
+
+6.2 LAB Bot State (existing + ensure consistent)
+- CREATED
+- BASELINE_PENDING
+- BASELINE_RUNNING
+- BASELINE_COMPLETE
+- VALIDATION_RUNNING
+- DEGRADED
+- RECYCLE_QUEUED
+- RECYCLED_TO_STRATEGY_LAB
+- PROMOTION_ELIGIBLE (not live yet)
+- LIVE_CONFIRMED (manual only)
+
+6.3 Required transition events (jobRunEvents or equivalent)
+Every transition must emit:
+- from_state, to_state
+- trace_id
+- reason_code (enum)
+- metrics snapshot (if applicable)
+
+=====================================================
+7) SQL / QUERIES TO POWER THE UI (NO NEW PAGES)
+=====================================================
+
+7.1 Strategy Lab “Sent to LAB” list MUST be driven by actual bots
+Example query concept (adapt to your schema):
+- select strategies that have active LAB bots
+- include aggregated bot metrics + links
+
+Fields required for each “In LAB” row:
+- strategy_id
+- strategy_name
+- confidence_score
+- tier
+- bot_count
+- active_bot_ids[]
+- aggregated metrics (median sharpe, avg dd, trades, winrate)
+- recycle_status (if any bots degraded)
+- last_activity_at
+
+7.2 Bots page must show LAB bots (fix filters)
+Ensure the Bots page default query includes stage='LAB' bots and does not hide them due to:
+- missing ownership
+- missing status flags
+- stage enum mismatch
+
+7.3 “Sent to LAB but no bot exists” cleanup
+Add a reconciliation job:
+- find candidates marked sent but without bots
+- revert state + emit error
+- optionally reattempt send if safe
+
+=====================================================
+8) STRATEGY LAB UI FIXES (BASED ON CURRENT SCREENSHOTS)
+=====================================================
+
+8.1 LIST VIEW ONLY (NO GRID ANYWHERE)
+- Strategy Candidates tab: list
+- Sent to LAB tab: list
+- Each row/cell uses the same Strategy Candidate Card, condensed for list
+
+8.2 Remove confusing empty-state duplication
+Current page shows both:
+- “No pending candidates”
+- “Autonomous research active”
+Keep ONE primary empty state:
+- “Autonomous research active — candidates will appear here”
+Show session mode chips (Continuous / Focused Burst / Frontier) but do NOT require user input.
+
+8.3 Plus button (top right)
+- The plus button opens custom session creation
+- Custom session is optional; autonomy runs without it
+- Custom sessions should never block the pipeline
+
+8.4 Two-tab organization (keep; tighten meaning)
+- Tab A: Strategy Candidates (not yet instantiated in LAB)
+- Tab B: Sent to LAB / In LAB (strategies that have created bots; show bot links + status)
+
+8.5 Every card must be REAL
+- No NaN timestamps
+- No placeholder “Custom — NaN ago”
+If timestamps are missing: treat as a bug; fix at source and fail-closed.
+
+=====================================================
+9) REAL DATA ENFORCEMENT (ANTI-FAKE CONTRACT)
+=====================================================
+
+Add a hard “RealDataOnly” contract:
+- Any candidate metrics shown must come from:
+  (a) real executed backtests/validation sessions
+  (b) real Perplexity research citations
+If not available, show “Insufficient Data” and do not fabricate.
+
+Add integrity checks:
+- if winrate/trades are shown, ensure trades > 0 and computed from fills/logs
+- if confidence breakdown references backtests, ensure backtest_session exists
+
+=====================================================
+10) ACCEPTANCE TESTS (MUST PASS)
+=====================================================
+
+A) “Send to LAB creates bots”
+- create candidate
+- click send
+- assert bot rows exist in bots table with stage=LAB
+- assert bots appear on Bots page query
+- assert strategy lab “Sent to LAB” row links to those bot ids
+
+B) “List view only”
+- verify both tabs render list layout (no grid)
+
+C) “Recycle waits for min evaluation”
+- create bot with < min trades; trigger poor performance; ensure NOT recycled (unless catastrophic)
+- after reaching min trades/days: poor performance triggers recycle and sends Rework Candidate
+
+D) “No fake”
+- ensure NaN never renders
+- ensure candidates without citations show “Insufficient Research Data” not invented citations
+
+=====================================================
+DELIVERABLE
+=====================================================
+
+Implement all of the above as an extension to existing system with:
+- no new pages
+- real data only
+- autonomous end-to-end
+- auditable state transitions
+- deterministic recycle logic with locked thresholds
+- clear Strategy Lab ↔ Bots page consistency
+
+If any step is unclear, do not ask the user for decisions; choose sensible defaults and implement them, logging assumptions.

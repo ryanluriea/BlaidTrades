@@ -1,0 +1,275 @@
+🚨 SEV-1: RESTORE REAL AUTONOMOUS BACKTESTING + ACTIVITY BADGES (NO NEW UI)
+
+This is urgent. The system is not meeting institutional standards yet.
+Do not argue semantics. Do not introduce new UI panels.
+Fix the backend truth → reflect it with badges only, exactly like before.
+
+🔴 CORE PROBLEMS (FACTS, NOT OPINIONS)
+
+Bots ARE completing jobs too fast
+
+Backtests complete in seconds
+
+PnL values look impossible
+
+This strongly suggests:
+
+Wrong instrument
+
+Too small data window
+
+Cached bars
+
+Stubbed execution logic
+
+Or incorrect tick / multiplier usage
+
+Badges do NOT appear
+
+User wants inline badges on bot rows
+
+NOT a separate window
+
+NOT a new panel
+
+NOT “proof endpoints” as UI
+
+EXACTLY the old behavior from Lovable:
+
+Purple “Backtesting ×N • elapsed”
+
+Blue “Improving #N • elapsed”
+
+Queued badges when waiting
+
+PnL is polluted
+
+Old runs + new runs mixed
+
+Metrics reset is REQUIRED
+
+No trust until reset + re-run with proof
+
+System health is misleading
+
+Autonomy stops ticking when workflow restarts
+
+Health summary previously read wrong table
+
+We need continuous proof, not “it ran once”
+
+🧠 NON-NEGOTIABLE GOALS
+
+We are building an institutional-grade autonomous trading system.
+
+That means:
+
+Every backtest must prove:
+
+Correct instrument
+
+Correct tick size
+
+Correct contract multiplier
+
+Realistic bar count
+
+Real execution loop
+
+Activity must be visible inline via badges
+
+Autonomy must run without manual triggers
+
+PnL must be reset and rebuilt cleanly
+
+✅ REQUIRED ACTIONS (DO THESE IN ORDER)
+PHASE 1 — FULL METRICS RESET (MANDATORY)
+
+Run this first so nothing is polluted:
+
+curl -X POST http://localhost:5000/api/admin/reset-metrics \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: dev-admin-secret" \
+  -d '{
+    "dryRun": false,
+    "scope": "ALL",
+    "reasonCode": "INSTITUTIONAL_RESET_REQUIRED"
+  }' | jq .
+
+
+Expected outcome:
+
+All bots have zero effective PnL
+
+All future backtests must occur AFTER this timestamp
+
+Old data is ignored entirely
+
+PHASE 2 — AUTONOMY MUST QUEUE REAL WORK
+
+Autonomy loop MUST:
+
+Detect bots with no completed backtest after metrics_reset_at
+
+Queue baseline backtests automatically
+
+Then queue improvement iterations
+
+Respect stage locks for promotion ONLY (not testing)
+
+PROOF REQUIRED
+
+Run and paste output:
+
+curl -s http://localhost:5000/api/_proof/autonomy | jq .
+curl -s http://localhost:5000/api/_proof/jobs | jq .
+
+
+We expect:
+
+Autonomy ticks every ~3 minutes
+
+jobs_enqueued > 0 when bots need work
+
+No silent stalls
+
+PHASE 3 — BADGES (NO NEW UI, NO PANELS)
+
+🚫 DO NOT create a separate activity window
+🚫 DO NOT hide activity in tooltips
+🚫 DO NOT invent new semantics
+
+✅ EXACT BADGE RULES (HARD REQUIREMENT)
+
+Primary badge = activity, not freshness.
+
+Badges must appear inline on the bot row, exactly like Lovable.
+
+SHOW THESE BADGES:
+
+Backtesting ×{attempt} • {elapsed}
+
+Improving #{iteration} • {elapsed}
+
+Evolving • {elapsed}
+
+Queued ×{attempt}
+
+IMPORTANT BEHAVIOR CHANGE (THIS IS WHY BADGES ARE MISSING NOW)
+
+If a job runs and completes quickly, the badge MUST persist until replaced by the next state.
+
+Do NOT rely on job.status === RUNNING only.
+
+Use:
+
+last_job_started_at
+
+last_job_completed_at
+
+botNow.activeJob
+
+short-term activity memory (minutes, not milliseconds)
+
+If a bot ran a backtest 30 seconds ago, SHOW THE BADGE.
+
+PHASE 4 — DELETE ANY “FRESH / DATA FRESH” LOGIC
+
+User does NOT want:
+
+“Data Fresh”
+
+“Fresh Data”
+
+“Recency pills”
+
+“Completed X ago” badges
+
+ONLY show:
+
+Activity badges (Backtesting / Improving / Queued)
+
+Optional subtle “New” pill for bots <10 minutes old with no history
+
+HARD PROOF REQUIRED
+
+Run and paste:
+
+grep -R "Fresh" -n client server shared || true
+grep -R "dataFresh" -n client server shared || true
+
+
+There must be no rendering path that can show a “fresh” badge.
+
+PHASE 5 — PROVE BACKTESTS ARE REAL
+
+This is critical. No guessing.
+
+Run and paste results:
+
+-- Instrument correctness
+SELECT
+  bot_id,
+  instrument,
+  tick_size,
+  contract_multiplier
+FROM backtest_sessions
+ORDER BY completed_at DESC
+LIMIT 10;
+
+-- Bar count + duration realism
+SELECT
+  bot_id,
+  bars_tested,
+  started_at,
+  completed_at,
+  EXTRACT(EPOCH FROM (completed_at - started_at)) AS seconds
+FROM backtest_sessions
+ORDER BY completed_at DESC
+LIMIT 10;
+
+-- Iteration proof (actual improvement)
+SELECT
+  bot_id,
+  iteration,
+  params_hash,
+  completed_at
+FROM backtest_sessions
+ORDER BY completed_at DESC
+LIMIT 20;
+
+
+🚨 RED FLAGS:
+
+Wrong instrument vs bot config
+
+<1000 bars tested
+
+Params hash never changing
+
+Backtests finishing unrealistically fast
+
+🎯 FINAL ACCEPTANCE CRITERIA
+
+This is considered DONE only when:
+
+✅ Bots show purple/blue badges inline
+✅ Badges persist long enough to be seen
+✅ PnL was reset and rebuilt cleanly
+✅ Backtests use correct instruments
+✅ Autonomy queues work continuously
+✅ No “Data Fresh” badge exists anywhere
+✅ Proof screenshots + logs are provided
+
+⚠️ IMPORTANT
+
+Do not say:
+
+“It already works”
+
+“We don’t see the badge”
+
+“It’s a cache issue”
+
+The user sees the issue in the UI.
+Fix the system so it cannot fail silently again.

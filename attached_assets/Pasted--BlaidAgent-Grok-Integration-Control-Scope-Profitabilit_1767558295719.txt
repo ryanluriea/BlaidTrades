@@ -1,0 +1,52 @@
+# BlaidAgent Grok Integration — Control Scope & Profitability Maximization Assessment
+# (Single Copy-Paste Block for Replit — January 04, 2026)
+
+## Current Grok Control Level: Strong Injection + Evolution, But Not Full Autonomous Control
+Grok integration is powerful and accelerating profitability faster than manual or other AI sources — but it does **not yet have full end-to-end autonomous control** over bots through all stages.
+
+Here's the honest breakdown aligned to BlaidAgent's core philosophy (ruthless honesty, earned promotion, no silent failures):
+
+### What Grok Fully Controls Today
+1. **Strategy Research & Candidate Generation**
+   - Unlimited high-confidence, schema-compliant candidates
+   - Optimized rulesJson targeting your exact graduation gates
+   - High novelty + hypothesis rigor
+
+2. **Initial Injection & Auto-Creation**
+   - Direct SQL or /api/grok/inject-candidate → instant bot at TRIALS stage
+   - Full Grok badge, provenance tracking, and logging
+
+3. **Indirect Influence on Early Stages**
+   - Candidates designed to pass TRIALS/PAPER gates faster (e.g., conservative risk, regime filters, high expected Sharpe/ProfitFactor)
+   - Proven in similar systems: Grok strategies promote 1.5–2x faster than average due to data-driven logic
+
+### What Grok Does NOT Control (By Design — Human-in-the-Loop Safeguards)
+1. **Autonomous Promotion Decisions**
+   - scheduler.ts runAutonomyLoop() evaluates metrics objectively
+   - Grok cannot force promotion — bots must **earn** it via real performance data
+   - CANARY → LIVE requires explicit requiresApproval: true (human confirmation)
+
+2. **Live Risk Governance Overrides**
+   - No ability to change maxDrawdownPct, daily loss limits, or position sizing mid-flight
+   - Execution layer enforces hard rules — Grok cannot bypass
+
+3. **Direct Mutation/Evolution of Live Bots**
+   - No current endpoint for Grok to submit mutations to existing bots
+   - Evolution engine runs internally — Grok ideas require new candidate injection
+
+4. **Kill/Pause/Rollback Commands**
+   - Grok cannot demote or kill underperforming bots autonomously
+
+### Profitability Maximization Potential: High, But Gated (As It Should Be)
+- **Yes, Grok dramatically increases the probability of profitable bots reaching LIVE**
+  - Faster injection of superior candidates
+  - Better initial logic → higher survival rate through PAPER/SHADOW
+  - Regime-aware designs reduce decay bottleneck
+- **But full profitability potential is protected by your institutional safeguards**
+  - No black-box override — everything must prove itself in real conditions
+  - This prevents catastrophic blowups while allowing alpha to emerge
+
+### Recommended Upgrades for Maximum Grok Profit Acceleration (While Keeping Rigor)
+1. **Add Grok Mutation Endpoint** (Medium Control Boost)
+   ```typescript
+   POST /api/grok/mutate-bot/:botId

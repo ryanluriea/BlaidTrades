@@ -1,0 +1,129 @@
+REPLIT — STOP SAYING “RESTRICTED.” NO MORE SKIPS. WE ARE CLEARED TO MODIFY server/ + shared/ + client/ TO FINISH THIS BOT NOW / BADGES FEATURE 100%.
+
+Right now you’re claiming “canonical botNow is complete” while also admitting the architect found gaps in computeBotsNow state assignment + reasonCode exposure. That means it’s NOT complete — and that’s why the badges still feel wrong / incomplete compared to Lovable.
+
+We are shipping the full institutional BotNow contract + badge truth. Do the remaining backend work and provide the mandatory proof pack.
+
+========================================================
+0) RULES
+========================================================
+- No “preferences” blockers. You are authorized to edit backend + shared + hooks if required for correctness.
+- No client-side heuristics. UI must render ONLY from server-provided botNow.
+- No “Fresh-only” defaults. FRESH is allowed ONLY when the bot truly has zero activity and is newly created.
+
+========================================================
+1) FIX REMAINING SERVER GAPS (MANDATORY)
+========================================================
+
+A) Finish computeBotsNow precedence + RUNNER states (NO PARTIALS)
+In server/compute-bot-now.ts (or wherever you placed it), implement explicit deterministic precedence exactly:
+
+1) ERROR (killed/fatal) -> botNow.state="ERROR" + reasonCode + since
+2) BLOCKED_BY_GATES if stageGate.allowed=false -> include blockers + fix
+3) Active RUNNING job -> map by type:
+   - BACKTESTER -> BACKTEST_RUNNING
+   - EVOLVER -> EVOLVING
+   - RUNNER -> RUNNER_STARTING (unless runner instance confirms running)
+4) Queued job exists -> map:
+   - BACKTESTER -> BACKTEST_QUEUED
+   - RUNNER -> RUNNER_STARTING
+5) Runner instance exists:
+   - if status=running AND heartbeat fresh -> RUNNER_RUNNING
+   - if status=running BUT heartbeat stale -> RUNNER_STALE
+   - if status=starting -> RUNNER_STARTING
+   - if status=stopped -> RUNNER_REQUIRED (if stage requires runner)
+6) If stage requires baseline backtest and none exists -> NEEDS_BACKTEST
+7) If created recently AND no jobs/runner/backtests -> FRESH (ONLY case)
+8) Else -> IDLE
+
+IMPORTANT:
+- “Runner required” must be stage-aware (PAPER/SHADOW/LIVE policies).
+- If runner exists + backtest job exists, precedence must pick the job state first.
+
+B) reasonCode + since MUST be real (no placeholders)
+- reasonCode must be machine-readable (e.g., "GATE_BROKER_MISSING", "RUNNER_HEARTBEAT_STALE", "NO_BASELINE_BACKTEST", "JOB_BACKTEST_QUEUED", etc.)
+- since must be derived from the correct timestamp:
+  - job running -> started_at
+  - job queued -> created_at
+  - runner running -> last_heartbeat_at or updated_at
+  - blocked -> when gate evaluated or latest verified timestamp used (pick deterministic)
+  - fresh -> bots.created_at
+
+C) stageGate MUST NOT be empty
+Implement stageGate.allowed + blockers based on:
+- getRequiredIntegrationsForStage(stage)
+- integration verified/connected and last_verified_at freshness (ex: <=24h)
+- readiness/smoke-test critical PASS if used as gate input
+Return blockers with suggested fixes.
+
+D) Performance: keep batching (no N+1)
+- Use DISTINCT ON for latest job/instance/backtest per bot
+- If you need active job counts, do GROUP BY bot_id on filtered statuses
+- Compute in memory
+
+E) Apply everywhere
+- GET /api/bots returns canonical botNow
+- GET /api/bots/:id returns canonical botNow
+- GET /api/bots-overview returns canonical botNow (already added — ensure identical contract)
+- Ensure no transformer strips botNow anywhere
+
+========================================================
+2) FIX BADGES TO MATCH botNow.state (NO FALLBACKS)
+========================================================
+A) Badge lanes must render from botNow.state ONLY:
+- Remove evaluateCanonicalState fallback entirely (or gate behind DEV flag default OFF)
+- If botNow missing (should never happen): show UNKNOWN_DATA badge with tooltip “botNow missing from API” and log once.
+
+B) Restore “alive” badge variety
+The bots list must show clear states, not only “Fresh”:
+- BACKTEST_QUEUED / BACKTEST_RUNNING / BACKTEST_COMPLETED
+- RUNNER_REQUIRED / RUNNER_STARTING / RUNNER_RUNNING / RUNNER_STALE
+- EVOLVING / PROMOTION_PENDING / BLOCKED_BY_GATES / ERROR / IDLE
+
+If your UI component only supports “Fresh”, that’s a UI mapping bug — fix the mapping.
+
+========================================================
+3) PROOF PACK (MANDATORY — PASTE OUTPUTS)
+========================================================
+A) API proof (canonical shape):
+curl -s http://localhost:5000/api/bots?limit=5 | jq '.data[] | {name, stage, botNow}'
+
+B) SQL proofs for 3 bots in DIFFERENT states (select actual bot IDs and paste rows):
+1) backtest bot:
+SELECT id, bot_id, job_type, status, created_at, started_at, completed_at
+FROM bot_jobs WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 5;
+SELECT id, bot_id, status, completed_at, total_trades, net_pnl
+FROM backtest_sessions WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 3;
+
+2) runner bot:
+SELECT id, bot_id, status, last_heartbeat_at, updated_at
+FROM bot_instances WHERE bot_id='<ID>' ORDER BY updated_at DESC LIMIT 3;
+SELECT id, bot_id, job_type, status, created_at
+FROM bot_jobs WHERE bot_id='<ID>' ORDER BY created_at DESC LIMIT 5;
+
+3) blocked bot (if none exist, force one by temporarily disabling a required integration OR pick a stage that requires broker and remove broker config in dev):
+Provide the botNow.stageGate.blockers and show which rule tripped.
+
+C) Screenshot proof (authenticated):
+- Screenshot of the bots table showing at least 3 distinct states/badges (not login page).
+(You can’t do this unauthenticated via tool; you must capture it in-app.)
+
+========================================================
+4) DELIVERABLES
+========================================================
+- Exact files changed list
+- File + line numbers for:
+  - computeBotsNow()
+  - precedence mapping switch/logic
+  - stageGate evaluation logic
+- Confirmation: “No client-side fallback remains”
+
+========================================================
+5) ACCEPTANCE CRITERIA (FAIL IF ANY)
+========================================================
+- If ANY bot shows “Fresh” while it has jobs/backtests/runner -> FAIL
+- If botNow.stageGate is empty for a stage with requirements -> FAIL
+- If botNow missing anywhere on bots list -> FAIL
+- If states differ between /api/bots and /api/bots-overview -> FAIL
+
+Ship this end-to-end and paste the full proof pack outputs.

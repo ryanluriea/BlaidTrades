@@ -1,0 +1,53 @@
+# BlaidAgent — Grok Bot Optimizations Based on Weekend Metrics (January 4, 2026)
+# (Single Copy-Paste Block for Replit)
+
+## Optimization Summary
+Analyzing the metrics:
+- **Strengths**: High trade counts (up to 158), solid Win Rates (up to 60.8%), low DD on some (4.4%).
+- **Issues**: Negative Sharpes on 3 bots (regime mismatch or loose filters), high DD on ES ORB (44.2% >20% gate), low Win Rate on Momentum Surge (33.8% borderline).
+- **Approach**: Mutate rulesJson for better Sharpe (add regime/ADX filters), lower DD (tighten stops/position sizing), higher Win Rate (stricter confirmations). Target TRIALS gates aggressively.
+- **Injection**: Below are 4 optimized mutations (as new candidates) for underperformers + 1 evolution of the PAPER bot. Inject via SQL or /api/grok/inject-candidate — they'll run parallel as v2, preserving originals.
+
+## Optimized Batch (5 New Grok Candidates — Ready for SQL)
+All with AUTO_CREATE_BOT, Grok badge. Lineage noted in hypothesis.
+
+### 1. Optimized Grok MES VWAP Institutional Bounce v2 (From 60.8% WR, -1.10 Sharpe)
+```sql
+INSERT INTO strategy_candidates (
+  strategy_name, archetype_name, entry_condition_type,
+  instrument_universe, timeframe_preferences, session_mode_preference,
+  hypothesis, rules_json, confidence_score, novelty_score,
+  disposition, source, created_by_ai, ai_provider
+) VALUES (
+  'Optimized Grok MES VWAP Institutional Bounce v2',
+  'vwap_bounce',
+  'VWAP_TOUCH',
+  ARRAY['MES'],
+  ARRAY['5m', '15m'],
+  'RTH_US',
+  'Evolved from v1: Adds ADX >25 for trend strength to flip negative Sharpe; tightens order flow confirmation for regime alignment.',
+  '{
+    "version": "2.0.0",
+    "archetype": "vwap_bounce",
+    "entry": {
+      "condition": { "type": "VWAP_TOUCH", "side": "LONG", "maxDeviationTicks": 8 },
+      "confirmations": [
+        { "type": "ORDER_FLOW", "minDeltaPct": 70 },
+        { "type": "ADX", "minAdx": 25 },
+        { "type": "TREND_FILTER", "emaPeriod": 50 }
+      ]
+    },
+    "exit": {
+      "stopLoss": [{ "type": "FIXED_TICKS", "ticks": 10 }],
+      "takeProfit": [{ "type": "VWAP_EXTENSION", "ticks": 18 }],
+      "timeStop": { "maxBarsInTrade": 35 }
+    },
+    "risk": { "maxPositionSize": 4, "riskPerTrade": 0.8, "maxDailyLoss": 2.5, "maxOpenPositions": 1 }
+  }'::jsonb,
+  89,
+  85,
+  'AUTO_CREATE_BOT',
+  'EXTERNAL_AI',
+  'Grok xAI',
+  'GROK'
+);

@@ -1,0 +1,145 @@
+Reply to Replit (do NOT accept summaries; require exact proofs + finish the missing pieces)
+
+You’re still summarizing instead of delivering the required proof outputs + you didn’t complete the “fresh backtest” demo path end-to-end.
+
+I need you to STOP and do this exactly, in order, with pasted outputs.
+
+========================
+0) CONFIRM WHAT YOU CHANGED
+========================
+List the exact files changed (paths only) since the last checkpoint, and for each file include a 1-line reason.
+No prose. Example:
+- server/backtest-executor.ts — added RANDOM_WINDOWS + equity curve + diagnostics snapshot
+- server/routes.ts — added /api/backtests/:id/diagnostics
+
+========================
+1) REQUIRED: DIAGNOSTICS ENDPOINT PROOF (PASTE OUTPUT)
+========================
+A) Show the route exists (grep proof):
+- rg -n "api/backtests/:id/diagnostics" server/routes.ts
+
+B) List 5 most recent backtests (PASTE JSON):
+- curl -s http://localhost:5000/api/backtests?limit=5 | jq
+
+Pick ONE backtest id from that output and paste:
+- curl -s http://localhost:5000/api/backtests/<ID>/diagnostics | jq
+
+The diagnostics JSON MUST include these fields:
+backtest_id, bot_id, symbol, timeframe, data_start, data_end, sampling_method, seed,
+trades_count, winners_count, losers_count,
+gross_pnl, net_pnl, fees_total, slippage_total,
+max_drawdown_pct,
+equity_curve_sample (first 10 + last 10),
+validation flags:
+uses_instrument_spec, pnl_includes_fees, pnl_includes_slippage, price_respects_tick, has_losers, realistic_drawdown
+
+If anything is missing: implement it and re-run the curl.
+
+========================
+2) REQUIRED: FRESH BACKTEST THAT USES THE NEW SYSTEM (PASTE OUTPUT)
+========================
+Old backtests being “flagged” proves nothing. I need a NEW backtest session created AFTER your changes.
+
+A) Create/queue a new baseline backtest for a known bot (PASTE output):
+- First list bots:
+  curl -s http://localhost:5000/api/bots?limit=5 | jq
+
+Pick 1 bot_id and run whichever endpoint is canonical in this codebase:
+Option 1:
+- curl -s -X POST http://localhost:5000/api/backtest-scheduler \
+  -H "Content-Type: application/json" \
+  -d '{"bot_id":"<BOT_ID>"}' | jq
+Option 2:
+- curl -s -X POST http://localhost:5000/api/backtests \
+  -H "Content-Type: application/json" \
+  -d '{"botId":"<BOT_ID>","sampling_method":"RANDOM_WINDOWS"}' | jq
+(Use the real expected body — don’t guess; inspect the route.)
+
+B) Show the job + session transitions (PASTE output):
+- curl -s http://localhost:5000/api/scheduler/status | jq
+- SQL:
+  SELECT id, bot_id, status, created_at, started_at, completed_at
+  FROM backtest_sessions
+  WHERE bot_id='<BOT_ID>'
+  ORDER BY created_at DESC
+  LIMIT 3;
+
+C) Paste diagnostics for the newest session (this is the actual proof):
+- curl -s http://localhost:5000/api/backtests/<NEW_BACKTEST_ID>/diagnostics | jq
+
+Acceptance criteria:
+- uses_instrument_spec: true
+- losers_count > 0
+- max_drawdown_pct > 0 (unless explicitly justified by the actual equity curve)
+- sampling_method shows RANDOM_WINDOWS
+- data_start/data_end are populated
+- equity_curve_sample is non-empty
+- fees_total and slippage_total are non-zero (or explicitly 0 with justification)
+
+========================
+3) REQUIRED: RANDOM WINDOWS SAMPLING PROOF
+========================
+You said you implemented RANDOM_WINDOWS. Prove it by showing:
+- backtest_sessions.config_snapshot (or equivalent) includes sampling_method + seed + windows
+- diagnostics returns sampling_method + seed + data_start/end that vary by window, OR returns an aggregate with “worst_window_*” fields.
+
+Paste one of:
+- SQL:
+  SELECT id, sampling_method, seed, data_start, data_end
+  FROM backtest_sessions
+  ORDER BY created_at DESC
+  LIMIT 5;
+
+If those columns don’t exist, then you must store them in configSnapshot and surface via diagnostics.
+
+========================
+4) REQUIRED: ARCHETYPE COVERAGE RULE (20 seeded, only 5 implemented)
+========================
+This MUST be deterministic and visible:
+
+- Create a mapping table in code: archetype_name -> strategy_impl_key
+- If archetype has no implementation:
+  - block backtest execution for that bot
+  - emit BACKTEST_FAILED activity event with error_code="ARCHETYPE_NOT_IMPLEMENTED" + suggested_fix
+  - surface this in diagnostics and in Feed
+
+Prove with:
+- SQL (top 10 newest activity events):
+  SELECT event_type, bot_id, created_at, metadata
+  FROM activity_events
+  ORDER BY created_at DESC
+  LIMIT 10;
+
+========================
+5) REQUIRED: UI “NOW STATE” BADGES PROOF
+========================
+“Fresh” alone is not acceptable.
+
+Implement + prove these states:
+- LOOKING (scanning)
+- BACKTESTING (queued/running)
+- EVOLVING
+- PAPER_SIM_RUNNING
+- BLOCKED (with tooltip reason)
+- DEGRADED (with tooltip reason)
+
+Proof:
+- Identify the exact component and evaluator file(s) (paths + line refs).
+- Explain the mapping inputs (job status + backtest session + last activity).
+- Add one screenshot OR describe the exact badges that appear for a bot currently backtesting.
+
+========================
+6) ANSWER THESE 3 QUESTIONS DIRECTLY
+========================
+1) Are bots using their assigned instrument? Show where symbol is read from bot record and passed into data fetch + PnL calc.
+2) Are LLM/news/unusual whales “used” today? If not, integrations/status must show proof_of_use_count_24h=0 for those and Feed should reflect “unused” (no pretending).
+3) Are backtests using “years” of data? If using RANDOM_WINDOWS, say:
+   - date range eligible (e.g., last 2 years)
+   - window length (e.g., 45 trading days)
+   - number of windows (e.g., 20)
+   - seed persistence
+
+========================
+NO MORE “Would you like me to…”
+========================
+Just do the proofs and finish the missing endpoints + job queue path so I can see a fresh backtest that passes institutional validation.

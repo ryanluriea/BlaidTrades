@@ -1,0 +1,239 @@
+MASTER SPEC — CONTROL PLANE OBSERVATORY + AUTONOMY + CONNECTIONS (INSTITUTIONAL READY)
+
+You are building an institutional-grade, autonomous trading platform. This means:
+
+- Fail-closed behavior (BLOCKED/DEGRADED/OK) everywhere
+- No silent failures
+- No fabricated data
+- Proof-of-use telemetry for every data feed / broker / AI tool
+- A supervisor loop that can keep bots running without human babysitting
+- A single System Status / Control Plane Observatory that proves everything is connected and being used
+
+HARD RULES
+1) NO secrets in git. Never print secrets in logs. Never store secrets in DB.
+   - All keys must come from environment variables / Replit Secrets only.
+2) Do NOT touch .github/workflows/**
+3) Minimal diffs. No rewrites.
+4) Anything unimplemented must return a structured 501 with trace_id and error_code.
+5) All autonomy decisions MUST be server-authoritative (client cannot fake readiness or status).
+
+BRANCH / SCOPE
+- dev branch: backend + schema + telemetry + autonomy + explainability
+- ui-lovable branch: UI only (popouts, panels)
+If branch creation is blocked, continue on current branch but keep changes logically separable into:
+  (A) backend/schema, (B) ui-only.
+
+========================================
+A) CONNECTIONS + KEYS (STACK INTEGRATIONS)
+========================================
+
+GOAL:
+I previously had integrations wired in “Lovable”. Assume the list of integrations exists conceptually, but now we need a single place in Replit to connect EVERYTHING by entering keys once, then prove they are actually used by bots.
+
+REQUIRED INTEGRATIONS CATEGORIES (build as a flexible catalog):
+1) Market Data (primary + fallback)
+   - Databento
+   - Polygon (backup)
+   - Any CME/broker-specific feeds already present
+2) Broker / Execution
+   - Ironbeam
+   - Tradovate (execution-only ok)
+3) AI Providers
+   - OpenAI
+   - Anthropic (if used)
+   - Any other configured LLM provider
+4) Observability / Alerts
+   - Discord webhook
+   - Email provider (optional)
+   - Zapier (future “Coming Soon” ok)
+5) Storage / Auth
+   - Supabase (auth/storage only if still used)
+   - Postgres (source of truth)
+
+IMPLEMENTATION REQUIREMENTS:
+- Create/confirm a canonical integration registry model (even if minimal):
+  integration_key, category, provider_name, required_env_vars[], optional_env_vars[]
+  supports_verify: boolean
+  supports_proof_of_use: boolean
+
+- Implement GET /api/integrations/status:
+  Returns for each integration:
+  {
+    provider,
+    category,
+    configured: boolean (env vars exist),
+    connected: boolean (verify passes),
+    last_verified_at,
+    last_used_at,
+    last_used_by_bot_id,
+    proof_of_use_count_24h,
+    degraded: boolean,
+    error_code,
+    message,
+    trace_id
+  }
+
+- Implement POST /api/integrations/verify:
+  Input: { provider }
+  Output: { configured, connected, diagnostics[], trace_id }
+  Diagnostics MUST be safe (no secrets). Example: “POLYGON_API_KEY missing”, “Databento auth failed”, “Tradovate entitlement missing”.
+
+- Implement PROOF-OF-USE telemetry:
+  Every provider call MUST write an integration_usage_event:
+  { id, provider, endpoint_name, bot_id?, account_id?, status, latency_ms, created_at, trace_id, metadata_safe_json }
+  Never store payloads with secrets.
+
+========================================
+B) CONTROL PLANE OBSERVATORY (SYSTEM STATUS PAGE + POPOUT)
+========================================
+
+Upgrade the existing System Status page into a Control Plane Observatory:
+- Full screen page + a “popout drawer” version (better UX).
+- Tabs: Autonomy, Proof, Resilience, Connections, Events, AI Ops, Variables.
+
+BACKEND: GET /api/system/status
+Must return a single canonical envelope:
+{
+  system_status: "OK" | "DEGRADED" | "BLOCKED",
+  autonomy_allowed: boolean,
+  blockers: [{ code, message, severity, trace_id, related_provider?, suggested_fix? }],
+  degraded: [{ code, message, trace_id }],
+  integrations: summary counts,
+  scheduler: {
+    active: boolean,
+    supervisor_loop_active: boolean,
+    timeout_worker_active: boolean,
+    circuit_breakers_open: number,
+    last_tick_at,
+    trace_id
+  },
+  proof_of_use: {
+    providers_used_24h: number,
+    provider_last_used_map: {...}
+  },
+  trace_id
+}
+
+UI REQUIREMENTS:
+- Show a top banner with SYSTEM_STATUS and why.
+- If BLOCKED: disable all autonomy-dependent actions globally.
+- Connections tab shows each provider row with: Configured / Connected / Used (last_used_at) + Verify button.
+- Provide “Copy Debug Bundle” button: copies JSON payload (redacted) + trace_id.
+
+========================================
+C) AUTONOMY CORE (SUPERVISOR LOOP + TIMEOUT WORKER + CIRCUIT BREAKER)
+========================================
+
+Autonomy is not “endpoints exist”. It must be continuously operating without humans.
+
+REQUIREMENTS:
+1) Timeout Worker
+- Runs periodically (e.g., every 5 min)
+- Marks stale RUNNING jobs as TIMEOUT with reason_code=HEARTBEAT_TIMEOUT
+- Writes FSM event to job_run_events
+
+2) Supervisor Loop (every ~2 min)
+- Detect: runner instance down, job stuck, repeated failures
+- Restart orchestration:
+  - stop/mark old instance terminated
+  - create a new instance row (PENDING/RUNNING)
+  - create/transition job state appropriately
+- Circuit breaker:
+  - opens after N failures in window (default N=3 in 30m)
+  - when open: do NOT restart; set bot to DEGRADED and log an autonomy event
+- Proactive kill triggers (LIVE only):
+  - if invariant breach persists, kill bot (persist kill event)
+  - never silently continue
+
+3) Safe-Start Checks (fail closed)
+- Before starting/restarting runner:
+  - if required provider keys missing → deny with error_code=INTEGRATION_KEY_MISSING
+  - if provider verify fails → deny with DATA_UNAVAILABLE
+  - if risk engine disconnected → BLOCKED (until implemented)
+  - if LIVE and is_trading_enabled != true → deny LIVE_TRADING_DISABLED
+- Always return trace_id
+
+4) Scheduler Health Endpoint
+GET /api/scheduler/status
+- Returns last_tick timestamps, loop status, breakers, any internal errors.
+
+========================================
+D) “WHY BOT TRADED” + “WHY BOT DID NOT TRADE”
+========================================
+
+We already have “why this bot traded” conceptually; we also need the inverse.
+
+Implement:
+- GET/POST /api/bots/:id/decision-traces
+- GET/POST /api/bots/:id/no-trade-traces
+
+Schema fields (minimal):
+decision_traces:
+  bot_id, trade_log_id?, decision_time, action("ENTER"/"EXIT"), reasons[], signals_snapshot_safe_json, confidence, trace_id
+no_trade_traces:
+  bot_id, decision_time, suppression_type, suppression_reason, would_have_traded_boolean, trace_id
+
+UI:
+- Add a “Why Not” drawer next to “Why This Trade”.
+- Must show trace_id + suppression type (RISK_BLOCK, DATA_MISSING, COOLDOWN, CIRCUIT_OPEN, OUTSIDE_SESSION, etc.)
+
+========================================
+E) AUTONOMY SCORE PER BOT (TRUST + READINESS)
+========================================
+
+Add per-bot autonomy score and tier:
+- Score 0–100
+- Tier: LOCKED, SUPERVISED, LIMITED_AUTONOMY, FULL_AUTONOMY
+
+Score breakdown must be explainable:
+- data_reliability_score
+- decision_quality_score
+- risk_discipline_score
+- execution_health_score
+- supervisor_trust_score
+- overall autonomy_score
+
+Update /api/system/status to include:
+- count of bots per tier
+- list of bots BLOCKED with blockers
+
+UI:
+- Show autonomy score badge per bot row
+- Show “What’s blocking autonomy?” expandable list
+
+========================================
+F) PROFIT VARIABLES CATALOG + PROOF THEY’RE USED
+========================================
+
+We want “all variables available” to help bots be profitable.
+
+Implement variable catalog:
+profit_variables:
+  name, category, source_integration, description, state, last_updated_at
+  used_by_bot_ids (or compute via usage events)
+  profit_contribution_estimate (optional)
+
+Proof requirement:
+- On Connections tab, show “Top Variables used in last 24h” per provider
+- On each bot, show “Variables accessed in last 24h”
+
+========================================
+G) ACCEPTANCE TESTS (NON-NEGOTIABLE)
+========================================
+
+Provide a written verification report with evidence:
+1) Remove a required env var → system_status becomes BLOCKED with INTEGRATION_KEY_MISSING
+2) Break /api/accounts or /api/integrations/status → UI shows DEGRADED banner, disables dependent actions
+3) Create a stale RUNNING job (heartbeat old) → timeout worker marks TIMEOUT + FSM event written
+4) Force runner crash simulation → supervisor loop restarts and logs event OR opens breaker after N failures
+5) Proof-of-use: make one real provider call → integration_usage_events increments and appears in /api/integrations/status with last_used_at and bot_id
+6) Why-not-trade trace appears when bot suppressed by risk/data/session
+
+DELIVERABLES EACH PR
+- Changed files list
+- Endpoint list + example responses
+- Screenshot(s) / logs showing BLOCKED/DEGRADED/OK states
+- Trace IDs for at least 3 critical flows
+- Updated docs: replit.md + FINAL_ACCEPTANCE_GATE.md
+
+Proceed with full implementation, fail-closed, no secrets in git, and ensure autonomy is truly continuous (scheduler + supervisor), not just endpoints.

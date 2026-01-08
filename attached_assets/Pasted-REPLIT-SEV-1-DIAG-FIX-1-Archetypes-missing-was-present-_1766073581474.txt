@@ -1,0 +1,107 @@
+REPLIT — SEV-1 DIAG + FIX: (1) Archetypes missing (was present on Lovable) + (2) “Seed starter bots” does nothing + toast “user_id required”
+
+CONTEXT / EXPECTATION
+- Archetypes used to exist and populate “From Archetype” picker.
+- “Seed starter bots” should create a starter pack and show progress + resulting bots.
+- We recently migrated UI away from Supabase Edge Functions and moved toward Express as single control plane.
+- Current symptom: UI shows “No archetypes found” and seed action errors “user_id required”.
+
+GOAL
+- Restore Archetype catalog + make it load reliably in UI.
+- Make “Seed starter bots” work end-to-end with correct auth + telemetry, no silent failures.
+- Industry standard: deterministic error codes, 401/403 for auth, never “user_id required” from UI; server infers user from session/JWT.
+
+PART A — ROOT CAUSE AUDIT (DO NOT GUESS)
+1) Identify where Archetypes are supposed to come from now:
+   - ripgrep for archetype sources + endpoints:
+     - rg -n "archetype|archetypes|strategy archetype|templates" client/src server shared
+   - Identify UI call(s) used by Create New Bot modal to fetch archetypes (file + function).
+   - Identify server endpoint currently serving them (or missing).
+
+2) Identify why “user_id required” is happening for seed starter bots:
+   - Find the exact button handler for “Seed starter bots” (ResetBotFleetDialog / Create starter bots button etc).
+   - Find the API call it hits and the request payload.
+   - Find the server route handling it and locate where it throws/returns “user_id required”.
+   - Confirm whether we are using:
+     a) cookie-based sessions (req.session.userId), or
+     b) bearer JWT auth header, or
+     c) mixed.
+   - Confirm whether the frontend http client includes credentials/cookies:
+     - In client/src/lib/http.ts ensure fetch/axios uses credentials: "include" (if cookie sessions).
+   - Confirm server CORS config allows credentials if relevant.
+
+PART B — FIX “user_id required” PROPERLY (INDUSTRY STANDARD)
+3) Decide canonical auth pattern and enforce it consistently:
+   Option 1 (recommended): session cookie auth
+   - Frontend must send credentials (credentials:"include")
+   - Backend must never accept userId in body for privileged operations.
+   - Backend derives userId from req.session.userId and returns 401 if missing.
+
+   Option 2: bearer JWT
+   - Frontend attaches Authorization: Bearer <token>
+   - Backend verifies token and sets sessionUserId in request context.
+
+4) Implement the fix:
+   - In the seed starter bots endpoint (likely POST /api/bots/starter-pack or similar), remove “user_id required” checks against body.
+   - Replace with:
+     - if no authenticated user -> return 401 { success:false, error_code:"AUTH_REQUIRED", trace_id }
+   - Ensure UI shows a clear toast: “Please sign in again” if 401.
+
+5) Add proof-of-fix:
+   - Provide curl reproduction BEFORE and AFTER.
+   - Example tests:
+     - Unauthed request -> 401 AUTH_REQUIRED
+     - Authed request -> 200 success with created bots count + ids
+   - Add structured logs:
+     - [STARTER_PACK_REQUEST] trace_id userId status
+     - [STARTER_PACK_SUCCESS] trace_id createdCount
+     - [STARTER_PACK_DENIED] trace_id reason=AUTH_REQUIRED
+
+PART C — RESTORE ARCHETYPES (THE REAL FIX, NOT A UI PATCH)
+6) Determine what happened to Archetypes:
+   Possible causes (verify which is true):
+   A) Archetypes were stored in Supabase tables / Edge Function responses and were never migrated to Postgres on Express stack.
+   B) Endpoint path changed and UI is calling old route.
+   C) Archetypes exist as static JSON in repo but now not loaded/seeded.
+   D) Auth now required and archetype endpoint returns 401 silently.
+
+7) Implement canonical Archetype source of truth:
+   - Create/confirm a table OR a static registry (pick ONE):
+     Option A (best): DB table `strategy_archetypes`:
+       - id, name, description, tags[], default_config jsonb, created_at, updated_at
+       - seed script inserts the known archetypes (the same set we had on Lovable)
+     Option B: server-side registry file if you want zero DB dependency (but still versioned):
+       - server/archetypes/registry.ts exporting list with deterministic ids
+
+   - Expose GET /api/archetypes (or whatever UI expects) returning:
+     { success:true, items:[...], trace_id }
+   - Make it public to authenticated users (or public if you want), but be consistent.
+
+8) Data migration (if Lovable had the archetypes in Supabase):
+   - Provide a one-time migration path:
+     - If we can access the previous archetype definitions in repo/history, re-add them to seed.
+     - If they were in Supabase DB, export them and import into current Postgres.
+   - DO NOT ship “empty list” as acceptable.
+
+9) UI wiring:
+   - Ensure Create New Bot modal calls the new endpoint and renders results.
+   - Add:
+     - loading skeleton
+     - explicit empty-state: “No archetypes available (seed required)” with a button “Seed archetypes”
+   - Clicking “Seed archetypes” triggers POST /api/archetypes/seed (admin/dev only), or run a seed script.
+
+PART D — ACCEPTANCE TESTS (MUST PASS)
+10) Provide these proofs in the PR/response:
+   - Proof 1: Archetypes endpoint returns >0 items
+   - Proof 2: UI “From Archetype” shows list and selecting one enables Create Bot
+   - Proof 3: Seed starter bots creates bots and Feed logs events for creation
+   - Proof 4: Unauthed seed attempt returns 401 AUTH_REQUIRED (not “user_id required”)
+   - Proof 5: No silent failures: every failure includes { error_code, trace_id }
+
+DELIVERABLES
+- Code changes (server + client) with minimal diff
+- A short “WHY IT BROKE” note (exactly what changed: auth/session, endpoint paths, missing seed data)
+- A short “HOW TO VERIFY” checklist (commands + UI clicks)
+
+START NOW
+- First output should be: “Here is the exact file/line where user_id required is thrown” and “Here is the endpoint/UI call used for archetypes” before making changes.

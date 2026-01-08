@@ -1,0 +1,78 @@
+YES — PROCEED WITH ALL PARTS (BACKEND + SHARED + FRONTEND). NO SKIPS.
+
+You are explicitly authorized to modify:
+- server/
+- shared/
+- client/src/ (including hooks if required to preserve botNow / badge truth)
+
+This is SEV-1 institutional readiness. The “no server/shared changes” note is overridden for THIS task.
+
+PRIORITY ORDER (MUST FOLLOW)
+
+PHASE 1 — BULK REVERT TO LAB (SAFE + AUDITED + PROVABLE)
+1) Implement POST /api/admin/revert-to-lab with Admin Guard
+   - Require header: X-Admin-Token = process.env.ADMIN_TOKEN
+   - If missing/invalid -> 401
+
+2) DRY RUN SUPPORT (MANDATORY)
+   Body: { "dryRun": true, "includeIds": true, "limitIds": 50 }
+   Returns:
+   - countsByStageBefore
+   - willChangeCount
+   - sampleBotIds (<=50)
+   - nowIso
+
+3) EXECUTE REVERT (TRANSACTIONAL)
+   Body: { "dryRun": false, "reasonCode": "BULK_REVERT_SEV1_RESET", "setPromotionMode": "MANUAL" }
+   Must be ONE DB transaction:
+   - Insert bot_stage_events row PER bot changed:
+       bot_id, from_stage, to_stage='LAB', reason_code, actor='admin', created_at
+   - Update bots:
+       stage='LAB',
+       stage_updated_at=now(),
+       stage_reason_code=reasonCode,
+       promotion_mode='MANUAL'
+   - Return:
+       changedCount, changedBotIds(optional), countsByStageAfter, revertedAtIso
+
+4) POST-REVERT AUTONOMY BEHAVIOR (REQUIRED)
+   After revert, autonomy MUST enqueue baseline jobs for LAB bots:
+   - enqueue baseline BACKTEST jobs for LAB bots missing recent baseline (or newly reverted)
+   - throttle concurrency (e.g., max 3)
+   - write reasons into autonomy_planner_runs summary_json
+
+PHASE 2 — PROOF PACK (MANDATORY, NO EXCUSES)
+Immediately after EXECUTE revert, print these proofs:
+
+A) prove revert occurred:
+- SQL: SELECT to_stage, reason_code, COUNT(*) FROM bot_stage_events WHERE created_at >= <revertedAt> GROUP BY 1,2;
+- SQL: SELECT stage, COUNT(*) FROM bots GROUP BY stage;
+
+B) prove autonomy queued work within 2 ticks:
+- curl /api/_proof/autonomy twice 60s apart and show jobs_enqueued > 0 after revert
+- curl /api/_proof/jobs and show BACKTEST jobs created after revertedAtIso
+
+C) prove botNow states reflect reality:
+- curl -s http://localhost:5000/api/bots?limit=10 | jq '.data[] | {name, stage, botNow:{state, reasonCode, since, activeJob: .botNow.activeJob, lastBacktest: .botNow.lastBacktest}}'
+
+PHASE 3 — BADGE SEMANTICS (UI MUST BE UNAMBIGUOUS)
+1) Primary badge = botNow.state ONLY (Backtesting / Queued / Evolving / Runner Running / Runner Stale / Blocked / Idle / Needs Backtest / Error)
+2) “Fresh” must NOT be the primary badge ever.
+   - Make “Fresh” a small secondary pill named “Data Fresh” (recency indicator only).
+3) Remove the pointless “OK” notification icon:
+   - Only show alert icon when WARN/CRITICAL/BLOCKED/ERROR.
+   - If it’s OK, show nothing.
+
+PHASE 4 — AUTONOMY PROMOTION SAFETY
+Keep promotion_mode=MANUAL after revert until:
+- baseline backtests re-run under the fixed engine
+- diagnostics flags all PASS
+- then we can re-enable AUTO and re-graduate
+
+DELIVERABLES REQUIRED
+- Exact files changed list
+- Endpoint docs + example curl commands
+- Proof outputs pasted (SQL + curl)
+- Screenshot from authenticated UI showing bots in LAB with active “Backtesting/Queued” states (not only Fresh)
+
+DO NOT ASK AGAIN ABOUT PERMISSIONS. YOU HAVE CLEARANCE. SHIP END-TO-END.

@@ -1,0 +1,238 @@
+REPLIT — SEV-0 “AUTONOMY + INTEGRATION TRUTH” AUDIT + ENFORCEMENT (NO HAND-WAVING)
+
+CONTEXT
+You’ve said:
+- Databento is now pulling real CME history (continuous contracts like MES.c.0)
+- FMP economic calendar worker exists (but may 403 depending on plan)
+- Signal Fusion endpoints exist (options flow + macro + news)
+- Multiple AI providers are “connected”
+But I need INSTITUTIONAL PROOF that:
+1) Autonomy is truly continuous across stages (LAB→PAPER→SHADOW→CANARY→LIVE)
+2) Every stage uses available sources correctly and fail-closed when required
+3) “Connected” ≠ “actually used” is eliminated
+4) Backtests/trades are deterministic, reproducible, and auditable
+
+DELIVERABLE
+Ship an end-to-end “Integration Truth + Autonomy Truth” system with hard proofs, plus stage-specific policies.
+
+=====================================================================
+PHASE 1 — DEFINE “CONNECTED vs CONFIGURED vs USED” (CANONICAL)
+=====================================================================
+
+A) Canonical status model for each integration (Databento, FMP, FRED, Unusual Whales, News providers, AI providers, Brokers):
+- CONFIGURED: API key/secret exists and passes basic validation format check
+- CONNECTED: last handshake succeeded (ping/test endpoint) within last X minutes
+- USED: actually called by a bot job within last X minutes (recorded in DB)
+- FAIL_CLOSED: whether this source is required to proceed in this stage/mode
+
+B) IMPORTANT: “USED” must be true only if it appears in a persisted request log
+(no console logs as proof).
+
+=====================================================================
+PHASE 2 — INTEGRATION REQUEST LOGGING (PROOF OR IT DIDN’T HAPPEN)
+=====================================================================
+
+Create / confirm request logging tables for EACH source type. Minimum viable:
+
+1) market_data_requests
+- id, created_at, trace_id, bot_id, stage, symbol, provider (databento/polygon/etc)
+- endpoint/schema, start_ts, end_ts, bar_count
+- latency_ms, success, error_code, error_message
+- request_fingerprint (hash of request params)
+
+2) macro_requests (FRED)
+- id, created_at, trace_id, bot_id, stage, series_ids, latency_ms, success, error…
+
+3) options_flow_requests (Unusual Whales)
+- id, created_at, trace_id, bot_id, stage, symbol, latency_ms, success, error…
+
+4) news_requests
+- id, created_at, trace_id, bot_id, stage, symbol/keywords, provider, latency_ms, success, error…
+
+5) ai_requests
+- id, created_at, trace_id, bot_id, stage, provider (openai/anthropic/groq/etc)
+- model, tokens_in/out, latency_ms, success, error…
+
+6) broker_requests (paper/live routing)
+- id, created_at, trace_id, bot_id, stage, broker, action, symbol, qty
+- success, error_code, error_message, order_id, fill_id
+
+RULE:
+Every job run MUST have a trace_id.
+Every external call MUST write exactly one request log row with that trace_id.
+If a call fails and stage is fail-closed → job fails with explicit reasonCode.
+
+=====================================================================
+PHASE 3 — STAGE POLICIES (INSTITUTIONAL FAIL-CLOSED)
+=====================================================================
+
+Define a single policy object:
+
+StagePolicy[LAB|PAPER|SHADOW|CANARY|LIVE] = {
+  required: { market_data: boolean, broker: boolean, ... },
+  allowed_fallbacks: { market_data: "none"|"sim"|"alt_provider" },
+  ai_allowed: boolean,
+  max_latency_ms: per source,
+  cooldowns, retry limits,
+  job cadence targets
+}
+
+MANDATORY REQS (suggested defaults):
+- LAB:
+  - market_data REQUIRED (Databento) unless explicitly dev mode
+  - broker NOT required
+  - AI allowed (for suggestions), but must log ai_requests
+  - fallbacks allowed only if ALLOW_SIM_FALLBACK=true AND environment=dev
+- PAPER:
+  - market_data REQUIRED (Databento)
+  - broker REQUIRED (paper route if available) OR fail-closed if paper stage claims “paper”
+  - no silent simulated fills
+- SHADOW/CANARY/LIVE:
+  - market_data REQUIRED
+  - broker REQUIRED
+  - strict fail-closed; no simulated anything
+
+=====================================================================
+PHASE 4 — AUTONOMY “ALIVE” LOOP PER STAGE (NO STARVATION)
+=====================================================================
+
+A) LAB continuous loop (research engine)
+- Backtest cadence target: every 15–30 minutes per bot (configurable)
+- Backtest → Improve → Backtest → Improve → Evolve (with thresholds)
+- Hard budgets: max concurrent backtests, max improvements per hour, etc
+- Backtests must use the bot’s configured symbol/instrument (and log it)
+
+B) PAPER/SHADOW/CANARY/LIVE loops (execution engine)
+- Each stage must have explicit job types:
+  - RUNNER_START / RUNNER_HEALTHCHECK
+  - SCAN / SIGNAL_FUSION
+  - PAPER_EXECUTE or LIVE_EXECUTE
+  - POST_TRADE_AUDIT
+- “Idle” is allowed ONLY if:
+  - within cadence window
+  - no signal present
+  - risk gates block trading
+And the UI must show WHY idle (reasonCode), not just “Idle”.
+
+C) Promotion readiness
+- Promotions must depend on post-reset metrics only
+- Manual mode respected, but system must still do research
+
+=====================================================================
+PHASE 5 — BOT ROW MUST SHOW PROOF (NOT CLAIMS)
+=====================================================================
+
+On each bot row show:
+1) Primary activity badge from botNow.state (Backtesting / Improving / Evolving / Trading / Scanning / Queued / Idle)
+2) “Why” tooltip:
+   - reasonCode
+   - since timestamp
+   - activeJob info
+3) “Source Proof” mini indicators (icons or compact text):
+   - MD: Databento ✅/❌ (based on market_data_requests in last job)
+   - Macro: FRED ✅/❌ (based on macro_requests)
+   - Flow: UW ✅/❌ (based on options_flow_requests)
+   - News ✅/❌
+   - AI ✅/❌ (only if AI used)
+   - Broker ✅/❌ (for PAPER+)
+
+IMPORTANT:
+Do NOT show “connected” as proof on the row.
+Only show proof from “USED in last job trace_id”.
+
+=====================================================================
+PHASE 6 — PROOF ENDPOINTS (COPY/PASTE AUDIT)
+=====================================================================
+
+Add endpoints that output hard evidence:
+
+1) GET /api/_proof/autonomy
+- last N planner runs
+- jobs_enqueued vs jobs_created verification
+- stage breakdown
+- verdict PASS/FAIL with explicit reasons
+
+2) GET /api/_proof/integrations
+- For each integration: configured/connected/used counts last 1h + last used timestamp
+- Fail-closed compliance per stage
+
+3) GET /api/_proof/bot/:botId
+- last 3 jobs (with trace_id)
+- for each job: list of request logs across all sources
+- confirm symbol used == bot instrument
+- confirm strategy hash used
+
+4) GET /api/_proof/databento (already started)
+- must show request rows + sessions that reference request ids
+
+=====================================================================
+PHASE 7 — ACCEPTANCE TESTS (MUST PASS)
+=====================================================================
+
+A) Run in shell and paste outputs:
+
+curl -s http://localhost:5000/api/_proof/autonomy | jq .
+curl -s http://localhost:5000/api/_proof/integrations | jq .
+
+B) SQL proofs:
+
+-- last 50 jobs with trace id
+SELECT id, bot_id, job_type, status, trace_id, created_at, started_at, completed_at
+FROM bot_jobs
+ORDER BY created_at DESC
+LIMIT 50;
+
+-- last 50 market data requests
+SELECT created_at, trace_id, bot_id, provider, symbol, bar_count, latency_ms, success, error_code
+FROM market_data_requests
+ORDER BY created_at DESC
+LIMIT 50;
+
+-- last 50 ai calls
+SELECT created_at, trace_id, bot_id, provider, model, tokens_in, tokens_out, latency_ms, success
+FROM ai_requests
+ORDER BY created_at DESC
+LIMIT 50;
+
+C) UI proofs (authenticated screenshots)
+- Show bots table with:
+  - at least 5 LAB bots actively cycling (badges visible frequently)
+  - source proof indicators lit based on USED logs
+  - at least 1 PAPER bot with broker proof if stage requires it
+
+DONE means:
+- Autonomy runs continuously without manual triggers
+- Integrations are provably USED (logged) not just “connected”
+- Stage policies enforce fail-closed in PAPER+ and can be dev-lenient in LAB
+- Bot rows show proof of which sources were used for the latest job
+- Any disconnected/403/422 is visible as structured reasons, not silent
+
+=====================================================================
+YOUR QUESTIONS (SO YOU HAVE A CLEAN ANSWER)
+=====================================================================
+
+1) “Are we fully autonomous?”
+Not “institutional” until:
+- Autonomy queues continuous work (LAB) AND stage execution work (PAPER+)
+- Proof endpoints show jobs and request logs steadily over time
+- There is no “connected but unused” ambiguity
+
+2) “Are all stages using all available connections to be most profitable?”
+Institutionally: you *don’t* blindly use “all sources always”.
+You use:
+- a controlled fusion policy
+- logged provenance
+- stage-specific requirements
+- throttles/cooldowns
+But yes: every source that materially contributes must be either:
+- provably used (logged)
+OR
+- explicitly disabled with a reason and stage policy
+
+3) Suggestions to improve profitability safely
+- Add signal fusion gating: only trade when fused confidence > threshold AND regime aligns
+- Enforce per-stage risk budgets and max daily loss
+- Add “data quality gates” (bar_count minimum, missing fields, latency threshold)
+- Make AI advisory only until PAPER+ has proven deterministic performance
+
+SHIP THIS AS ONE COHERENT SYSTEM. NO CLAIMS WITHOUT LOGGED PROOF.

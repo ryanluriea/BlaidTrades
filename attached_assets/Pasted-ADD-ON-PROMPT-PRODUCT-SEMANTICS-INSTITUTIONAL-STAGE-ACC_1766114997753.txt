@@ -1,0 +1,124 @@
+ADD-ON PROMPT (PRODUCT SEMANTICS + INSTITUTIONAL STAGE/ACCOUNT MODEL)
+Purpose: lock in a clean, institutionally standard meaning for Sandbox vs Paper vs Shadow/Canary/Live, and remove confusing UI/logic that causes “why is this here?” and phantom behavior.
+
+========================================================
+1) CANONICAL DEFINITIONS (NO AMBIGUITY)
+========================================================
+We will adopt this model:
+
+A) SANDBOX (NOT an “account type”)
+- Meaning: research + backtest + strategy evolution only.
+- Uses: historical bars + simulated fills inside backtest engine.
+- Does NOT require: an Account record, a Runner, a Broker connection.
+- Outputs: backtest_sessions, trade_logs, diagnostics, evolution artifacts.
+
+B) PAPER TRADING (VIRTUAL ACCOUNT + REALTIME SIM EXECUTION)
+- Meaning: realtime execution simulation (“paper fills”) driven by live market data.
+- Requires: Market Data verified (Databento) AND at least one Virtual Account.
+- Does NOT require: Broker. (Broker starts at SHADOW/CANARY/LIVE.)
+- Execution path: runner generates orders → sim-execute-order → fills + PnL update in virtual account.
+
+C) SHADOW
+- Meaning: live market data + broker connectivity verified; orders are constructed and risk-checked, but are NOT sent (or sent to a broker simulator endpoint).
+- Requires: Market Data verified + Broker verified + (optional) virtual account mirror.
+- Goal: validate end-to-end order lifecycle, latency, rejects, position reconciliation — without risk.
+
+D) CANARY
+- Meaning: sends real orders with strict caps; smallest size; auto-kill on any anomaly.
+- Requires: Market Data verified + Broker verified + Live account routing configured.
+
+E) LIVE
+- Meaning: full live execution with production safeguards.
+
+========================================================
+2) UI CHANGES (MAKE IT MAKE SENSE)
+========================================================
+2.1 Account Creation Modal
+Replace the “Sandbox / Paper / Live” choices with:
+
+Step 1: Choose Execution Mode
+- “Virtual (Paper)”  → creates a Virtual Account
+- “Broker (Live)”    → creates a Live Account (requires broker verified)
+(REMOVE “Sandbox” from account creation entirely.)
+
+Step 2: Configure Risk + Sizing
+- Works for Virtual and Live.
+- Must never show NaN; show “--” if instrument spec missing.
+
+2.2 Strategy Lab / Sandbox Labeling
+- Sandbox becomes a top-level “Research / Sandbox” module, not an account.
+- Any place currently showing “Sandbox account” must be renamed:
+  - “Sandbox mode (backtests + evolution)”
+  - And must not require an account to operate.
+
+2.3 Stage Routing Defaults
+Add a single settings panel:
+- LAB: Sandbox mode only (backtests/evolution)
+- PAPER: requires a Virtual Account (select default virtual account or “Auto-create 1”)
+- SHADOW/CANARY/LIVE: requires Broker verified + routing configured
+
+========================================================
+3) BACKEND ROUTING RULES (INSTITUTIONAL + FAIL-CLOSED)
+========================================================
+3.1 Autonomy / Promotion Gates (updated)
+LAB → PAPER requires:
+- market data verified within 24h
+- at least 1 Virtual Account exists (or system auto-creates a default “Paper 1” account)
+- backtest diagnostics flags pass (instrument spec, fees/slippage, losers, realistic DD, trade audit)
+
+If not satisfied:
+- DO NOT promote; emit event PROMOTION_BLOCKED with reason codes:
+  - NO_MARKET_DATA_VERIFIED
+  - NO_VIRTUAL_ACCOUNT
+  - BACKTEST_INVALID
+
+PAPER → SHADOW requires:
+- broker verified within 24h
+- order pipeline smoke test PASS
+- risk engine OK
+
+3.2 Runner Auto-Start Behavior
+- PAPER bots without a runner must show canonical state “NO RUNNER (auto-start pending)” and enqueue runner start ONLY if gates pass.
+- If gates fail, show “BLOCKED BY GATE” and do not auto-start.
+
+3.3 One Source of Truth for “What does this bot trade on?”
+For each bot instance:
+- executionMode = "SANDBOX" | "PAPER" | "SHADOW" | "CANARY" | "LIVE"
+- accountId nullable:
+  - SANDBOX: null
+  - PAPER: virtualAccountId required
+  - SHADOW/CANARY/LIVE: liveAccountId required (and broker routing key)
+
+========================================================
+4) WHAT TO DO WITH THE CURRENT “SANDBOX” OPTION
+========================================================
+- Remove it from Account Creation UI.
+- Keep “Sandbox” only as a stage/mode label in Strategy Lab / backtest/evolution contexts.
+- If there is already a “sandbox account” table row, migrate it:
+  - Convert to Virtual Account OR mark deprecated and hide from UI.
+  - Add a one-time migration notice in replit.md.
+
+========================================================
+5) PROOF PACK (MANDATORY)
+========================================================
+After implementing, provide:
+
+A) UI screenshots:
+- Account creation modal shows ONLY Virtual (Paper) + Broker (Live)
+- Sandbox exists as a module, not an account type
+- Accounts page shows created virtual accounts immediately
+
+B) API proofs:
+- POST /api/accounts (virtual) returns created account row
+- GET /api/accounts?user_id=... returns it
+- Bots list includes executionMode + linked accountId rules
+
+C) Gate proof:
+- Create a PAPER bot with no virtual account → shows BLOCKED with reason NO_VIRTUAL_ACCOUNT
+- Create a Virtual Account → bot becomes eligible and runner auto-start enqueues
+
+Acceptance Criteria:
+- No “Sandbox account” anywhere in UI.
+- Paper bots always have a virtual account link (or are explicitly blocked).
+- Shadow/Canary/Live always require broker verified and routing configured.
+- Users can understand the platform in 10 seconds without asking “is sandbox same as paper?”

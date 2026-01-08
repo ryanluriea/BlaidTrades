@@ -1,0 +1,81 @@
+REPLIT — STOP. You are applying an old constraint to the wrong phase.
+
+CLARIFICATION (AUTHORITATIVE):
+- The “UI-only / don’t touch server/” restriction was ONLY for Phase 3 degraded-state UI work.
+- This new initiative (Single Control Plane + Autonomy + Connections + Proof-of-Use) is FULL-STACK by definition.
+- Therefore, you ARE authorized and REQUIRED to implement backend changes in server/ and shared/ on the dev branch.
+- We are NOT using Supabase Auth or Supabase Edge Functions in production paths. No disabling 2FA as a “solution.”
+
+DECISIONS:
+1) Implement Express-native auth + TOTP 2FA (no Supabase).
+2) Implement SMS alerts via Express + provider (Twilio recommended) (no Supabase).
+3) Maintain “no Supabase edge” guardrails: CI script stays and must pass.
+4) UI must not show “migration pending”—it must work end-to-end.
+
+BRANCHING:
+- Do backend + schema on dev branch.
+- Do UI on ui-lovable branch.
+If you cannot create branches in-tool, you must still keep changes isolated by commit groups and provide exact commit hashes for cherry-pick.
+
+NON-NEGOTIABLE: DO NOT DISABLE 2FA. Replace it.
+- Settings.tsx must use Express endpoints that actually exist and work.
+- Login flow must support requires_2fa + temp_token challenge.
+
+BACKEND SPEC (IMPLEMENT NOW)
+A) Express Auth + TOTP 2FA (industry standard)
+Tables/fields:
+- users:
+  - twoFactorEnabled boolean default false
+  - twoFactorSecretEncrypted text null
+  - twoFactorBackupCodesHash jsonb null
+  - twoFactorEnrolledAt timestamp null
+  - phoneE164 text null (optional if we also do SMS)
+Env:
+- APP_ENC_KEY required
+Endpoints (all include trace_id):
+- POST /api/auth/register
+- POST /api/auth/login
+  - if 2FA enabled: return {requires_2fa:true,temp_token}
+- POST /api/auth/2fa/setup (auth required): returns otpauth_url + qr payload ONCE
+- POST /api/auth/2fa/confirm (temp_token or session + code): enables 2FA + returns backup codes ONCE
+- POST /api/auth/2fa/verify (temp_token + code|backup_code): returns session
+- POST /api/auth/2fa/disable (session + code): disables
+Security:
+- httpOnly cookie sessions preferred
+- Rate limit verify endpoints
+- Fail-closed errors with explicit error_code + suggested_fix
+
+B) SMS Alerts (Express)
+- Choose provider: Twilio.
+Env:
+- TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
+Endpoints:
+- POST /api/alerts/sms/test (auth required) -> sends test SMS
+- POST /api/alerts/sms (internal) -> used by OpsAlertsSection
+Emit integration_usage_events for every SMS send attempt w/ status + trace_id.
+
+C) Proof-of-Use + Integration status must be REAL
+- /api/integrations/status must report:
+  configured, connected, last_used_at, proof_of_use_count_24h, missing_env_vars, error_code, suggested_fix
+- Ensure integration_usage_events is written by:
+  market data calls, broker calls, LLM calls, news/alt data calls, sms calls
+
+UI SPEC (UPDATE AFTER BACKEND IS DONE)
+- Settings 2FA UI: setup QR, confirm, show backup codes once, disable flow, degraded banners
+- OpsAlertsSection: test SMS button + status + proof-of-use
+- Connections page: show configured vs connected vs proof-of-use (24h), popout last 50 usage events w/ trace_id
+
+PROOF PACKAGE REQUIRED (NO EXCEPTIONS)
+1) Grep proof:
+   rg -n "supabase\\.functions\\.invoke|/functions/v1/" client/src -> MUST BE EMPTY
+2) Curl proof:
+   - register/login without 2FA
+   - enable 2FA (setup->confirm) then login returns requires_2fa and verify works
+   - sms test endpoint succeeds and logs integration_usage_events
+   - /api/integrations/status shows proof_of_use_count_24h > 0 after actions
+3) Screenshots:
+   - Settings 2FA flows
+   - Connections proof-of-use popout
+4) List all changed files + commit hashes grouped by backend vs UI
+
+Proceed now: implement backend first, then wire UI, then deliver proof package.

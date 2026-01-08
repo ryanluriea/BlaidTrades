@@ -1,0 +1,136 @@
+Good progress. Before we call this production-ready, we need to pass a FINAL ACCEPTANCE GATE that includes AUTONOMY, not just correctness.
+
+This platform is designed to be autonomous. “Working” is not enough if the system cannot operate, recover, and reason without human intervention.
+
+========================
+FINAL ACCEPTANCE GATE
+========================
+
+--------------------------------
+1) REPRODUCIBLE BUILD PROOF
+--------------------------------
+Provide exact command outputs (paste verbatim):
+
+- npm run typecheck (or pnpm/yarn equivalent)
+- npm run lint (or confirm none exists and why)
+- npm test OR explicitly confirm “no tests configured” AND provide the next-step test plan
+
+--------------------------------
+2) STUB & TECH-DEBT DISCLOSURE (AUTONOMY IMPACT)
+--------------------------------
+List EVERY remaining stub endpoint in a table:
+
+Endpoint | Domain (Trading / Runner / Risk / Promotion / Backtest / Autonomy) | Current Behavior | Why Stub | Blocks Autonomy? (YES/NO) | Replacement Plan
+
+Hard rule:
+- ZERO stubs are allowed on critical autonomous paths:
+  - runner start/restart/reconcile
+  - job/run terminalization
+  - risk gating
+  - kill/resurrect
+  - stage promotion
+  - PnL / equity computation
+If a stub touches these → NOT production-ready.
+
+--------------------------------
+3) AUTONOMY INVARIANTS (REQUIRED)
+--------------------------------
+Demonstrate that the system can operate unattended:
+
+A) Job / Run Autonomy
+- Every runner, backtest, or live session:
+  - must have a job/run record
+  - must heartbeat while RUNNING
+  - must terminalize automatically (COMPLETED / FAILED / BLOCKED / TIMEOUT)
+- Provide evidence:
+  - timeout worker logic
+  - example of a stalled run auto-failing with reason_code=TIMEOUT
+
+B) Failure → Recovery Loop
+- Show how the system reacts WITHOUT USER INPUT when:
+  - provider returns 429 / 403 / entitlement error
+  - runner crashes mid-session
+  - metrics cannot be computed
+- Expected behavior:
+  - fail-closed
+  - mark DEGRADED/BLOCKED
+  - record audit + trace_id
+  - schedule retry / reconciliation where appropriate
+
+C) Autonomous Safety
+- Kill Engine:
+  - automatic kill on invariant breach
+  - persistent kill events
+  - idempotent resurrect with audit trail
+- Risk Engine:
+  - server-side only
+  - blocks orders even if UI misbehaves
+
+--------------------------------
+4) AUTONOMOUS STATE OWNERSHIP
+--------------------------------
+Confirm (with code references) that:
+
+- The server, not the UI, owns:
+  - stage transitions
+  - runner lifecycle
+  - job status
+  - readiness decisions
+- UI is read-only for all autonomous decisions.
+- No client path can force:
+  - stage promotion
+  - live trading enable
+  - runner execution
+
+--------------------------------
+5) DATA SANITY & CLEANLINESS (AUTONOMY SAFE)
+--------------------------------
+Provide evidence queries AFTER cleanup:
+
+- No source_type='TEST'
+- No is_invalid=true leaking into metrics
+- No orphaned jobs/runs
+- No trades without a job/run context
+
+--------------------------------
+6) PRODUCTION AUTONOMY TOGGLE CHECKLIST
+--------------------------------
+Add to replit.md a **“Production Autonomy Checklist”**:
+
+- LIVE trading toggle default = OFF
+- Provider entitlement checks at startup
+- Heartbeat + timeout workers enabled
+- Kill engine enabled
+- Risk engine enabled
+- Structured logging with trace_id on all critical endpoints
+- Rate limits + timeouts configured
+- Safe-start behavior if any dependency missing (fail-closed)
+
+--------------------------------
+7) AUTONOMY DEMO (REQUIRED)
+--------------------------------
+Describe (or simulate) ONE end-to-end autonomous scenario:
+
+Example:
+- Runner starts
+- Provider fails
+- Job marks DEGRADED
+- Retry scheduled
+- Second failure → BLOCKED
+- Kill event logged
+- UI shows degraded + actions disabled
+- No human intervention required
+
+If this cannot be demonstrated, the system is NOT autonomous yet.
+
+========================
+ACCEPTANCE CRITERIA
+========================
+We only proceed to deployment when:
+
+- All critical paths are non-stubbed
+- Autonomy loops exist and are enforced server-side
+- Fail-closed behavior is proven
+- Remaining tech debt is explicitly non-blocking to autonomy
+
+Proceed with this audit now.

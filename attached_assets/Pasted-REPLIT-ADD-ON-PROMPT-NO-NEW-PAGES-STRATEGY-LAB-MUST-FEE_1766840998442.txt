@@ -1,0 +1,294 @@
+REPLIT — ADD-ON PROMPT (NO NEW PAGES) — STRATEGY LAB MUST FEEL LIKE A LIVE, INSTITUTIONAL RESEARCH ENGINE
+Context reminders (do NOT ask the user to do anything manually):
+- The app is fully autonomous end-to-end.
+- Strategy Lab is where strategies are researched/created and offered; LAB is where bots test/evolve them.
+- Do NOT add new pages/routes in the UI. You may add components/sections inside the existing Strategy Lab page and existing modals.
+- The only non-autonomous step in the entire system is: user confirmation when a bot is ready to trade LIVE.
+- This work is UI + backend support that powers Strategy Lab output quality & explainability; keep it minimal, institutional, and proof-driven.
+- Perplexity is the primary deep research engine for Strategy Lab research sessions. Strategy Lab and LAB hand off to each other automatically.
+
+========================================================
+GOAL
+========================================================
+Upgrade the existing Strategy Lab page so it feels alive and institutional:
+1) Make Strategy Lab visibly “running” and explainable (what it’s doing, why, and what it produced).
+2) Add Strategy Candidate Cards (inline, in the Strategy Lab page) that show: confidence, regime fit, novelty, why-it-exists (with citations), and the autonomous handoff status to LAB.
+3) Formalize confidence scoring math and ensure it’s deterministic, auditable, and backed by provenance + citations.
+4) Add regime-switch triggers that autonomously cause deeper research bursts.
+5) Preserve the existing “New Strategy Lab Session” modal UX, but enhance it to reflect autopilot outcomes and avoid extra user prompts.
+6) Absolutely no new pages.
+
+========================================================
+NON-NEGOTIABLE ACCEPTANCE CRITERIA
+========================================================
+A) Strategy Lab page is no longer a “blank sessions list + create modal.” It shows a live institutional header and a feed of candidates produced by sessions.
+B) Each candidate shows:
+   - Confidence score (0–100) + breakdown
+   - Regime alignment and trigger source
+   - Novelty score and “not a clone” proof
+   - “Why this strategy exists” explainer with research citations
+   - Autonomous disposition: Sent to LAB / Queued / Rejected / Merged
+C) Confidence scoring is deterministic and reproducible given the same evidence inputs.
+D) Regime-switch triggers can initiate deeper Perplexity research bursts automatically.
+E) Nothing requires user action or confirmation in Strategy Lab (other than optionally viewing). Handoff to LAB is automated.
+F) No new pages. Everything is within Strategy Lab page + existing modal(s) + existing backend patterns.
+
+========================================================
+PART 1 — STRATEGY LAB PAGE: INSTITUTIONAL “STATE HEADER” (IN-PAGE, NO NEW PAGE)
+========================================================
+Add a persistent “Strategy Lab Status” header card at the top of the existing Strategy Lab page.
+
+Display:
+- Market Regime (current): {REGIME_LABEL}
+- Research Engine: “Perplexity Deep Research” + status (Active/Idle/Triggered)
+- Last Research Burst: relative time
+- Candidates Generated (24h): count
+- Auto Disposition Counts (24h): Sent to LAB / Queued / Rejected / Merged
+- “Next scheduled research burst” OR “Triggered reason” if one occurred recently
+
+Rules:
+- This header must update via the existing polling approach (same style as bots list polling) without adding new pages.
+- Must be derived from server-side canonical computation (like botNow pattern): computeStrategyLabNow() on server.
+- Must show provenance: each metric is backed by DB counts, not client-side guesses.
+
+========================================================
+PART 2 — STRATEGY CANDIDATE CARD LAYOUT (MOCK EXACT UI SPEC)
+========================================================
+Implement Strategy Candidate Cards rendered inline on the Strategy Lab page under the header.
+
+Card layout (minimal, Tesla/Apple-grade, compact):
+1) Top row:
+   - Left: Candidate title (auto-name) + tiny archetype tag
+   - Right: Confidence pill (0–100) color-coded (red <60, amber 60–74, green 75+)
+2) Second row (small metric chips):
+   - Regime Fit: {fit%} + {regime_label} (chip)
+   - Novelty: {novelty%} (chip)
+   - Expected Frequency: {low/med/high} (chip)
+   - Risk Profile: {low/med/high} (chip)
+3) “Why this strategy exists” (collapsed by default, 2-line preview with expand chevron):
+   - Short explainer paragraph
+   - Under it, “Research citations” (compact inline chips showing source titles; click opens in new tab)
+4) Evidence/Proof drawer (expandable “Proof”):
+   - Perplexity query summary + timestamp
+   - Citation list with URLs
+   - Evidence signals used (macro/options/news/price action)
+   - Deterministic hashes: evidence_hash, rules_hash (if rules already created)
+5) Footer row:
+   - Autonomous disposition pill:
+     - Sent to LAB (green)
+     - Queued (blue)
+     - Rejected (gray/red with reason)
+     - Merged (gray with target)
+   - Right-side tiny action: “View Draft Rules” (opens existing modal component, NOT new page)
+
+Important:
+- Do NOT show PnL in Strategy Lab (PnL belongs to LAB). Keep Strategy Lab focused on research confidence + explainability.
+- Candidate cards must support “autonomous handoff status” visibility at all times.
+
+Implementation detail:
+- Add a “StrategyCandidateCard” component and a “StrategyCandidatesList” section to the existing Strategy Lab page.
+- Follow existing styling system (no new design system), matching the current dark grid aesthetic and card spacing.
+
+========================================================
+PART 3 — FORMAL CONFIDENCE SCORING MATH (DETERMINISTIC, AUDITABLE)
+========================================================
+Create formal confidence scoring logic for each candidate strategy output.
+
+Confidence score: 0–100 composed of these components:
+
+1) Cross-source confirmation (30%)
+   - Measures whether Perplexity citations and extracted claims are corroborated by multiple reputable sources.
+   - Inputs:
+     - citations_count (clamped)
+     - reputable_domain_ratio (0–1)
+     - claim_support_ratio (0–1)  // how many key claims have >1 citation
+   - Formula (example):
+     cross_source = 100 * clamp01(
+       0.45*min(1, citations_count/8) +
+       0.35*reputable_domain_ratio +
+       0.20*claim_support_ratio
+     )
+
+2) Regime alignment (25%)
+   - Measures fit between strategy archetype and current regime (from existing macro/options/news fusion engine + internal regime classifier).
+   - Inputs:
+     - regime_match_score (0–1)  // based on archetype→regime matrix
+     - regime_confidence (0–1)   // confidence of regime detection
+   - Formula:
+     regime_alignment = 100 * clamp01(0.7*regime_match_score + 0.3*regime_confidence)
+
+3) Historical edge persistence (20%)
+   - Measures whether the strategy concept has persisted historically (based on quick validation backtest OR evidence proxies if no backtest yet).
+   - Inputs:
+     - quick_validation_status (PASS/FAIL/UNKNOWN)
+     - edge_stability_score (0–1) // drawdown consistency proxy
+     - sample_adequacy (0–1)      // enough occurrences/trades proxy
+   - Deterministic rule:
+     - If FAIL → set component to 0
+     - If PASS → compute:
+       persistence = 100 * clamp01(0.6*edge_stability_score + 0.4*sample_adequacy)
+     - If UNKNOWN → conservative fallback:
+       persistence = 100 * clamp01(0.35*edge_stability_score + 0.15*sample_adequacy)  // penalized
+
+4) Novelty vs existing strategies (15%)
+   - Measures how non-duplicative this strategy is vs what already exists in the system.
+   - Inputs:
+     - novelty_score (0–1) computed via rules_hash similarity + feature signature distance vs existing strategy library
+   - Formula:
+     novelty = 100 * novelty_score
+
+5) Risk sanity check (10%)
+   - Ensures the suggested rules are not obviously insane (e.g., no stop, huge leverage, etc.)
+   - Inputs:
+     - risk_flags_count
+     - passes_risk_guard (boolean)
+   - Formula:
+     if !passes_risk_guard => risk_sanity = 0
+     else risk_sanity = 100 * clamp01(1 - min(1, risk_flags_count/5))
+
+Final score:
+confidence = round(
+  0.30*cross_source +
+  0.25*regime_alignment +
+  0.20*historical_persistence +
+  0.15*novelty +
+  0.10*risk_sanity
+)
+
+Output:
+- Store full breakdown per candidate:
+  confidence_total, confidence_components_json
+- Show breakdown in UI tooltip or “Proof” drawer.
+
+Determinism & audit:
+- Compute evidence_hash from:
+  - perplexity_query + citations + extracted_claims + regime_snapshot + timestamp_day_bucket
+- Compute candidate_hash from:
+  - evidence_hash + archetype + normalized_rules_draft
+- Store hashes and return them via API.
+
+========================================================
+PART 4 — PERPLEXITY DEEPER RESEARCH: REGIME-SWITCH TRIGGERS (AUTONOMOUS)
+========================================================
+Add automatic triggers that cause Strategy Lab to do deeper Perplexity research bursts (no user action).
+
+Trigger events (examples; implement as a ruleset, extensible):
+- Macro regime shift (from FRED/macro module): expansion↔contraction / risk-on↔risk-off
+- Volatility regime flip (ATR percentile crosses thresholds)
+- Options flow anomaly (Unusual Whales): concentration spike, unusual premium, skew flip
+- News sentiment shock: sentiment drops below threshold with high volume
+- Internal LAB degradation cluster: multiple LAB bots degrade in same archetype family or same instrument
+- Correlation breakdown / dispersion spike across CME core
+
+When triggered:
+- Start a Deep Research Burst session automatically for relevant instruments/universe.
+- Generate N candidates (bounded by budgets) with citations and confidence scoring.
+- Auto-disposition:
+  - If confidence >= 75 and novelty >= threshold -> “Sent to LAB”
+  - If 60–74 -> “Queued”
+  - If <60 -> “Rejected” with explicit reason_code
+  - If near-duplicate -> “Merged” with target strategy id
+
+UI:
+- Strategy Lab header shows “Triggered reason” + last burst time.
+- Candidate cards indicate “Triggered by: {trigger_type}”.
+
+========================================================
+PART 5 — AUTONOMOUS HANDOFF LOGIC (STRATEGY LAB -> LAB)
+========================================================
+Implement autonomous handoff rules; user should not be prompted.
+
+Handoff pipeline:
+1) Strategy Lab session produces candidate with:
+   - rules_draft (human-readable summary + machine config)
+   - evidence + citations + hashes
+   - confidence breakdown
+2) Auto-disposition runs:
+   - if Sent to LAB: create/queue corresponding LAB strategy/bot jobs (existing mechanism)
+   - if Queued: keep in pending state until next burst / until more evidence arrives
+   - if Rejected: store reason code and keep for learning
+   - if Merged: store merge_target_id and keep lineage
+
+Important:
+- “Sent to LAB” means it’s already created/queued appropriately; do not require manual click.
+- The only manual approval remains LIVE promotion, not strategy creation/testing.
+
+========================================================
+PART 6 — DATA MODEL (MINIMAL) + PROVENANCE (INSTITUTIONAL)
+========================================================
+Use minimal schema additions only if necessary; prefer reusing existing tables if they exist. If additions are required, keep them small and consistent with existing audit logging approach.
+
+Minimum entities needed (either new tables or fields in existing strategy lab tables):
+- strategy_lab_sessions
+- strategy_candidates (or equivalent)
+  - id, session_id, title, archetype, universe, contract_preference
+  - confidence_total, confidence_components_json
+  - novelty_score, regime_label, regime_fit_score
+  - why_exists_summary
+  - citations_json (array with title,url,domain)
+  - evidence_hash, candidate_hash, rules_hash (when draft rules exist)
+  - disposition_status (SENT_TO_LAB/QUEUED/REJECTED/MERGED)
+  - disposition_reason_code
+  - created_at, updated_at
+- strategy_candidate_events (optional, or reuse existing jobRunEvents style):
+  - for audit trail transitions: CREATED -> SCORED -> DISPOSITIONED -> HANDED_OFF
+
+Provenance:
+- Each candidate must be provably linked to:
+  - Perplexity request log (trace_id)
+  - Integration proof logs (if macro/options/news were used)
+  - Hashes for evidence + rules
+
+========================================================
+PART 7 — STRATEGY LAB MODAL (KEEP IT, ENHANCE IT)
+========================================================
+Keep the existing “New Strategy Lab Session” modal, but:
+- Ensure it defaults to Autopilot/Discovery with minimal friction
+- Add a tiny “Autopilot outcome preview” section (non-interactive) that states:
+  - “Will generate up to N candidates”
+  - “Will auto-score + auto-disposition”
+  - “Will hand off high-confidence candidates to LAB automatically”
+- No extra required fields and no prompts asking user to do steps.
+
+========================================================
+PART 8 — PERFORMANCE + THROTTLES (DO NOT MELT REPLIT)
+========================================================
+Add institutional throttles:
+- Hard cap candidates per burst (e.g., 5–12 depending on universe)
+- Rate limit Perplexity bursts (cooldown window)
+- Budget-based scheduling:
+  - If queue pressure high, reduce candidate count rather than stop entirely
+- Ensure the Strategy Lab page polling is lightweight (reuse existing react-query polling patterns)
+- If Perplexity or integrations fail, fail-closed for “Sent to LAB” disposition; allow “Queued” with explicit “insufficient evidence” reason.
+
+========================================================
+PART 9 — QA / PROOFS (MUST PROVIDE)
+========================================================
+Add or extend proof endpoints (within existing proof framework, no new pages) to verify:
+1) /api/_proof/strategy-lab
+   - last 24h sessions
+   - candidates generated + disposition counts
+   - confidence score distribution
+   - top triggers
+   - sample candidate evidence_hash + citations count
+2) Determinism test:
+   - Given fixed evidence inputs, confidence score must be identical.
+3) UI proof:
+   - Strategy Lab header shows live counts and last burst time
+   - Candidate cards show confidence + why-exists + citations + disposition
+   - No user interactions required for autopilot beyond viewing.
+
+========================================================
+DELIVERABLES
+========================================================
+1) Implement Strategy Lab header + candidate list rendering in the existing page
+2) Implement StrategyCandidateCard component exactly as spec’d
+3) Implement confidence scoring math + hashing + persistence
+4) Implement regime-switch trigger system for deeper research bursts
+5) Implement autonomous disposition + automatic handoff to LAB
+6) Provide proof endpoints and a short “how to verify” checklist (no manual steps required beyond viewing proof output)
+
+Remember:
+- No new pages.
+- No user prompts/actions for autonomy.
+- Keep it institutional, auditable, and deterministic.

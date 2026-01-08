@@ -1,0 +1,269 @@
+BLAIDAGENT — QUANTCONNECT (QC) PRE-PROMOTION VERIFICATION
+MEGA PROMPT (UPDATED + LOCKED)
+
+PURPOSE
+QuantConnect is an OPTIONAL, PRE-PROMOTION verification signal inside Strategy Lab.
+It adds external credibility, a badge, and a bounded confidence boost.
+It NEVER blocks promotion and NEVER runs on low-quality strategies.
+
+NO new pipeline stages.
+NO fake data.
+NO guarantees implied.
+
+====================================================
+A) WHERE QC LIVES IN THE PIPELINE (LOCKED)
+====================================================
+
+Strategy Lab (Review)
+  └─ Confidence System
+       ├─ Internal Sims
+       ├─ Stability / Risk
+       ├─ Live / Paper Signals (if any)
+       └─ QuantConnect Verification (optional)
+  ↓
+Promote (manual confirmation remains the ONLY hard gate)
+
+QC is a **pre-promote enrichment**, not a gate.
+
+====================================================
+B) QC RUN LIMITS (HARD COST & NOISE CONTROLS)
+====================================================
+
+Define and ENFORCE the following limits at the system level.
+
+GLOBAL LIMITS
+- Max QC runs per day (system-wide): 10
+- Max QC runs per week (system-wide): 40
+
+PER STRATEGY LIMITS
+- Max QC runs per strategy per week: 1
+- QC runs are snapshot-bound:
+  - If strategy parameters change → snapshot hash changes → old QC invalid
+  - Same snapshot cannot be re-run within 7 days
+
+PER USER / ADMIN LIMITS
+- Manual QC trigger allowed only for:
+  - Tier A strategies
+  - OR confidence score ≥ configurable threshold (default 75)
+
+FAIL-SAFE
+- If QC budget is exhausted:
+  - Disable “Run QC Verification” button
+  - Tooltip: “QC budget reached — resets in X hours”
+
+====================================================
+C) AUTO-QC RULES (TIER A ONLY)
+====================================================
+
+Auto-QC is OPTIONAL and CONDITIONAL.
+
+AUTO-QC IS ENABLED ONLY WHEN ALL CONDITIONS PASS:
+- Strategy Tier == Tier A
+- Confidence score ≥ 80 (post internal sims)
+- Strategy status == Review
+- No QC run exists for current snapshot
+- Weekly QC budget available
+
+AUTO-QC TRIGGER POINTS:
+- When a strategy is promoted to Tier A
+- OR when Tier A strategy confidence crosses ≥80 for first time
+
+AUTO-QC BEHAVIOR:
+- QC job enqueued silently
+- Strategy remains usable/promotable
+- QC result updates badge + confidence asynchronously
+
+AUTO-QC MUST NEVER:
+- Block promotion
+- Downgrade a strategy
+- Run repeatedly on parameter tweaks
+
+====================================================
+D) QC BADGE STATES (EXPLICIT + HONEST)
+====================================================
+
+QC badge is shown ONLY on Strategy cards in Strategy Lab.
+
+BADGE STATES:
+
+1) QC VERIFIED (GREEN)
+Conditions:
+- QC run completed successfully
+- Sanity checks passed
+- Performance broadly aligns with internal results
+
+Label:
+- “QC Verified”
+
+Tooltip:
+- “Strategy independently reproduced on QuantConnect under standardized assumptions.”
+
+Effect:
+- Confidence boost applied
+
+--------------------------
+
+2) QC DIVERGENT (YELLOW)
+Conditions:
+- QC run completed
+- Strategy trades but results diverge materially from internal sims
+  (e.g. PF collapse, DD spike, behavior mismatch)
+
+Label:
+- “QC Divergent”
+
+Tooltip:
+- “External results diverged from internal simulation. Review recommended.”
+
+Effect:
+- NO confidence boost
+- Optional internal tag: `external_fragility=true`
+
+Promotion:
+- Still allowed
+- User discretion preserved
+
+--------------------------
+
+3) QC INCONCLUSIVE (GRAY)
+Conditions:
+- QC run completed
+- Insufficient trades
+- Short duration
+- Data gaps or low statistical power
+
+Label:
+- “QC Inconclusive”
+
+Tooltip:
+- “QC run completed but sample size insufficient for validation.”
+
+Effect:
+- No confidence change
+
+--------------------------
+
+4) QC FAILED (RED, ADMIN ONLY)
+Conditions:
+- Runtime error
+- Compile error
+- Data failure
+
+Label:
+- “QC Failed”
+
+Tooltip:
+- Error message summary
+
+Effect:
+- No confidence change
+- Never blocks promotion
+
+====================================================
+E) CONFIDENCE DELTA FORMULA (NUMERIC, CAPPED)
+====================================================
+
+BASE CONFIDENCE SCORE
+- Existing system produces base_confidence in range [0, 100]
+
+QC SCORE NORMALIZATION
+- qc_score normalized to [0.0 – 1.0] based on:
+  - profit factor (capped)
+  - drawdown penalty
+  - trade count curve
+  - sharpe/sortino (capped)
+
+QC WEIGHT
+- qc_weight = 0.12 (12% max influence)
+
+CONFIDENCE DELTA FORMULA
+- qc_delta = qc_score * qc_weight * 100
+
+FINAL CONFIDENCE
+- final_confidence = min(100, base_confidence + qc_delta)
+
+RULES:
+- qc_delta applied ONLY if badge == QC VERIFIED
+- Divergent / Inconclusive / Failed → qc_delta = 0
+- QC can NEVER reduce confidence
+
+Store breakdown:
+confidence_components = {
+  base,
+  qc_delta,
+  qc_score,
+  qc_badge
+}
+
+====================================================
+F) DATA MODEL (SNAPSHOT SAFE)
+====================================================
+
+Table: strategy_qc_runs
+- id
+- strategy_id
+- snapshot_hash (REQUIRED)
+- tier_at_run
+- status (queued | running | completed | failed)
+- badge_state (verified | divergent | inconclusive | failed)
+- qc_score (0..1)
+- metrics_summary (json)
+- assumptions (json)
+- started_at
+- finished_at
+- error_message
+
+INVALIDATION RULE:
+- If strategy snapshot_hash changes:
+  - All prior QC runs marked stale
+  - Badge removed until re-run
+
+====================================================
+G) EXECUTION RULES (NON-NEGOTIABLE)
+====================================================
+
+- QC runs ONLY in worker jobs
+- NEVER inside API request lifecycle
+- MUST be idempotent per snapshot
+- MUST log:
+  - date
+  - symbol
+  - timeframe
+  - range
+  - slippage/fee assumptions
+  - QC plan type (Cloud / LEAN)
+
+====================================================
+H) UI REQUIREMENTS (STRATEGY LAB ONLY)
+====================================================
+
+On Strategy Row:
+- QC badge (if exists)
+- Hover tooltip per badge state
+- Optional “Run QC Verification” button (Tier A / eligible only)
+
+On Promote Click (Phase 2):
+- If Tier A and QC not run:
+  Prompt:
+  “Run QuantConnect verification before promoting?”
+  [Run QC] [Skip]
+
+====================================================
+I) GUARANTEES / DISCLAIMERS (COPY LOCKED)
+====================================================
+
+Badge disclaimer (tooltip or modal):
+“QuantConnect verification is an external reproduction signal.
+It does not guarantee live profitability or execution performance.”
+
+====================================================
+DEFINITION OF DONE
+====================================================
+
+- QC only runs within defined budgets
+- QC auto-runs ONLY for Tier A strategies
+- Badge states are explicit and honest
+- Confidence boost is numeric, capped, and additive
+- Promotion flow unchanged
+- No new pipeline stages
+- No fake data

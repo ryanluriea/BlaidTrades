@@ -1,0 +1,233 @@
+REPLIT — SEV-1 “INSTITUTIONAL READINESS TRUTH PASS”
+Goal: Make BlaidAgent’s UI reflect real backend truth with auditable, deterministic contracts. Fix:
+(1) Redis connection truth + classification (optional vs required)
+(2) System Health drawer truth (stop showing “provider not configured / never verified” when integrations are connected/verified)
+(3) Bot table “Now-State” badges/lanes restored (searching/setup/backtesting/evolving/running/blocked/no-runner/etc) — not just “Fresh”
+(4) Account creation shows up immediately (toast ≠ phantom), and sizing preview never NaN
+(5) Tooltip bug: “Backtest completed never”
+
+Non-negotiables:
+- No fake data. If a thing is unknown, say WHY and what endpoint/field is missing.
+- One canonical contract per concept (health, integrations, runners, accounts, bot canonical state).
+- Add “proof pack” SQL + curl outputs after each fix.
+
+========================================================
+A) REDIS: CONNECT OR CLASSIFY (INSTITUTIONAL)
+========================================================
+Problem observed (UI screenshot):
+- Redis: UNKNOWN / Not configured
+- System overall downgraded partly due to Redis
+We must make Redis status truthful and not sabotage readiness.
+
+A1) Decide classification:
+- Redis is an OPTIONAL cache for: request caching, rate-limits, ephemeral locks, job debouncing.
+- Redis must NEVER be a “CRITICAL blocker” for PAPER/LAB; only degrade performance.
+Implementation:
+- In readiness computation, treat Redis as “DEGRADED” if missing, not FAIL/blocked.
+- Label text: “Cache (optional)” not “Redis”.
+
+A2) Make Redis connection deterministic:
+- Verify env var usage in server: REDIS_URL (or UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN).
+- Implement a single redis client module: server/redis.ts
+  - exports: getRedisClient(), pingRedis()
+  - pingRedis returns {connected:boolean, latencyMs:number, error?:string, configured:boolean}
+- Ensure the app never shows “Not configured” if env vars are present.
+
+A3) Smoke test includes Redis but does not fail overall if Redis down:
+- overallStatus:
+  - PASS if database + market data + broker PASS
+  - DEGRADED if Redis DEGRADED but the criticals pass
+- Redis result must show configured/connected/latency/error.
+
+Proof Pack A:
+- Print env detection: configured true/false (do NOT print secrets)
+- curl /api/smoke-test shows redis result with configured/connected
+- overallStatus is PASS or DEGRADED correctly
+
+========================================================
+B) SYSTEM HEALTH DRAWER: USE ONE SOURCE OF TRUTH
+========================================================
+Problem observed (UI screenshot):
+- “Market data has never been verified”
+- “Brokers have never been validated”
+- Components show Market Data Live FAIL “Provider: Not configured” and Brokers FAIL “Connected: 0”
+But other proofs indicated databento/ironbeam connected/verified elsewhere.
+This is a contract / mapping / caching bug.
+
+B1) One canonical backend endpoint for UI readiness:
+Create or confirm endpoint:
+GET /api/readiness
+Returns EXACTLY:
+{
+  "asOf": ISO,
+  "overall": "PASS"|"DEGRADED"|"FAIL",
+  "liveTrading": "ALLOWED"|"BLOCKED",
+  "canary": "ALLOWED"|"BLOCKED",
+  "primaryBlocker": { "code": string, "message": string } | null,
+  "blockers": [{ "code": string, "severity":"CRITICAL"|"ERROR"|"WARN", "message": string, "action": { "label": string, "endpoint": string } }],
+  "components": [
+    { "id":"market_data_live", "label":"Market Data Live", "status":"PASS"|"DEGRADED"|"FAIL", "detail": string, "evidence": any },
+    { "id":"brokers", "label":"Brokers", "status":"PASS"|"DEGRADED"|"FAIL", "detail": string, "evidence": any },
+    { "id":"redis_cache", "label":"Cache (optional)", "status":"PASS"|"DEGRADED"|"FAIL", "detail": string, "evidence": any },
+    { "id":"risk_engine", "label":"Risk Engine", "status":"PASS"|"DEGRADED"|"FAIL", "detail": string, "evidence": any }
+  ]
+}
+
+B2) UI must use /api/readiness only:
+- Update client hook (useLiveReadiness / HealthDrawer) to call /api/readiness
+- Delete/avoid any dual-calling to /api/integrations OR /api/integrations/status that causes drift
+- Remove fragile field mapping like category→kind in the UI; backend should output final component statuses already.
+
+B3) Verification status logic:
+- “never verified” must only appear if last_verified_at is null OR older than threshold (ex: >24h) AND configured is true.
+- If configured + connected + last_verified_at exists, it must show PASS.
+
+Proof Pack B:
+- curl /api/readiness output
+- UI screenshot should match: Market Data + Brokers show PASS if verified.
+- If broker is truly not configured, show that consistently everywhere.
+
+========================================================
+C) BOT TABLE “NOW-STATE” BADGES / LANES RESTORE
+========================================================
+Problem observed:
+- Bot rows show only “Fresh”
+- PAPER bots show “Run: —” and no operational badges
+- Tooltip shows “Backtest completed never” (string bug)
+- You previously had lanes working (runner/job/improvement), so data is missing or evaluator not receiving it.
+
+C1) Define canonical bot “now-state” model (backend computed, not guessed in UI):
+For each bot row returned by list endpoint, include:
+botNow: {
+  canonicalState:
+    "IDLE"|
+    "SEARCHING_SETUP"|
+    "BACKTEST_QUEUED"|"BACKTEST_RUNNING"|"BACKTEST_COMPLETED"|"BACKTEST_FAILED"|
+    "EVOLVING"|
+    "RUNNING"|
+    "NO_RUNNER"|
+    "BLOCKED_BY_GATE"|
+    "KILLED",
+  reasonCode?: string,
+  reasonDetail?: string,
+  freshness: { status:"FRESH"|"STALE"|"UNKNOWN", lastBacktestAt?: ISO, lastRunnerHeartbeatAt?: ISO },
+  activeJob?: { id:string, type:string, status:string, startedAt?:ISO },
+  runner?: { status:"running"|"stopped"|"missing", lastHeartbeatAt?:ISO },
+  gates?: { stage:string, blocked:boolean, blockers:[{code,message,severity}] }
+}
+
+C2) Backend must supply this botNow (do NOT rely on UI stitching):
+- In bots list endpoint (or a dedicated endpoint used by BotTable), join:
+  - bot_jobs (latest per bot)
+  - bot_instances (runner heartbeat)
+  - last backtest session
+  - gate evaluation (required integrations for that stage + verified recency)
+- Return botNow for each bot.
+
+C3) UI: BotStatusBadgeLanes must render lanes from botNow:
+Lane rules:
+- Lane 1: Runner (RUNNING / NO_RUNNER / BLOCKED_BY_GATE)
+- Lane 2: Job (BACKTEST_RUNNING / EVOLVING / QUEUED / FAILED)
+- Lane 3: Improvements (READY_TO_PROMOTE / HOLD / DEMOTE / etc)
+- “Fresh” is NOT the only badge; it’s a small freshness indicator, not the primary status.
+
+C4) Fix the tooltip text bug:
+- “Backtest completed never” occurs when code concatenates a string with a boolean/undefined.
+Find tooltip renderer for backtest status. Replace with:
+- If lastBacktestAt exists: “Last backtest: <date>”
+- Else: “No backtest yet”
+No “completed never” phrasing allowed.
+
+Proof Pack C:
+- SQL: show latest job + runner heartbeat + last backtest per bot for 3 bots
+- curl: bots list endpoint includes botNow for those bots
+- UI screenshot: PAPER bots show “NO RUNNER” or “BLOCKED BY GATE” badges explicitly, not blank
+- Hover tooltip is correct English
+
+========================================================
+D) WHY ARE MOST BOTS PAPER + SOME LAB?
+========================================================
+Observation:
+- Autonomy loop promoted bots to PAPER automatically earlier.
+Institutional standard:
+- Stage should represent the operational mode, and should not silently move bots into a stage that requires infrastructure not set up.
+
+D1) Enforce promotion safety:
+- Do not promote LAB→PAPER unless:
+  - market data verified within last 24h
+  - paper execution mode is available (SIM fills) AND a paper account exists OR system paper account pool exists
+  - runner auto-start is allowed for PAPER (or queue runner request)
+If not satisfied:
+- Keep bot in LAB and emit event: PROMOTION_BLOCKED with reason codes.
+
+D2) If PAPER requires broker in your product definition:
+- Be explicit: PAPER = simulated execution (no broker), SHADOW/CANARY/LIVE = broker
+OR
+- PAPER = broker required (if you truly want that), but then UI must show “BLOCKED BY BROKER” clearly and never silently promote.
+
+Pick one and implement consistently across:
+- integration-registry required integrations per stage
+- readiness gates
+- promotion gates
+- UI copy
+
+Proof Pack D:
+- Show your chosen stage definitions in replit.md
+- Show promotion gate code + one blocked promotion example stored as activity event
+
+========================================================
+E) ACCOUNTS: CREATED TOAST BUT NOT LISTED + SIZING PREVIEW NaN
+========================================================
+Observed:
+- Toast: “Account created successfully”
+- Accounts page still “No accounts yet”
+- Sizing preview showed NaN earlier
+
+E1) Ensure createAccount returns the created row and invalidates queries:
+- POST /api/accounts returns {success:true, account:<row>}
+- Client: onSuccess -> queryClient.invalidateQueries(["accounts", userId]) AND also refetch
+- Make sure userId passed is a valid UUID everywhere. If auth uses string ids, map to UUID from users table.
+
+E2) Fix list endpoint and filters:
+- GET /api/accounts?user_id=<uuid> returns accounts
+- UI must not hide accounts due to filters (source type mismatch like "PAPER_TRADING" vs "PAPER")
+- Add a default “All” filter and ensure it truly shows all.
+
+E3) Sizing preview must never NaN:
+- If missing instrumentSpec, show “--” and a clear inline message: “Instrument spec unavailable”
+- Ensure tickValue is computed from spec (pointValue * tickSize) and never divide by 0.
+
+Proof Pack E:
+- SQL: select accounts for user_id
+- curl: GET accounts returns the created account
+- UI screenshot: account appears immediately after creation (no refresh)
+- Sizing preview shows numbers or “--”, never NaN
+
+========================================================
+F) FINAL HARD PROOFS (RUN THESE AND PASTE OUTPUTS)
+========================================================
+F1) System readiness:
+curl -s /api/readiness | jq
+
+F2) Smoke test:
+curl -s /api/smoke-test | jq
+
+F3) Bots include botNow:
+curl -s /api/bots | jq '.data.bots[0].botNow'
+
+F4) Accounts list:
+curl -s "/api/accounts?user_id=<UUID>" | jq
+
+F5) Redis ping:
+curl -s /api/_debug/redis | jq
+(Dev-only endpoint acceptable; do not leak secrets)
+
+Acceptance Criteria (must all be true):
+- Health drawer matches /api/readiness exactly
+- Market Data + Brokers show PASS when verified; no contradictory “not configured” text
+- Redis shown as “Cache (optional)” and can be DEGRADED without blocking
+- Bot rows show now-state lanes/badges beyond “Fresh”
+- Tooltip text is clean
+- Accounts show up after create; no phantom toast
+- No NaN anywhere in sizing preview
+- Promotions do not silently move bots into impossible stages; blocks are explicit and logged

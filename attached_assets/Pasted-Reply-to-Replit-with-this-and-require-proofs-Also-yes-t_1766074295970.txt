@@ -1,0 +1,53 @@
+Reply to Replit with this (and require proofs). Also: yes, this is the right industry-standard direction.
+
+---
+
+Good — this is the correct fix direction (session auth + seeded catalog + credentials include). Now I need HARD PROOFS for both SEV-1 issues and I want them recorded in replit.md.
+
+1) STARTER PACK (the “user_id required” bug)
+- Show the exact routes.ts diff for POST /api/bots/starter-pack where:
+  - user_id is NOT accepted/required in body
+  - session-based auth is enforced
+  - 401 returns { success:false, error_code:"AUTH_REQUIRED", trace_id }
+- Provide curl proofs:
+  A) Unauthed request:
+     curl -i -X POST http://localhost:5000/api/bots/starter-pack -H "Content-Type: application/json" -d '{"resetExisting":false}'
+     Expected: 401 + AUTH_REQUIRED + trace_id
+  B) Authed request (same call but with cookie/session):
+     curl -i -X POST http://localhost:5000/api/bots/starter-pack -H "Content-Type: application/json" -d '{"resetExisting":false}' --cookie "connect.sid=..."
+     Expected: 200 + { success:true, created_count: N, trace_id }
+- Provide DB proof:
+  SELECT user_id, count(*) FROM bots GROUP BY user_id ORDER BY count(*) DESC LIMIT 5;
+  And confirm the created bots belong to the logged-in user.
+
+2) ARCHETYPES (missing catalog)
+- Show the exact implementation for POST /api/archetypes/seed:
+  - session auth required
+  - deterministic insert (idempotent / ON CONFLICT handling)
+  - returns { success:true, inserted_count, total_count, trace_id }
+- Provide DB proof:
+  SELECT count(*) FROM strategy_archetypes;
+  Expected: > 0
+- Provide curl proof:
+  curl -s http://localhost:5000/api/archetypes | head -200
+  Expected: success:true + items length > 0 + trace_id
+
+3) FRONTEND AUTH CONSISTENCY
+- Show http.ts change that adds credentials:'include' and confirm it’s used by CreateBotDialog and seed starter bots path.
+- Confirm no client code passes user_id in body anymore.
+
+4) UI PROOF
+- Screenshot/video: Create Bot dialog shows archetypes list after seeding.
+- Screenshot/video: “Seed Starter Bots” completes (toast) and bots appear in list.
+- Confirm no more “user_id required” toast.
+
+5) SAFETY / REGRESSION
+- Run:
+  npx tsc --noEmit
+- Run guardrail:
+  bash scripts/no-supabase-edge.sh
+- Confirm both PASS.
+
+Finally: add a short “SEV-1 Fix Proofs” section to replit.md with the exact curl outputs + SQL outputs + trace_ids (redact cookies/tokens).
+
+Ship that proof pack back to me in your next message.

@@ -1,0 +1,145 @@
+BLAIDAGENT — QC PRE-TRIAL GATE (CLEAN IMPLEMENTATION PROMPT)
+
+====================================================
+A) PIPELINE STATES (LOCKED)
+====================================================
+
+Strategy lifecycle states:
+- Draft
+- Review
+- QC_Queued
+- QC_Running
+- QC_Passed        → Eligible for Trial
+- QC_Failed        → Not eligible
+- QC_Inconclusive  → Not eligible
+
+Trial promotion requires QC_Passed for the current strategy snapshot.
+
+====================================================
+B) PROMOTE → TRIAL FLOW
+====================================================
+
+On “Promote to Trial” action:
+
+IF current snapshot has QC_Passed:
+- Allow Trial promotion immediately
+
+ELSE:
+- Enqueue QC job
+- Set status = QC_Queued
+- Disable Trial promotion
+- UI message: “QC required — verification queued”
+
+On QC completion:
+- QC_Passed        → enable Trial promotion (or auto-promote if enabled)
+- QC_Failed        → remain in Strategy Lab with failure reason
+- QC_Inconclusive  → remain in Strategy Lab with explanation
+
+Config flag:
+- AUTO_PROMOTE_ON_QC_PASS = false (default)
+
+====================================================
+C) QC BADGE + STATUS SEMANTICS
+====================================================
+
+Badge states shown on Strategy Lab rows:
+
+- QC Required
+- QC Queued
+- QC Running
+- QC Passed        (green)
+- QC Failed        (red)
+- QC Inconclusive  (gray)
+
+Each badge has a tooltip explaining Trial eligibility.
+
+====================================================
+D) QC PASS / FAIL RUBRIC (DETERMINISTIC)
+====================================================
+
+Hard requirements (all must pass for QC_Passed):
+- Backtest completed successfully
+- Test duration ≥ MIN_DAYS (default: 60)
+- Trade count ≥ MIN_TRADES (default: 30)
+- Max drawdown ≤ MAX_DD_PCT (configurable)
+- Profit factor ≥ MIN_PF (default: 1.10)
+
+Outcomes:
+- Fails performance/risk thresholds → QC_Failed
+- Insufficient sample size           → QC_Inconclusive
+- Compile/runtime/data error         → QC_Failed
+
+====================================================
+E) QC RUN LIMITS + QUEUE CONTROL
+====================================================
+
+GLOBAL LIMITS:
+- Max QC runs/day: 10
+- Max QC runs/week: 40
+- Max concurrent QC jobs: 1–2 (plan dependent)
+
+PER STRATEGY:
+- Max 1 QC run per snapshot per 7 days
+
+If budget exhausted:
+- Strategy remains QC_Queued
+- UI tooltip: “QC budget exhausted — scheduled at reset”
+
+====================================================
+F) OUTAGE / DEADLOCK SAFETY
+====================================================
+
+Detect QC outage if failures persist > OUTAGE_THRESHOLD (e.g. 30 min).
+
+System enters QC_DEGRADED mode:
+- Banner shown in Strategy Lab
+
+Choose ONE policy (explicit):
+
+Policy A — Strict:
+- Block Trial promotions until QC recovers
+
+Policy B — Controlled Bypass (admin only):
+- TEMP_TRIAL_BYPASS flag (expires in 24h)
+- Prominent “QC Bypassed” badge
+- Trial sizing capped (e.g. micro contracts only)
+- QC must still run later to clear bypass
+
+====================================================
+G) CONFIDENCE SCORE (QC IS MANDATORY)
+====================================================
+
+QC is a prerequisite, not a major booster.
+
+Fields:
+- qc_gate_passed (boolean)
+- qc_quality_score ∈ [0,1]
+
+Confidence integration:
+- qc_weight = 0.05 (max +5 points)
+- final_confidence = base_confidence + (qc_quality_score * 5)
+
+QC_Failed / Inconclusive:
+- No confidence change
+- Strategy remains blocked from Trial
+
+====================================================
+H) SNAPSHOT + EXECUTION RULES
+====================================================
+
+- QC runs are snapshot-bound (hash of strategy params)
+- Snapshot change invalidates prior QC result
+- QC jobs run in workers only (never API thread)
+- Jobs must be idempotent per snapshot
+- Persist metrics summary + failure reason
+
+====================================================
+DEFINITION OF DONE
+====================================================
+
+- Trial promotion impossible without QC_Passed
+- Clear QC states + badges in Strategy Lab
+- Queue + budget limits enforced
+- Outage policy prevents deadlock
+- Confidence uses QC as a small quality factor
+- No restated goals, no fake data

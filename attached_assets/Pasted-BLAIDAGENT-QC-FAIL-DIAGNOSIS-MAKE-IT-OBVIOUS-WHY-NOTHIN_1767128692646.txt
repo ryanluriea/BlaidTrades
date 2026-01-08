@@ -1,0 +1,127 @@
+BLAIDAGENT — QC FAIL DIAGNOSIS (MAKE IT OBVIOUS WHY NOTHING PASSES)
+
+TASK
+Stop QC failures from being opaque. Add a QC “Why it failed” diagnostic pipeline that:
+1) shows EXACT rubric reasons for each QC run (pass/fail/inconclusive/divergent)
+2) compares QC vs internal sim metrics side-by-side
+3) identifies the top 3 systemic causes across all failing strategies
+4) outputs a single actionable summary so we can fix root causes without guessing
+
+DO NOT change QC thresholds yet.
+DO NOT redesign stages.
+DO NOT add new QC features.
+ONLY instrument and report what’s happening.
+
+====================================================
+A) STORE THE RUBRIC OUTPUT (REQUIRED)
+====================================================
+
+Ensure every QC run persists:
+
+- qc_status: QUEUED | RUNNING | COMPLETED | FAILED
+- qc_badge_state: PASSED | FAILED | INCONCLUSIVE | DIVERGENT
+- qc_gate_passed: boolean (authoritative)
+- qc_failure_reasons: string[]  (MUST be populated)
+- qc_thresholds_used: json (minTrades, minDays, minPF, maxDD, etc.)
+- qc_metrics: json (PF, maxDD, trades, net, sharpe, exposure, etc.)
+- internal_metrics_at_time_of_run: json (same metric keys as qc_metrics)
+- metric_deltas: json (qc - internal for key fields)
+- assumptions_used: json (session, timezone, slippage, fees, symbol mapping, rollover)
+
+Populate qc_failure_reasons with explicit messages like:
+- "INSUFFICIENT_TRADES: 12 < 30"
+- "INSUFFICIENT_DAYS: 45 < 60"
+- "PROFIT_FACTOR_TOO_LOW: 1.03 < 1.10"
+- "DRAWDOWN_TOO_HIGH: 0.31 > 0.25"
+- "DIVERGENT_TRADE_COUNT: QC 84 vs Internal 22"
+- "DIVERGENT_ENTRY_TIMES: >30% mismatch"
+- "SYMBOL_MISMATCH: internal MNQ, QC QQQ"
+
+====================================================
+B) UPDATE QC PROOF MODAL (UI)
+====================================================
+
+In “QC Verification Proof” modal, add:
+
+1) “Result Summary”
+- Badge state
+- qcGatePassed
+- Top 3 qc_failure_reasons (always visible)
+
+2) “Rubric Checklist”
+- minTrades / actual
+- minDays / actual
+- minPF / actual
+- maxDD / actual
+- with pass/fail icons
+
+3) “Internal vs QC Metrics” (side-by-side)
+- trades
+- PF
+- maxDD
+- net profit
+- sharpe
+- exposure/time-in-market
+- avg trade
+- win rate
+
+4) “Assumptions Used”
+- symbol mapping
+- timeframe
+- session calendar (RTH/ETH)
+- timezone
+- slippage model
+- fees/commissions
+- rollover rule (if futures)
+
+====================================================
+C) ADD A QC FAILURES LIST VIEW (STRATEGY LAB)
+====================================================
+
+Add a filter: QC Failed / QC Divergent / QC Inconclusive
+
+For each row show:
+- badge
+- 1-line failure reason summary (e.g. “PF < 1.10” or “12 trades < 30” or “Session mismatch”)
+- last run date
+- rerun button (respects cooldown/budget)
+
+====================================================
+D) SYSTEMIC ROOT-CAUSE REPORT (AUTO)
+====================================================
+
+Create an internal report endpoint + UI panel:
+“QC Failure Breakdown (Last 7 Days)”
+
+Aggregate counts by reason:
+- insufficient_trades
+- insufficient_days
+- PF_below_threshold
+- DD_above_threshold
+- symbol_mapping_mismatch
+- session/timezone mismatch
+- slippage/fees mismatch
+- translator divergence
+
+Also compute:
+- % of runs failing for sample-size vs performance vs divergence
+
+Output top 3 recommended fixes based on prevalence.
+
+====================================================
+E) ONE REQUIRED SANITY TEST (TO PROVE QC ISN’T THE ISSUE)
+====================================================
+
+Add a single QC-native benchmark strategy (SMA cross) and run it once.
+If it PASSES rubric, the QC pipeline works and failures are strategy/assumption related.
+If it FAILS, the rubric/assumptions are misconfigured globally.
+
+====================================================
+DEFINITION OF DONE
+====================================================
+
+- Every QC run shows explicit failure reasons
+- QC Proof modal explains exactly why it’s Divergent/Failed/Inconclusive
+- We can see whether the problem is: sample size, thresholds, or assumption mismatch
+- We get an aggregated “top causes” report
+- A QC-native benchmark run confirms pipeline health

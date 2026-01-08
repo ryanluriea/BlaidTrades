@@ -1,0 +1,82 @@
+ADD-ON PROMPT — “AUTO-DETECT LIVE STACK” (NO GUESSING)
+
+GOAL
+The code must automatically determine what is connected for the LIVE stack, without me manually telling it, and must show:
+1) CONFIGURED (env present)
+2) VERIFIED (provider auth succeeds)
+3) IN USE (bots are actually calling it)
+
+NON-NEGOTIABLE
+- Do not assume a provider is connected just because a key exists.
+- Do not assume a provider is NOT connected just because it’s not currently in use.
+- “Connected” = verified within TTL + last error not fatal.
+
+IMPLEMENTATION REQUIREMENTS
+
+A) Canonical Connection Resolver (server)
+Create a single source of truth function:
+resolveLiveStackStatus()
+
+It returns:
+{
+  marketData: {
+    primary: { providerId, configured, verified, connected, last_verified_at, last_used_at, proof_24h, missing_env_vars, error_code, suggested_fix },
+    backups: [ ...same shape... ]
+  },
+  execution: {
+    primary: { providerId, configured, verified, connected, ... },
+    backups: [ ... ]
+  },
+  llm: {
+    primary: { providerId, configured, verified, connected, ... },
+    fallbacks: [ ... ]
+  },
+  infra: { redis, queue, db, ... },
+  autonomyGates: {
+    system_status: OK|DEGRADED|BLOCKED,
+    autonomy_allowed: boolean,
+    blockers: [{ code, severity, reason_human, suggested_fix, trace_id }]
+  }
+}
+
+B) Priority Logic (no hardcoding per user)
+Define deterministic priority order (can be edited later, but must be explicit):
+- Market data primary priority: Databento → Polygon → Finnhub → AlphaVantage (if applicable)
+- Execution primary priority: Ironbeam → Tradovate (or whichever is already in code as execution)
+- LLM primary priority: OpenAI → Anthropic → Gemini → Groq → OpenRouter → xAI (based on configured+verified)
+
+Pick “primary” as the first provider in the priority list that is connected=true.
+Everything else becomes backup/fallback.
+
+C) Verification + TTL
+Implement verify checks per provider (already started):
+- verify result stored with timestamp
+- connected=true if verified within TTL (e.g., 15 minutes) and not failing
+- expose TTL + last error
+
+D) Proof-of-Use
+Instrument every integration call to emit integration_usage_events.
+System Status must show:
+- proof_of_use_count_24h per provider
+- last_used_by_bot_id
+- last_feature_used
+This is how the code “knows” what’s actually powering bots.
+
+E) UI
+Update System Status / Connections tab to show:
+- Live Stack Summary (Primary + Backups for Market Data / Execution / LLM)
+- Each item shows Configured / Verified / In Use
+- “Verify now” button
+- “Last used by bot” + count last 24h
+
+F) Acceptance Proof
+Provide 3 proofs:
+1) With only Databento configured: primary marketData=databento
+2) If Databento fails verify: auto-switch primary to polygon (if configured+verified)
+3) When bots run: proof_of_use_count_24h increments and last_used_at updates
+
+DELIVERABLES
+- /api/system/status includes resolveLiveStackStatus summary
+- /api/integrations/status includes the canonical fields
+- UI shows the live stack automatically
+Proceed now.

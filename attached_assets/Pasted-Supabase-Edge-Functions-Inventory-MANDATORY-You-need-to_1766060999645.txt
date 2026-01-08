@@ -1,0 +1,107 @@
+Supabase Edge Functions Inventory (MANDATORY)
+
+You need to give me a complete, explicit inventory of all Supabase Edge Functions that exist now or previously for this project.
+
+This is a blocking audit step. Do not summarize. Do not infer. Do not describe “likely” functions.
+
+REQUIRED OUTPUT (NO EXCEPTIONS)
+
+Filesystem inventory
+
+List the exact contents of:
+
+supabase/functions/
+
+
+For each subfolder, provide:
+
+Function name (folder name)
+
+Path to entry file (e.g. index.ts)
+
+Approximate LOC
+
+Last modified commit/hash (if available)
+
+Invocation inventory
+
+Search the entire repo and list every place that invokes an Edge Function:
+
+supabase.functions.invoke(...)
+
+fetch("https://*.functions.supabase.co/...")
+
+Any wrappers/utilities calling edge endpoints
+
+For each call site:
+
+File path
+
+Function name invoked
+
+Purpose of the call
+
+Whether it is still reachable in the current app flow
+
+Responsibility classification
+For each Edge Function, classify it as one of:
+
+EXECUTION CRITICAL (starts/stops bots, trades, jobs, risk, kill)
+
+STATE MUTATING (writes to bots, jobs, trades, accounts)
+
+SIDE EFFECT ONLY (webhooks, notifications, logging)
+
+DEAD / UNUSED
+
+Conflict analysis
+For each function, explicitly answer:
+
+Does this duplicate logic now implemented in Express?
+
+Does it mutate state that Express also controls?
+
+Could this cause split-brain behavior?
+
+Decision table
+Provide a table with:
+
+Function name
+
+Current status (ACTIVE / UNUSED / LEGACY)
+
+Required Supabase secrets (if any)
+
+Recommended action:
+
+KEEP (with justification)
+
+MIGRATE TO EXPRESS
+
+DELETE
+
+HARD CONSTRAINTS
+
+Do not assume Supabase is required unless a function is actively used.
+
+If any Edge Function is EXECUTION CRITICAL, flag it as SEV-1 ARCHITECTURE VIOLATION.
+
+If a function is unused, say DELETE explicitly.
+
+If you are unsure, mark it UNKNOWN and explain why.
+
+GOAL
+
+We are enforcing single-control-plane architecture.
+
+After this step, I will decide:
+
+Whether Supabase keys are needed at all
+
+Whether Edge Functions are removed entirely
+
+Whether anything must be migrated before production
+
+This output must be complete, auditable, and factual.
+
+Proceed.

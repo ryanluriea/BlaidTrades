@@ -1,0 +1,194 @@
+REPLIT — continue, but treat this as SEV-1: the autonomy loop is currently broken due to a schema mismatch. Do NOT pause at “frontend constraints” — you already started backend + schema work in this pass. Fix the backend/schema issue first, then resume Instrument Integrity + Provider Intelligence + badge restoration.
+
+===============================================================================
+SEV-1 FIX FIRST: Autonomy loop schema mismatch (autonomy_scores.score vs autonomy_score)
+===============================================================================
+SYMPTOM
+Console error: autonomy loop failing because DB column is `autonomy_score` but code inserts/reads `score`.
+IMPACT
+- No autonomy scoring
+- No promotion/demotion/graduation gating
+- Any “evolution” loop that depends on autonomy scores is unreliable
+
+REQUIRED FIX (choose one, implement cleanly, no hacks)
+Option A (preferred): Update code to match DB
+- Find all inserts/selects/updates referencing autonomy_scores.score
+- Replace with autonomy_scores.autonomy_score
+- Ensure Drizzle schema matches actual DB column name
+- Add a small migration ONLY if needed for consistency, but do not break existing data
+
+Option B: Migrate DB column to `score`
+- Add migration: rename column autonomy_score -> score
+- Update Drizzle schema accordingly
+- Verify existing rows preserved
+
+PROOF PACK
+- Show the exact failing query before fix (file + line)
+- Show the exact diff after fix
+- Run SQL:
+  - SELECT column_name FROM information_schema.columns WHERE table_name='autonomy_scores';
+  - SELECT COUNT(*) FROM autonomy_scores;
+- Run an autonomy tick and prove rows are written without error.
+- Emit activity_events: AUTONOMY_SCORE_COMPUTED (bot_id, score, trace_id)
+
+===============================================================================
+CONTINUE: Instrument Integrity (institutional-grade, hard assertions)
+===============================================================================
+GOAL
+Bots must backtest and trade ONLY using the instrument they are assigned, with correct tick size, point value, fees, and realistic fills. No fake prices, no wrong contract multipliers.
+
+1) Canonical InstrumentSpec (single source of truth)
+Add/confirm a canonical InstrumentSpec registry for:
+- ES, MES, NQ, MNQ (at minimum)
+Fields REQUIRED:
+- symbol, exchange
+- tickSize (price increment)
+- tickValue (USD per tick)
+- pointValue (USD per point)
+- contractMultiplier (if applicable)
+- commissionPerSide, exchangeFeesPerSide (configurable)
+- sessionHours (RTH/ETH) + timezone
+- minQty, maxQty, qtyStep
+- slippageModel defaults
+- priceValidation: min/max bounds + sanity checks
+
+2) Hard assertions (fail-closed)
+At start of EACH backtest run:
+- Assert bot.symbol exists in InstrumentSpec
+- Assert bar prices align to tickSize (within epsilon; if not, normalize or fail)
+- Assert computed PnL uses tickValue/pointValue correctly
+- Assert fills don’t violate minQty/qtyStep
+If any assertion fails:
+- Mark backtest FAILED
+- Emit activity_event BACKTEST_FAILED with error_code + suggested_fix + trace_id
+- Trip circuit breaker if repeated
+
+3) Correct PnL math (must be provable)
+For futures:
+- pnlUSD = (exitPrice - entryPrice) * pointValue * qty  (long)
+- Convert to ticks via tickSize when needed
+- Include fees:
+  - totalFees = (commissionPerSide + exchangeFeesPerSide) * 2 * qty * tradesCount
+- Save BOTH gross and net pnl fields
+
+4) Data price integrity
+When fetching historical bars (Databento primary):
+- Store source metadata: provider, dataset, schema, request params, trace_id
+- Add validation:
+  - monotonic timestamps
+  - no negative/zero prices
+  - realistic ranges for symbol
+- Record integration_usage_events for proof-of-use
+
+PROOF PACK
+- Add endpoint: GET /api/diagnostics/instrument-check?symbol=MNQ
+  returns computed spec + tick/point multipliers + example pnl calculation
+- Provide a sample backtest result JSON showing:
+  - symbol, tickSize, pointValue
+  - 3 trades with entry/exit + pnl breakdown
+  - gross_pnl, fees, net_pnl
+- Add one “sanity backtest” that uses a known move and confirm pnl matches expected ticks.
+
+===============================================================================
+CONTINUE: Provider Intelligence + Proof-of-Use (LLMs + market/news sources)
+===============================================================================
+GOAL
+Ryan must be able to see: which providers are configured, verified, used (proof counts), and failing — for BOTH market data + brokers + “intel sources” (news, unusual whales, LLMs).
+
+1) integrations/status must include:
+- configured, connected, last_verified_at
+- missing_env_vars
+- proof_of_use_count_1h / 24h
+- last_proof_at
+- error_code + suggested_fix
+
+2) Add “decision_sources” (or equivalent)
+Every bot decision/backtest should optionally log:
+- sources_used: [databento, polygon, unusual_whales, news, llm:openai, etc]
+- prompt/response hashes for LLM (NO raw secrets)
+- trace_id linkage
+
+3) UI visibility
+Add “Provider Activity” panel:
+- proof-of-use charts (counts)
+- last error per provider
+- last verification timestamp
+
+PROOF PACK
+- Run verify endpoints and show proof counts increment
+- Run 3 backtests and show databento proof counts increment (NOT only verify calls)
+
+===============================================================================
+CONTINUE: Restore Bot Status Badges (not just “Fresh”)
+===============================================================================
+GOAL
+Bots list must show operational NOW_STATE:
+- BACKTEST_QUEUED / BACKTESTING / BACKTEST_COMPLETE
+- EVOLVING
+- RUNNING / SCANNING / IN_POSITION
+- PROMOTING / DEMOTING / GRADUATING
+- DEGRADED / ERROR (yellow ! must be deterministic)
+
+1) Identify current “Fresh” source
+- Provide file + line where “Fresh” is rendered
+- Identify what field drives it
+
+2) Canonical now_state resolver
+Compute from:
+- bot_jobs (BACKTESTER/EVOLVER/RUNNER)
+- bot_instances state (if exists)
+- backtest_sessions status
+- last activity_events
+Resolver must be deterministic.
+
+3) Fix yellow “!” meaning
+No “Unknown”.
+Map it to a real state:
+- DEGRADED (e.g., last job failed, circuit breaker open, missing proof-of-use)
+Tooltip must show reason + trace_id.
+
+PROOF PACK
+- Screenshot or JSON evidence:
+  - 1 bot BACKTESTING
+  - 1 bot BACKTEST_QUEUED
+  - 1 bot EVOLVING (if enabled)
+  - 1 bot DEGRADED with explicit reason
+
+===============================================================================
+AUTONOMY LOOP: Generations + promotions/demotions/graduations (must be testable)
+===============================================================================
+REQUIREMENTS
+- After backtests complete, autonomy loop evaluates:
+  - minTrades
+  - net profitability
+  - max drawdown threshold
+  - stability score / risk score
+- Emits activity_events:
+  - AUTONOMY_EVAL_STARTED
+  - AUTONOMY_EVAL_COMPLETED (score + decision)
+  - PROMOTED / DEMOTED / GRADUATED
+- Writes bot fields:
+  - evolution_status
+  - tier/stage updates
+  - next_action + next_retry_at
+
+TEST HARNESS
+Add a deterministic “autonomy simulation” mode:
+- Can run against the 20 seeded bots
+- Produces a report of decisions and reasons
+- No randomness unless explicitly seeded
+
+PROOF PACK
+- Show at least 1 bot promoted (or explicitly blocked with reasons)
+- Show autonomy_scores rows populated correctly after schema fix
+
+===============================================================================
+DELIVERABLES (non-negotiable)
+===============================================================================
+1) Fix autonomy_scores schema mismatch first (proof included)
+2) List exact files changed
+3) Provide curl/SQL proofs for:
+   - integrations status + proof-of-use moving
+   - backtest completion with correct instrument math
+   - now_state badges showing in UI
+4) No hand-waving: every “works” claim needs an output snippet or screenshot evidence (redact secrets).

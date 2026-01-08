@@ -1,0 +1,42 @@
+STOP REBUILDING CONNECTIONS — FINISH THE KEY ENTRY + VERIFY + PROOF-OF-USE FLOW
+
+CONTEXT
+We already had connections coded in Lovable. I do NOT want a new parallel “connections system.”
+Your job is to port/confirm the existing wiring and then make it easy for me to enter keys securely and verify everything.
+
+NON-NEGOTIABLE SECURITY
+- Do NOT ask me to paste secrets into chat.
+- Do NOT store secrets in Postgres.
+- Do NOT log secrets.
+- Keys must live in ENV (Replit Secrets). UI may only display masked last-4.
+
+WHAT I NEED (INDUSTRY STANDARD)
+1) Single “Secrets Checklist” screen + popout in System Status → Connections:
+   - For each provider in our integration registry:
+     Provider | Required env vars | Optional env vars | Status: Not configured / Configured / Verified / Degraded
+   - Provide copyable env var NAMES and exact instructions:
+     “Go to Replit → Secrets → add: DATABENTO_API_KEY …”
+   - After I add secrets, I click “Verify” per provider.
+
+2) Verification:
+   - Implement/confirm POST /api/integrations/verify { provider }
+   - Response must include: { success, status, reason_code, reason_human, trace_id }
+   - Never return secret values.
+
+3) Proof-of-use (must be real):
+   - Ensure every provider call logs integration_usage_events with bot_id when applicable.
+   - Connections page must show:
+     proof_of_use_count_24h, last_used_at, last_used_by_bot_id, last_error_code, latency stats (if available).
+
+4) Autonomy gating:
+   - /api/system/status must clearly show BLOCKED/DEGRADED/OK and suggested fixes.
+   - Runner start/restart must fail-closed when required integrations are missing/unverified.
+
+DELIVERABLES
+A) Show me the exact list of env vars I need to set in Replit Secrets for:
+   Databento, Polygon, Ironbeam, Tradovate, OpenAI, Anthropic, Discord, Supabase
+B) Implement/confirm Verify buttons work and update status.
+C) Demonstrate proof-of-use: trigger a safe test call and show integration_usage_events row created + status updates.
+D) Do not create new connection tables unless absolutely necessary—reuse existing models/endpoints.
+
+Proceed now. No new architecture. Finish the “keys → verify → proof → gates” pipeline.

@@ -1,0 +1,97 @@
+Proceed WITHOUT further questions. Full implementation path:
+
+0) Branching: Continue backend work on the CURRENT BRANCH. Do NOT attempt to create/switch branches (we hit push/workflow restrictions). Just keep backend-only changes confined to server/** + shared/** + docs/**. Do NOT touch client/** in this pass.
+
+PRIORITY ORDER (DO IN THIS ORDER):
+1) SAFE-START + FAIL-CLOSED ERROR CODES (HIGHEST PRIORITY)
+Implement hard, server-authoritative safe-start checks in:
+- POST /api/runners/start
+- POST /api/runners/restart
+
+Required checks + exact error codes:
+- If required integration env var(s) missing for the bot’s configured providers:
+  -> 409 + { error_code: "INTEGRATION_KEY_MISSING", provider, missing_env_vars: [], suggested_fix, trace_id }
+- If provider verify fails / provider status not healthy:
+  -> 503 + { error_code: "DATA_UNAVAILABLE", provider, diagnostics: [], suggested_fix, trace_id }
+- If LIVE and bot.is_trading_enabled !== true:
+  -> 403 + { error_code: "LIVE_TRADING_DISABLED", trace_id }
+- If bot killed:
+  -> 403 + { error_code: "BOT_KILLED", trace_id }
+- If autonomy is BLOCKED by system gates:
+  -> 409 + { error_code: "AUTONOMY_BLOCKED", blockers: [], trace_id }
+
+These must be fail-closed. No “best effort”. No starting runners if anything required is missing.
+
+2) INTEGRATION REGISTRY MODEL (CANONICAL)
+Add a canonical integration registry (server-owned, not UI):
+- Provide a registry map in code (or DB table if you already have one, but code is fine for v1):
+  provider -> { category, required_env_vars[], optional_env_vars[], supports_verify, supports_proof_of_use }
+- This registry is the single source of truth for configured/connected logic.
+
+3) ENHANCED /api/integrations/status (CANONICAL OBSERVATORY FIELDS)
+Update GET /api/integrations/status to return, per provider:
+{
+  provider,
+  category,
+  configured: boolean,
+  connected: boolean,
+  last_verified_at,
+  last_used_at,
+  last_used_by_bot_id,
+  proof_of_use_count_24h,
+  degraded: boolean,
+  error_code,
+  message,
+  trace_id
+}
+
+Implementation notes:
+- configured = all required env vars present (from registry)
+- connected = verify() passes (no secrets leaked)
+- last_used_at / last_used_by_bot_id / proof_of_use_count_24h MUST come from integration_usage_events (no fake data)
+- degraded=true if configured but verify fails OR telemetry shows repeated failures
+
+4) ENHANCED /api/system/status (BLOCKED/DEGRADED/OK WITH FIXES)
+Update GET /api/system/status to include:
+- autonomy tier counts from autonomy_scores:
+  tier_counts: { LOCKED, SUPERVISED, LIMITED_AUTONOMY, FULL_AUTONOMY }
+- blockers array items MUST include:
+  { code, message, severity, related_provider?, suggested_fix?, trace_id }
+- Use the integration registry + integrations/status results to create blockers like:
+  INTEGRATION_KEY_MISSING (provider + missing vars + suggested_fix)
+  DATA_UNAVAILABLE (provider verify failed)
+  SUPERVISOR_LOOP_INACTIVE
+  TIMEOUT_WORKER_INACTIVE
+  RISK_ENGINE_DISCONNECTED (if still true)
+
+5) ACCEPTANCE TEST EVIDENCE (REQUIRED DELIVERABLE)
+Produce a written verification report with hard evidence (commands + outputs + timestamps + trace_ids) for:
+A) Unset a required env var -> system_status BLOCKED with INTEGRATION_KEY_MISSING
+B) Force verify failure -> /api/integrations/status shows connected=false, degraded=true, DATA_UNAVAILABLE
+C) Start runner while blocked -> start denied with AUTONOMY_BLOCKED + blockers list
+D) Proof-of-use increments:
+   - trigger one real provider call in codepath OR simulate a call through the same helper that logs usage
+   - show integration_usage_events count increases and last_used_at updates
+E) Show /api/system/status includes tier_counts (even if zeros) and suggested_fix strings
+
+DOCS / OUTPUTS:
+- Update FINAL_ACCEPTANCE_GATE.md with:
+  - “What was implemented”
+  - “What remains (UI-only)”
+  - Evidence section with trace_ids
+- Update replit.md autonomy checklist to mark these items completed.
+
+UI CHANGES:
+Defer UI entirely for now. Do NOT touch ui-lovable branch. We will do a separate UI pass after backend is unquestionably correct and acceptance evidence is complete.
+
+IMPORTANT:
+- Do not ask me to confirm branch choices again.
+- Do not add new tables unless absolutely necessary.
+- No placeholders, no hardcoded “connected: true”, no fake proof-of-use.
+- All responses must include trace_id.
+
+Proceed now in the priority order above and post back with:
+1) list of files changed
+2) endpoints changed
+3) acceptance test evidence (copy/paste outputs)
+4) any blockers you hit.

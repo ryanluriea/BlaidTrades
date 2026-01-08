@@ -1,0 +1,185 @@
+🚨 SEV-0 / INSTITUTIONAL BLOCKER  
+MAKE STRATEGY USAGE PROVABLE (NO LABELING, NO FALLTHROUGH, NO ASSUMPTIONS)
+
+GOAL  
+Guarantee — and PROVE — that every bot is actually executing the strategy it claims to run (e.g. GAP_FADE, RANGE_SCALP, VWAP, etc.).  
+This must be fail-closed, auditable, and visible on the bot row.
+
+This is NOT about UI labels.  
+This is about execution truth + institutional auditability.
+
+────────────────────────────────────────
+PART A — CANONICAL STRATEGY TYPE SYSTEM
+────────────────────────────────────────
+
+1) SINGLE SOURCE OF TRUTH (MANDATORY)
+
+Create/confirm a shared canonical strategy type file (example):
+shared/strategy-types.ts
+
+It must include:
+
+- enum EntryConditionType  
+  (GAP_FADE, GAP_FILL, RANGE_SCALP, BREAKOUT, VWAP, TREND, REVERSAL, etc.)
+
+- enum StrategyArchetype  
+  (gap_fade, range_scalp, vwap_pullback, momentum_surge, etc.)
+
+- ARCHETYPE_TO_ENTRY_CONDITION mapping  
+  (ONE and ONLY ONE mapping path)
+
+- normalizeArchetype(input: string): StrategyArchetype  
+  → handles aliases, casing, spacing, prefixes (MES_, MNQ_, etc.)
+
+- assertNever(x: never): never  
+  → compile-time exhaustiveness guard
+
+❗ REQUIREMENT  
+Any unknown archetype MUST throw / fail — no default mapping, no fallback.
+
+────────────────────────────────────────
+PART B — FACTORY EXHAUSTIVENESS (RULES)
+────────────────────────────────────────
+
+2) RULE CREATION MUST BE EXHAUSTIVE
+
+In createStrategyRules():
+
+- Switch on EntryConditionType
+- Every case implemented explicitly
+- default → assertNever()
+
+The rules object MUST embed:
+- rules.entryConditionType
+- rules.archetype
+- rules.rulesHash (deterministic hash of full rules object)
+- rules.rulesSummary (human readable, entry/exit/risk/session rules)
+
+❗ If a strategy exists in mapping but has no factory case → build must fail.
+
+────────────────────────────────────────
+PART C — EXECUTOR FAIL-CLOSED (CRITICAL)
+────────────────────────────────────────
+
+3) BACKTEST + LIVE EXECUTOR MUST BE EXHAUSTIVE
+
+In backtest executor (and live executor if present):
+
+- Switch on rules.entryConditionType
+- Every type implemented explicitly
+- default → assertNever()
+
+❗ NO silent fallback behavior  
+❗ NO “generic” execution path  
+❗ If executor receives unknown/unhandled type → FAIL JOB
+
+If execution fails:
+- backtest_session.status = FAILED
+- reasonCode = STRATEGY_EXECUTION_MISMATCH
+
+────────────────────────────────────────
+PART D — PROVENANCE / ATTESTATION (PROOF)
+────────────────────────────────────────
+
+4) STORE EXECUTION PROOF PER BACKTEST
+
+Each backtest_session MUST store:
+
+- expected_entry_condition   (from canonical mapping)
+- actual_entry_condition     (what executor actually used)
+- rules_hash
+- rules_summary
+- data_source (REAL_DATABENTO / SIMULATED)
+- data_provider
+- bar_count
+- start_ts / end_ts
+
+FAIL-CLOSED RULE:
+If expected_entry_condition !== actual_entry_condition  
+→ FAIL the backtest with STRATEGY_PROVENANCE_VIOLATION
+
+────────────────────────────────────────
+PART E — TRADE-LEVEL CONFIRMATION
+────────────────────────────────────────
+
+5) TRADE LOGS MUST CONFIRM STRATEGY
+
+Each trade record MUST include:
+- entry_reason_code  
+  (e.g. ENTRY_GAP_FADE, ENTRY_RANGE_SCALP, ENTRY_VWAP)
+
+This ensures trades themselves confirm the strategy path.
+
+────────────────────────────────────────
+PART F — BOT ROW PROOF (UI)
+────────────────────────────────────────
+
+6) STRATEGY VERIFICATION BADGE (NO FLUFF)
+
+On the bot row show:
+
+- Strategy Name (e.g. “Gap Fade”)
+- Entry Condition (GAP_FADE)
+- Verification Badge:
+  🟢 VERIFIED — expected == actual
+  🟠 MISMATCH — executor mismatch detected
+  🔴 ERROR — unknown archetype / fail-closed
+
+Tooltip MUST show:
+- expected_entry_condition
+- actual_entry_condition
+- rules_hash
+- last_backtest_id
+
+NO badge if bot has never run a backtest.
+
+────────────────────────────────────────
+PART G — ACCEPTANCE CRITERIA (NON-NEGOTIABLE)
+────────────────────────────────────────
+
+This is DONE only when you can show:
+
+1) A GAP_FADE bot:
+   - rules.entryConditionType = GAP_FADE
+   - executor path = GAP_FADE
+   - trade_logs.entry_reason_code = ENTRY_GAP_FADE
+
+2) A RANGE_SCALP bot:
+   - rules.entryConditionType = RANGE_SCALP
+   - executor path = RANGE_SCALP
+   - trade_logs.entry_reason_code = ENTRY_RANGE_SCALP
+
+3) A forced failure case:
+   - Unknown archetype → backtest FAILS
+   - Error surfaced in UI + logs
+
+4) SQL PROOF:
+   SELECT id, expected_entry_condition, actual_entry_condition, rules_hash
+   FROM backtest_sessions
+   ORDER BY created_at DESC
+   LIMIT 10;
+
+5) UI PROOF:
+   Screenshot showing VERIFIED badge backed by provenance fields.
+
+────────────────────────────────────────
+IMPORTANT
+────────────────────────────────────────
+
+• Mapping ≠ execution  
+• Labels ≠ proof  
+• UI ≠ truth  
+
+This system must be able to survive:
+- audits
+- handoff to another engineer
+- “prove it” questions months later
+
+No silent defaults.  
+No unreachable code.  
+No guessing.
+
+If this is implemented correctly, you will NEVER again wonder:
+“Is this bot actually using the strategy it says it is?”
+
+Ship this exactly.

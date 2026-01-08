@@ -1,0 +1,295 @@
+MEGA ADD-ON PROMPT — STRATEGY LAB ↔ LAB CLOSED-LOOP AUTONOMY
+(BlaidAgent / No new pages / Real data only)
+
+CONTEXT (DO NOT RE-EXPLAIN BACK TO USER):
+The platform already operates as a fully autonomous system. Strategy Lab and LAB are distinct but tightly coupled. Strategy Lab performs research, ideation, evolution, explanation, and replacement. LAB performs execution, validation, degradation detection, and promotion eligibility. The only manual action in the entire platform is user confirmation for Live promotion.
+
+This prompt adds missing intelligence, safeguards, thresholds, and closed-loop behavior. Do NOT introduce mock data, placeholders, fake metrics, demo flows, or user prompts.
+
+=====================================================
+A. STRATEGY LAB ↔ LAB CLOSED-LOOP FEEDBACK SYSTEM
+=====================================================
+
+Implement a fully autonomous, bi-directional strategy lifecycle loop.
+
+1. Strategy Lab → LAB
+   - Strategy Lab generates Strategy Candidates using:
+     • Perplexity deep research
+     • Internal historical LAB outcomes
+     • Regime-aware hypothesis generation
+   - Each Strategy Candidate is packaged into a formal executable strategy spec:
+     • Entry logic
+     • Exit logic
+     • Invalidation logic
+     • Regime assumptions
+     • Risk envelope
+     • Expected frequency
+   - “Send to LAB”:
+     • Instantiates one or more LAB bots
+     • Uses real market data only
+     • Assigns micro/mini based on confidence + risk
+     • Applies LAB relaxation rules when applicable
+     • Tracks lineage (strategy_id, generation, parent_id)
+
+2. LAB → Strategy Lab (Automatic Recycling)
+   LAB continuously evaluates LAB bots and may recycle ONLY after evaluation criteria are met (see Section H).
+
+   Recycling triggers (post-evaluation only):
+     • Sharpe below locked threshold
+     • Max drawdown breach
+     • Regime mismatch persistence
+     • Entry logic underperforming expectation
+     • Exit logic bleeding expectancy
+     • Volatility or liquidity mismatch
+     • Bot marked Degraded or Stalled
+     • SLA breach or inactivity beyond tolerance
+
+   Recycling action:
+     • Extract full strategy config
+     • Attach performance diagnostics
+     • Attach failure classification
+     • Attach regime context
+     • Send to Strategy Lab as Rework Candidate
+
+   This process requires NO user input.
+
+=====================================================
+B. STRATEGY LAB REWORK INTELLIGENCE
+=====================================================
+
+Upon receiving a Rework Candidate:
+
+1. Automatically classify failure:
+   - Structural logic flaw
+   - Timing inefficiency
+   - Risk miscalibration
+   - Regime misalignment
+   - Execution inefficiency
+   - Liquidity/volatility mismatch
+
+2. Trigger targeted Perplexity deep research:
+   - Pull academic, institutional, and market-structure sources
+   - Prioritize:
+     • Current regime relevance
+     • Non-obvious edges
+     • Underexplored mechanics
+   - Escalate depth when:
+     • Multiple bots fail similarly
+     • Regime shift detected
+     • Confidence slope degrades
+
+3. Output exactly one:
+   - Tweaked variant (parameter or logic refinement)
+   - Forked alternative (same thesis, different mechanics)
+   - Replacement strategy (new thesis)
+   - Explicit kill recommendation
+
+All outcomes:
+   • Preserve lineage
+   • Update confidence scoring
+   • Eligible for re-deployment automatically
+
+=====================================================
+C. PERPLEXITY RESEARCH SYSTEM (DEEPER)
+=====================================================
+
+Implement tiered research modes:
+
+1. Continuous Scan
+   - Always on
+   - Low-cost discovery
+   - Tracks emerging edges
+
+2. Focused Burst
+   - Triggered by degradation clusters or regime shifts
+   - Medium-depth research
+
+3. Frontier Mode
+   - Long-horizon research
+   - Novel mechanics
+   - Cross-asset or structural inefficiencies
+   - Generates never-before-tested strategies
+
+4. Regime-Switch Triggers
+   Automatically escalate research depth when:
+     • Volatility regime changes
+     • Liquidity profile shifts
+     • Session behavior deviates materially
+
+=====================================================
+D. CONFIDENCE SCORING — FORMAL MATH
+=====================================================
+
+Confidence Score ∈ [0, 100]
+
+Confidence = weighted sum:
+
+1. Research Confidence (30%)
+   - Citation quality
+   - Consensus strength
+   - Novelty bonus/penalty
+   - Regime alignment
+
+2. Structural Soundness (25%)
+   - Logical completeness
+   - Entry/exit symmetry
+   - Invalidation clarity
+   - Parameter stability
+
+3. Historical Validation (30%)
+   - LAB outcomes
+   - Win rate stability
+   - Drawdown profile
+   - Sample sufficiency
+
+4. Regime Robustness (15%)
+   - Cross-regime performance
+   - Sensitivity to volatility/liquidity
+
+Confidence tiers:
+   • Tier A: 80–100
+   • Tier B: 60–79
+   • Tier C: 40–59
+   • Tier D: <40 (do not deploy)
+
+Confidence:
+   • Updates dynamically
+   • Is fully explainable
+   • Controls contract sizing and LAB priority
+
+=====================================================
+E. “WHY THIS STRATEGY EXISTS” EXPLAINER
+=====================================================
+
+Each Strategy Candidate MUST include:
+   • Targeted inefficiency
+   • Why it exists now
+   • Regime specificity
+   • Why alternatives fail
+   • Research citations
+   • Explicit falsification conditions
+
+This is a research memo, not marketing.
+
+=====================================================
+F. STRATEGY LAB UI (NO NEW PAGES)
+=====================================================
+
+1. LIST VIEW ONLY
+   - Vertical list
+   - Infinite scroll
+   - Real-time updates
+   - No grid layouts
+
+2. TWO-TAB SYSTEM
+   Tab 1: Strategy Candidates
+     • New
+     • Reworked
+     • Awaiting LAB
+   Tab 2: In LAB
+     • Actively validating strategies
+     • Linked to LAB bots
+     • Shows degradation / recycle state
+
+3. STRATEGY CANDIDATE CARD CONTENT
+   • Name
+   • Confidence score + tier
+   • Expected win rate
+   • R:R
+   • Frequency
+   • Risk
+   • Regime tag
+   • Intent
+   • Entry / Exit / Invalidation
+   • Confidence breakdown (expand)
+   • “Why this strategy exists”
+   • Lineage (v1 → v2 → v3)
+
+4. ACTIONS
+   • Send to LAB
+   • In LAB (disabled)
+   • Read-only drill-in
+
+5. PLUS BUTTON (TOP RIGHT)
+   • Creates custom research session only
+   • Does NOT pause autonomy
+   • No required configuration to run autonomy
+
+=====================================================
+G. AUTONOMY GUARANTEES
+=====================================================
+
+- Strategy Lab runs continuously
+- LAB recycles automatically
+- No user prompts
+- No babysitting
+- No mock data
+- Real executions only
+
+=====================================================
+H. LAB FAIRNESS + RECYCLE LOCKS
+=====================================================
+
+LAB bots MUST complete a minimum evaluation contract before recycling:
+
+Minimums (locked by strategy class):
+   • Scalping: ≥ 75 trades
+   • Intraday: ≥ 40 trades
+   • Swing: ≥ 20 trades
+   • Must experience ≥ 2 regime states
+   • Must pass minimum bar exposure
+
+Before thresholds:
+   • Recycling disabled
+   • Confidence decay limited
+   • Only catastrophic failures interrupt
+
+=====================================================
+I. KILL vs TWEAK vs REPLACE RULES
+=====================================================
+
+After evaluation window:
+
+KILL:
+   • Structural flaw
+   • Negative expectancy across regimes
+   • Fails twice after rework
+
+TWEAK:
+   • Entry/exit imbalance
+   • Risk miscalibration
+   • Timing inefficiency
+
+REPLACE:
+   • Thesis invalidated
+   • Regime permanently hostile
+   • Better alternative discovered
+
+=====================================================
+J. LIVE PROMOTION GATES
+=====================================================
+
+Eligibility requires:
+   • Tier A confidence
+   • Stable expectancy
+   • Drawdown within limits
+   • No degradation flags
+   • Multi-regime validation
+
+Only final Live confirmation is manual.
+
+=====================================================
+FINAL REQUIREMENT
+=====================================================
+
+Result must be:
+- A living research → execution → learning loop
+- Strategies improving over time
+- LAB bots feeding intelligence upstream
+- Clear lineage, confidence, explainability
+- Institutional-grade autonomy
+
+No new pages.
+No fake data.
+No broken flows.
+Extend the existing system only.

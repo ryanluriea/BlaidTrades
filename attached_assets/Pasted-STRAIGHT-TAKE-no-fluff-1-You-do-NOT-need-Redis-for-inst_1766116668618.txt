@@ -1,0 +1,90 @@
+STRAIGHT TAKE (no fluff):
+
+1) You do NOT need Redis for “institutional readiness” of trading logic.
+Redis is NOT a prerequisite for:
+- correct fills / PnL math
+- instrument integrity
+- runner state correctness
+- broker + market data verification
+- autonomy gates
+- backtest diagnostics
+
+Those are all DB + services + deterministic code paths. Redis is an accelerator, not a foundation.
+
+2) But you DO need Redis if you built features that assume it exists.
+Redis becomes “required” only if you’re using it for any of these production-grade controls:
+- rate limiting / abuse protection (especially AI + external APIs)
+- job queue / distributed locks (prevent double-running bots)
+- dedupe keys (no duplicate orders)
+- hot caching (bars/news/LLM responses) to control cost + latency
+- pubsub / live event fanout (fast UI updates without polling)
+
+If your code uses Redis for locks/queues/dedupe and silently falls back, that can be NON-institutional (because you can get duplicates). If Redis is truly “optional,” you must prove you don’t use it for correctness—only performance.
+
+3) Why you’re seeing WRONGPASS even though you “know” the creds are right:
+99% of the time it’s ONE of these:
+A) ACL username mismatch (case-sensitive, “blaidagent” ≠ “BlaidAgent”)
+B) Password contains special chars and MUST be URL-encoded in the URL
+   - your password has “*”
+   - in a URI, “*” can behave weird depending on parser
+   - encode it: iamRYNO92%2A
+C) TLS mismatch (Redis Cloud commonly expects TLS / rediss://)
+D) You’re pointing at the wrong DB endpoint/port (Cloud instance moved/rotated)
+E) Redis Cloud uses “default” user unless you explicitly created “blaidagent”
+F) You copied an API key (management API) thinking it’s the DB password (different things)
+
+4) Your Redis Cloud Management API link + API key does NOT help the app connect to Redis.
+That API key is for provisioning/admin (create DBs, rotate creds, etc.).
+The runtime app connects using REDIS_URL only.
+
+========================================
+WHAT I’D DO (institutional, clean, no guessing)
+========================================
+
+A) Decide the policy (pick ONE):
+Option 1 — Redis Optional (performance only)
+- Keep system running DEGRADED when Redis is down
+- PROVE no locks/queues/dedupe depend on Redis
+- Ensure ALL correctness paths rely on Postgres transactions + unique constraints
+- Redis used only for caching + UI niceties
+
+Option 2 — Redis Required (correctness + scale)
+- Redis DOWN => system_status = BLOCKED for PAPER+ (because duplicates/locks can fail)
+- You treat Redis as production infrastructure, not optional
+
+My recommendation for you right now:
+Go with Option 1 temporarily so you can ship stable trading correctness first.
+Then upgrade to Option 2 once you’re using Redis for real distributed locking.
+
+B) Fix Redis auth the right way (fast checklist)
+1) Update REDIS_URL to URL-encode the password:
+   redis://blaidagent:iamRYNO92%2A@redis-14883.c11.us-east-1-3.ec2.cloud.redislabs.com:14883
+
+2) Try with default user:
+   redis://default:iamRYNO92%2A@redis-14883.c11.us-east-1-3.ec2.cloud.redislabs.com:14883
+
+3) If your provider requires TLS, use:
+   rediss://default:iamRYNO92%2A@redis-14883.c11.us-east-1-3.ec2.cloud.redislabs.com:14883
+
+4) If Redis Cloud UI shows “TLS port”, use THAT port for rediss://
+
+C) Add “Redis Truth” proof endpoint (so you never argue with vibes again)
+- /api/_debug/redis should return:
+  { ok, authModeDetected, isTls, endpointHost, endpointPort, errorCode, errorMessage }
+- plus a 2s timeout so it never hangs
+
+========================================
+YOUR “WTF MAN DO WE NEED REDIS??” ANSWER
+========================================
+No, you don’t need Redis to be institutionally correct.
+You only need Redis to be institutionally fast + scalable OR if you chose to rely on it for locking/queues/dedupe.
+
+If you want “institutional standard,” the standard is:
+- correctness does NOT depend on Redis
+- availability of Redis improves performance, not truth
+- OR, if Redis is used for locks, then it is treated as required infra with hard fail-closed.
+
+If you want, I’ll write the exact enforcement rules:
+- which subsystems can run when Redis = DOWN
+- which must hard-stop
+- what to store in Postgres to prevent duplicates even without Redis

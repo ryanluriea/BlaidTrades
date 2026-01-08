@@ -1,0 +1,187 @@
+Replit — thanks. This proof pack is a GOOD start, but it also exposes 3 red-flag “not institutional” issues that must be fixed before we can call this production-ready:
+
+1) PROMOTION / STAGE GATE VIOLATION (SEV-1)
+- You promoted bots to PAPER while broker is degraded/connected=false.
+- PAPER may be “paper sim only”, but then it MUST NOT be treated like an execution-ready stage.
+Fix required: enforce stage gating rules and/or split PAPER into:
+  - PAPER_SIM (no broker required)
+  - PAPER_EXEC (broker required + verified)
+
+2) BACKTEST DRAWDOWN IS BROKEN (SEV-1)
+- max_drawdown_pct = 0% for many sessions is not believable with 40–90 trades.
+This means you’re either not tracking equity curve intrabar / per-trade, or you’re computing DD incorrectly.
+Fix required: compute drawdown from an equity curve series (trade-by-trade at minimum; bar-by-bar if possible).
+
+3) AUTONOMY SCORING TOO LENIENT / NOT MULTI-DIMENSIONAL (SEV-1)
+- “95–100 FULL_AUTONOMY” across almost all bots is not realistic. This implies either:
+  - scoring uses only “profit + trades >= threshold”
+  - missing penalty dimensions (dd, variance, regime robustness, costs, slippage, sample size, stability)
+
+Also: “using full history” and “everything at their disposal” is NOT proven yet. We need evidence of:
+- what date ranges are sampled
+- how windows are chosen
+- whether results are out-of-sample
+- whether it’s using correct instrument specs (tick size / point value)
+- whether costs/slippage are applied
+- what optional intel sources (news/UnusualWhales/LLMs) are actually invoked and logged
+
+====================================================================
+WHAT I WANT YOU TO DO NEXT (YES — IMPLEMENT STRICTER GATES NOW)
+====================================================================
+
+A) HARD GATES + STAGE MODEL (NO MORE SILENT PROMOTIONS)
+1) Define stage invariants:
+
+LAB:
+- Allowed: backtest only
+- Requires: market data configured=true (Databento), can be unverified if historical pulls succeed
+- Broker: NOT required
+
+PAPER_SIM:
+- Allowed: simulated execution (NO broker)
+- Requires: market data verified OR proof_of_use_count_24h > 0
+- Broker: NOT required
+- UI must label clearly: “Paper (Sim)”
+
+PAPER_EXEC (optional, future):
+- Allowed: paper via broker integration (if supported)
+- Requires: broker configured=true AND connected=true AND verified within 24h
+- If not met: cannot enter PAPER_EXEC (stay PAPER_SIM)
+
+CANARY/LIVE:
+- Requires: broker verified + risk engine OK + all critical gates OK
+
+2) Update autonomy loop:
+- Promotions from LAB can only go to PAPER_SIM, never execution stages.
+- Promotions require:
+  - last_backtest_at not null
+  - sim_total_trades >= 50 (raise from 20; 20 is too small)
+  - max_drawdown_pct computed and <= threshold
+  - costs/slippage applied (see section C)
+  - stability checks (see section D)
+
+3) Emit an auditable event for every decision:
+Event type (use existing enum if needed):
+- AUTONOMY_TIER_CHANGED
+Metadata MUST include:
+- decision: PROMOTE/DEMOTE/HOLD/BLOCKED
+- prev_stage -> new_stage
+- prev_tier -> new_tier
+- reasons[] (codes)
+- trace_id
+- inputs snapshot: trades, pnl, max_dd, sharpe (if present), last_backtest_at, provider_proof_count_24h, broker_connected, etc.
+
+B) FIX DRAWDOWN (INSTITUTIONAL EQUITY CURVE)
+Implement drawdown from equity curve:
+
+- Track equity after each closed trade:
+  equity[i] = equity[i-1] + realized_pnl_trade_i
+- peak[i] = max(peak[i-1], equity[i])
+- dd[i] = (peak[i] - equity[i]) / peak[i]
+- max_dd = max(dd)
+
+Store:
+- max_drawdown_pct
+- equity_curve_points (optional compressed array)
+- dd_curve_points (optional)
+
+Also confirm:
+- if a strategy is always profitable trade-by-trade, dd could be ~0, but across 40–90 trades in real markets that’s rare.
+So: validate with a debug endpoint:
+- /api/backtests/:id/diagnostics returning:
+  trades_count, number_of_losers, biggest_loser, equity_curve_sample, computed_max_dd
+
+C) INSTRUMENT INTEGRITY (NO FAKE PRICES / CORRECT FUTURES PNL)
+For MES/MNQ at minimum, enforce InstrumentSpec:
+
+- symbol (MNQ, MES)
+- tick_size
+- tick_value (or point_value)
+- contract_multiplier
+- price_precision
+- min_price_increment
+- fees_per_contract_roundtrip (config)
+- slippage_ticks_default (config)
+
+Hard assertions during backtest:
+- price % tick_size == 0 (within epsilon)
+- fills use bid/ask model or mid+slippage model (documented)
+- realized_pnl = (exit - entry) * point_value * qty - fees - slippage_cost
+
+Add:
+- /api/diagnostics/instrument-check?symbol=MNQ
+returns spec + live/historical sample prices + validation results.
+
+D) “FULL HISTORY” + OUT-OF-SAMPLE (ROBUSTNESS)
+Right now we only see “33 databento historical_bars OK” which is not enough to claim robust sampling.
+
+Implement institutional backtest sampling:
+- Baseline: 2 years of 1m bars (or configurable)
+- Multiple randomized windows per bot (e.g., 20 windows):
+  - window_length_days = 30–60
+  - start_date randomized across full range
+- Walk-forward:
+  - train_window + test_window (OOS)
+  - score uses OOS primarily, train as secondary
+
+Persist in backtest_sessions:
+- data_start, data_end
+- sampling_method: RANDOM_WINDOWS / WALK_FORWARD
+- seed used (for reproducibility)
+
+E) “USING EVERYTHING AT THEIR DISPOSAL” (PROVIDER INTELLIGENCE)
+Right now the only proven usage is Databento historical bars.
+If UnusualWhales/news/LLMs are supposed to improve profitability, you need an auditable “Decision Source” ledger:
+
+Create decision_sources (or reuse existing) rows when bots call:
+- LLM (model name, tokens, latency, outcome)
+- UnusualWhales (endpoint, ok/error)
+- News provider (symbol, count)
+- Any signal source
+
+Then expose:
+- GET /api/providers/usage (last 24h)
+- GET /api/bots/:id/decision-sources (last N)
+
+This answers “what are my AI connections doing” with evidence.
+
+F) UI: BOT BADGES MUST REFLECT TRUE STATE (NOT JUST “Fresh”)
+Implement a deterministic “Now State” resolver that looks at:
+- latest bot_job (RUNNER/BACKTESTER/EVOLVER)
+- latest backtest_session status
+- last activity event type
+Then show badges:
+- Backtesting / Queued / Evolving / Paper Sim Running / Blocked (with tooltip reason)
+and remove “Unknown !” entirely.
+
+====================================================================
+ANSWERING YOUR QUESTIONS DIRECTLY
+====================================================================
+
+“Are they using full history of Databento?”
+- Not proven yet. Add persistence of data_start/data_end + sampling_method + seed, and show it in UI + API.
+
+“How can drawdowns be 0%?”
+- Either the equity curve/DD computation is missing/buggy, or the sim is unrealistically smooth (no losers, no slippage/fees, or incorrect PnL math). Fix DD as above and add diagnostics: number_of_losers + biggest_loser.
+
+“Are they using everything at their disposal?”
+- Not proven. Build Decision Source ledger + provider usage endpoints and show proof-of-use per source.
+
+“Is it institutionally ready?”
+- Not yet. With the three SEV-1 fixes (gates + drawdown + scoring) plus instrument integrity + sampling + provider ledger, we can get there.
+
+====================================================================
+DO THIS NEXT (TASK LIST ORDER)
+====================================================================
+1) Stage model + strict gates (LAB → PAPER_SIM only) + auditable decision event
+2) Fix drawdown with equity curve + diagnostics endpoint
+3) InstrumentSpec + assertions + correct futures PnL math + instrument-check endpoint
+4) Backtest sampling (random windows + walk-forward) + persist data ranges/seed
+5) Provider intelligence ledger (LLM/news/UW usage) + status endpoints
+6) Restore bot now-state badges in UI from jobs/backtests/events
+
+Yes — implement the stricter promotion gates now, starting with “PAPER_SIM vs PAPER_EXEC” and the drawdown fix. After that, we re-run the proof pack and confirm:
+- broker degraded no longer allows exec stages
+- max_dd is non-zero and credible
+- autonomy scores have spread (not all 95–100)
+- backtests show explicit date ranges and sampling method

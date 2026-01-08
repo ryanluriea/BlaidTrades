@@ -1,0 +1,53 @@
+ADD-ON (straight take you can send back):
+
+This reply is MOSTLY fine, but it’s missing 3 “institutional-grade” requirements that will keep biting you:
+
+1) “Redis optional” must be PROVEN, not asserted.
+Saying “only used in 3 places” is not enough unless we’ve verified:
+- there is no middleware / shared helper importing redis client (rate limiter, cache wrapper, LLM throttle)
+- no background workers use redis (scheduler, autonomy loop, runners)
+- no websocket/pubsub layer relies on redis
+
+What I want as proof:
+- repo-wide grep proof:
+  - grep -R "redis" server/ shared/ client/ (and show results)
+  - grep -R "rateLimit|throttle|cache|dedupe|lock" and show if redis is referenced
+- plus a runtime proof:
+  - run the app with REDIS_URL unset and confirm:
+    - bots can still backtest
+    - bots can still paper execute
+    - autonomy loop still scores/promotes
+    - no duplicate order execution happens
+
+2) DEGRADED must not “mask” real problems.
+Right now “DEGRADED because Redis” is acceptable ONLY if:
+- System Health UI clearly labels Redis as OPTIONAL
+- Readiness gate does NOT block LAB/PAPER/SHADOW due to Redis
+- Smoke test output separates:
+  - Critical (DB, Market Data, Broker, Order Router)
+  - Optional (Redis, News, UnusualWhales, AI extras)
+Otherwise you’ll keep seeing scary warnings and not know what matters.
+
+3) The Redis auth conclusion is not fully justified.
+It’s possible creds are correct but the URL format is still wrong. The reply should include:
+- try rediss:// + correct TLS port (Redis Cloud often requires TLS)
+- try default user or “:password@host” auth (many DBs don’t have your custom ACL user)
+- confirm whether you even created ACL user “blaidagent” in Redis Cloud
+- confirm the endpoint/port matches the DB’s “Public endpoint” in Redis Cloud
+These checks are fast and prevent blaming the password prematurely.
+
+What I would tell you to do next (institutional checklist):
+A) Update System Health labels:
+   Redis = OPTIONAL_CACHE
+   Don’t show “BLOCKED” for Redis missing.
+B) Add “Critical vs Optional” grouping in /api/smoke-test and UI.
+C) Add a single “Redis connection recipe” in Settings:
+   - show expected URL format(s)
+   - include URL-encoding helper for special chars
+D) Run the “Redis OFF” acceptance test suite and save it as a Proof Pack.
+
+If you want, I’ll write the exact prompt to force Replit to:
+- produce grep proofs
+- implement Critical/Optional categorization
+- update the UI so you stop seeing misleading downgrade states
+- add the Redis URL formatter + TLS/ACL diagnostics

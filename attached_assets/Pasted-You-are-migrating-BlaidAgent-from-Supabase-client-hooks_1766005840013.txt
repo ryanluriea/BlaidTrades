@@ -1,0 +1,118 @@
+You are migrating BlaidAgent from Supabase client hooks to an Express “control plane” because we are building an institutional-grade trading platform.
+
+DO NOT rewrite the app. Minimal diffs only. No stubs. If an endpoint cannot meet the contract, return 501 Not Implemented with a structured error and mark it Sev-1 in AUDIT_FINDINGS.md.
+
+========================
+GOAL (INSTITUTIONAL READY)
+========================
+- Express API is the single authoritative gateway for ALL critical paths:
+  Trading, Orders/Execution, Trades, Positions, PnL/Equity, Jobs/Runs, Runners, Risk Engine, Kill Engine, Promotions/Stage changes, Backtests.
+- Supabase may remain for auth + storage, but the client must not query trading-critical tables directly.
+
+========================
+NON-NEGOTIABLE RULES
+========================
+1) Server-authoritative invariants:
+   - Client can never set stage/mode/status directly (server sets).
+   - Ownership filtering must happen in SQL, not in memory.
+2) No fake data:
+   - Never fabricate prices, fills, PnL, equity, timestamps, or “0 trades” when data is missing.
+   - If data/provider missing: fail closed (BLOCKED/DEGRADED) with explicit reason.
+3) No silent failures:
+   - Every run/job must terminalize (COMPLETED/FAILED/BLOCKED/CANCELED).
+   - Heartbeat required while RUNNING.
+   - Timeouts auto-fail with reason_code=TIMEOUT.
+4) One source of truth:
+   - PnL/equity/positions computed in backend/core from canonical ledger/events.
+   - Frontend displays only (no recompute except formatting).
+
+========================
+PHASE 1 — INVENTORY + PARITY PLAN (REQUIRED BEFORE MORE MIGRATIONS)
+========================
+A) Generate a definitive inventory (machine-generated output):
+   - List ALL remaining Supabase-dependent hooks/files with paths and domains (Trading, Evolution, Risk, etc.)
+   - List ALL Express-backed hooks/files + their endpoints
+B) Identify “critical path” hooks and prioritize in this order:
+   1) useTrading + trades/open positions + generations history + events feed
+   2) useRunnerControl + runner start/restart/reconcile
+   3) jobs/runs lifecycle (queue, running, terminal states)
+   4) Risk Engine + Kill Engine
+   5) Promotions/Stage gating
+   6) Backtests + autonomy proof
+   7) Evolution / Strategy Lab (only after above)
+C) For any remaining Supabase reads that must temporarily stay:
+   - Confirm they enforce identical filters: is_invalid=false AND source_type != 'TEST'
+   - Confirm they cannot leak cross-user/cross-account data
+
+Deliverable: Update AUDIT_FINDINGS.md with counts migrated vs remaining and any Sev-1 gaps.
+
+========================
+PHASE 2 — BUILD THE EXPRESS “CONTROL PLANE” CONTRACTS (MUST-HAVES)
+========================
+1) Canonical Run/Job FSM (No Silent Failures)
+- Ensure a run/job record exists for every backtest/runner/trading session with:
+  id, bot_id, mode, status, start_ts, end_ts, last_heartbeat_at,
+  status_reason_code, status_reason_human, trace_id, input_hash,
+  data_sources_used(json), metrics(json), error(json)
+- Add run/job events table to persist transitions:
+  run_id, from_status, to_status, reason_code, reason, created_at, trace_id, metadata(json)
+- Implement:
+  - heartbeat updates while RUNNING
+  - timeout worker that marks stale RUNNING as FAILED/TIMEOUT
+  - COMPLETED is illegal if metrics are null
+
+2) Fail-Closed Provider Handling
+- If provider/broker data missing/entitlement/rate limit:
+  - set run status DEGRADED/BLOCKED
+  - return 409 METRICS_INCOMPLETE or 503 DATA_UNAVAILABLE
+  - never return fabricated metrics or default prices
+
+3) Risk Engine (Server-Side)
+- All risk checks happen server-side before any order intent can execute.
+- Create schema-backed instruments table (no hardcoded lists):
+  symbol, exchange, tick_size, point_value, currency, min_qty, max_qty, session, is_active, updated_at
+- Endpoints read instruments from DB and validate symbols.
+
+4) Kill Engine (Persistent Events, Idempotent)
+- Persist kill events in DB:
+  bot_id, actor, reason_code, reason, created_at, trace_id, metadata(json)
+- kill/resurrect must be idempotent and must stop running instances on kill.
+- No inferred history; GET kill-events reads kill_events table.
+
+5) Stage / Promotion Gating
+- Stage transitions are controlled server-side with explicit rules + audit events.
+- Live trading requires an explicit server-side safety switch and permissions.
+- Client cannot promote itself or change stage without server validation.
+
+========================
+PHASE 3 — MIGRATE HOOKS IN BATCHES WITH STRICT ACCEPTANCE TESTS
+========================
+For each migration batch:
+- Add/verify endpoints in Express
+- Update hooks to use fetch(credentials: 'include') + response.ok handling
+- Ensure React Query cache invalidation matches query keys
+- Add minimal integration tests or scripted verification steps
+
+Acceptance tests required each batch:
+1) Provider failure -> DEGRADED/BLOCKED (no fake trades/pnl)
+2) Backtest reaches terminal state with metrics OR fails with reason
+3) Cross-account isolation confirmed (including >50 rows)
+4) PnL parity: backend value matches UI exactly for a chosen bot instance
+
+========================
+IMPLEMENTATION DISCIPLINE
+========================
+- No “simplified/stub” endpoints. If incomplete: return 501 with:
+  { error_code, message, missing_requirements, next_steps, trace_id }
+- No db:push --force without:
+  migration diff + rollback plan + data impact note
+- Update replit.md and AUDIT_FINDINGS.md after every batch with:
+  migrated count, remaining count, open Sev-1 list.
+
+DELIVERABLES FOR ME EACH PR
+- Changed files list + why
+- Endpoint list + contracts met
+- Verification outputs/log snippets
+- Updated AUDIT_FINDINGS.md (Sev-1 must trend to zero)
+
+Proceed starting with PHASE 1 inventory and PHASE 2 FSM enforcement if not fully complete.

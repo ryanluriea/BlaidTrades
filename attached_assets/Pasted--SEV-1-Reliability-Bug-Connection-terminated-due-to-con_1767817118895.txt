@@ -1,0 +1,128 @@
+# SEV-1 Reliability Bug — “Connection terminated due to connection timeout” (Root Cause + Permanent Fix)
+You are Replit working on **BlaidAgent**. We are repeatedly seeing:
+{"message":"Connection terminated due to connection timeout"}
+This is unacceptable for a production trading platform. Do NOT ask me to refresh or “try again.” Identify the exact cause, prove it with instrumentation, and harden the system so requests never hang until the gateway kills them.
+
+========================================================
+A) IDENTIFY THE EXACT ENDPOINT(S) TIMING OUT
+========================================================
+1) Add a request_id to EVERY API request and log:
+- request_id, method, path, status
+- user_id (safe), bot_count returned if applicable
+- start_ts, end_ts, duration_ms
+2) Log slow requests:
+- warn if > 1000ms
+- error if > 3000ms
+3) In timeout cases, log the last completed step (see tracing below).
+
+Deliverable:
+- list of endpoints with p50/p95/p99 latency
+- the specific endpoint(s) that produced the timeout message
+
+========================================================
+B) STEP-LEVEL TRACING (PINPOINT WHERE IT STALLS)
+========================================================
+For the slowest endpoints (likely bots list/overview, metrics summaries, autonomy status):
+Add span timings:
+- auth_ms
+- db_ms (and per-query: q1_ms, q2_ms, ...)
+- external_ms (Databento / broker / storage / auth provider)
+- serialization_ms
+Return spans in response headers for admin/testing.
+
+Deliverable:
+- one example trace showing exactly where time is spent on a slow request
+
+========================================================
+C) DATABASE IS THE #1 SUSPECT — POOLING + TIMEOUTS + INDEXES
+========================================================
+1) Verify Neon/Postgres pooling configuration:
+- max connections
+- pool size
+- timeouts
+2) Add DB-level statement timeout (2–5s) and app-level query timeout.
+3) Detect and eliminate:
+- N+1 query patterns
+- unbounded scans
+- missing WHERE clauses
+4) Add/verify indexes for:
+- bots by user_id + stage + updated_at
+- bot_instances by bot_id + is_primary_runner + last_tick_at
+- backtest_sessions by bot_id + created_at
+- execution_audits by bot_id + checked_at
+
+Deliverable:
+- top 10 slow queries + query plans
+- before/after latency improvement
+
+========================================================
+D) EXTERNAL DEPENDENCIES MUST NOT BLOCK CORE PAGES
+========================================================
+If bots list/overview is calling:
+- Databento
+- Ironbeam
+- Supabase auth
+- Storage
+…that must NOT happen inline.
+
+Rules:
+- bots list endpoints must be DB-only + cached summaries
+- provider health must be cached separately
+- if dependency is slow/down, degrade gracefully with warnings, not hang
+
+Deliverable:
+- confirm bots list endpoint is no longer blocked on external calls
+
+========================================================
+E) HARD FAIL-FAST + CIRCUIT BREAKERS (NO MORE HANGS)
+========================================================
+1) Add timeouts to ALL upstream calls (auth/db/external).
+2) If a call exceeds timeout:
+- return a controlled 503/DEPENDENCY_TIMEOUT
+- include a clear error code
+3) Add retry w/ jitter only where safe (idempotent calls).
+4) Add circuit breaker for repeated upstream failures.
+
+Deliverable:
+- documented timeout values and behavior for each dependency
+
+========================================================
+F) MOVE HEAVY WORK OFF REQUEST PATH
+========================================================
+Any of the following must be backgrounded:
+- metrics aggregation
+- equity curve building
+- strategy scoring
+- QC evaluation
+- tournament ranking
+These should write to summary tables/materialized views.
+The UI should read summaries fast.
+
+Deliverable:
+- which computations were removed from request path
+
+========================================================
+G) HEALTH/READINESS + SELF-DIAG (PRODUCTION STANDARD)
+========================================================
+Add endpoints:
+- GET /healthz (no DB, just process)
+- GET /readyz (DB + critical deps w/ short timeouts)
+Add a System Status panel (existing page) showing:
+- API latency p50/p95
+- DB latency p50/p95
+- dependency status
+- last autonomy loop heartbeat times
+
+Deliverable:
+- screenshots or output proving these are working
+
+========================================================
+H) DEFINITION OF DONE
+========================================================
+- You can name the exact endpoints timing out + why.
+- p95 for bots overview/list is < 500ms warm and < 1500ms cold.
+- No more gateway timeouts in normal usage.
+- If something is down, we fail fast with a clear message and keep the UI usable.
+- Monitoring exists so I never have to “guess” again.
+
+END.

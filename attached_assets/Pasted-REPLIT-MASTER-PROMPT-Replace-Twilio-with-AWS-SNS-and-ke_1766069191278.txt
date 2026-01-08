@@ -1,0 +1,122 @@
+REPLIT MASTER PROMPT — Replace Twilio with AWS SNS (and keep everything Express-native + “single control plane”)
+
+GOAL
+Twilio is failing due to toll-free verification requirements. We do NOT want Twilio anymore. Replace SMS sending with AWS SNS so:
+- No toll-free verification headache
+- Works for ops alerts + optional SMS fallback
+- Still fully Express-native
+- Still “single control plane” (no Supabase edge functions)
+- Adds “proof-of-use” telemetry and a Connections/System Status view that proves SNS is being used by bots/system
+
+HARD RULES
+1) NEVER ask me to paste secrets into chat. Only tell me what to put into Replit Secrets.
+2) No Supabase Edge Functions. Do not call /functions/v1. The guardrail script must stay green.
+3) Fail-closed for anything security/execution related.
+4) No fake data. If a provider isn’t configured, show “NOT CONFIGURED” with clear missing env vars.
+
+WHAT TO BUILD
+
+A) Add AWS SNS as the canonical SMS provider
+- Create a provider module: server/providers/sms/awsSns.ts
+  - Exports:
+    - sendSms({ to, message, purpose, correlationId }): Promise<{ messageId }>
+    - verifyAwsConfig(): { configured:boolean, missing:string[], suggestedFix:string }
+  - Use AWS SDK v3:
+    - @aws-sdk/client-sns
+  - Region: from env AWS_REGION
+  - Credentials: use standard AWS access keys from env
+  - Support optional sender ID (if applicable) but do not require it.
+
+B) Update SMS endpoint to use SNS (replace Twilio)
+- Replace current POST /api/alerts/sms/test (or create if missing) to:
+  - Require session auth
+  - Rate limit by user+ip
+  - Validate phone E.164 formatting
+  - Call sendSms() via AWS SNS provider
+  - Return:
+    { success:true, provider:"aws_sns", messageId, trace_id }
+  - On config missing:
+    503 with:
+    { success:false, error_code:"INTEGRATION_KEY_MISSING", provider:"aws_sns", missing_env_vars:[...], suggested_fix:"..." , trace_id }
+
+C) Integration registry + system status must include AWS SNS
+- Update server/integration-registry.ts to include provider:
+  - id: "aws_sns"
+  - category: "notifications"
+  - required_env_vars: ["AWS_REGION","AWS_ACCESS_KEY_ID","AWS_SECRET_ACCESS_KEY"]
+  - optional_env_vars: ["AWS_SNS_DEFAULT_SENDER_ID"]
+  - supports_verify: true (verify just checks config + does a dry-run permission check if possible)
+- Update GET /api/integrations/status:
+  - Add AWS SNS entry with canonical fields:
+    configured, connected, last_verified_at, last_used_at, proof_of_use_count_24h, missing_env_vars, error_code, suggested_fix
+- Update GET /api/system/status to include:
+  - blockers/suggested_fix if SMS is required for a configured feature (e.g., ops alerts enabled)
+  - proof-of-use rollup counts for sms provider
+
+D) Proof-of-use telemetry (industry standard)
+- If integration_usage_events exists already, reuse it.
+- Log every SMS send attempt:
+  - provider: "aws_sns"
+  - operation: "send_sms"
+  - status: "SUCCESS" | "FAILED"
+  - latency_ms
+  - trace_id
+  - metadata: { purpose, toMasked, messageLen }
+- Ensure PII safety:
+  - Store masked phone only (e.g., +1******1234). Never store full phone or message content.
+
+E) UI: Connections + System Status should show SNS and proof it’s used
+(UI changes go to ui-lovable if you’re separating branches; otherwise implement but keep clean commits.)
+- In Connections tab:
+  - show AWS SNS tile with:
+    - Configured / Connected
+    - Missing env vars (if any)
+    - Proof-of-use count (24h)
+    - Last used timestamp
+    - “Verify” button → POST /api/integrations/verify { providerId:"aws_sns" }
+- In System Status:
+  - show “Notifications” section
+  - show a small event list or “latest usage events” popout for aws_sns (last 20)
+
+F) Remove Twilio completely
+- Remove Twilio client code, env vars, and any references in:
+  - server/*
+  - client/*
+  - docs
+- Update integration registry to NOT include Twilio.
+- Update any “sms test” UI button to use the Express endpoint only.
+
+G) Guardrails and proofs
+- Keep / extend scripts/no-supabase-edge.sh
+- Add a quick proof script:
+  - scripts/proof-sns-sms.sh that:
+    1) calls /api/integrations/status and confirms aws_sns present
+    2) calls /api/alerts/sms/test (expects 503 if not configured; expects success if configured)
+    3) queries integration_usage_events (if exists) and shows last event for aws_sns
+- Provide curl commands + expected outputs in replit.md
+
+SECRETS I WILL ADD IN REPLIT (DO NOT ASK ME TO PASTE THEM HERE)
+Required:
+- AWS_REGION
+- AWS_ACCESS_KEY_ID
+- AWS_SECRET_ACCESS_KEY
+Optional:
+- AWS_SNS_DEFAULT_SENDER_ID (only if needed)
+
+ACCEPTANCE CRITERIA (MUST PASS)
+1) Zero Supabase Edge Function calls in client and server (guardrail passes).
+2) /api/integrations/status shows aws_sns with correct configured/missing vars.
+3) /api/alerts/sms/test:
+   - returns 503 structured error when missing AWS env vars
+   - returns success with messageId when configured
+4) integration_usage_events logs every attempt with masked phone and trace_id.
+5) UI shows proof-of-use count and last used for aws_sns.
+6) No Twilio references remain anywhere.
+
+DELIVERABLES
+- Code changes
+- Updated replit.md section: “Notifications Provider = AWS SNS”
+- Proof scripts + curl proof snippets
+- A short “How to turn on SMS alerts safely” note (rate limits + opt-in expectations)
+
+START NOW. Make it production-quality, fail-closed, and verifiable.

@@ -1,0 +1,40 @@
+# BlaidTrades Terraform Variables
+# Copy this file to terraform.tfvars and update values
+
+# AWS Configuration
+aws_region  = "us-east-1"
+environment = "production"
+app_name    = "blaidtrades"
+
+# Domain (optional - leave empty for ALB DNS only)
+domain_name = ""
+
+# Database sizing (Aurora Serverless v2 - scales 0.5 to 16 ACUs)
+# No instance class needed for serverless
+
+# Redis sizing
+redis_node_type = "cache.r6g.large"  # 13.07 GB memory
+
+# API Service sizing
+api_cpu            = 1024   # 1 vCPU
+api_memory         = 2048   # 2 GB
+api_desired_count  = 2      # Minimum 2 for high availability
+
+# Worker Service sizing (needs more resources for backtests)
+worker_cpu            = 2048   # 2 vCPU
+worker_memory         = 8192   # 8 GB
+worker_desired_count  = 2      # Scale based on queue depth
+
+# Cost Estimates (us-east-1 pricing):
+# - Aurora Serverless v2: ~$0.12/ACU-hour (scales 0.5-16 ACU)
+# - ElastiCache r6g.large: ~$0.132/hour (~$95/month)
+# - Fargate: $0.04048/vCPU-hour + $0.004445/GB-hour
+# - ALB: ~$16/month base + $5.60/LCU-hour
+# - NAT Gateway: ~$32/month + data transfer
+#
+# Estimated monthly cost for production (2 API + 2 Workers):
+# - Aurora: $100-300 (depends on usage)
+# - ElastiCache: $95-190 (1-2 nodes)
+# - ECS Fargate: $200-400
+# - Networking: $50-100
+# - Total: ~$445-990/month (scales with load)

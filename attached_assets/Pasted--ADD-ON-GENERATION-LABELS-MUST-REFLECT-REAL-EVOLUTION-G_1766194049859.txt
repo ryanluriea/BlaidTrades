@@ -1,0 +1,148 @@
+🔧 ADD-ON: GENERATION LABELS MUST REFLECT REAL EVOLUTION (GEN 1 → GEN N)
+🚨 PROBLEM
+
+Right now, bots are labeled “Gen 1” but:
+
+The label does not reliably update when EVOLVING jobs occur
+
+Users cannot visually confirm that evolution actually happened
+
+This breaks trust in the evolution system and makes progress invisible
+
+If a bot evolves, the generation label must change. Anything else is misleading.
+
+✅ REQUIRED BEHAVIOR (NON-NEGOTIABLE)
+1️⃣ GENERATION IS BACKEND TRUTH
+
+Each bot has a canonical generation number (e.g. generation)
+
+Generation increments ONLY when an EVOLVING job completes successfully
+
+Generation must be persisted (DB) — not derived client-side
+
+Example:
+
+Gen 1 → EVOLVING → Gen 2
+Gen 2 → EVOLVING → Gen 3
+
+2️⃣ UI MUST REFLECT REAL GENERATION
+
+Wherever the bot is shown (Bots list, detail view, cards):
+
+Replace static labels like:
+❌ Gen 1
+
+With:
+✅ Gen {bot.generation}
+
+This includes:
+
+Bots table rows
+
+Bot detail header
+
+Any strategy / evolution panels
+
+Tooltips and hover cards
+
+No hardcoded or cached generation values.
+
+3️⃣ EVOLVING BADGE + GENERATION MUST MATCH
+
+When an EVOLVING job is:
+
+Queued / Running
+
+Show badge:
+Evolving → Gen {current + 1}
+
+Completed
+
+Badge disappears
+
+Generation label updates immediately
+
+Example:
+
+[Evolving → Gen 3]  (while running)
+→ completes
+→ label now shows: Gen 3
+
+
+This provides visual confirmation that evolution actually occurred.
+
+4️⃣ BOTNOW MUST EXPOSE GENERATION CONTEXT
+
+Extend botNow to include:
+
+botNow: {
+  state: "EVOLVING_RUNNING" | "EVOLVING_QUEUED" | ...
+  generation: number
+  evolving?: {
+    fromGeneration: number
+    toGeneration: number
+    iteration?: number
+  }
+}
+
+
+UI must not guess — it renders exactly what backend reports.
+
+5️⃣ AUDIT + PROOF (REQUIRED)
+
+Provide proof that generations advance:
+
+SQL
+
+SELECT id, generation, updated_at
+FROM bots
+ORDER BY updated_at DESC
+LIMIT 10;
+
+
+Jobs
+
+SELECT bot_id, job_type, status, completed_at
+FROM bot_jobs
+WHERE job_type = 'EVOLVING'
+ORDER BY completed_at DESC
+LIMIT 10;
+
+
+Screenshot
+
+Show:
+
+A bot labeled Gen 1
+
+An Evolving → Gen 2 badge
+
+Same bot afterward labeled Gen 2
+
+🎯 ACCEPTANCE CRITERIA
+
+This add-on is complete ONLY when:
+
+Generation number increments after every successful EVOLVING job
+
+UI labels update immediately without refresh hacks
+
+“Gen 1” is no longer static or misleading
+
+Users can visually track long-term evolution progress
+
+Evolution feels real, earned, and provable
+
+🧠 WHY THIS MATTERS
+
+Evolution without visible generations is indistinguishable from randomness.
+
+Generation labels are:
+
+The ledger of progress
+
+The history of learning
+
+The trust anchor for autonomy
+
+If bots are evolving, the UI must prove it.

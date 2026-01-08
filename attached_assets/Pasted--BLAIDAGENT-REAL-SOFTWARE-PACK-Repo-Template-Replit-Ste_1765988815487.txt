@@ -1,0 +1,455 @@
+===============================
+BLAIDAGENT “REAL SOFTWARE” PACK
+Repo Template + Replit Steps + Claude Prompts + Guards
+===============================
+
+0) WHAT THIS PACK IS FOR
+- You started BlaidAgent in Lovable.
+- You’re importing to Replit and making Replit + GitHub the canonical workflow.
+- Goal: trading-grade standards, deterministic data paths, zero silent failures, and strict UI-only Lovable merges.
+
+------------------------------------------------------------
+1) READY-TO-IMPORT REPO TEMPLATE (STRUCTURE + KEY FILES)
+------------------------------------------------------------
+
+A) Recommended monorepo layout (works even if you’re currently single-app)
+.
+├─ apps/
+│  ├─ web/                       # Next.js (or Vite/React) frontend
+│  │  ├─ app/ or src/
+│  │  ├─ components/
+│  │  ├─ styles/
+│  │  ├─ public/
+│  │  └─ package.json
+│  └─ api/                       # Node API (Express/Fastify/Next API routes)
+│     ├─ src/
+│     ├─ package.json
+│     └─ tsconfig.json
+├─ workers/                      # bot-runner, backtests, schedulers
+│  ├─ runner/
+│  ├─ backtester/
+│  └─ package.json
+├─ packages/
+│  ├─ core/                      # risk engine, pnl calc, fills, rules
+│  ├─ market-data/               # Databento/Polygon adapters, caching
+│  ├─ ai/                        # Blaid prompts, tools, memory layer
+│  ├─ db/                        # drizzle schemas/migrations + db client
+│  └─ shared/                    # types, utils, constants
+├─ scripts/
+│  ├─ preflight.mjs              # env + dependency checks
+│  ├─ guard-ui-only.sh           # blocks non-UI changes for Lovable branch
+│  └─ audit-no-silent-failures.mjs
+├─ .github/
+│  └─ workflows/
+│     ├─ pr-ui-guard.yml         # enforces UI-only on ui-lovable branch PRs
+│     └─ ci.yml                  # lint/test/build
+├─ .editorconfig
+├─ .gitignore
+├─ .env.example
+├─ REPO_OWNERSHIP.md
+├─ README.md
+├─ package.json                  # workspace root (pnpm recommended)
+└─ pnpm-workspace.yaml
+
+B) Minimal workspace root package.json (pnpm)
+{
+  "name": "blaidagent",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "preflight": "node scripts/preflight.mjs",
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  }
+}
+
+C) pnpm-workspace.yaml
+packages:
+  - "apps/*"
+  - "workers/*"
+  - "packages/*"
+
+D) REPO_OWNERSHIP.md (drop this at repo root)
+SOURCE OF TRUTH
+- GitHub is canonical
+- Replit is the primary dev + runtime environment
+- Lovable is UI-generation only
+
+EDITING RULES
+- Backend, data, auth, workers, db: Replit + human review only
+- Lovable may only change:
+  - apps/web/components/**
+  - apps/web/styles/**
+  - apps/web/app/** (UI-only pages)
+  - apps/web/src/** (UI-only)
+- Lovable must NEVER change:
+  - packages/db/**, migrations, schemas
+  - packages/core/** risk/pnl/fills logic
+  - apps/api/** backend routes
+  - workers/** runners/backtests
+  - env handling, auth, security, secrets
+  - any “fake/mock price” fallback behavior
+
+MERGE RULE
+- All Lovable changes must land via ui-lovable branch and pass UI guard checks.
+
+E) .env.example (example keys only; never secrets)
+NODE_ENV=development
+DATABASE_URL=postgres://user:pass@host:5432/db
+NEXT_PUBLIC_API_URL=http://localhost:3001
+DATABENTO_API_KEY=
+POLYGON_API_KEY=
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+LOG_LEVEL=info
+
+F) scripts/preflight.mjs (lightweight)
+- verify node version
+- verify required env keys are present (or explicitly optional)
+- verify DATABASE_URL format
+- fail fast with clear messages
+
+(You can have Claude/Replit implement these files exactly.)
+
+------------------------------------------------------------
+2) EXACT REPLIT IMPORT STEPS (GITHUB → REPLIT)
+------------------------------------------------------------
+
+A) Prep on GitHub (recommended)
+1. Create branches:
+   - main
+   - dev
+   - ui-lovable
+2. Protect main (require PR, require checks).
+
+B) Import into Replit
+1. In Replit: Create Repl → “Import from GitHub”
+2. Paste repo URL (HTTPS or Git)
+3. Choose branch: dev (preferred) or main (if you haven’t created dev yet)
+4. After import:
+   - Confirm package manager (pnpm preferred)
+   - Add Secrets in Replit “Secrets” panel (copy keys from .env.example)
+   - Run install: pnpm install (or npm install if that’s what repo uses)
+   - Run dev: pnpm dev (or npm run dev)
+
+C) Lock baseline
+1. Make sure app boots in Replit preview
+2. Commit baseline:
+   git checkout -b replit-baseline
+   git add -A
+   git commit -m "Baseline import from Lovable into Replit"
+   git push -u origin replit-baseline
+3. Merge replit-baseline → dev via PR (or fast-forward if you control it)
+
+D) Day-to-day
+- Replit edits happen on dev
+- PR to main when stable
+- Lovable outputs only go to ui-lovable branch
+
+------------------------------------------------------------
+3) CLAUDE SYSTEM PROMPT (TRADING-GRADE ENFORCEMENT)
+------------------------------------------------------------
+
+Use this as Claude’s SYSTEM prompt (or top-level “Rules” in Claude Code):
+
+You are the engineering authority for a real trading platform called BlaidAgent. Your highest priority is correctness, auditability, and deterministic behavior. Assume the platform may eventually route live orders and that any data bug can cause financial harm.
+
+NON-NEGOTIABLES
+1) No fake data: never fabricate prices, fills, PnL, timestamps, or trades. If a provider fails, you must (a) surface a clear error, (b) mark state as degraded, and (c) block dependent calculations rather than invent values.
+2) One source of truth: PnL, equity, positions, and trade state must be derived from a single canonical ledger/event model. No duplicated computations across front/back.
+3) Deterministic calculations: use explicit rounding rules, contract specs, tick sizes, and currency units. Document assumptions in code.
+4) No silent failures: errors must be logged with context, surfaced to UI (banner/status), and written to an audit trail. Background tasks must report success/failure.
+5) Strong typing + tests: critical logic requires tests (risk checks, PnL, FIFO, position netting, backtest completion, data provider fallback).
+6) Safe refactors only: never restructure architecture without an explicit request. Prefer minimal diffs that preserve behavior.
+7) Security: secrets never appear in code. All secrets via env. Never log secrets. 
+8) Observability: every bot run/backtest has trace ids, timing, input params hash, and final outcome.
+
+WORKFLOW RULES
+- Before coding: state assumptions, identify the canonical sources of truth, and list risks.
+- When touching trading logic: add/extend tests and add audit logging.
+- When provider data is missing: fail closed (degrade/block), never “guess”.
+
+DELIVERABLE RULES
+- Provide copy-paste-ready code changes.
+- Include migration steps when needed.
+- Include a “sanity checklist” for verifying correctness.
+
+------------------------------------------------------------
+4) “NO SILENT FAILURES” CONTRACT (BOTS + BACKTESTS)
+------------------------------------------------------------
+
+Contract: Any bot/backtest execution MUST produce a terminal outcome and persistent audit artifacts.
+
+A) Required states (finite-state machine)
+- CREATED
+- QUEUED
+- RUNNING
+- DEGRADED (provider issues; still running but flagged)
+- BLOCKED (cannot proceed; missing data/entitlements; fail closed)
+- COMPLETED (success with metrics and trade ledger)
+- FAILED (error with reason, stack, and failure code)
+- CANCELED (by user/system)
+
+B) Required fields on every run record
+- run_id (uuid)
+- bot_id
+- mode: BACKTEST | PAPER | LIVE
+- start_ts, end_ts
+- status
+- status_reason_code (enum)
+- status_reason_human (short)
+- trace_id (propagated everywhere)
+- input_hash (hash of config + parameters)
+- data_sources_used (databento/polygon/etc + versions)
+- bars_count / ticks_count
+- trades_count
+- ledger_id (canonical event ledger reference)
+- metrics: pnl, max_dd, sharpe, winrate, etc (nullable ONLY if status != COMPLETED)
+- error: {code, message, stack?, provider_payload?} (required when FAILED/BLOCKED)
+- degraded_flags: [MISSING_ENTITLEMENT, DATA_GAP, RATE_LIMIT, STALE_FEED, CLOCK_SKEW...]
+
+C) Fail-closed rules
+- If market data missing: status -> BLOCKED or DEGRADED (never “0 trades” unless truly zero)
+- If trade execution fails mid-run: FAILED and mark partial ledger as partial with explicit finalization record
+- If metrics null: run cannot be COMPLETED
+
+D) UI rules
+- Any non-COMPLETED state must be visible (banner + icon) with reason + link to logs/audit
+- “Running” has heartbeat timestamp; if stale > N minutes => mark as FAILED (timeout) with reason
+
+E) Background jobs rules
+- Every job reports start/end + status to the run record
+- Retries must be explicit and bounded; each retry is logged as an event
+
+------------------------------------------------------------
+5) SANITY-CHECK REPO STRUCTURE (CHECKLIST)
+------------------------------------------------------------
+
+Use this checklist after import:
+
+A) Single source of truth
+- Where is canonical trade ledger stored?
+- Where is PnL computed (must be one place)?
+- UI should only display derived values, not re-calc.
+
+B) Data providers
+- Confirm Databento/Polygon adapters are isolated in packages/market-data
+- Confirm fallback does NOT invent prices
+- Confirm entitlements errors become DEGRADED/BLOCKED
+
+C) Runtime separation
+- UI (apps/web) never owns trading logic
+- API/Workers own execution + backtests
+- packages/core owns all invariants (ticks, value-per-point, rounding)
+
+D) Observability
+- trace_id exists end-to-end
+- logs include bot_id + run_id + trace_id
+- run records always terminalize (no infinite RUNNING)
+
+E) Security
+- keys only in env
+- .env is gitignored; .env.example is committed
+- no secrets in client bundles (NEXT_PUBLIC only for safe values)
+
+------------------------------------------------------------
+6) CLAUDE PROMPT TO AUDIT THE LOVABLE CODEBASE (COPY/PASTE)
+------------------------------------------------------------
+
+Audit this repository as if it will power a live trading platform.
+
+GOALS:
+1) Identify any fake/mock/hardcoded market data, fills, PnL, equity, timestamps, or “fallback defaults” that could masquerade as real data.
+2) Identify any duplicated PnL/equity computations (frontend vs backend) and propose a single-source-of-truth plan.
+3) Identify all “silent failure” patterns: try/catch that swallows errors, missing awaits, missing status updates, unhandled promise rejections, jobs that can hang, timeouts that mark success, UI that hides failed states.
+4) Identify backtests that can get stuck in RUNNING with null metrics and propose exact fixes (FSM + terminalization).
+5) Identify provider failure handling and confirm it fails closed; if not, propose exact patch.
+6) Produce a prioritized list:
+   - Sev-1: can cause wrong PnL/trade state or fake data
+   - Sev-2: can cause stuck jobs or missing trades
+   - Sev-3: performance/UX issues
+7) For the top 3 Sev-1 findings: provide concrete code diffs or file-level patch instructions.
+
+OUTPUT FORMAT:
+- Findings table: Severity | Component | File(s) | Symptom | Root cause | Fix summary
+- Then “Patch Plan” with minimal-diff steps
+- Then “Verification Plan” (what to click/run, what logs prove it’s fixed)
+
+CONSTRAINTS:
+- Do not propose rewrites. Minimal safe changes only.
+- Never introduce placeholders. If data is missing, surface BLOCKED/DEGRADED states.
+
+------------------------------------------------------------
+7) REPLIT-OPTIMIZED .replit + RUN CONFIG (TWO OPTIONS)
+------------------------------------------------------------
+
+OPTION A: Simple single app (typical Lovable Next.js)
+Create .replit at repo root:
+
+run = "npm run dev"
+# If pnpm:
+# run = "pnpm dev"
+
+[env]
+  NODE_ENV = "development"
+
+And ensure package.json has:
+"dev": "next dev -p 3000"  (or your framework dev command)
+
+OPTION B: Monorepo (web + api + workers)
+Prefer a Procfile-like approach. If Replit supports multiple processes in your plan:
+- Use a root script that runs all (pnpm -r --parallel dev)
+
+Root package.json:
+"dev": "pnpm -r --parallel dev"
+
+apps/web/package.json:
+"dev": "next dev -p 3000"
+
+apps/api/package.json:
+"dev": "tsx watch src/index.ts"  (or nodemon)
+
+workers/runner/package.json:
+"dev": "tsx watch src/runner.ts"
+
+Then .replit:
+run = "pnpm dev"
+
+NOTE: If Replit in your workspace expects a specific port for preview, keep web at 3000.
+
+------------------------------------------------------------
+8) UI-ONLY GUARD (BLOCK BAD LOVABLE MERGES)
+------------------------------------------------------------
+
+Goal: If a PR originates from ui-lovable branch, only allow changes in UI folders.
+
+A) scripts/guard-ui-only.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE_BRANCH="${1:-origin/dev}"
+ALLOWED_REGEX='^(apps/web/(components|styles|app|src)/|apps/web/public/|apps/web/tailwind.config|apps/web/postcss.config|apps/web/next.config|apps/web/package.json|README.md|REPO_OWNERSHIP.md)'
+
+git fetch origin dev >/dev/null 2>&1 || true
+
+CHANGED=$(git diff --name-only "$BASE_BRANCH"...HEAD || true)
+if [ -z "$CHANGED" ]; then
+  echo "UI GUARD: no changes detected."
+  exit 0
+fi
+
+BAD=0
+echo "UI GUARD: checking changed files against allowlist..."
+while IFS= read -r f; do
+  if [[ ! "$f" =~ $ALLOWED_REGEX ]]; then
+    echo "❌ UI GUARD BLOCKED: $f"
+    BAD=1
+  else
+    echo "✅ allowed: $f"
+  fi
+done <<< "$CHANGED"
+
+if [ "$BAD" -eq 1 ]; then
+  echo ""
+  echo "UI GUARD FAILED: Lovable branch may only modify UI files."
+  echo "Move non-UI changes to a Replit-reviewed branch (dev) or revert them."
+  exit 1
+fi
+
+echo "UI GUARD PASSED."
+
+B) GitHub Action: .github/workflows/pr-ui-guard.yml
+name: UI-only guard (Lovable)
+on:
+  pull_request:
+    branches: [ "dev" ]
+jobs:
+  ui_guard:
+    if: github.head_ref == 'ui-lovable'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run UI-only guard
+        run: |
+          chmod +x scripts/guard-ui-only.sh
+          ./scripts/guard-ui-only.sh origin/dev
+
+C) Policy
+- Lovable must only commit to ui-lovable
+- PR ui-lovable → dev triggers guard
+- If it fails, PR cannot merge
+
+------------------------------------------------------------
+9) OPTIONAL: “NO SILENT FAILURES” AUTOMATED AUDIT SCRIPT (SUGGESTED)
+------------------------------------------------------------
+
+scripts/audit-no-silent-failures.mjs (high-level intent)
+- scan for:
+  - empty catch blocks
+  - console.error without rethrow/propagation
+  - “catch (e) { return null }” patterns
+  - long-running tasks without timeouts
+  - “status='running'” set without guaranteed terminalization
+- output a report and fail CI if patterns found in critical folders:
+  - apps/api
+  - workers
+  - packages/core
+  - packages/db
+
+------------------------------------------------------------
+10) WHAT YOU SHOULD DO RIGHT NOW (ORDER)
+------------------------------------------------------------
+
+1) Import GitHub repo to Replit
+2) Boot it in Replit (no Lovable)
+3) Add .env.example + move secrets to Replit Secrets
+4) Commit “Baseline import from Lovable into Replit”
+5) Create dev + ui-lovable branches (if you haven’t)
+6) Add UI-only guard script + GitHub action
+7) Use the Claude audit prompt on the current codebase
+8) Implement the “no silent failures” contract in your run/backtest tables + UI status banners
+
+------------------------------------------------------------
+11) ONE REPLIT PROMPT TO IMPLEMENT THIS PACK (PASTE INTO REPLIT AI)
+------------------------------------------------------------
+
+You are working on BlaidAgent, imported from Lovable into Replit. Do NOT rewrite. Make minimal safe changes.
+
+Implement the following, exactly:
+
+A) Add repo governance files at root:
+- REPO_OWNERSHIP.md (as specified in this doc)
+- .env.example (as specified)
+- If missing: README.md with quick start commands
+
+B) Add scripts:
+- scripts/guard-ui-only.sh (as specified)
+- scripts/preflight.mjs (verify env keys and fail fast with clear messages)
+
+C) Add GitHub Actions:
+- .github/workflows/pr-ui-guard.yml to enforce UI-only merges from ui-lovable → dev
+
+D) Ensure the project boots in Replit:
+- Standardize dev command in root (npm or pnpm)
+- Add/adjust .replit run config to run the correct dev command
+- Confirm web preview works
+
+E) Create a baseline commit message:
+"Baseline import from Lovable into Replit"
+
+After changes:
+1) Show a file tree diff of what you added
+2) Provide exact run commands
+3) Provide verification checklist (what proves it’s working)
+
+Critical constraints:
+- No fake/mock data fallbacks
+- No schema or trading-logic changes unless explicitly requested
+
+===============================
+END PACK
+===============================

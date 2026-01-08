@@ -1,0 +1,197 @@
+REPLIT — STRAIGHT TAKE + INSTITUTIONAL AUTONOMY + “REVERT TO LAB” FIX PACK (NO EXCUSES)
+
+RYAN’S CORE POINT (AGREED):
+If you have to manually start jobs to see “Backtesting / Evolving / Improving” badges, then autonomy isn’t actually running the platform. Badges are just the symptom. The real failure is: the job planner is not continuously scheduling work, OR it’s scheduling but blocked silently, OR the UI is showing the wrong truth.
+
+THIS IS WHY YOU’RE SEEING “FRESH”:
+There are TWO different concepts:
+1) “Bot is newly created” Fresh (should be rare)
+2) “Backtest data is fresh” Fresh (recency badge)
+Right now your UI is dominated by #2, which makes it FEEL like nothing is happening. That’s a UX/semantics failure AND likely an autonomy failure if jobs aren’t being scheduled.
+
+WE ARE DOING 3 THINGS, IN THIS ORDER:
+(1) PROVE autonomy is actually scheduling jobs (backend proof)
+(2) FIX the planner so bots continuously run (no manual starts)
+(3) REVERT STAGES to LAB until verified + re-graduate correctly (audit trail)
+
+========================================================
+A) AUTONOMY MUST BE REAL: PROVE IT, THEN FIX IT
+========================================================
+
+A1) ADD “AUTONOMY PROOF” ENDPOINTS (MANDATORY)
+Create endpoints (server ok, do it clean):
+
+GET /api/_proof/autonomy
+Returns:
+{
+  now: ISO,
+  loopEnabled: boolean,
+  lastTickAt: ISO|null,
+  tickIntervalSec: number,
+  lastDecisionSummary: {
+    botsEvaluated: number,
+    jobsEnqueued: number,
+    blocked: number,
+    reasonsTop: [{reasonCode,count}],
+  },
+  latestPlannerRuns: [{id, startedAt, finishedAt, botsEvaluated, jobsEnqueued, errors}],
+  latestEnqueuedJobs: [{jobId, botId, type, status, createdAt}],
+}
+
+GET /api/_proof/jobs
+Returns counts:
+{
+  running: {backtest: n, evolve: n, runner: n},
+  queued: {backtest: n, evolve: n, runner: n},
+  completedLast1h: {backtest: n, evolve: n},
+  stuckRunningOverXmin: [{jobId, botId, type, startedAt, ageMin}],
+}
+
+These endpoints remove “trust me” forever.
+
+A2) RUN THE ONE-LINE REALITY CHECK (SQL)
+Run and paste results:
+
+-- 1) Are there ANY jobs queued/running?
+SELECT job_type, status, COUNT(*) 
+FROM bot_jobs 
+WHERE status IN ('QUEUED','RUNNING')
+GROUP BY 1,2
+ORDER BY 1,2;
+
+-- 2) Are planner runs happening? (whatever table/log you use)
+-- If you don’t have a table, ADD one: autonomy_planner_runs
+SELECT * FROM autonomy_planner_runs ORDER BY started_at DESC LIMIT 10;
+
+-- 3) Are bots blocked by gates everywhere?
+-- If you store gate decisions, query them. If not, add autonomy_bot_decisions table.
+
+If (1) returns zero queued/running consistently → autonomy is NOT scheduling jobs. Full stop.
+
+A3) FIX THE PLANNER: “CONTINUOUS RESEARCH LOOP” MUST ENQUEUE WORK
+Implement a deterministic planner tick:
+
+Every tick (e.g., 60s):
+- Choose candidates for backtest/evolution based on stage + policy.
+- Enqueue jobs if:
+  - No active job already for bot
+  - Not in cooldown window
+  - Not blocked by critical gates (or if blocked, record blockers)
+- Record a row in autonomy_planner_runs
+- Record per-bot decisions (why scheduled or why skipped)
+
+Policies (institutional defaults):
+LAB:
+- Maintain N concurrent backtests (e.g., 3–5) across LAB bots
+- If bot has no baseline backtest → enqueue BACKTEST_BASELINE
+- If baseline exists but stale (> X hours) → enqueue BACKTEST_REFRESH
+PAPER:
+- Maintain runner heartbeat + “scan/trade” loops ONLY if stage gates pass
+- If runner missing → enqueue RUNNER_START job (if allowed)
+EVOLUTION:
+- If bot meets promote conditions OR has poor performance and qualifies for improvement → enqueue EVOLVE job
+- Always rate-limit and record decisions
+
+A4) MAKE “NOTHING RUNNING” IMPOSSIBLE WITHOUT AN EXPLANATION
+If planner enqueues 0 jobs:
+- Return explicit reasons:
+  - ALL_BOTS_COOLDOWN
+  - ALL_BOTS_HAVE_ACTIVE_JOBS (shouldn’t happen if none running)
+  - ALL_BOTS_BLOCKED_BY_GATES (then show blockers)
+  - LOOP_DISABLED
+  - NO_CANDIDATES_MATCH_POLICY
+This goes into /api/_proof/autonomy.
+
+========================================================
+B) BADGES MUST MATCH REAL “BOT NOW” AND BE SEMANTICALLY CORRECT
+========================================================
+
+B1) REMOVE MISLEADING “FRESH” DOMINANCE
+Right now “Fresh” is being used as “data freshness.” That’s fine, but it MUST NOT be the primary activity badge.
+
+Change UI lanes to:
+Lane 1 (Primary Activity): from botNow.state only
+- BACKTEST_RUNNING / BACKTEST_QUEUED / EVOLVING / RUNNER_RUNNING / RUNNER_STALE / BLOCKED_BY_GATES / IDLE
+Lane 2 (Data Recency): small subtle pill:
+- “Backtest: fresh” / “Backtest: stale” / “No baseline”
+This prevents “Fresh” from visually implying the bot is “doing something”.
+
+B2) “BACKTESTING / EVOLVING / IMPROVING” BADGES MUST SHOW WHEN JOBS EXIST
+If your database shows zero RUNNING/QUEUED jobs, those badges should NOT show — BUT THEN autonomy is broken.
+So: fix autonomy first, then badges will appear naturally.
+
+B3) MAKE IT DEBUGGABLE IN-ROW
+Add hover tooltip on primary badge:
+- state + since
+- reasonCode
+- activeJob summary (id/type/status)
+- stageGate blockers (if blocked)
+This makes it impossible for the UI to lie.
+
+========================================================
+C) REVERT ALL BOTS BACK TO LAB (UNTIL VERIFIED) + AUDIT TRAIL
+========================================================
+
+C1) RULE:
+If PAPER promotion happened before the system was fixed/verified, it is invalid.
+We revert to LAB, and only re-promote after:
+- baseline backtest success
+- validation flags pass
+- minimum trade count / realism checks
+- gates verified
+
+C2) BULK REVERT SQL (DO THIS CAREFULLY, WITH EVENT LOG)
+First ensure bot_stage_events exists.
+Then:
+
+-- Example: revert everything PAPER/SHADOW/CANARY/LIVE back to LAB
+-- except any bots explicitly pinned/approved (if you have a flag).
+BEGIN;
+
+INSERT INTO bot_stage_events (id, bot_id, from_stage, to_stage, reason_code, actor, created_at)
+SELECT gen_random_uuid(), id, stage, 'LAB', 'BULK_REVERT_REBASELINE', 'system', now()
+FROM bots
+WHERE stage IN ('PAPER','SHADOW','CANARY','LIVE');
+
+UPDATE bots
+SET stage = 'LAB',
+    stage_updated_at = now(),
+    stage_reason_code = 'BULK_REVERT_REBASELINE'
+WHERE stage IN ('PAPER','SHADOW','CANARY','LIVE');
+
+COMMIT;
+
+C3) AFTER REVERT:
+Planner immediately schedules baseline backtests across LAB bots.
+Only after passing gates does it *recommend* promotion (and only apply if promotion_mode=AUTO).
+
+========================================================
+D) PROOF PACK (YOU MUST PASTE THIS BACK)
+========================================================
+
+D1) Autonomy proof:
+curl -s http://localhost:5000/api/_proof/autonomy | jq
+curl -s http://localhost:5000/api/_proof/jobs | jq
+
+D2) Jobs exist (after fix):
+SELECT job_type, status, COUNT(*) FROM bot_jobs WHERE status IN ('QUEUED','RUNNING') GROUP BY 1,2;
+
+D3) Stage revert proof:
+SELECT to_stage, reason_code, COUNT(*) FROM bot_stage_events WHERE reason_code='BULK_REVERT_REBASELINE' GROUP BY 1,2;
+
+D4) UI proof:
+Screenshot of Bots page showing:
+- at least one bot “Backtesting” (RUNNING)
+- at least one “Queued”
+- “Fresh” only as a small “Backtest: fresh” recency pill, not the primary badge
+- stages showing LAB across the fleet (post-revert)
+
+========================================================
+BOTTOM LINE
+========================================================
+If autonomy is truly running, your database MUST show queued/running jobs regularly. If it doesn’t, you don’t have an autonomous platform yet — you have a UI with stale backtests and no engine.
+
+Do NOT tell Ryan “start a job to see a badge.”
+Instead: make the planner enqueue jobs, prove it via /api/_proof/autonomy, then badges become undeniable.
+
+SHIP THIS PACK.

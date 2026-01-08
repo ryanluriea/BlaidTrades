@@ -1,0 +1,51 @@
+DO THIS NEXT — BULK REVERT TO LAB (SAFE + PROVABLE)
+
+You are cleared to proceed with Phase 4 and Phase 3 in this order:
+(1) Dry-run bulk revert
+(2) Execute bulk revert with audit trail + promotionMode=MANUAL
+(3) Prove autonomy enqueues jobs within 2 ticks
+(4) Fix badges: primary=botNow.state, secondary=Fresh recency pill, remove OK icon
+
+REQUIREMENTS
+
+A) DRY RUN ENDPOINT
+POST /api/admin/revert-to-lab
+Body: { "dryRun": true, "includeIds": true, "limitIds": 50 }
+Returns:
+- countsByStageBefore {PAPER: n, SHADOW: n, CANARY: n, LIVE: n, LAB: n}
+- willChangeCount
+- sampleBotIds (up to 50)
+- timestamp
+
+B) EXECUTE REVERT (TRANSACTIONAL + AUDITED)
+POST /api/admin/revert-to-lab
+Body: { "dryRun": false, "reasonCode": "BULK_REVERT_SEV1_RESET", "setPromotionMode": "MANUAL" }
+Must:
+- insert bot_stage_events rows for every changed bot (from_stage,to_stage,reason_code,actor,created_at)
+- update bots: stage='LAB', stage_updated_at=now(), stage_reason_code=reasonCode, promotion_mode='MANUAL'
+- return changedBotIds count + stage totals after
+
+C) IMMEDIATE PROOF (MANDATORY)
+1) Call /api/_proof/autonomy twice 60s apart and show jobs_enqueued increases:
+curl -s http://localhost:5000/api/_proof/autonomy | jq '.latestRun | {started_at, finished_at, bots_evaluated, jobs_enqueued, reasons_summary: .summary_json.reasons}'
+(wait 60s)
+curl -s http://localhost:5000/api/_proof/autonomy | jq '.latestRun | {started_at, finished_at, bots_evaluated, jobs_enqueued, reasons_summary: .summary_json.reasons}'
+
+2) Show newly created bot_jobs after revert time:
+curl -s http://localhost:5000/api/_proof/jobs | jq '.jobs[0:20]'
+
+3) Show /api/bots-overview includes botNow.state that matches:
+- BACKTEST_QUEUED or BACKTEST_RUNNING for at least one bot
+- IDLE for at least one bot
+
+D) BADGE SEMANTICS (NO CONFUSION)
+- Primary badge uses botNow.state only (Backtesting/Evolving/Queued/Runner/Blocked/Idle/etc.)
+- “Fresh” becomes a small secondary pill labeled “Data Fresh”
+- Remove OK tooltip/icon entirely; only show icon for WARN/CRITICAL/BLOCKED states
+
+DONE CRITERIA
+- After bulk revert, within 2 autonomy ticks, at least 1 bot shows BACKTEST_QUEUED or BACKTEST_RUNNING via botNow.
+- Bots page shows activity badges without manual user job starts.
+- Paper bots are no longer accidentally promoted; all are LAB until re-graduated properly.
+
+Proceed and deliver proof outputs + screenshot of bots table showing active states.

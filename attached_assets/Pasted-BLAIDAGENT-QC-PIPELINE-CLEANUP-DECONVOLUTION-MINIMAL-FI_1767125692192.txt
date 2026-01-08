@@ -1,0 +1,129 @@
+BLAIDAGENT — QC PIPELINE CLEANUP & DECONVOLUTION (MINIMAL FIX PROMPT)
+
+TASK
+Apply the smallest possible set of changes to the existing QuantConnect (QC) pipeline so behavior is:
+- explicit
+- predictable
+- snapshot-safe
+- non-convoluted
+
+DO NOT redesign the pipeline.
+DO NOT add new stages.
+DO NOT weaken QC as a gate.
+DO NOT change thresholds or budgets.
+ONLY fix clarity, invalidation, and source-of-truth issues.
+
+====================================================
+1) ADD MANUAL QC TRIGGER (UX CLARITY ONLY)
+====================================================
+
+Add a “Run QC Now” button in Strategy Lab.
+
+Visibility rules:
+- Show only when strategy stage ∈ {LAB, REVIEW}
+- Show only when:
+  - qcGatePassed == false OR qcStatus ∈ {FAILED, INCONCLUSIVE}
+  - snapshot not in cooldown window
+  - QC budget available
+
+Behavior:
+- Button enqueues the SAME QC job used by auto-trigger
+- No new logic paths
+- No bypass of:
+  - budgets
+  - cooldowns
+  - concurrency limits
+
+UI copy:
+“Run QuantConnect verification for the current strategy snapshot.”
+
+This button exists to give user agency, not new capability.
+
+====================================================
+2) SNAPSHOT INVALIDATION (CRITICAL CORRECTNESS FIX)
+====================================================
+
+Enforce snapshot binding strictly.
+
+On ANY strategy parameter update:
+- Recompute snapshot_hash
+- If snapshot_hash ≠ last_qc_snapshot_hash:
+  - Set qcGatePassed = false
+  - Set qcStatus = QC_REQUIRED
+  - Clear any existing QC badge from UI
+  - Strategy is no longer eligible for Trial
+
+Update snapshot hash definition to INCLUDE:
+- backtestPeriodDays (if used in QC inputs)
+
+Promotion guard MUST verify:
+- qcGatePassed == true
+- snapshot_hash == last_qc_snapshot_hash
+
+NO stale QC results may be reused after mutation.
+
+====================================================
+3) SINGLE SOURCE OF TRUTH (DE-SCOPE LEGACY STATE)
+====================================================
+
+Make qcGatePassed the ONLY authoritative field for promotion eligibility.
+
+Rules:
+- Promotion logic reads ONLY qcGatePassed
+- badgeState is DERIVED UI STATE ONLY
+
+Deprecate:
+- Writing to badgeState as a source of truth
+- Legacy fallbacks (VERIFIED checks when qcGatePassed undefined)
+
+Migration:
+- Compute badge state dynamically from:
+  - qcGatePassed
+  - qcStatus
+  - qcFailureReason
+
+====================================================
+4) EXPLICIT DEGRADED MODE (NO SILENT BYPASS)
+====================================================
+
+Formalize QC degraded behavior.
+
+When QC health status == DEGRADED or OFFLINE:
+- Show banner in Strategy Lab:
+  “QuantConnect verification temporarily unavailable.”
+
+Add ADMIN-ONLY action:
+- “Allow Trial Promotion (QC Temporarily Bypassed)”
+
+Bypass rules:
+- Sets qcBypassed = true
+- Trial promotion allowed
+- Apply strict trial limits (size/exposure)
+- Add prominent “QC Bypassed” badge
+- QC must still run later to clear bypass
+
+Remove reliance on silent force=true usage.
+
+====================================================
+5) WHAT NOT TO CHANGE (GUARDRAILS)
+====================================================
+
+DO NOT:
+- Change QC thresholds
+- Change budgets or cooldowns
+- Remove auto-trigger worker
+- Make QC optional
+- Add new pipeline stages
+- Alter confidence math beyond existing QC boost
+
+====================================================
+6) DEFINITION OF DONE
+====================================================
+
+- Users can explicitly request QC runs
+- QC results are invalidated on parameter change
+- Only one source of truth exists for promotion eligibility
+- Degraded mode is visible, constrained, and intentional
+- No additional complexity introduced
+
+This is a CLEANUP pass, not a redesign.
