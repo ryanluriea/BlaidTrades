@@ -13601,6 +13601,41 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // DIAGNOSTIC: Test which AI providers are configured for Strategy Lab research
+  app.get("/api/strategy-lab/test-providers", async (req: Request, res: Response) => {
+    try {
+      const { getStrategyLabProviders } = await import("./ai-strategy-evolution");
+      const providers = getStrategyLabProviders();
+      
+      // Check each individual provider
+      const providerStatus = {
+        perplexity: !!process.env.PERPLEXITY_API_KEY,
+        anthropic: !!process.env.ANTHROPIC_API_KEY,
+        openai: !!process.env.OPENAI_API_KEY,
+        groq: !!process.env.GROQ_API_KEY,
+        gemini: !!process.env.GOOGLE_GEMINI_API_KEY,
+        xai: !!process.env.XAI_API_KEY,
+      };
+      
+      const activeProviders = providers.map(p => p.provider);
+      const hasAnyProvider = providers.length > 0;
+      
+      return res.json({
+        success: true,
+        hasProviders: hasAnyProvider,
+        providerCount: providers.length,
+        activeProviders,
+        providerStatus,
+        message: hasAnyProvider 
+          ? `Strategy Lab has ${providers.length} AI provider(s) configured: ${activeProviders.join(", ")}`
+          : "No AI providers configured. Research will not run. Please add at least one of: PERPLEXITY_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, or GOOGLE_GEMINI_API_KEY",
+      });
+    } catch (error: any) {
+      console.error("[STRATEGY_LAB] Error testing providers:", error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   app.get("/api/strategy-lab/state", async (req: Request, res: Response) => {
     try {
       const { getStrategyLabState, getRecentCandidates, getLastResearchCycleTime, getResearchActivity, initializeStrategyLabFromSettings } = await import("./strategy-lab-engine");

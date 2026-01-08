@@ -7815,6 +7815,21 @@ async function initializeWorkers(): Promise<void> {
   assertArchetypeMappingsValid();
   assertFactoryMappingsValid();
   
+  // DIAGNOSTIC: Log available AI providers for Strategy Lab research
+  try {
+    const { getStrategyLabProviders } = await import("./ai-strategy-evolution");
+    const providers = getStrategyLabProviders();
+    const providerNames = providers.map(p => p.provider).join(", ");
+    if (providers.length === 0) {
+      console.warn("[SCHEDULER] WARNING: No AI providers configured for Strategy Lab research!");
+      console.warn("[SCHEDULER] Required env vars: PERPLEXITY_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, or GOOGLE_GEMINI_API_KEY");
+    } else {
+      console.log(`[SCHEDULER] AI providers available for Strategy Lab: ${providerNames} (${providers.length} total)`);
+    }
+  } catch (providerError) {
+    console.error("[SCHEDULER] Failed to check AI providers:", providerError);
+  }
+  
   console.log("[SCHEDULER] Starting automated workers with self-healing...");
   
   const createSelfHealingWorker = (name: string, fn: () => Promise<void>) => {

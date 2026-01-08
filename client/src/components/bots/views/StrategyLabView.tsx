@@ -58,6 +58,7 @@ import {
 } from "@/hooks/useStrategyLab";
 import { UNIVERSES } from "@/lib/cmeInstruments";
 import { cn } from "@/lib/utils";
+import { queryClient } from "@/lib/queryClient";
 import { isBeyondTrials } from "@/lib/stageConfig";
 import { useStrategyLabDialog } from "@/contexts/StrategyLabDialogContext";
 import { StrategyLabAILogos } from "./StrategyLabAILogos";
@@ -1591,6 +1592,60 @@ export function StrategyLabView() {
                   </DropdownMenuItem>
                 </>
               )}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="flex items-center gap-2">
+                <Zap className="h-3.5 w-3.5" />
+                Research Actions
+              </DropdownMenuLabel>
+              <DropdownMenuItem 
+                onClick={async () => {
+                  try {
+                    toast({ title: "Triggering Research...", description: "Starting manual research cycle" });
+                    const response = await fetch("/api/strategy-lab/trigger-research", { method: "POST" });
+                    const result = await response.json();
+                    if (result.success) {
+                      toast({ 
+                        title: "Research Triggered", 
+                        description: result.data 
+                          ? `Generated ${result.data.candidatesGenerated || 0} candidates` 
+                          : "Research cycle started"
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/candidates"] });
+                    } else {
+                      toast({ title: "Research Failed", description: result.error || "Unknown error", variant: "destructive" });
+                    }
+                  } catch (error: any) {
+                    toast({ title: "Research Failed", description: error.message, variant: "destructive" });
+                  }
+                }}
+                data-testid="menu-force-research"
+              >
+                <Zap className="h-3.5 w-3.5 mr-2" />
+                Force Research Now
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={async () => {
+                  try {
+                    const response = await fetch("/api/strategy-lab/test-providers");
+                    const result = await response.json();
+                    if (result.success) {
+                      toast({ 
+                        title: result.hasProviders ? "AI Providers Configured" : "No AI Providers!", 
+                        description: result.message,
+                        variant: result.hasProviders ? "default" : "destructive"
+                      });
+                    } else {
+                      toast({ title: "Provider Check Failed", description: result.error, variant: "destructive" });
+                    }
+                  } catch (error: any) {
+                    toast({ title: "Provider Check Failed", description: error.message, variant: "destructive" });
+                  }
+                }}
+                data-testid="menu-test-providers"
+              >
+                <Activity className="h-3.5 w-3.5 mr-2" />
+                Check AI Providers
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={() => setSettingsDialogOpen(true)}
