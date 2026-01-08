@@ -74,7 +74,7 @@ const PROVIDER_CONFIG: Record<string, { name: string; color: string; model: stri
   openai: { name: "OpenAI", color: "text-emerald-400", model: "GPT-4o" },
   anthropic: { name: "Anthropic", color: "text-amber-400", model: "Claude Sonnet" },
   gemini: { name: "Gemini", color: "text-blue-400", model: "Gemini 2.0 Flash" },
-  xai: { name: "xAI", color: "text-purple-400", model: "Grok 2" },
+  xai: { name: "xAI", color: "text-purple-400", model: "Grok 4.1" },
 };
 
 const FREQUENCY_OPTIONS = [

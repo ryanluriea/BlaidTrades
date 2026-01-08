@@ -1,5 +1,6 @@
 import { logActivityEvent } from "./activity-logger";
 import type { Bot } from "@shared/schema";
+import { researchMonitorWS } from "./research-monitor-ws";
 import { db } from "./db";
 import { botCostEvents, llmBudgets } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -574,6 +575,12 @@ async function callAIProvider(
 ): Promise<AIProviderResponse> {
   const config = AI_PROVIDERS[provider];
   const { headers, body } = config.formatRequest(prompt, apiKey);
+  
+  // Stream Perplexity research to Research Monitor
+  if (provider === "perplexity") {
+    const queryPreview = prompt.slice(0, 150).replace(/\n/g, " ");
+    researchMonitorWS.logSearch("perplexity", `Strategy research: ${queryPreview}...`);
+  }
   
   let url = config.url;
   if (provider === "gemini") {

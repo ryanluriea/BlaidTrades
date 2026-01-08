@@ -35,6 +35,7 @@ import ExecutionQuality from "@/pages/ExecutionQuality";
 import AlphaDecay from "@/pages/AlphaDecay";
 import TradeCostAnalysis from "@/pages/TradeCostAnalysis";
 import CorrelationAnalysis from "@/pages/CorrelationAnalysis";
+import ResearchMonitor from "@/pages/ResearchMonitor";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -280,6 +281,16 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <ExecutionQuality />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Research Monitor - live AI activity feed */}
+              <Route
+                path="/research-monitor"
+                element={
+                  <ProtectedRoute>
+                    <ResearchMonitor />
                   </ProtectedRoute>
                 }
               />

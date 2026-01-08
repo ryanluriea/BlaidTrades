@@ -15,6 +15,7 @@ import {
 import { detectMarketRegime } from "./regime-detector";
 import { getRecentGrokFeedback, buildFeedbackContextForGrok } from "./grok-feedback-collector";
 import { logIntegrationRequest } from "./request-logger";
+import { researchMonitorWS } from "./research-monitor-ws";
 
 const GROK_MODEL = "grok-4.1-fast";
 const GROK_API_URL = "https://api.x.ai/v1/chat/completions";
@@ -396,6 +397,13 @@ export async function runGrokResearch(
   try {
     console.log(`[GROK_RESEARCH] trace_id=${traceId} depth=${depth} starting research`);
     
+    // Stream to Research Monitor
+    researchMonitorWS.logSearch("grok", `Grok ${depth} research - ${context?.regimeTrigger || "scheduled"} ${context?.customFocus ? `focus: ${context.customFocus}` : ""}`, {
+      depth,
+      regime: context?.currentRegime,
+      traceId,
+    });
+    
     const response = await fetch(GROK_API_URL, {
       method: "POST",
       headers: {
@@ -483,6 +491,16 @@ export async function runGrokResearch(
     
     console.log(`[GROK_RESEARCH] trace_id=${traceId} SUCCESS depth=${depth} candidates=${candidates.length} cost=$${costUsd.toFixed(6)}`);
     
+    // Stream candidates to Research Monitor
+    for (const candidate of candidates) {
+      researchMonitorWS.logCandidate(
+        "grok", 
+        candidate.strategyName, 
+        candidate.confidence.score,
+        candidate.symbols?.[0]
+      );
+    }
+    
     return {
       success: true,
       candidates,
@@ -493,6 +511,9 @@ export async function runGrokResearch(
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error(`[GROK_RESEARCH] trace_id=${traceId} FAILED: ${errorMsg}`);
     trackProviderFailure("xai", errorMsg);
+    
+    // Stream error to Research Monitor
+    researchMonitorWS.logError("grok", `Research failed: ${errorMsg}`);
     
     // Log failed AI request
     await logIntegrationRequest({

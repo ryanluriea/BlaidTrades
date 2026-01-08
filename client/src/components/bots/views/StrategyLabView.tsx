@@ -6,8 +6,9 @@ import {
   AlertTriangle, Loader2, Globe, Lock, Zap, Clock, DollarSign, ChevronRight,
   RefreshCw, ExternalLink, FileText, Search, BookOpen, Compass, Target, TrendingUp,
   BarChart3, Award, Settings2, ChevronDown, RotateCcw, Sparkles, Activity, Info, Rocket,
-  MoreVertical, Trash2, Filter, SortDesc, ArrowUpDown, Star, Layers, FlaskConical, Recycle, MessageSquare
+  MoreVertical, Trash2, Filter, SortDesc, ArrowUpDown, Star, Layers, FlaskConical, Recycle, MessageSquare, Eye
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useRelativeTimeFormatter, formatRelativeTime } from "@/hooks/useRelativeTime";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -535,6 +536,7 @@ function ConfidenceRow({ label, value, weight }: { label: string; value: number;
 }
 
 export function StrategyLabView() {
+  const navigate = useNavigate();
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -1513,6 +1515,21 @@ export function StrategyLabView() {
         
         {/* Right side - Menu */}
         <div className="flex items-center gap-1.5">
+          {/* Research Monitor - Watch AI research live */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                onClick={() => navigate("/research-monitor")}
+                data-testid="button-research-monitor"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Watch AI research live</TooltipContent>
+          </Tooltip>
+          
           {/* 3-Dot Menu - Filter, Sort, Bulk Actions, Settings */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

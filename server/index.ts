@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { createServer } from "http";
 import { startScheduler, pauseHeavyWorkers, resumeHeavyWorkers } from "./scheduler";
 import { livePnLWebSocket } from "./websocket-server";
+import { researchMonitorWS } from "./research-monitor-ws";
 import { validateSchemaAtStartup, warmupDatabase } from "./db";
 import { startMemorySentinel, loadSheddingMiddleware, getInstanceId, registerSchedulerCallbacks, registerCacheEvictionCallback } from "./ops/memorySentinel";
 import { trimCacheForMemoryPressure } from "./bar-cache";
@@ -131,6 +132,9 @@ if (isWorkerOnlyMode) {
       
       // Initialize WebSocket server for real-time LIVE P&L updates
       livePnLWebSocket.initialize(server);
+      
+      // Initialize Research Monitor WebSocket for live AI research activity
+      researchMonitorWS.initialize(server);
       
       // AUTONOMOUS: Register memory sentinel callbacks for worker pausing
       registerSchedulerCallbacks(pauseHeavyWorkers, resumeHeavyWorkers);
