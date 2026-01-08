@@ -621,30 +621,6 @@ export default function Bots() {
       <TooltipProvider>
         <div className="space-y-2">
 
-          {/* Global Maintenance Banner */}
-          {isMaintenanceWindow && (
-            <div 
-              className="flex items-center gap-2 px-3 py-2 bg-muted/50 border border-border rounded-md text-sm text-muted-foreground"
-              data-testid="banner-maintenance"
-            >
-              <Moon className="w-4 h-4 flex-shrink-0" />
-              <span className="font-medium" data-testid="text-maintenance-title">CME Globex Maintenance</span>
-              <span className="text-muted-foreground/70">Daily break 5:00-6:00 PM ET</span>
-              <Clock className="w-3.5 h-3.5 ml-1" />
-              <span className="text-muted-foreground/70" data-testid="text-maintenance-resume">
-                {marketHours?.nextTransition ? (
-                  <>Resumes at {new Date(marketHours.nextTransition).toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit',
-                    timeZoneName: 'short'
-                  })}</>
-                ) : (
-                  <>Resumes at 6:00 PM ET</>
-                )}
-              </span>
-            </div>
-          )}
-
           {/* Stage Pipeline with integrated metrics and actions */}
           <AutonomyPipeline 
             selectedStage={stageFilter} 
