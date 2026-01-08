@@ -25,6 +25,7 @@ interface AppLayoutProps {
   children: React.ReactNode;
   title?: string;
   disableMainScroll?: boolean;
+  headerContent?: React.ReactNode;
 }
 
 const navItems = [
@@ -36,7 +37,7 @@ const navItems = [
   { href: "/accounts", label: "Accounts", icon: Wallet },
 ];
 
-export function AppLayout({ children, title, disableMainScroll }: AppLayoutProps) {
+export function AppLayout({ children, title, disableMainScroll, headerContent }: AppLayoutProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -205,6 +206,13 @@ export function AppLayout({ children, title, disableMainScroll }: AppLayoutProps
                 {title && <span className="text-xs text-muted-foreground truncate">{title}</span>}
               </div>
             </div>
+            
+            {/* Custom header content from page */}
+            {headerContent && (
+              <div className="hidden lg:flex items-center min-w-0 flex-1 overflow-x-auto">
+                {headerContent}
+              </div>
+            )}
             
             {/* Right side: Controls - horizontal layout with proper constraints */}
             <div className="flex items-center gap-2 flex-shrink-0">

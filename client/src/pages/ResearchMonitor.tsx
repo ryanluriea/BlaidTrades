@@ -464,10 +464,26 @@ export default function ResearchMonitor() {
       };
 
       ws.onmessage = (event) => {
-        if (paused) return;
-        
         try {
           const data = JSON.parse(event.data);
+          
+          // Handle initial connection with recent events
+          if (data.type === "connected" && data.recentEvents?.length > 0) {
+            const historicalEvents: ResearchEvent[] = data.recentEvents.map((evt: any) => ({
+              id: evt.id || `hist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              timestamp: new Date(evt.timestamp || Date.now()),
+              type: evt.eventType || "system",
+              source: evt.source || "system",
+              title: evt.title || "Research Activity",
+              details: evt.details,
+              metadata: evt.metadata,
+            }));
+            addEvents(historicalEvents);
+            console.log(`[ResearchMonitor] Loaded ${historicalEvents.length} historical events`);
+            return;
+          }
+          
+          if (paused) return;
           
           if (data.type === "research_event") {
             const newEvent: ResearchEvent = {
@@ -576,82 +592,76 @@ export default function ResearchMonitor() {
   });
 
   return (
-    <AppLayout title="Research Monitor" disableMainScroll>
-      <div className="flex flex-col h-full bg-background">
-        <div className="flex items-center justify-between gap-4 p-4 border-b">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-lg font-semibold flex items-center gap-2">
-                Research Monitor
-                <Badge variant={connected ? "default" : "secondary"} className="text-xs">
-                  {connected ? (
-                    <>
-                      <Wifi className="h-3 w-3 mr-1" />
-                      Live
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="h-3 w-3 mr-1" />
-                      Connecting...
-                    </>
-                  )}
-                </Badge>
-              </h1>
-              <p className="text-xs text-muted-foreground">Institutional-grade AI research transparency</p>
-            </div>
+    <AppLayout 
+      title="Research Monitor" 
+      disableMainScroll
+      headerContent={
+        <div className="flex items-center gap-2">
+          <Badge variant={connected ? "default" : "secondary"} className="text-xs">
+            {connected ? (
+              <>
+                <Wifi className="h-3 w-3 mr-1" />
+                Live
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-3 w-3 mr-1" />
+                Connecting...
+              </>
+            )}
+          </Badge>
+          
+          <div className="flex items-center gap-3 ml-4 text-xs">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-help">
+                  <Search className="h-3 w-3 text-blue-400" />
+                  <span className="text-muted-foreground">{stats.searches}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Queries made</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-help">
+                  <Globe className="h-3 w-3 text-cyan-400" />
+                  <span className="text-muted-foreground">{stats.sources}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Sources analyzed</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-help">
+                  <Sparkles className="h-3 w-3 text-yellow-400" />
+                  <span className="text-muted-foreground">{stats.ideas}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Ideas discovered</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-help">
+                  <Target className="h-3 w-3 text-emerald-400" />
+                  <span className="text-muted-foreground">{stats.candidates}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Strategies created</TooltipContent>
+            </Tooltip>
+            {stats.totalCost > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-help">
+                    <DollarSign className="h-3 w-3 text-amber-400" />
+                    <span className="text-muted-foreground">${stats.totalCost.toFixed(4)}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>Total cost (USD)</TooltipContent>
+              </Tooltip>
+            )}
           </div>
           
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-4 mr-4 text-xs">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 cursor-help">
-                    <Search className="h-3.5 w-3.5 text-blue-400" />
-                    <span className="text-muted-foreground">{stats.searches}</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>Queries made</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 cursor-help">
-                    <Globe className="h-3.5 w-3.5 text-cyan-400" />
-                    <span className="text-muted-foreground">{stats.sources}</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>Sources analyzed</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 cursor-help">
-                    <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
-                    <span className="text-muted-foreground">{stats.ideas}</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>Ideas discovered</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 cursor-help">
-                    <Target className="h-3.5 w-3.5 text-emerald-400" />
-                    <span className="text-muted-foreground">{stats.candidates}</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>Strategies created</TooltipContent>
-              </Tooltip>
-              {stats.totalCost > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1.5 cursor-help">
-                      <DollarSign className="h-3.5 w-3.5 text-amber-400" />
-                      <span className="text-muted-foreground">{stats.totalCost.toFixed(4)}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>Total cost (USD)</TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-            
+          <div className="flex items-center gap-1 ml-4">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -700,34 +710,34 @@ export default function ResearchMonitor() {
             </Tooltip>
           </div>
         </div>
-
-        <div className="flex-1 overflow-hidden p-4">
-          <Card className="h-full bg-black/40 border-border">
-            <ScrollArea className="h-full" ref={scrollRef}>
-              <div className="p-4 font-mono text-sm space-y-1">
-                {events.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                    <Brain className="h-12 w-12 mb-4 opacity-30" />
-                    <p className="text-sm">Waiting for research activity...</p>
-                    <p className="text-xs mt-1">Click the rocket button to trigger AI research</p>
-                    <p className="text-xs mt-1 text-muted-foreground/50">Events will stream here with full transparency</p>
-                  </div>
-                ) : (
-                  events.map((event) => (
-                    <ExpandableEvent key={event.id} event={event} />
-                  ))
-                )}
-                
-                {paused && events.length > 0 && (
-                  <div className="flex items-center justify-center py-2 text-amber-400 text-xs">
-                    <Pause className="h-3 w-3 mr-1.5" />
-                    Feed paused - click play to resume
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </Card>
-        </div>
+      }
+    >
+      <div className="flex flex-col h-full p-4">
+        <Card className="flex-1 overflow-hidden bg-card/50 border-border">
+          <ScrollArea className="h-full" ref={scrollRef}>
+            <div className="p-4 font-mono text-sm space-y-1">
+              {events.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <Brain className="h-12 w-12 mb-4 opacity-30" />
+                  <p className="text-sm">Waiting for research activity...</p>
+                  <p className="text-xs mt-2">Click the rocket button to trigger AI research</p>
+                  <p className="text-xs mt-1 text-muted-foreground/60">Events will stream here in real-time</p>
+                </div>
+              ) : (
+                events.map((event) => (
+                  <ExpandableEvent key={event.id} event={event} />
+                ))
+              )}
+              
+              {paused && events.length > 0 && (
+                <div className="flex items-center justify-center py-2 text-amber-400 text-xs">
+                  <Pause className="h-3 w-3 mr-1.5" />
+                  Feed paused - click play to resume
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </Card>
       </div>
     </AppLayout>
   );
