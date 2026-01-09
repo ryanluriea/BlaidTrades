@@ -576,7 +576,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
           </TooltipContent>
         </Tooltip>
 
-        <DialogContent className="w-[36rem] max-w-[36rem] p-0 gap-0">
+        <DialogContent className="w-[36rem] max-w-[36rem] p-0 gap-0 sm:top-[12%] sm:translate-y-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="px-6 pt-6 pb-4 border-b border-border">
               <div className="flex items-center justify-between mb-4">

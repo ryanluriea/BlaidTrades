@@ -245,21 +245,28 @@ export function HeaderClockBadge({
                     <span className="text-muted-foreground">Heap Used</span>
                     <span className="font-mono">{healthStats.memory.heapUsedMB} MB</span>
                   </div>
-                  <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                    <div 
-                      className={cn(
-                        "h-full rounded-full transition-all duration-500",
-                        healthStats.memory.heapUsedMB / healthStats.memory.heapTotalMB > 0.85 
-                          ? "bg-destructive/70" 
-                          : healthStats.memory.heapUsedMB / healthStats.memory.heapTotalMB > 0.7 
-                            ? "bg-amber-500/70" 
-                            : "bg-emerald-500/70"
-                      )}
-                      style={{ width: `${Math.min((healthStats.memory.heapUsedMB / healthStats.memory.heapTotalMB) * 100, 100)}%` }}
-                    />
-                  </div>
+                  {/* Progress bar shows usage against max heap (8GB), not current allocation */}
+                  {(() => {
+                    const MAX_HEAP_MB = 8192;
+                    const usedPct = healthStats.memory.heapUsedMB / MAX_HEAP_MB;
+                    return (
+                      <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                        <div 
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            usedPct > 0.75 
+                              ? "bg-destructive/70" 
+                              : usedPct > 0.50 
+                                ? "bg-amber-500/70" 
+                                : "bg-emerald-500/70"
+                          )}
+                          style={{ width: `${Math.min(usedPct * 100, 100)}%` }}
+                        />
+                      </div>
+                    );
+                  })()}
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Heap Total</span>
+                    <span className="text-muted-foreground">Heap Allocated</span>
                     <span className="font-mono">{healthStats.memory.heapTotalMB} MB</span>
                   </div>
                   <div className="flex justify-between text-xs">
