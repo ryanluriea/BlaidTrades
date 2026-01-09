@@ -770,7 +770,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
               </div>
             </TabsContent>
 
-            <TabsContent value="ai" className="p-3 space-y-4 mt-0 max-h-[600px] overflow-y-auto">
+            <TabsContent value="ai" className="p-3 space-y-4 mt-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Cpu className="h-4 w-4 text-purple-400" />
@@ -847,7 +847,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                 <div className="flex items-center gap-1.5">
                   <Label className="text-xs font-medium flex items-center gap-1.5 text-yellow-400">
                     <Zap className="h-3 w-3" />
-                    LLM Providers [VITE TEST]
+                    LLM Providers
                   </Label>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -943,7 +943,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                 <div className="flex items-center gap-1.5">
                   <Label className="text-xs font-medium flex items-center gap-1.5 text-cyan-400">
                     <FlaskConical className="h-3 w-3" />
-                    QC Verification [TEST]
+                    QC Verification
                   </Label>
                   <Tooltip>
                     <TooltipTrigger asChild>
