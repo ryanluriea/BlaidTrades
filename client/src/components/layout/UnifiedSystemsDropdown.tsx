@@ -41,7 +41,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Cpu, Zap, DollarSign, Clock, AlertTriangle, Loader2, HelpCircle, Play, Pause, Activity, Layers } from "lucide-react";
+import { Cpu, Zap, DollarSign, Clock, AlertTriangle, Loader2, HelpCircle, Play, Pause, Activity, Layers, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useStrategyLabAutonomousState, useToggleStrategyLabState } from "@/hooks/useStrategyLab";
@@ -277,6 +277,9 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
 
   const strategyLabPlaying = strategyLabState?.isPlaying ?? false;
   const adaptiveMode = strategyLabState?.adaptiveMode ?? "BALANCED";
+  const qcEnabled = strategyLabState?.qcAutoTriggerEnabled ?? true;
+  const qcDailyLimit = strategyLabState?.qcDailyLimit ?? 50;
+  const qcWeeklyLimit = strategyLabState?.qcWeeklyLimit ?? 200;
   
   const grokEnabled = grokState?.enabled ?? false;
   const isFullSpectrum = orchestratorStatus?.isFullSpectrum ?? false;
@@ -457,6 +460,40 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
         updateLimitMutation.mutate({ provider, limit: newLimit });
       },
       resetFn
+    );
+  };
+
+  const qcToggleMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const response = await fetch("/api/strategy-lab/state", {
+        method: "PATCH",
+        body: JSON.stringify({ qcAutoTriggerEnabled: enabled }),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to update QC settings");
+      return response.json();
+    },
+    onSuccess: (_, enabled) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/state"] });
+      toast.success(enabled ? "QuantConnect verification enabled" : "QuantConnect verification disabled");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update QuantConnect settings");
+    },
+  });
+
+  const handleQCToggle = (currentEnabled: boolean) => {
+    const action = currentEnabled ? "Disable" : "Enable";
+    
+    showConfirmation(
+      `${action} QuantConnect Verification`,
+      currentEnabled 
+        ? "Disable QuantConnect strategy verification? The Test column will be hidden in Strategy Lab."
+        : "Enable QuantConnect verification for strategies? This uses QC compute credits.",
+      () => {
+        qcToggleMutation.mutate(!currentEnabled);
+      }
     );
   };
 
@@ -898,6 +935,64 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                     })}
                   </div>
                 )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <FlaskConical className="h-3 w-3" />
+                    QuantConnect Verification
+                  </Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-[220px]">
+                      <p className="text-xs">Use QuantConnect to verify strategies before deployment. Uses QC compute credits. Disable to hide the Test column in Strategy Lab.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                
+                <div 
+                  className={cn(
+                    "flex items-center justify-between p-2 rounded-md border",
+                    qcEnabled ? "border-cyan-500/50 bg-cyan-500/5" : "border-border/50 opacity-60"
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Switch
+                      checked={qcEnabled}
+                      onCheckedChange={() => handleQCToggle(qcEnabled)}
+                      disabled={qcToggleMutation.isPending}
+                      className="scale-75"
+                      data-testid="switch-qc-enabled"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn("text-xs font-medium", qcEnabled ? "text-cyan-400" : "text-muted-foreground")}>
+                          QuantConnect
+                        </span>
+                        {qcEnabled && (
+                          <Badge variant="outline" className="h-3.5 px-1 text-[8px] border-cyan-400/50 text-cyan-400">
+                            Active
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {qcEnabled ? `Daily: ${qcDailyLimit} / Weekly: ${qcWeeklyLimit}` : "Verification disabled"}
+                      </p>
+                    </div>
+                  </div>
+                  {qcEnabled && (
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] text-muted-foreground">
+                        Compute credits
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <Separator />

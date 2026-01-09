@@ -1218,8 +1218,8 @@ export function StrategyLabView() {
     <div className="flex-1 flex flex-col gap-2 min-h-0">
       {/* Subheader - Column Headers + Menu in one row */}
       <div className="sticky top-0 z-50 flex items-center gap-3 px-4 lg:px-6 py-1.5 -mx-4 lg:-mx-6 bg-card border-b border-border/30">
-        {/* Column Headers Grid */}
-        <div className="flex-1 grid grid-cols-3 gap-3" data-testid="kanban-header">
+        {/* Column Headers Grid - 3 columns when QC enabled, 2 columns when disabled */}
+        <div className={cn("flex-1 grid gap-3", qcAutoTriggerEnabled ? "grid-cols-3" : "grid-cols-2")} data-testid="kanban-header">
           {/* New Column Header */}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/10 rounded-lg border border-border/30">
             <Tooltip>
@@ -1324,7 +1324,8 @@ export function StrategyLabView() {
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </div>
           
-          {/* Testing Column Header */}
+          {/* Testing Column Header - Only visible when QC is enabled */}
+          {qcAutoTriggerEnabled && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/10 rounded-lg border border-border/30 text-cyan-400">
             <Shield className="w-4 h-4" />
             <span className="text-sm font-medium">Testing</span>
@@ -1418,6 +1419,7 @@ export function StrategyLabView() {
             />
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </div>
+          )}
           
           {/* Trials Column Header */}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/10 rounded-lg border border-border/30 text-amber-400">
@@ -1948,6 +1950,7 @@ export function StrategyLabView() {
                 </div>
                 <div className="flex items-center gap-1">
                   <TooltipProvider>
+                    {qcAutoTriggerEnabled && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -1962,6 +1965,7 @@ export function StrategyLabView() {
                       </TooltipTrigger>
                       <TooltipContent>Move selected to QC Testing</TooltipContent>
                     </Tooltip>
+                    )}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -1995,9 +1999,9 @@ export function StrategyLabView() {
               </div>
             )}
             
-            {/* 3-Column Kanban Body - Independently Scrolling, with spacer to match header */}
+            {/* Kanban Body - Independently Scrolling, with spacer to match header */}
             <div className="flex flex-1 min-h-0 items-stretch gap-3">
-              <div className="flex-1 grid grid-cols-3 gap-3 min-h-0" data-testid="kanban-grid">
+              <div className={cn("flex-1 grid gap-3 min-h-0", qcAutoTriggerEnabled ? "grid-cols-3" : "grid-cols-2")} data-testid="kanban-grid">
                 {renderColumnBody(
                   "new",
                   Sparkles,
@@ -2009,7 +2013,7 @@ export function StrategyLabView() {
                   newColumnVisible,
                   newSentinelRef
                 )}
-                {renderColumnBody(
+                {qcAutoTriggerEnabled && renderColumnBody(
                   "testing",
                   Shield,
                   sortedQcTesting,
@@ -2025,8 +2029,8 @@ export function StrategyLabView() {
                   Rocket,
                   sortedSentToLab,
                   "No bots in trials",
-                  "Strategies that pass QC go here",
-                  true,
+                  qcAutoTriggerEnabled ? "Strategies that pass QC go here" : "Send strategies here for trials",
+                  qcAutoTriggerEnabled,
                   false,
                   trialsColumnVisible,
                   trialsSentinelRef
