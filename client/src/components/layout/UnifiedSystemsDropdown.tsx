@@ -864,7 +864,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="space-y-2">
                     {budgets.filter(b => b.provider !== 'openrouter').map((budget) => {
                       const config = PROVIDER_CONFIG[budget.provider] || { 
                         name: budget.provider, 
