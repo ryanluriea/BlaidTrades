@@ -795,10 +795,13 @@ export function WalletSlot({
       <Tooltip>
         <TooltipTrigger asChild>
           <div 
-            className="w-[64px] h-6 flex items-center justify-center gap-1 rounded-sm border transition-all px-1 bg-amber-500/20 text-amber-500 border-amber-500/30 cursor-not-allowed"
+            className="relative w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all bg-amber-500/20 text-amber-500 border-amber-500/30 cursor-not-allowed"
             data-testid={`wallet-slot-degraded-${botId}`}
           >
-            <Wallet className="w-4 h-4 flex-shrink-0" />
+            <span className="absolute -top-2 -left-2 p-0.5 bg-amber-500 rounded shadow-sm shadow-amber-500/50">
+              <Wallet className="w-3 h-3 text-white" />
+            </span>
+            <span className="text-[9px] uppercase leading-none opacity-70">ACCT</span>
             <span className="text-[11px] font-mono font-semibold leading-none">--</span>
           </div>
         </TooltipTrigger>
@@ -816,12 +819,14 @@ export function WalletSlot({
       <Tooltip>
         <TooltipTrigger asChild>
           <div 
-            className="w-[64px] h-6 flex items-center justify-center gap-1 rounded-sm border transition-all px-1 opacity-50 text-muted-foreground border-muted-foreground/30 cursor-not-allowed"
+            className="relative w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all opacity-50 text-muted-foreground border-muted-foreground/30 cursor-not-allowed"
             data-testid={`wallet-slot-locked-${botId}`}
           >
-            <Wallet className="w-4 h-4 flex-shrink-0" />
+            <span className="absolute -top-2 -left-2 p-0.5 bg-muted-foreground rounded shadow-sm">
+              <Lock className="w-3 h-3 text-white" />
+            </span>
+            <span className="text-[9px] uppercase leading-none opacity-70">ACCT</span>
             <span className="text-[11px] font-mono font-semibold leading-none">{balanceDisplay}</span>
-            <Lock className="w-2.5 h-2.5 flex-shrink-0" />
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
@@ -845,7 +850,7 @@ export function WalletSlot({
           <PopoverTrigger asChild>
             <div 
               className={cn(
-                "w-[64px] h-6 flex items-center justify-center gap-1 rounded-sm border transition-all px-1 cursor-pointer hover-elevate",
+                "relative w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all cursor-pointer hover-elevate",
                 isBlownAccount
                   ? "text-red-500 border-red-500/50 bg-red-500/10"
                   : hasAccount 
@@ -856,17 +861,26 @@ export function WalletSlot({
               data-testid={`button-wallet-${botId}`}
             >
               {isBlownAccount ? (
-                <>
-                  <Bomb className="w-4 h-4 flex-shrink-0" />
-                  {totalBlownCount > 1 && (
-                    <span className="text-[10px] font-mono font-bold leading-none">x{totalBlownCount}</span>
-                  )}
-                </>
+                <span className="absolute -top-2 -left-2 p-0.5 bg-red-500 rounded shadow-sm shadow-red-500/50">
+                  <Bomb className="w-3 h-3 text-white" />
+                </span>
               ) : (
-                <Wallet className="w-4 h-4 flex-shrink-0" />
+                <span className={cn(
+                  "absolute -top-2 -left-2 p-0.5 rounded shadow-sm",
+                  hasAccount ? "bg-blue-500 shadow-blue-500/50" : "bg-muted-foreground/50"
+                )}>
+                  <Wallet className="w-3 h-3 text-white" />
+                </span>
               )}
-              {hasAccount && !isBlownAccount && (
-                <span className="text-[11px] font-mono font-semibold leading-none">{balanceDisplay}</span>
+              <span className="text-[9px] uppercase leading-none opacity-70">ACCT</span>
+              {isBlownAccount ? (
+                <span className="text-[11px] font-mono font-semibold leading-none">
+                  {totalBlownCount > 1 ? `x${totalBlownCount}` : 'BLOWN'}
+                </span>
+              ) : (
+                <span className="text-[11px] font-mono font-semibold leading-none">
+                  {hasAccount ? balanceDisplay : '--'}
+                </span>
               )}
             </div>
           </PopoverTrigger>
