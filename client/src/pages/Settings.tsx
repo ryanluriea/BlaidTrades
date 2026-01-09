@@ -1498,6 +1498,57 @@ export default function Settings() {
   const { signOut } = useAuth();
   const { data: settings, isLoading } = useAppSettings();
   const updateSettings = useUpdateAppSettings();
+  const queryClient = useQueryClient();
+
+  // Handle OAuth callback URL parameters (Google Drive connection success/error)
+  // Runs once on mount, captures initial URL state before any cleanup
+  useEffect(() => {
+    // Capture params immediately on mount (before any state changes)
+    const initialSearch = window.location.search;
+    if (!initialSearch) return;
+    
+    const urlParams = new URLSearchParams(initialSearch);
+    const googleDriveConnected = urlParams.get("google_drive_connected");
+    const oauthError = urlParams.get("error");
+    const tabParam = urlParams.get("tab");
+    
+    // Early return if no OAuth-related params
+    if (!googleDriveConnected && !oauthError) return;
+    
+    // Clean URL first to prevent re-triggers on navigation
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete("google_drive_connected");
+    cleanUrl.searchParams.delete("error");
+    if (tabParam) {
+      cleanUrl.searchParams.set("tab", tabParam);
+    } else {
+      cleanUrl.search = "";
+    }
+    window.history.replaceState({}, "", cleanUrl.toString());
+    
+    if (googleDriveConnected === "true") {
+      // Invalidate cloud backup queries to fetch fresh connected status
+      queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/dashboard"] });
+      
+      // Show success toast
+      toast.success("Google Drive Connected", {
+        description: "Your account is now linked. You can backup and restore your data.",
+      });
+    } else if (oauthError) {
+      // Handle OAuth error - safely decode with fallback
+      let errorMessage = "Authorization failed. Please try again.";
+      try {
+        errorMessage = decodeURIComponent(oauthError);
+      } catch {
+        errorMessage = oauthError;
+      }
+      
+      toast.error("Google Drive Connection Failed", {
+        description: errorMessage,
+      });
+    }
+  }, []); // Empty deps - runs once on mount only
 
   const [generalSettings, setGeneralSettings] = useState({
     timezone: "America/New_York",
