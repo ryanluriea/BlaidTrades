@@ -8474,6 +8474,22 @@ export function registerRoutes(app: Express) {
         ? `AND entry_time >= '${new Date(attemptStartedAt).toISOString()}'::timestamptz`
         : '';
       
+      // BATCHED QUERY 4: Get CUMULATIVE paper trade metrics for the entire bot (used for active generation)
+      const cumulativePaperResult = await db.execute(sql`
+        SELECT 
+          COUNT(*) FILTER (WHERE status = 'CLOSED') as total_trades,
+          COUNT(*) FILTER (WHERE status = 'CLOSED' AND pnl > 0) as winning_trades,
+          COUNT(*) FILTER (WHERE status = 'CLOSED' AND pnl <= 0) as losing_trades,
+          SUM(CASE WHEN status = 'CLOSED' THEN pnl ELSE 0 END) as net_pnl,
+          AVG(CASE WHEN status = 'CLOSED' AND pnl > 0 THEN pnl END) as avg_win,
+          AVG(CASE WHEN status = 'CLOSED' AND pnl < 0 THEN ABS(pnl) END) as avg_loss,
+          MAX(CASE WHEN status = 'CLOSED' THEN exit_time END) as last_trade_time
+        FROM paper_trades
+        WHERE bot_id = ${botId}::uuid
+          AND status = 'CLOSED'
+      `);
+      const cumulativePaperMetrics = (cumulativePaperResult.rows as any[])[0] || null;
+      
       // Build CTE query for all generation windows at once
       const paperMetricsByGen = new Map<string, any>();
       
@@ -8509,15 +8525,28 @@ export function registerRoutes(app: Express) {
         }
       }
       
+      // Find the active/current generation (highest generation number)
+      const sortedByGenNum = [...generations].sort((a, b) => 
+        (b.generationNumber || 0) - (a.generationNumber || 0)
+      );
+      const currentGenId = sortedByGenNum[0]?.id;
+      const botCurrentStage = (bot.stage || "TRIALS").toUpperCase();
+      
       // Process generations with batched metrics (no N+1!)
       const enhancedGenerations = generations.map((gen) => {
         // CRITICAL: Stage determination priority:
-        // 1. Use stored stage if available (new generations)
-        // 2. Infer from promotion timeline based on generation creation time
-        // 3. Default to LAB only if no timeline data exists
+        // 1. For ACTIVE/CURRENT generation, use bot's current stage (reflects promotions)
+        // 2. Use stored stage if available (new generations)
+        // 3. Infer from promotion timeline based on generation creation time
+        // 4. Default to TRIALS only if no timeline data exists
         let genStage = (gen as any).stage;
         let stageSource = "stored";
-        if (!genStage) {
+        
+        // For the active generation, use the bot's current stage
+        if (gen.id === currentGenId) {
+          genStage = botCurrentStage;
+          stageSource = "bot_current";
+        } else if (!genStage) {
           const createdAt = gen.createdAt ? new Date(gen.createdAt) : new Date();
           genStage = inferStageAtTime(createdAt);
           stageSource = stageTimeline.length > 0 ? "inferred" : "default";
@@ -8554,9 +8583,13 @@ export function registerRoutes(app: Express) {
             computedMetrics.expectancy = bt.expectancy != null ? Number(bt.expectancy) : null;
           }
         }
-        // PAPER/SHADOW/CANARY/LIVE: Use generation-specific paper trades (time-windowed)
+        // PAPER/SHADOW/CANARY/LIVE: Use appropriate paper trade metrics
         else if (["PAPER", "SHADOW", "CANARY", "LIVE"].includes(genStage)) {
-          const paperMetrics = paperMetricsByGen.get(gen.id);
+          // For ACTIVE generation: use CUMULATIVE metrics (matches grid display)
+          // For historical generations: use time-windowed metrics
+          const isActiveGen = gen.id === currentGenId;
+          const paperMetrics = isActiveGen ? cumulativePaperMetrics : paperMetricsByGen.get(gen.id);
+          
           if (paperMetrics && Number(paperMetrics.total_trades) > 0) {
             const totalTrades = Number(paperMetrics.total_trades);
             const winningTrades = Number(paperMetrics.winning_trades);
@@ -8565,14 +8598,17 @@ export function registerRoutes(app: Express) {
             const avgWin = Number(paperMetrics.avg_win) || 0;
             const avgLoss = Number(paperMetrics.avg_loss) || 0;
             
-            computedMetrics.source = attemptStartedAt 
-              ? "paper_trades (gen-windowed, attempt-scoped)" 
-              : "paper_trades (gen-windowed)";
+            computedMetrics.source = isActiveGen 
+              ? "paper_trades (cumulative)" 
+              : (attemptStartedAt ? "paper_trades (gen-windowed, attempt-scoped)" : "paper_trades (gen-windowed)");
             computedMetrics.trades = totalTrades;
             computedMetrics.winningTrades = winningTrades;
             computedMetrics.losingTrades = losingTrades;
             computedMetrics.winRate = totalTrades > 0 ? winningTrades / totalTrades : null;
             computedMetrics.netPnl = netPnl;
+            computedMetrics.lastTradeTime = isActiveGen && paperMetrics.last_trade_time 
+              ? new Date(paperMetrics.last_trade_time).toISOString() 
+              : null;
             
             // Calculate expectancy: (winRate * avgWin) - ((1 - winRate) * avgLoss)
             if (totalTrades > 0 && avgWin > 0 && avgLoss > 0) {
@@ -8607,7 +8643,9 @@ export function registerRoutes(app: Express) {
           _source: computedMetrics.source,
           _stage: genStage,
           _stageSource: stageSource,
-          _computedAt: new Date().toISOString(),
+          // Use actual last trade time if available, otherwise generation creation time
+          _metricsAsOf: computedMetrics.lastTradeTime || gen.createdAt || new Date().toISOString(),
+          _isActiveGen: gen.id === currentGenId,
         };
         
         return {
