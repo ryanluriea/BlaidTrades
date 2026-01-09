@@ -16,10 +16,6 @@ import { BotExecutionStatus } from "./dropdown/BotExecutionStatus";
 import { BotInlineControls } from "./dropdown/BotInlineControls";
 import { BotEvolutionPanel } from "./dropdown/BotEvolutionPanel";
 import { BotWalkForwardPanel } from "./dropdown/BotWalkForwardPanel";
-import { BotBrainPanel } from "./dropdown/BotBrainPanel";
-import { BotCapitalStatus } from "./dropdown/BotCapitalStatus";
-import { RecoveryJourneyPanel } from "./dropdown/RecoveryJourneyPanel";
-import { BotLineagePanel } from "./dropdown/BotLineagePanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBotInstances } from "@/hooks/useBotDetails";
 interface BotDetailDropdownProps {
@@ -127,9 +123,8 @@ export function BotDetailDropdown({ bot, isExpanded }: BotDetailDropdownProps) {
       </div>
 
       {/* Tabs for different sections */}
-      <Tabs defaultValue="brain" className="w-full">
+      <Tabs defaultValue="overview" className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap bg-background/50 h-8">
-          <TabsTrigger value="brain" className="text-xs px-2">Brain</TabsTrigger>
           <TabsTrigger value="overview" className="text-xs px-2">Overview</TabsTrigger>
           <TabsTrigger value="activity" className="text-xs px-2">Activity</TabsTrigger>
           <TabsTrigger value="trades" className="text-xs px-2">Trades</TabsTrigger>
@@ -138,22 +133,6 @@ export function BotDetailDropdown({ bot, isExpanded }: BotDetailDropdownProps) {
           <TabsTrigger value="generations" className="text-xs px-2">Generations</TabsTrigger>
           <TabsTrigger value="signals" className="text-xs px-2">Signals</TabsTrigger>
         </TabsList>
-
-        {/* Bot Brain - Health, Intent, Blockers, Events */}
-        <TabsContent value="brain" className="mt-3 space-y-3">
-          <BotLineagePanel botId={bot.id} />
-          <div className="grid gap-3 md:grid-cols-2">
-            <BotBrainPanel botId={bot.id} stage={bot.stage} />
-            <div className="space-y-3">
-              <BotCapitalStatus 
-                botId={bot.id} 
-                botStage={bot.stage} 
-                healthScore={bot.health_score || 100} 
-              />
-              <RecoveryJourneyPanel botId={bot.id} currentStage={bot.stage} />
-            </div>
-          </div>
-        </TabsContent>
 
         <TabsContent value="overview" className="mt-3 space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
