@@ -217,12 +217,14 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
   const [activeTab, setActiveTab] = useState(initialTab);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   
-  // Reset to initialTab when dialog opens
+  // Reset to initialTab when dialog opens and refetch fresh data
   useEffect(() => {
     if (open) {
       setActiveTab(initialTab);
+      // Invalidate cache to get fresh nextBackupAt from scheduler
+      queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/dashboard"] });
     }
-  }, [open, initialTab]);
+  }, [open, initialTab, queryClient]);
   
   // Track if backup is in progress globally - survives dialog close/reopen
   // This ensures polling continues even when dialog is closed during backup
