@@ -1424,15 +1424,52 @@ export async function runStrategyLabResearchCycle(
     message: "Researching market patterns with Perplexity AI...",
   });
   
-  const researchResult = await runPerplexityResearch(context, DEFAULT_USER_ID);
-  
-  if (!researchResult.success || researchResult.candidates.length === 0) {
-    console.log(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} research failed or no candidates: ${researchResult.error}`);
+  let researchResult: Awaited<ReturnType<typeof runPerplexityResearch>>;
+  try {
+    researchResult = await runPerplexityResearch(context, DEFAULT_USER_ID);
+  } catch (error: any) {
+    const errorMessage = error?.message || String(error);
+    console.error(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} research threw exception: ${errorMessage}`);
+    
+    // Log activity event so failure is visible in UI
+    await logActivityEvent({
+      eventType: "STRATEGY_LAB_RESEARCH",
+      severity: "ERROR",
+      title: "Strategy Lab Research Failed",
+      summary: `Research failed: ${errorMessage}`,
+      payload: { traceId, error: errorMessage, provider: "perplexity", success: false },
+      traceId,
+    });
+    
     setResearchActivity({
       isActive: false,
       phase: "IDLE",
       provider: null,
-      message: researchResult.error || "No candidates found",
+      message: `Research failed: ${errorMessage}`,
+      candidatesFound: 0,
+    });
+    return null;
+  }
+  
+  if (!researchResult.success || researchResult.candidates.length === 0) {
+    const errorMessage = researchResult.error || "No candidates found";
+    console.log(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} research failed or no candidates: ${errorMessage}`);
+    
+    // Log activity event so failure is visible in UI
+    await logActivityEvent({
+      eventType: "STRATEGY_LAB_RESEARCH",
+      severity: "WARN",
+      title: "Strategy Lab Research: No Results",
+      summary: errorMessage,
+      payload: { traceId, error: errorMessage, candidatesFound: 0, success: false },
+      traceId,
+    });
+    
+    setResearchActivity({
+      isActive: false,
+      phase: "IDLE",
+      provider: null,
+      message: errorMessage,
       candidatesFound: 0,
     });
     return null;
