@@ -1,0 +1,44 @@
+==> Downloading cache...
+==> Cloning from https://github.com/ryanluriea/BlaidTrades
+==> Checking out commit 564905b4e8593d5d8a190cace2dc39e21cd9caac in branch main
+==> Downloaded 253MB in 5s. Extraction took 5s.
+==> Using Node.js version 22.16.0 (default)
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Using Bun version 1.3.4 (default)
+==> Docs on specifying a Bun version: https://render.com/docs/bun-version
+==> Running build command 'NPM_CONFIG_PRODUCTION=false npm install && npm run build'...
+up to date, audited 714 packages in 2s
+121 packages are looking for funding
+  run `npm fund` for details
+8 vulnerabilities (4 moderate, 4 high)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+> trading-bot-platform@0.0.0 build
+> vite build && npm run build:server
+vite v7.2.7 building client environment for production...
+transforming...
+✓ 3474 modules transformed.
+[plugin vite:reporter] 
+(!) /opt/render/project/src/client/src/lib/http.ts is dynamically imported by /opt/render/project/src/client/src/components/accounts/AttachBotToAccountDialog.tsx but also statically imported by /opt/render/project/src/client/src/components/alerts/PromoteToLiveDialog.tsx, /opt/render/project/src/client/src/components/bots/CreateBotDialog.tsx, /opt/render/project/src/client/src/components/bots/PipelineActions.tsx, /opt/render/project/src/client/src/components/bots/ResetBotFleetDialog.tsx, /opt/render/project/src/client/src/components/bots/WhyNotTradingExplainer.tsx, /opt/render/project/src/client/src/components/bots/dropdown/BotCapitalStatus.tsx, /opt/render/project/src/client/src/components/bots/dropdown/BotInlineControls.tsx, /opt/render/project/src/client/src/components/bots/dropdown/BotLineagePanel.tsx, /opt/render/project/src/client/src/components/connections/IntegrationOverview.tsx, /opt/render/project/src/client/src/components/connections/LiveStackSummary.tsx, /opt/render/project/src/client/src/components/connections/OpsAlertsSection.tsx, /opt/render/project/src/client/src/components/proof/ProofDashboard.tsx, /opt/render/project/src/client/src/hooks/useSymbolPreference.ts, /opt/render/project/src/client/src/lib/debugBundle.ts, /opt/render/project/src/client/src/pages/Settings.tsx, dynamic import will not move module into another chunk.
+rendering chunks...
+computing gzip size...
+../dist/public/index.html                     0.78 kB │ gzip:   0.40 kB
+../dist/public/assets/index-CpsHmL4V.css    116.85 kB │ gzip:  19.59 kB
+../dist/public/assets/index-KsTtjBzn.js   2,429.47 kB │ gzip: 630.18 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 11.20s
+> trading-bot-platform@0.0.0 build:server
+> esbuild server/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --format=esm --packages=external
+✘ [ERROR] No matching export in "server/providers/notify/discordWebhook.ts" for import "sendDiscordNotification"
+    server/ops/dbQueryMonitor.ts:14:9:
+      14 │ import { sendDiscordNotification } from "../providers/notify/disco...
+         ╵          ~~~~~~~~~~~~~~~~~~~~~~~
+1 error
+==> Build failed 😞
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys

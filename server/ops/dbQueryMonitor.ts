@@ -11,7 +11,7 @@
  * - Discord alerts for critical latency spikes
  */
 
-import { sendDiscordNotification } from "../providers/notify/discordWebhook";
+import { sendDiscord } from "../providers/notify/discordWebhook";
 
 const LOG_PREFIX = "[DB_MONITOR]";
 
@@ -112,7 +112,7 @@ async function triggerSlowQueryAlert(alert: SlowQueryAlert, isCritical: boolean)
   const correlationId = `dbmon_${Date.now()}`;
   
   try {
-    await sendDiscordNotification({
+    await sendDiscord({
       channel: "ops",
       title: `Database Slow Query Alert`,
       message: `Query type **${alert.queryType}** took **${(alert.durationMs / 1000).toFixed(2)}s** (threshold: ${SLOW_QUERY_THRESHOLD_MS / 1000}s)`,
