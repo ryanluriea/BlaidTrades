@@ -127,9 +127,23 @@ class ResearchMonitorWebSocketServer {
       return;
     }
 
+    // Use noServer mode to manually handle upgrade events
+    // This ensures WebSocket upgrade happens BEFORE Express can intercept the request
     this.wss = new WebSocketServer({ 
-      server, 
-      path: "/ws/research-monitor" 
+      noServer: true,
+      // Disable per-message deflate compression for Replit proxy compatibility
+      perMessageDeflate: false
+    });
+    
+    // Manually handle HTTP upgrade event for /ws/research-monitor path
+    server.on("upgrade", (request, socket, head) => {
+      const pathname = request.url || "";
+      if (pathname === "/ws/research-monitor" || pathname.startsWith("/ws/research-monitor?")) {
+        this.wss!.handleUpgrade(request, socket, head, (ws) => {
+          this.wss!.emit("connection", ws, request);
+        });
+      }
+      // Other paths will be handled by other upgrade handlers (e.g., live-pnl)
     });
 
     this.wss.on("connection", (ws: WebSocket) => {

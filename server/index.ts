@@ -138,13 +138,17 @@ if (isWorkerOnlyMode) {
     } else {
       serveStatic(app);
     }
+    
+    // CRITICAL: Initialize WebSocket servers BEFORE server.listen()
+    // This ensures the 'upgrade' event handlers are registered before any connections arrive
+    // Prevents race condition where clients connect before WebSocket handlers are ready
+    livePnLWebSocket.initialize(server);
+    researchMonitorWS.initialize(server);
+    log(`[STARTUP] WebSocket servers initialized`);
 
     const port = 5000;
     server.listen(port, "0.0.0.0", () => {
       log(`serving on port ${port}`);
-      
-      // Initialize WebSocket server for real-time LIVE P&L updates
-      livePnLWebSocket.initialize(server);
       
       // Register WebSocket metrics with observability dashboard
       import("./ops/observabilityDashboard").then(({ registerWebSocketMetricsProvider }) => {
@@ -163,9 +167,6 @@ if (isWorkerOnlyMode) {
       }).catch(err => {
         log(`[STARTUP] Failed to register DB query metrics: ${err.message}`);
       });
-      
-      // Initialize Research Monitor WebSocket for live AI research activity
-      researchMonitorWS.initialize(server);
       
       // AUTONOMOUS: Register memory sentinel callbacks for worker pausing
       registerSchedulerCallbacks(pauseHeavyWorkers, resumeHeavyWorkers);

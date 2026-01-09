@@ -56,6 +56,11 @@ export async function setupVite(app: Express, server: any) {
     if (url.startsWith("/api/")) {
       return next();
     }
+    
+    // Skip WebSocket paths - they should be handled by the HTTP upgrade event
+    if (url.startsWith("/ws/")) {
+      return next();
+    }
 
     try {
       const clientTemplate = path.resolve(__dirname, "..", "client", "index.html");
@@ -100,7 +105,18 @@ export function serveStatic(app: Express) {
       }
     }
   }));
-  app.use("/{*splat}", (_req, res) => {
+  
+  // CRITICAL: Exclude WebSocket paths from catch-all route
+  // WebSocket upgrade requests must reach the HTTP server's 'upgrade' event handler
+  // If we respond with index.html, the WebSocket handshake fails with "Invalid frame header"
+  app.use("/{*splat}", (req, res, next) => {
+    const url = req.originalUrl || req.url;
+    
+    // Skip WebSocket paths - let them fall through to the HTTP upgrade handler
+    if (url.startsWith("/ws/")) {
+      return next();
+    }
+    
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');

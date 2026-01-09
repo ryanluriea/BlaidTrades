@@ -18,6 +18,7 @@ import type { IncomingMessage } from "http";
 import { parse as parseCookie } from "cookie";
 import { poolWeb } from "./db";
 import crypto from "crypto";
+import { log } from "./vite";
 
 interface LivePnLUpdate {
   type: "LIVE_PNL_UPDATE";
@@ -118,10 +119,28 @@ class LivePnLWebSocketServer {
       return;
     }
 
+    // Use noServer mode to manually handle upgrade events
+    // This ensures WebSocket upgrade happens BEFORE Express can intercept the request
     this.wss = new WebSocketServer({ 
-      server, 
-      path: "/ws/live-pnl" 
+      noServer: true,
+      // Disable per-message deflate compression for Replit proxy compatibility
+      perMessageDeflate: false
     });
+    
+    // Manually handle HTTP upgrade event for /ws/live-pnl path
+    server.on("upgrade", (request, socket, head) => {
+      const pathname = request.url || "";
+      if (pathname === "/ws/live-pnl" || pathname.startsWith("/ws/live-pnl?")) {
+        log(`[WS_SERVER] Handling upgrade for ${pathname}`);
+        this.wss!.handleUpgrade(request, socket, head, (ws) => {
+          log(`[WS_SERVER] Upgrade complete, emitting connection`);
+          this.wss!.emit("connection", ws, request);
+        });
+      }
+      // Other paths will be handled by other upgrade handlers (e.g., research-monitor-ws)
+    });
+    
+    log("[WS_SERVER] LivePnL WebSocket initialized with noServer mode");
 
     this.wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
       const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
@@ -166,8 +185,8 @@ class LivePnLWebSocketServer {
         }
       });
 
-      ws.on("close", () => {
-        console.log("[WS_SERVER] Client disconnected");
+      ws.on("close", (code, reason) => {
+        console.log(`[WS_SERVER] Client disconnected code=${code} reason=${reason?.toString() || 'none'}`);
         this.clients.delete(ws);
       });
 
@@ -352,11 +371,21 @@ class LivePnLWebSocketServer {
     }, this.SESSION_CHECK_INTERVAL_MS);
   }
 
-  private handleMessage(ws: WebSocket, message: SubscribeMessage): void {
+  private handleMessage(ws: WebSocket, message: SubscribeMessage & { type: string }): void {
     const client = this.clients.get(ws);
     if (!client) return;
 
     client.lastActivity = Date.now();
+    
+    // Handle PING immediately without auth check (keep-alive)
+    if (message.type === "PING") {
+      try {
+        ws.send(JSON.stringify({ type: "PONG", timestamp: Date.now() }));
+      } catch (e) {
+        // Ignore send errors
+      }
+      return;
+    }
 
     if (this.REQUIRE_AUTH && !client.authenticated) {
       ws.send(JSON.stringify({ 

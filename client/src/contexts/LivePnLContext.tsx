@@ -61,6 +61,8 @@ export function LivePnLProvider({ children }: { children: ReactNode }) {
   const reconnectAttemptsRef = useRef(0);
   /** Track last seen sequence per bot to reject out-of-order packets */
   const lastSequenceRef = useRef<Map<string, number>>(new Map());
+  /** Heartbeat interval for keeping connection alive (Replit proxy fix) */
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -83,6 +85,29 @@ export function LivePnLProvider({ children }: { children: ReactNode }) {
         // Otherwise all new packets would be rejected as "stale"
         lastSequenceRef.current.clear();
         console.log("[LIVE_PNL_PROVIDER] Reset sequence tracking for fresh server baseline");
+        
+        // REPLIT PROXY FIX: Send immediate ping to keep connection alive
+        // Replit's proxy can terminate idle connections quickly
+        try {
+          ws.send(JSON.stringify({ type: "PING" }));
+        } catch (e) {
+          // Ignore send errors on initial ping
+        }
+        
+        // REPLIT PROXY FIX: Start periodic heartbeat (every 25 seconds)
+        // This prevents Replit's proxy from terminating idle connections
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+        }
+        heartbeatIntervalRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            try {
+              ws.send(JSON.stringify({ type: "PING" }));
+            } catch (e) {
+              // Ignore send errors
+            }
+          }
+        }, 25000);
         
         // Flush queued subscriptions on open
         if (subscribedBots.current.size > 0) {
@@ -128,11 +153,17 @@ export function LivePnLProvider({ children }: { children: ReactNode }) {
         }
       };
 
-      ws.onclose = () => {
-        console.log("[LIVE_PNL_PROVIDER] WebSocket disconnected, reconnecting...");
+      ws.onclose = (event) => {
+        console.log(`[LIVE_PNL_PROVIDER] WebSocket closed code=${event.code} reason=${event.reason} wasClean=${event.wasClean}`);
         setIsConnected(false);
         setIsReconnecting(true);  // Mark as reconnecting to preserve cached data
         wsRef.current = null;
+        
+        // Clear heartbeat interval on disconnect
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+          heartbeatIntervalRef.current = null;
+        }
         
         // NOTE: Do NOT clear the updates Map here - preserve cached P&L values during reconnect
         // This allows the stabilized position logic to trust cached WebSocket data over REST
@@ -192,6 +223,9 @@ export function LivePnLProvider({ children }: { children: ReactNode }) {
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
       }
       if (wsRef.current) {
         wsRef.current.close();
