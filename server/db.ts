@@ -79,10 +79,10 @@ const CONNECTION_TIMEOUT_MS = 5000; // Fast fail for web requests
 const CONNECTION_TIMEOUT_WORKERS_MS = 10000;
 
 // HIGH-PRIORITY: Web/Auth pool - reserved for user-facing requests
-// Smaller pool with faster timeouts ensures auth never waits for workers
+// Increased to handle concurrent API load without starvation
 export const poolWeb = new Pool({ 
   connectionString: DATABASE_URL,
-  max: 4, // Reserved slots for web requests
+  max: 6, // Increased from 4 to handle API bursts
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
   allowExitOnIdle: true,
@@ -91,9 +91,10 @@ export const poolWeb = new Pool({
 
 // WORKER POOL: Background jobs (backtests, runners, evolution)
 // Uses reader endpoint if available for read-heavy workloads
+// Increased to prevent connection starvation during heavy workloads
 export const pool = new Pool({ 
   connectionString: DATABASE_READER_URL || DATABASE_URL,
-  max: 8, // Reduced from 10 to leave room for web pool
+  max: 12, // Increased from 8 to handle concurrent job processing
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: CONNECTION_TIMEOUT_WORKERS_MS,
   allowExitOnIdle: true,

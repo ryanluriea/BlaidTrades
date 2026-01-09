@@ -1661,19 +1661,34 @@ function normalizeDrawdownProfile(value: any): string | null {
 
 function parseResearchResponse(response: string, citations?: string[]): ResearchCandidate[] {
   try {
+    // Log response length for diagnostics
+    console.log(`[STRATEGY_LAB] Parsing response: ${response.length} chars`);
+    
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error("[STRATEGY_LAB] No JSON found in research response");
+      console.error(`[STRATEGY_LAB] Response preview (first 500 chars): ${response.slice(0, 500)}`);
       return [];
     }
     
-    const parsed = JSON.parse(jsonMatch[0]) as { candidates?: any[] };
+    let parsed: { candidates?: any[] };
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (parseErr) {
+      console.error(`[STRATEGY_LAB] JSON parse error: ${parseErr instanceof Error ? parseErr.message : 'Unknown'}`);
+      console.error(`[STRATEGY_LAB] JSON preview (first 500 chars): ${jsonMatch[0].slice(0, 500)}`);
+      return [];
+    }
+    
     if (!parsed.candidates || !Array.isArray(parsed.candidates)) {
       console.error("[STRATEGY_LAB] No candidates array in parsed response");
+      console.error(`[STRATEGY_LAB] Parsed keys: ${Object.keys(parsed).join(', ')}`);
       return [];
     }
     
-    return parsed.candidates.map((c: any) => {
+    console.log(`[STRATEGY_LAB] Found ${parsed.candidates.length} raw candidates`);
+    
+    const mapped = parsed.candidates.map((c: any) => {
       const candidate: ResearchCandidate = {
         strategyName: c.strategy_name || c.strategyName || "Unnamed Strategy",
         archetypeName: c.archetype_name || c.archetypeName,
@@ -1752,7 +1767,22 @@ function parseResearchResponse(response: string, citations?: string[]): Research
       }
       
       return candidate;
-    }).filter((c: ResearchCandidate) => c.strategyName && c.hypothesis);
+    });
+    
+    // Log filter results for diagnostics
+    const validCandidates = mapped.filter((c: ResearchCandidate) => c.strategyName && c.hypothesis);
+    const invalidCount = mapped.length - validCandidates.length;
+    
+    if (invalidCount > 0) {
+      console.warn(`[STRATEGY_LAB] Filtered out ${invalidCount} candidates (missing strategyName or hypothesis)`);
+      const invalidExamples = mapped.filter((c: ResearchCandidate) => !c.strategyName || !c.hypothesis).slice(0, 2);
+      invalidExamples.forEach((c: ResearchCandidate, i: number) => {
+        console.warn(`[STRATEGY_LAB] Invalid candidate ${i + 1}: name="${c.strategyName || 'MISSING'}" hypothesis="${c.hypothesis?.slice(0, 50) || 'MISSING'}"`);
+      });
+    }
+    
+    console.log(`[STRATEGY_LAB] Returning ${validCandidates.length} valid candidates`);
+    return validCandidates;
   } catch (error) {
     console.error("[STRATEGY_LAB] Failed to parse research response:", error);
     return [];

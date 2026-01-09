@@ -52,6 +52,24 @@ function isValidUuid(str: string): boolean {
   return uuidRegex.test(str);
 }
 
+/**
+ * Execute async operations in batches to prevent database pool exhaustion
+ * INSTITUTIONAL: Max 4 concurrent DB operations per batch
+ */
+async function throttledParallel<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  batchSize = 4
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 const SENSITIVE_FIELD_PATTERNS = [
   /api[_-]?key/i,
   /secret/i,
@@ -11054,7 +11072,8 @@ export function registerRoutes(app: Express) {
         inArray(schema.botJobs.status, ['QUEUED', 'RUNNING', 'PENDING'] as any[])
       ));
       
-      const backtestSessionsArray = await Promise.all(bot_ids.map((id: string) => storage.getBacktestSessions(id)));
+      // THROTTLED: Batch queries to prevent pool exhaustion
+      const backtestSessionsArray = await throttledParallel(bot_ids, (id: string) => storage.getBacktestSessions(id));
       const backtests = backtestSessionsArray.flat();
 
       const accountMap = new Map<string, any>();
@@ -11174,10 +11193,12 @@ export function registerRoutes(app: Express) {
         return res.json({ success: true, data: {} });
       }
 
-      const bots = await Promise.all(bot_ids.map((id: string) => storage.getBot(id)));
+      // THROTTLED: Batch queries to prevent pool exhaustion
+      const bots = await throttledParallel(bot_ids, (id: string) => storage.getBot(id));
       const trades = await storage.getTradeLogs({ excludeTest: true });
       const instances = await storage.getBotInstances({});
-      const backtestSessionsArray = await Promise.all(bot_ids.map((id: string) => storage.getBacktestSessions(id)));
+      // THROTTLED: Batch queries to prevent pool exhaustion
+      const backtestSessionsArray = await throttledParallel(bot_ids, (id: string) => storage.getBacktestSessions(id));
       const backtests = backtestSessionsArray.flat();
 
       const instanceToBotMap = new Map<string, string>();
@@ -11398,7 +11419,8 @@ export function registerRoutes(app: Express) {
       const userId = req.session?.userId;
       const accounts = userId ? await storage.getAccounts(userId) : [];
       const accountMap = new Map(accounts.map(a => [a.id, a]));
-      const backtestSessionsArray = await Promise.all(bot_ids.map((id: string) => storage.getBacktestSessions(id)));
+      // THROTTLED: Batch queries to prevent pool exhaustion
+      const backtestSessionsArray = await throttledParallel(bot_ids, (id: string) => storage.getBacktestSessions(id));
       const backtests = backtestSessionsArray.flat();
 
       // Fetch latest generation metrics history for trend data (one per bot using efficient subquery)
