@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => ({
     port: 5000,
     allowedHosts: true,
     hmr: getHmrConfig(),
+    headers: process.env.REPL_ID ? {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    } : undefined,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   root: path.resolve(__dirname, "client"),
