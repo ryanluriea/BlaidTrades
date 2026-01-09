@@ -576,7 +576,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
           </TooltipContent>
         </Tooltip>
 
-        <PopoverContent className="w-80 p-0" align="end">
+        <PopoverContent className="w-[28rem] p-0" align="end">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="p-2 border-b border-border">
               <TabsList className="w-full grid grid-cols-2">
