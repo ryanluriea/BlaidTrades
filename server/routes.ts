@@ -11072,9 +11072,8 @@ export function registerRoutes(app: Express) {
         inArray(schema.botJobs.status, ['QUEUED', 'RUNNING', 'PENDING'] as any[])
       ));
       
-      // THROTTLED: Batch queries to prevent pool exhaustion
-      const backtestSessionsArray = await throttledParallel(bot_ids, (id: string) => storage.getBacktestSessions(id));
-      const backtests = backtestSessionsArray.flat();
+      // PERFORMANCE: Only fetch running/pending sessions (not full history of 1000+ per bot)
+      const backtests = await storage.getActiveBacktestSessions(validBotIds);
 
       const accountMap = new Map<string, any>();
       const result: Record<string, any> = {};
@@ -11197,9 +11196,8 @@ export function registerRoutes(app: Express) {
       const bots = await throttledParallel(bot_ids, (id: string) => storage.getBot(id));
       const trades = await storage.getTradeLogs({ excludeTest: true });
       const instances = await storage.getBotInstances({});
-      // THROTTLED: Batch queries to prevent pool exhaustion
-      const backtestSessionsArray = await throttledParallel(bot_ids, (id: string) => storage.getBacktestSessions(id));
-      const backtests = backtestSessionsArray.flat();
+      // PERFORMANCE: Only fetch recent completed sessions (not full 1000+ history per bot)
+      const backtests = await storage.getRecentBacktestSessions(bot_ids, 5);
 
       const instanceToBotMap = new Map<string, string>();
       instances.forEach(inst => {

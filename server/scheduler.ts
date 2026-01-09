@@ -5298,7 +5298,7 @@ async function runBlownAccountStartupSweep(): Promise<void> {
  * Eliminates need for manual "Run Verification" clicks
  */
 const INTEGRATION_PROVIDERS = [
-  'databento', 'polygon',
+  'databento', 'polygon', 'quantconnect',
   'ironbeam', 'ironbeam_2', 'ironbeam_3', 'tradovate', 
   'redis', 'redis_queue',
   'openai', 'anthropic', 'gemini', 'groq', 'xai', 'perplexity', 'openrouter',
@@ -7884,6 +7884,9 @@ async function initializeWorkers(): Promise<void> {
   
   integrationVerificationInterval = setInterval(createSelfHealingWorker("integration-verify", runIntegrationVerificationWorker), INTEGRATION_VERIFICATION_INTERVAL_MS);
   console.log(`[SCHEDULER] Integration verification worker started (interval: ${INTEGRATION_VERIFICATION_INTERVAL_MS}ms)`);
+  
+  // Run integration verification immediately at startup for instant audit status
+  setTimeout(() => runIntegrationVerificationWorker().catch(err => console.error(`[INTEGRATION_VERIFY] Startup run failed:`, err)), 5000);
   
   strategyLabResearchInterval = setInterval(createSelfHealingWorker("strategy-lab", runStrategyLabResearchWorker), STRATEGY_LAB_RESEARCH_INTERVAL_MS);
   console.log(`[SCHEDULER] Strategy Lab research worker started (check interval: ${STRATEGY_LAB_RESEARCH_INTERVAL_MS / 60000}min, actual run interval by depth)`);

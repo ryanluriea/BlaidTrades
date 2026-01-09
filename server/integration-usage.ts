@@ -202,6 +202,9 @@ export async function verifyIntegration(provider: string): Promise<{
       case 'openrouter':
         result = await verifyOpenRouter();
         break;
+      case 'quantconnect':
+        result = await verifyQuantConnect();
+        break;
       default:
         result = { success: false, error: 'Unknown provider' };
     }
@@ -565,6 +568,25 @@ async function verifyOpenRouter(): Promise<{ success: boolean; error?: string }>
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
     return response.ok ? { success: true } : { success: false, error: `HTTP ${response.status}` };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function verifyQuantConnect(): Promise<{ success: boolean; error?: string }> {
+  const userId = process.env.QUANTCONNECT_USER_ID;
+  const apiToken = process.env.QUANTCONNECT_API_TOKEN;
+  if (!userId || !apiToken) return { success: false, error: 'QUANTCONNECT_USER_ID or QUANTCONNECT_API_TOKEN not set' };
+  try {
+    // Use the QuantConnect provider to verify credentials
+    const { verifyQCConfig, testAuthentication } = await import('./providers/quantconnect/index');
+    const configStatus = verifyQCConfig();
+    if (!configStatus.configured) {
+      return { success: false, error: configStatus.suggestedFix };
+    }
+    // Actually test authentication with QC API
+    const authResult = await testAuthentication(crypto.randomUUID().slice(0, 8));
+    return authResult.success ? { success: true } : { success: false, error: authResult.error };
   } catch (error: any) {
     return { success: false, error: error.message };
   }

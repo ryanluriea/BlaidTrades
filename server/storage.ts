@@ -25,7 +25,9 @@ export interface IStorage {
   updateAccount(id: string, updates: Partial<schema.Account>): Promise<schema.Account | undefined>;
   deleteAccount(id: string): Promise<boolean>;
   
-  getBacktestSessions(botId: string): Promise<schema.BacktestSession[]>;
+  getBacktestSessions(botId: string, limit?: number): Promise<schema.BacktestSession[]>;
+  getActiveBacktestSessions(botIds: string[]): Promise<schema.BacktestSession[]>;
+  getRecentBacktestSessions(botIds: string[], limitPerBot?: number): Promise<schema.BacktestSession[]>;
   getAllBacktestSessions(userId?: string): Promise<schema.BacktestSession[]>;
   getBacktestSession(id: string): Promise<schema.BacktestSession | undefined>;
   getLatestBacktestSession(botId: string): Promise<schema.BacktestSession | undefined>;
@@ -488,14 +490,48 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async getBacktestSessions(botId: string): Promise<schema.BacktestSession[]> {
+  async getBacktestSessions(botId: string, limit?: number): Promise<schema.BacktestSession[]> {
     // INSTITUTIONAL: Deterministic ordering for consistent list display
-    return db.select().from(schema.backtestSessions)
+    const query = db.select().from(schema.backtestSessions)
       .where(eq(schema.backtestSessions.botId, botId))
       .orderBy(
         sql`${schema.backtestSessions.completedAt} DESC NULLS LAST`,
         desc(schema.backtestSessions.id)
       );
+    
+    // Performance: Limit results when specified (e.g., for dashboard queries)
+    if (limit) {
+      return query.limit(limit);
+    }
+    return query;
+  }
+  
+  async getActiveBacktestSessions(botIds: string[]): Promise<schema.BacktestSession[]> {
+    // PERFORMANCE: Only fetch running/pending sessions for job status queries
+    if (botIds.length === 0) return [];
+    return db.select().from(schema.backtestSessions)
+      .where(and(
+        inArray(schema.backtestSessions.botId, botIds),
+        inArray(schema.backtestSessions.status, ['running', 'pending'])
+      ));
+  }
+  
+  async getRecentBacktestSessions(botIds: string[], limitPerBot: number = 5): Promise<schema.BacktestSession[]> {
+    // PERFORMANCE: Only fetch recent completed sessions for metrics (not full history)
+    // Uses a single query with ROW_NUMBER to efficiently get latest N per bot
+    if (botIds.length === 0) return [];
+    
+    // Get completed sessions ordered by completion date, limited for performance
+    return db.select().from(schema.backtestSessions)
+      .where(and(
+        inArray(schema.backtestSessions.botId, botIds),
+        eq(schema.backtestSessions.status, 'completed')
+      ))
+      .orderBy(
+        sql`${schema.backtestSessions.completedAt} DESC NULLS LAST`,
+        desc(schema.backtestSessions.id)
+      )
+      .limit(botIds.length * limitPerBot);
   }
 
   async getAllBacktestSessions(userId?: string): Promise<schema.BacktestSession[]> {
