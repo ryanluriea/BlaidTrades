@@ -576,26 +576,35 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
           </TooltipContent>
         </Tooltip>
 
-        <DialogContent className="w-[32rem] max-w-[32rem] p-0">
+        <DialogContent className="w-[36rem] max-w-[36rem] p-0 gap-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="p-2 border-b border-border">
-              <TabsList className="w-full grid grid-cols-2">
-                <TabsTrigger value="systems" className="text-xs" data-testid="tab-systems">
-                  <Activity className="w-3 h-3 mr-1.5" />
+            <div className="px-6 pt-6 pb-4 border-b border-border">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold">AI & Systems Configuration</h2>
+                  <p className="text-sm text-muted-foreground">Manage autonomous trading systems and AI provider budgets</p>
+                </div>
+                <Badge variant="outline" className="text-sm px-3 py-1">
+                  <DollarSign className="h-3.5 w-3.5 mr-1" />
+                  ${totalSpend.toFixed(2)}/mo
+                </Badge>
+              </div>
+              <TabsList className="w-full grid grid-cols-2 h-10">
+                <TabsTrigger value="systems" className="text-sm" data-testid="tab-systems">
+                  <Activity className="w-4 h-4 mr-2" />
                   Systems
                 </TabsTrigger>
-                <TabsTrigger value="ai" className="text-xs" data-testid="tab-ai-costs">
-                  <DollarSign className="w-3 h-3 mr-1.5" />
+                <TabsTrigger value="ai" className="text-sm" data-testid="tab-ai-costs">
+                  <DollarSign className="w-4 h-4 mr-2" />
                   AI Costs
                 </TabsTrigger>
               </TabsList>
             </div>
 
-            <TabsContent value="systems" className="p-2 space-y-2 mt-0">
-              <div className="px-2 py-1">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Autonomous Systems
-                </span>
+            <TabsContent value="systems" className="p-6 space-y-4 mt-0">
+              <div>
+                <h3 className="text-sm font-medium mb-1">Autonomous Systems</h3>
+                <p className="text-xs text-muted-foreground">Control automated research and trading systems</p>
               </div>
               
               <div
@@ -770,93 +779,55 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
               </div>
             </TabsContent>
 
-            <TabsContent value="ai" className="p-3 space-y-4 mt-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Cpu className="h-4 w-4 text-purple-400" />
-                  <span className="text-sm font-medium">AI Settings</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <DollarSign className="h-3 w-3" />
-                  <span>${totalSpend.toFixed(2)} this month</span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-xs font-medium flex items-center gap-1.5">
-                    <Clock className="h-3 w-3" />
-                    Evolution Frequency
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[200px]">
-                      <p className="text-xs">How often bots automatically evolve their strategies using AI. More frequent = faster learning but higher LLM costs.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Select value={evolutionFrequency} onValueChange={handleFrequencyChange}>
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-evolution-frequency">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FREQUENCY_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex flex-col">
-                          <span>{opt.label}</span>
-                          <span className="text-[10px] text-muted-foreground">{opt.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center justify-between p-2 rounded-md border border-border bg-muted/30">
-                <div className="flex items-center gap-2 min-w-0">
-                  <DollarSign className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium">Cost Efficiency</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-[220px]">
-                          <p className="text-xs">When enabled, tries cheaper models first (Groq, then OpenAI). When disabled, uses highest quality model first (Claude).</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      {costEfficiencyMode ? "Groq first (cheaper)" : "Claude first (quality)"}
-                    </p>
+            <TabsContent value="ai" className="p-6 space-y-6 mt-0">
+              {/* Evolution Settings Card */}
+              <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium">Evolution Settings</h3>
+                    <p className="text-xs text-muted-foreground">Configure how AI evolves trading strategies</p>
                   </div>
                 </div>
-                <Switch
-                  checked={costEfficiencyMode}
-                  onCheckedChange={handleCostEfficiencyToggle}
-                  data-testid="switch-cost-efficiency"
-                />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Frequency</Label>
+                    <Select value={evolutionFrequency} onValueChange={handleFrequencyChange}>
+                      <SelectTrigger className="h-9" data-testid="select-evolution-frequency">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FREQUENCY_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            <div className="flex flex-col">
+                              <span>{opt.label}</span>
+                              <span className="text-[10px] text-muted-foreground">{opt.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Cost Mode</Label>
+                    <div className="flex items-center justify-between h-9 px-3 rounded-md border border-border bg-background">
+                      <span className="text-sm">{costEfficiencyMode ? "Efficiency" : "Quality"}</span>
+                      <Switch
+                        checked={costEfficiencyMode}
+                        onCheckedChange={handleCostEfficiencyToggle}
+                        data-testid="switch-cost-efficiency"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <Separator />
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-xs font-medium flex items-center gap-1.5 text-yellow-400">
-                    <Zap className="h-3 w-3" />
-                    LLM Providers
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[220px]">
-                      <p className="text-xs">AI providers used for strategy evolution. Toggle to enable/disable. Providers cascade in priority order when limits are reached.</p>
-                    </TooltipContent>
-                  </Tooltip>
+              {/* LLM Providers Card */}
+              <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+                <div>
+                  <h3 className="text-sm font-medium">LLM Providers</h3>
+                  <p className="text-xs text-muted-foreground">Manage AI provider budgets and limits</p>
                 </div>
                 
                 {budgetsLoading ? (
@@ -864,7 +835,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {budgets.filter(b => b.provider !== 'openrouter').map((budget) => {
                       const config = PROVIDER_CONFIG[budget.provider] || { 
                         name: budget.provider, 
@@ -880,53 +851,35 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                         <div 
                           key={budget.provider}
                           className={cn(
-                            "flex items-center justify-between p-2 rounded-md border",
-                            isEnabled ? "border-border" : "border-border/50 opacity-60"
+                            "flex items-center justify-between p-3 rounded-md border bg-background",
+                            isEnabled ? "border-border" : "border-border/50 opacity-50"
                           )}
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <Switch
                               checked={isEnabled}
                               onCheckedChange={() => handleToggleProvider(budget.provider, isEnabled)}
-                              className="scale-75"
                               data-testid={`switch-provider-${budget.provider}`}
                             />
                             <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className={cn("text-xs font-medium", config.color)}>
-                                  {config.name}
-                                </span>
-                                {config.researchOnly && (
-                                  <Badge variant="outline" className="h-3.5 px-1 text-[8px] border-cyan-400/50 text-cyan-400">
-                                    Research
-                                  </Badge>
-                                )}
-                                {budget.is_auto_throttled && (
-                                  <AlertTriangle className="h-3 w-3 text-amber-400" />
-                                )}
-                              </div>
-                              <p className="text-[10px] text-muted-foreground truncate">
-                                {config.model}
-                              </p>
+                              <span className={cn("text-sm font-medium", config.color)}>
+                                {config.name}
+                              </span>
+                              {config.researchOnly && (
+                                <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
+                                  Research
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <div className="flex items-center gap-1 text-[10px] font-mono">
-                              <span className={pct > 90 ? "text-destructive" : ""}>${spend.toFixed(2)}</span>
+                            <div className="flex items-center gap-1 text-xs font-mono">
+                              <span className={pct > 90 ? "text-destructive" : "text-muted-foreground"}>${spend.toFixed(0)}</span>
                               <span className="text-muted-foreground">/</span>
                               <EditableLimitInput
                                 provider={budget.provider}
                                 initialValue={limit}
                                 onSave={(value, resetFn) => handleUpdateLimit(budget.provider, value, resetFn)}
-                              />
-                            </div>
-                            <div className="w-16 h-1 bg-muted rounded-full mt-0.5">
-                              <div
-                                className={cn(
-                                  "h-full rounded-full transition-all",
-                                  pct > 90 ? "bg-destructive" : pct > 70 ? "bg-amber-500" : "bg-emerald-500"
-                                )}
-                                style={{ width: `${pct}%` }}
                               />
                             </div>
                           </div>
@@ -937,92 +890,45 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                 )}
               </div>
 
-              <Separator />
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-xs font-medium flex items-center gap-1.5 text-cyan-400">
-                    <FlaskConical className="h-3 w-3" />
-                    QC Verification
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[220px]">
-                      <p className="text-xs">Use QuantConnect to verify strategies before deployment. Uses QC compute credits. Disable to hide the Test column in Strategy Lab.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                
-                <div 
-                  className={cn(
-                    "flex items-center justify-between p-2 rounded-md border",
-                    qcEnabled ? "border-cyan-500/50 bg-cyan-500/5" : "border-border/50 opacity-60"
-                  )}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
+              {/* QC & Budget Row */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* QC Verification Card */}
+                <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium">QC Verification</h3>
+                      <p className="text-xs text-muted-foreground">QuantConnect testing</p>
+                    </div>
                     <Switch
                       checked={qcEnabled}
                       onCheckedChange={() => handleQCToggle(qcEnabled)}
                       disabled={qcToggleMutation.isPending}
-                      className="scale-75"
                       data-testid="switch-qc-enabled"
                     />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className={cn("text-xs font-medium", qcEnabled ? "text-cyan-400" : "text-muted-foreground")}>
-                          QuantConnect
-                        </span>
-                        {qcEnabled && (
-                          <Badge variant="outline" className="h-3.5 px-1 text-[8px] border-cyan-400/50 text-cyan-400">
-                            Active
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {qcEnabled ? `Daily: ${qcDailyLimit} / Weekly: ${qcWeeklyLimit}` : "Verification disabled"}
-                      </p>
-                    </div>
                   </div>
                   {qcEnabled && (
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-[10px] text-muted-foreground">
-                        Compute credits
-                      </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline" className="text-[10px]">Daily: {qcDailyLimit}</Badge>
+                      <Badge variant="outline" className="text-[10px]">Weekly: {qcWeeklyLimit}</Badge>
                     </div>
                   )}
                 </div>
-              </div>
 
-              <Separator />
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-xs font-medium flex items-center gap-1.5">
-                    <DollarSign className="h-3 w-3" />
-                    Monthly Cost Cap
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[220px]">
-                      <p className="text-xs">Total monthly spending limit across all AI providers. All AI evolution will pause when this limit is reached.</p>
-                    </TooltipContent>
-                  </Tooltip>
+                {/* Monthly Budget Card */}
+                <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-medium">Monthly Budget</h3>
+                    <p className="text-xs text-muted-foreground">Auto-pause when reached</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">$</span>
+                    <EditableCostCapInput
+                      initialValue={costCap}
+                      onSave={handleCostCapSave}
+                    />
+                    <span className="text-sm text-muted-foreground">/ month</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">$</span>
-                  <EditableCostCapInput
-                    initialValue={costCap}
-                    onSave={handleCostCapSave}
-                  />
-                  <span className="text-xs text-muted-foreground">/ month</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Auto-pause all AI evolution when reached
-                </p>
               </div>
             </TabsContent>
           </Tabs>
