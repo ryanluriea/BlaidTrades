@@ -78,7 +78,9 @@ export function computeBotHealth(inputs: HealthInputs): HealthComputation {
 
   // DEGRADED: Heartbeat stale check (only if bot should be active)
   // Uses unified thresholds from healthConstants
-  if (lastHeartbeat && activityState && !["IDLE", "STOPPED"].includes(activityState)) {
+  // Skip if instance is stopped or activity state indicates bot is not running
+  const instanceStopped = instanceStatus?.toLowerCase() === "stopped";
+  if (lastHeartbeat && activityState && !instanceStopped && !["IDLE", "STOPPED"].includes(activityState)) {
     const lastHB = parseISO(lastHeartbeat);
     const staleness = differenceInSeconds(new Date(), lastHB) * 1000; // convert to ms
     
