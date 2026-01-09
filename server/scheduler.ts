@@ -45,6 +45,8 @@ import { runTournament, getTournamentStats } from "./tournament-engine";
 import { runReconciliation, runInvariantChecks } from "./candidate-state-machine";
 import { healthCheck as dbHealthCheck, getCircuitBreakerState } from "./db-resilience";
 import { startBackupScheduler, stopBackupScheduler } from "./backup-service";
+import { runConsistencySweep } from "./scheduled-consistency-sweep";
+import { startScheduledDriftDetection, stopScheduledDriftDetection } from "./drift-detector";
 
 // Reconciliation interval - runs every 30 minutes to detect and fix stuck candidates
 let reconciliationInterval: NodeJS.Timeout | null = null;
@@ -69,6 +71,7 @@ let grokResearchInterval: NodeJS.Timeout | null = null;
 let sentToLabPromotionInterval: NodeJS.Timeout | null = null;
 let tournamentWorkerInterval: NodeJS.Timeout | null = null;
 let systemAuditInterval: NodeJS.Timeout | null = null;
+let consistencySweepInterval: NodeJS.Timeout | null = null;
 let isSchedulerRunning = false;
 
 // Grok Research Engine State - independent from Perplexity
@@ -104,6 +107,7 @@ const ECONOMIC_CALENDAR_INTERVAL_MS = 6 * 60 * 60_000; // 6 hours
 
 // AUTONOMOUS: System audit worker - runs comprehensive checks for observability dashboard
 const SYSTEM_AUDIT_INTERVAL_MS = 4 * 60 * 60_000; // 4 hours - institutional audit frequency
+const CONSISTENCY_SWEEP_INTERVAL_MS = 1 * 60 * 60_000; // 1 hour - industry-standard consistency checks
 
 // Integration verification worker - runs on startup and periodically
 // AUTONOMOUS: Aggressive verification for fast self-healing
@@ -6395,6 +6399,13 @@ function clearAllWorkerIntervals(): void {
     clearInterval(systemAuditInterval);
     systemAuditInterval = null;
   }
+  if (consistencySweepInterval) {
+    clearInterval(consistencySweepInterval);
+    consistencySweepInterval = null;
+  }
+  
+  // Stop drift detection
+  stopScheduledDriftDetection();
   
   console.log("[SCHEDULER] All worker intervals cleared");
 }
@@ -8081,6 +8092,15 @@ async function initializeWorkers(): Promise<void> {
   // AUTONOMOUS: System Audit Worker - runs comprehensive checks for observability dashboard
   systemAuditInterval = setInterval(createSelfHealingWorker("system-audit", runSystemAuditWorker), SYSTEM_AUDIT_INTERVAL_MS);
   console.log(`[SCHEDULER] System audit worker started (interval: ${SYSTEM_AUDIT_INTERVAL_MS / 3600_000}h)`);
+  
+  // RESILIENCY: Consistency sweep worker - drift detection, trade integrity, audit chain verification
+  consistencySweepInterval = setInterval(createSelfHealingWorker("consistency-sweep", async () => {
+    await runConsistencySweep();
+  }), CONSISTENCY_SWEEP_INTERVAL_MS);
+  console.log(`[SCHEDULER] Consistency sweep worker started (interval: ${CONSISTENCY_SWEEP_INTERVAL_MS / 3600_000}h)`);
+  
+  // Start drift detection (runs alongside consistency sweep with auto-heal enabled)
+  startScheduledDriftDetection(CONSISTENCY_SWEEP_INTERVAL_MS);
   
   // Run system audit immediately on startup (3s delay for DB init)
   setTimeout(() => runSystemAuditWorker().catch(err => console.error(`[SYSTEM_AUDIT] Startup run failed:`, err)), 3_000);

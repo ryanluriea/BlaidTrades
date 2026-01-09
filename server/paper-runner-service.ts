@@ -435,7 +435,7 @@ class PaperRunnerServiceImpl {
             'sessionState', 'ACTIVE',
             'isSleeping', false,
             'outsideSession', false,
-            'staleStateClearedAt', ${new Date().toISOString()}
+            'staleStateClearedAt', NOW()::text
           )`,
         })
         .where(

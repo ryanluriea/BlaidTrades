@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, bigint, boolean, timestamp, jsonb, real, uuid, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, bigint, boolean, timestamp, jsonb, real, uuid, pgEnum, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1847,6 +1847,8 @@ export const paperTrades = pgTable("paper_trades", {
   signalContext: jsonb("signal_context").default({}),
   // Trace ID for correlation
   traceId: uuid("trace_id").defaultRandom(),
+  // Integrity checksum for corruption detection (SHA-256 = 64 hex chars)
+  checksum: varchar("checksum", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2871,6 +2873,80 @@ export const insertLiveEligibilityTrackingSchema = createInsertSchema(liveEligib
 
 export type InsertLiveEligibilityTracking = z.infer<typeof insertLiveEligibilityTrackingSchema>;
 export type LiveEligibilityTracking = typeof liveEligibilityTracking.$inferSelect;
+
+// Dead Letter Queue - Industry-standard failed job handling
+export const dlqStatusEnum = pgEnum("dlq_status", ["PENDING_REVIEW", "RETRY_SCHEDULED", "DISCARDED", "RESOLVED"]);
+
+export const deadLetterQueue = pgTable("dead_letter_queue", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  originalJobId: uuid("original_job_id").notNull().unique(),
+  jobType: text("job_type").notNull(),
+  botId: uuid("bot_id").references(() => bots.id),
+  payload: jsonb("payload").default({}),
+  failureReason: text("failure_reason").notNull(),
+  failureCount: integer("failure_count").default(1),
+  firstFailureAt: timestamp("first_failure_at").defaultNow(),
+  lastFailureAt: timestamp("last_failure_at").defaultNow(),
+  status: dlqStatusEnum("status").default("PENDING_REVIEW"),
+  reviewedBy: text("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  resolution: text("resolution"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDeadLetterQueueSchema = createInsertSchema(deadLetterQueue).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type DeadLetterQueueEntry = typeof deadLetterQueue.$inferSelect;
+export type InsertDeadLetterQueueEntry = z.infer<typeof insertDeadLetterQueueSchema>;
+
+// Cryptographic Audit Chain - Tamper-evident audit trail
+export const auditChain = pgTable("audit_chain", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sequenceNumber: integer("sequence_number").notNull().unique(),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  eventType: text("event_type").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  action: text("action").notNull(),
+  actor: text("actor"),
+  payload: jsonb("payload").default({}),
+  previousHash: varchar("previous_hash", { length: 64 }).notNull(),
+  currentHash: varchar("current_hash", { length: 64 }).notNull(),
+});
+
+export const insertAuditChainSchema = createInsertSchema(auditChain).omit({
+  id: true,
+});
+
+export type AuditChainRecord = typeof auditChain.$inferSelect;
+export type InsertAuditChainRecord = z.infer<typeof insertAuditChainSchema>;
+
+// Consistency Sweep Results - Track scheduled integrity checks
+export const consistencySweepStatusEnum = pgEnum("consistency_sweep_status", ["RUNNING", "COMPLETED", "FAILED"]);
+
+export const consistencySweeps = pgTable("consistency_sweeps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  traceId: text("trace_id").notNull(),
+  status: consistencySweepStatusEnum("status").default("RUNNING"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  totalChecked: integer("total_checked").default(0),
+  issuesFound: integer("issues_found").default(0),
+  autoHealed: integer("auto_healed").default(0),
+  criticalCount: integer("critical_count").default(0),
+  warningCount: integer("warning_count").default(0),
+  report: jsonb("report").default({}),
+});
+
+export const insertConsistencySweepSchema = createInsertSchema(consistencySweeps).omit({
+  id: true,
+});
+
+export type ConsistencySweep = typeof consistencySweeps.$inferSelect;
+export type InsertConsistencySweep = z.infer<typeof insertConsistencySweepSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
