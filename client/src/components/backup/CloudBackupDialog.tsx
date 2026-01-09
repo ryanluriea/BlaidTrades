@@ -544,7 +544,9 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                   <div className="font-medium">Auto Backup</div>
                   <div className="text-sm text-muted-foreground">
                     {dashboard?.settings?.autoBackupEnabled 
-                      ? `Running ${dashboard?.settings?.backupFrequency ?? 'daily'}` 
+                      ? dashboard?.settings?.nextBackupAt
+                        ? `Next backup ${formatDistanceToNow(new Date(dashboard.settings.nextBackupAt), { addSuffix: true })}`
+                        : `Running ${dashboard?.settings?.backupFrequency ?? 'daily'}`
                       : "Disabled"}
                   </div>
                 </div>

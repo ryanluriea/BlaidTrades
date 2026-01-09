@@ -44,6 +44,7 @@ import { checkGrokBotAndLogPromotion, logGrokGateResult, requestGrokEvolution, l
 import { runTournament, getTournamentStats } from "./tournament-engine";
 import { runReconciliation, runInvariantChecks } from "./candidate-state-machine";
 import { healthCheck as dbHealthCheck, getCircuitBreakerState } from "./db-resilience";
+import { startBackupScheduler, stopBackupScheduler } from "./backup-service";
 
 // Reconciliation interval - runs every 30 minutes to detect and fix stuck candidates
 let reconciliationInterval: NodeJS.Timeout | null = null;
@@ -8078,6 +8079,16 @@ async function initializeWorkers(): Promise<void> {
       console.error(`[SCHEDULER] trace_id=${cacheTraceId} Bar cache pre-warm failed:`, err);
     });
   
+  // AUTONOMOUS: Start cloud backup scheduler if enabled and Google Drive connected
+  setTimeout(async () => {
+    try {
+      console.log(`[SCHEDULER] trace_id=${startupTraceId} Starting cloud backup scheduler...`);
+      await startBackupScheduler();
+    } catch (error) {
+      console.error(`[SCHEDULER] trace_id=${startupTraceId} Cloud backup scheduler failed to start:`, error);
+    }
+  }, 20_000);
+  
   isSchedulerRunning = true;
   console.log("[SCHEDULER] All workers started successfully");
 }
@@ -8159,6 +8170,9 @@ export async function stopScheduler(): Promise<void> {
     clearInterval(reconciliationInterval);
     reconciliationInterval = null;
   }
+  
+  // Stop cloud backup scheduler
+  stopBackupScheduler();
   
   isSchedulerRunning = false;
   console.log("[SCHEDULER] All workers stopped");
