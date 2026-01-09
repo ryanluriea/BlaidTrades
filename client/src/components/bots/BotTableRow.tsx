@@ -66,7 +66,7 @@ import { PerBotSourcesDialog, getBotSignalSources } from "./PerBotSourcesDialog"
 import { AlertsDropdown } from "./AlertsDropdown";
 import { BotConfidenceScore } from "./BotConfidenceScore";
 import type { JobsSummary } from "./JobsBadge";
-import type { ImprovementState } from "@/hooks/useImprovementState";
+import { useBotImprovementState, type ImprovementState } from "@/hooks/useImprovementState";
 import type { DemotionEvent } from "@/hooks/useBotDemotions";
 import type { CandidateEval } from "@/hooks/useCandidateEval";
 import type { ExecutionProof } from "@/hooks/useExecutionProof";
@@ -436,6 +436,9 @@ export function BotTableRow({
   const restartRunner = useRestartRunner();
   const { serverNow } = useServerClock();
   const { filteredSymbols } = useSymbolPreference();
+  
+  // Fetch improvement state for TRIALS bots to show rolling consistency gate
+  const { data: improvementState } = useBotImprovementState(stage === 'TRIALS' ? bot.id : undefined);
   
   // Get real-time heartbeat from WebSocket (updates every ~30s)
   const wsHeartbeat = useBotHeartbeat(bot.id);
@@ -1240,6 +1243,7 @@ export function BotTableRow({
             displayAllowed={displayAllowed}
             dataSource={dataSource}
             isMaintenanceWindow={isMaintenanceWindow}
+            rollingMetricsConsistency={improvementState?.rollingMetricsConsistency}
           />
           </div>
 

@@ -13,7 +13,7 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { BarChart2, Dna, Wrench, Search, TrendingUp, TrendingDown, Zap, Wallet, DollarSign, Activity, Lock, Moon, Bomb, Ban, CheckCircle2, AlertTriangle } from "lucide-react";
+import { BarChart2, Dna, Wrench, Search, TrendingUp, TrendingDown, Zap, Wallet, DollarSign, Activity, Lock, Moon, Bomb, Ban, CheckCircle2, AlertTriangle, Check } from "lucide-react";
 import { useAccounts, type Account, type EnrichedAccount } from "@/hooks/useAccounts";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -233,6 +233,14 @@ interface ActivityGridProps {
   dataSource?: 'live' | 'cache' | 'none';
   /** If true, show maintenance-specific messaging instead of generic "Awaiting" in LIVE slot */
   isMaintenanceWindow?: boolean;
+  /** Rolling metrics consistency data from improvement-state API */
+  rollingMetricsConsistency?: {
+    metSessions: number;
+    requiredSessions: number;
+    totalRecentSessions: number;
+    passed: boolean;
+    status: 'pending' | 'passed' | 'insufficient_data';
+  } | null;
 }
 
 interface ActivitySlotProps {
@@ -372,6 +380,64 @@ function TradesSlot({ trades, tooltip, onClick, lastTradeAt }: TradesSlotProps) 
             Last trade: {new Date(lastTradeAt).toLocaleString()}
           </div>
         )}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+interface ConsistencySlotProps {
+  metSessions: number;
+  requiredSessions: number;
+  passed: boolean;
+  status: 'pending' | 'passed' | 'insufficient_data';
+}
+
+function ConsistencySlot({ metSessions, requiredSessions, passed, status }: ConsistencySlotProps) {
+  // Display logic:
+  // - passed: green checkmark with "3/3"
+  // - pending: amber with "X/3" (building consistency)
+  // - insufficient_data: muted with "0/3" (need more backtests)
+  const displayText = `${metSessions}/${requiredSessions}`;
+  
+  const getSlotStyle = () => {
+    if (passed) {
+      return "text-emerald-400 bg-emerald-500/20 border-emerald-500/30";
+    }
+    if (status === 'pending') {
+      return "text-amber-400 bg-amber-500/20 border-amber-500/30";
+    }
+    return "opacity-40 text-muted-foreground border-muted-foreground/30";
+  };
+  
+  const tooltipText = passed 
+    ? "Consistency check passed - all recent sessions meet thresholds"
+    : status === 'pending'
+    ? `Building consistency: ${metSessions} of ${requiredSessions} consecutive sessions meeting thresholds`
+    : `Insufficient data: Need ${requiredSessions} backtest sessions to evaluate consistency`;
+  
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div 
+          className={cn(
+            "w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all",
+            getSlotStyle()
+          )}
+          data-testid="consistency-slot"
+        >
+          <span className="text-[9px] uppercase leading-none opacity-70">CONSIST</span>
+          <div className="flex items-center gap-0.5">
+            {passed && <Check className="h-2.5 w-2.5" />}
+            <span className="text-[11px] font-mono font-semibold leading-none">{displayText}</span>
+          </div>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs max-w-[200px]">
+        <div className="font-medium">Rolling Consistency</div>
+        <div className="text-muted-foreground">{tooltipText}</div>
+        <div className="text-muted-foreground mt-1 text-[10px]">
+          Requires {requiredSessions} consecutive sessions meeting all promotion thresholds
+        </div>
       </TooltipContent>
     </Tooltip>
   );
@@ -1182,6 +1248,7 @@ export function ActivityGrid({
   displayAllowed,
   dataSource,
   isMaintenanceWindow = false,
+  rollingMetricsConsistency = null,
 }: ActivityGridProps) {
   const [tradeIdeaOpen, setTradeIdeaOpen] = useState(false);
   const [improvementDrawerOpen, setImprovementDrawerOpen] = useState(false);
@@ -1368,15 +1435,15 @@ export function ActivityGrid({
   // Grid layout configuration - easily reorder by changing these arrays
   // Each position maps to a slot type
   // Last 4 columns: LLM, ALERTS, COST, SOURCES (shared across all stages)
-  // Trade count badge now lives on the NET PNL slot
+  // TRIALS: Standalone TRADES and CONSISTENCY slots for promotion visibility
   const gridLayout = isPaperPlus ? {
-    // PAPER+ layout: Matches TRIALS structure - Row 1 = metrics + improve/evolve + LLM/ALERTS, Row 2 = metrics + matrix/wallet + COST/SOURCES
+    // PAPER+ layout: NET/LIVE/PF/MAXDD + action slots
     row1: ['NET', 'LIVE', 'PF', 'MAXDD', 'EMPTY', 'IMPROVE', 'EVOLVE', 'LLM', 'ALERTS', 'EMPTY'],
     row2: ['EXPECTANCY', 'RUNNER', 'SHARPE', 'WIN', 'EMPTY', 'MATRIX', 'WALLET', 'COST', 'SOURCES', 'EMPTY'],
   } : {
-    // TRIALS layout: Row 1 = metrics shifted left + improve/evolve + LLM/ALERTS, Row 2 = metrics shifted left + matrix/backtest + COST/SOURCES
-    row1: ['NET', 'PF', 'MAXDD', 'EMPTY', 'EMPTY', 'IMPROVE', 'EVOLVE', 'LLM', 'ALERTS', 'EMPTY'],
-    row2: ['EXPECTANCY', 'SHARPE', 'WIN', 'EMPTY', 'EMPTY', 'MATRIX', 'BACKTEST', 'COST', 'SOURCES', 'EMPTY'],
+    // TRIALS layout: NET/TRADES/PF/MAXDD and EXP/CONSISTENCY/SHARPE/WIN for full promotion gate visibility
+    row1: ['NET', 'TRADES', 'PF', 'MAXDD', 'EMPTY', 'IMPROVE', 'EVOLVE', 'LLM', 'ALERTS', 'EMPTY'],
+    row2: ['EXPECTANCY', 'CONSISTENCY', 'SHARPE', 'WIN', 'EMPTY', 'MATRIX', 'BACKTEST', 'COST', 'SOURCES', 'EMPTY'],
   };
 
   // Render slot with unique key
@@ -1384,7 +1451,12 @@ export function ActivityGrid({
     const key = `${row}-${idx}-${slotType}`;
     switch (slotType) {
       case 'NET':
-        return <PnlSlot key={key} label="NET" value={netPnl ?? null} tooltip={netPnl != null ? "Cumulative realized P&L" : "No trades yet"} trades={trades} lastTradeAt={lastTradeAt} onTradesClick={onTradesClick} stage={stage} />;
+        // TRIALS bots have separate TRADES slot, so don't show trades badge here
+        return <PnlSlot key={key} label="NET" value={netPnl ?? null} tooltip={netPnl != null ? "Cumulative realized P&L" : "No trades yet"} trades={isPaperPlus ? trades : undefined} lastTradeAt={isPaperPlus ? lastTradeAt : undefined} onTradesClick={isPaperPlus ? onTradesClick : undefined} stage={stage} />;
+      case 'TRADES':
+        return <TradesSlot key={key} trades={trades ?? null} tooltip={trades ? `${trades} total trades executed` : "No trades yet"} onClick={onTradesClick} lastTradeAt={lastTradeAt} />;
+      case 'CONSISTENCY':
+        return <ConsistencySlot key={key} metSessions={rollingMetricsConsistency?.metSessions ?? 0} requiredSessions={rollingMetricsConsistency?.requiredSessions ?? 3} passed={rollingMetricsConsistency?.passed ?? false} status={rollingMetricsConsistency?.status ?? 'insufficient_data'} />;
       case 'LIVE':
         return <PnlSlot key={key} label="LIVE" value={livePnl ?? null} tooltip={livePnl != null ? "Unrealized P&L from open position" : "No open position"} displayAllowed={displayAllowed} dataSource={dataSource} isMaintenanceWindow={isMaintenanceWindow} />;
       case 'PF':

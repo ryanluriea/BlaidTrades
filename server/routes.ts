@@ -5603,6 +5603,64 @@ export function registerRoutes(app: Express) {
         return res.status(404).json({ error: "Bot not found" });
       }
 
+      // INSTITUTIONAL: Calculate rolling metrics consistency for TRIALS bots
+      // This is the hidden gate that requires 3 consecutive sessions meeting thresholds
+      const ROLLING_SESSIONS_REQUIRED = 3;
+      let rollingMetricsConsistency = {
+        metSessions: 0,
+        requiredSessions: ROLLING_SESSIONS_REQUIRED,
+        totalRecentSessions: 0,
+        passed: false,
+        status: 'pending' as 'pending' | 'passed' | 'insufficient_data',
+      };
+
+      if (bot.stage === 'TRIALS' || bot.stage === 'LAB') {
+        try {
+          const { UNIFIED_STAGE_THRESHOLDS } = await import("../shared/graduationGates");
+          const labThresholds = UNIFIED_STAGE_THRESHOLDS.TRIALS;
+          
+          const rollingQuery = await db.execute(sql`
+            SELECT 
+              COUNT(*) as total_recent_sessions,
+              COUNT(*) FILTER (
+                WHERE total_trades >= ${labThresholds.minTrades}
+                  AND net_pnl > 0
+                  AND win_rate * 100 >= ${labThresholds.minWinRate}
+                  AND max_drawdown_pct <= ${labThresholds.maxDrawdownPct}
+                  AND profit_factor >= ${labThresholds.minProfitFactor}
+                  AND COALESCE(expectancy, 0) >= ${labThresholds.minExpectancy}
+                  AND COALESCE(sharpe_ratio, 0) >= ${labThresholds.minSharpe}
+              ) as sessions_meeting_thresholds
+            FROM (
+              SELECT total_trades, net_pnl, win_rate, max_drawdown_pct, profit_factor, expectancy, sharpe_ratio
+              FROM backtest_sessions
+              WHERE bot_id = ${botId}::uuid
+                AND status = 'completed'
+                AND (${bot.metricsResetAt}::timestamptz IS NULL OR completed_at >= ${bot.metricsResetAt}::timestamptz)
+              ORDER BY completed_at DESC NULLS LAST, id DESC
+              LIMIT ${ROLLING_SESSIONS_REQUIRED}
+            ) recent_sessions
+          `);
+          
+          const result = rollingQuery.rows[0] as any || {};
+          const totalRecentSessions = parseInt(result.total_recent_sessions || "0");
+          const sessionsMeetingThresholds = parseInt(result.sessions_meeting_thresholds || "0");
+          const passed = totalRecentSessions >= ROLLING_SESSIONS_REQUIRED && 
+                         sessionsMeetingThresholds >= ROLLING_SESSIONS_REQUIRED;
+          
+          rollingMetricsConsistency = {
+            metSessions: sessionsMeetingThresholds,
+            requiredSessions: ROLLING_SESSIONS_REQUIRED,
+            totalRecentSessions,
+            passed,
+            status: totalRecentSessions < ROLLING_SESSIONS_REQUIRED ? 'insufficient_data' : 
+                   passed ? 'passed' : 'pending',
+          };
+        } catch (e) {
+          console.error(`[IMPROVEMENT_STATE] bot_id=${botId} rolling_metrics_query_error:`, e);
+        }
+      }
+
       res.json({
         success: true,
         data: {
@@ -5623,6 +5681,7 @@ export function registerRoutes(app: Express) {
           why_not_promoted: null,
           last_gate_check_at: null,
           gate_check_count: 0,
+          rollingMetricsConsistency,
         },
       });
     } catch (error) {

@@ -26,6 +26,14 @@ export interface ImprovementState {
   whyNotPromoted: Record<string, any> | null;
   lastGateCheckAt: string | null;
   gateCheckCount: number | null;
+  /** Rolling metrics consistency data for TRIALS promotion visibility */
+  rollingMetricsConsistency?: {
+    metSessions: number;
+    requiredSessions: number;
+    totalRecentSessions: number;
+    passed: boolean;
+    status: 'pending' | 'passed' | 'insufficient_data';
+  } | null;
 }
 
 export interface BacktestFailure {
