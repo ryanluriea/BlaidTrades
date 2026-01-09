@@ -8507,7 +8507,8 @@ export function registerRoutes(app: Express) {
               COUNT(*) FILTER (WHERE status = 'CLOSED' AND pnl <= 0) as losing_trades,
               SUM(CASE WHEN status = 'CLOSED' THEN pnl ELSE 0 END) as net_pnl,
               AVG(CASE WHEN status = 'CLOSED' AND pnl > 0 THEN pnl END) as avg_win,
-              AVG(CASE WHEN status = 'CLOSED' AND pnl < 0 THEN ABS(pnl) END) as avg_loss
+              AVG(CASE WHEN status = 'CLOSED' AND pnl < 0 THEN ABS(pnl) END) as avg_loss,
+              MAX(CASE WHEN status = 'CLOSED' THEN exit_time END) as last_trade_time
             FROM paper_trades
             WHERE bot_id = '${botId}'::uuid
               AND status = 'CLOSED'
@@ -8606,7 +8607,8 @@ export function registerRoutes(app: Express) {
             computedMetrics.losingTrades = losingTrades;
             computedMetrics.winRate = totalTrades > 0 ? winningTrades / totalTrades : null;
             computedMetrics.netPnl = netPnl;
-            computedMetrics.lastTradeTime = isActiveGen && paperMetrics.last_trade_time 
+            // Set lastTradeTime for both active and historical generations
+            computedMetrics.lastTradeTime = paperMetrics.last_trade_time 
               ? new Date(paperMetrics.last_trade_time).toISOString() 
               : null;
             
