@@ -1005,8 +1005,8 @@ export function BotTableRow({
                     className="text-sm max-w-full"
                     stage={stage}
                     isNearingSessionEnd={isNearingSessionEnd(serverNow)}
-                    createdAt={(bot as any).createdAt}
-                    lastActiveAt={stabilizedMetrics?.lastTradeAt ?? (bot as any).lastTradeAt}
+                    createdAt={(bot as any).created_at}
+                    lastActiveAt={stabilizedMetrics?.lastTradeAt ?? (bot as any).last_trade_at}
                   />
                 </span>
                 {/* Elite Trophy Badge - High profitability potential (right of bot name) */}
