@@ -10,7 +10,7 @@ import {
   Zap, BarChart3, BookOpen, Bot, CheckCircle2, XCircle, AlertTriangle, X
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTimezone } from "@/hooks/useTimezone";
 import { cn } from "@/lib/utils";
 import { UNIFIED_STAGE_THRESHOLDS, type GateThresholds } from "@shared/graduationGates";
@@ -249,7 +249,6 @@ function TimelineItem({
   onClick: () => void;
   formatDateTime: (date: string) => string;
 }) {
-  const mutationInfo = getMutationLabel(gen.mutationReasonCode);
   const genStage = gen.stage || (gen.performanceSnapshot as any)?._stage || 'TRIALS';
   
   return (
@@ -263,7 +262,7 @@ function TimelineItem({
       )}
     >
       <div className={cn(
-        "flex items-center justify-center w-7 h-7 rounded-full text-[10px] font-mono shrink-0 transition-colors",
+        "flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-mono shrink-0 transition-colors",
         isActive 
           ? "bg-primary text-primary-foreground" 
           : isSelected
@@ -274,45 +273,15 @@ function TimelineItem({
       </div>
       
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1 flex-wrap">
+        <div className="flex items-center gap-1">
           {isActive && (
-            <Badge variant="outline" className="text-[9px] px-1 py-0 text-primary border-primary/50">
-              Active
-            </Badge>
+            <span className="text-[9px] text-primary font-medium">ACTIVE</span>
           )}
-          <Badge className={cn("text-[9px] px-1.5 py-0", getStageBadgeStyle(genStage))}>
+          <Badge className={cn("text-[9px] px-1 py-0", getStageBadgeStyle(genStage))}>
             {genStage}
           </Badge>
-          <Badge className={cn("text-[9px] px-1.5 py-0", mutationInfo.color)}>
-            {mutationInfo.label}
-          </Badge>
-          {gen.timeframe && (
-            <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono text-muted-foreground border-muted-foreground/30">
-              {gen.timeframe}
-            </Badge>
-          )}
-          {gen.baselineValid !== undefined && gen.baselineValid !== null && (
-            <Badge 
-              className={cn(
-                "text-[9px] px-1 py-0",
-                gen.baselineValid 
-                  ? "bg-green-500/20 text-green-400 border-green-500/30" 
-                  : "bg-red-500/20 text-red-400 border-red-500/30"
-              )}
-            >
-              {gen.baselineValid ? "Baseline OK" : gen.baselineFailureReason || "No Baseline"}
-            </Badge>
-          )}
-          {gen.parentGenerationNumber && (
-            <span className="text-[9px] text-muted-foreground/60 flex items-center gap-0.5">
-              <ArrowUp className="w-2.5 h-2.5" /> from {gen.parentGenerationNumber}
-            </span>
-          )}
         </div>
-        {gen.summaryTitle && (
-          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{gen.summaryTitle}</p>
-        )}
-        <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+        <p className="text-[10px] text-muted-foreground/70 mt-0.5">
           {formatDateTime(gen.createdAt)}
         </p>
       </div>
@@ -370,6 +339,8 @@ function DetailPanel({
   stage: string;
   botName: string;
 }) {
+  const [showAllGates, setShowAllGates] = useState(false);
+  
   if (!gen) {
     return (
       <div className="flex items-center justify-center h-48 text-muted-foreground">
@@ -379,12 +350,10 @@ function DetailPanel({
   }
 
   const snapshot = gen.performanceSnapshot || {};
-  // Use the generation's own stage for thresholds (not bot's current stage)
   const genStage = gen.stage || (snapshot as any)?._stage || stage || 'TRIALS';
   const thresholds = UNIFIED_STAGE_THRESHOLDS[genStage.toUpperCase()] ?? UNIFIED_STAGE_THRESHOLDS.TRIALS;
   const { gates, passed, total } = evaluateGates(snapshot, thresholds);
   
-  // CONSISTENCY CHECK: Only show P&L if we have valid trades
   const trades = (snapshot.backtestTotalTrades ?? snapshot.totalTrades ?? snapshot.trades ?? 0) as number;
   const hasValidTrades = trades > 0;
   const rawPnl = (snapshot.backtestPnl ?? snapshot.pnl ?? snapshot.simPnl ?? snapshot.latestPnl ?? null) as number | null;
@@ -393,98 +362,124 @@ function DetailPanel({
   const metricsAsOf = (snapshot as any)?._metricsAsOf;
   const isActiveGen = (snapshot as any)?._isActiveGen || false;
   
-  // Stage-specific labels
+  const rawWinRate = (snapshot.backtestWinRate ?? snapshot.winRate ?? null) as number | null;
+  const rawPf = (snapshot.backtestProfitFactor ?? snapshot.profitFactor ?? null) as number | null;
+  const rawMaxDd = (snapshot.backtestMaxDd ?? snapshot.maxDrawdown ?? null) as number | null;
+  
+  const winRate = hasValidTrades && rawWinRate !== null ? (rawWinRate <= 1 ? rawWinRate * 100 : rawWinRate) : null;
+  const pf = hasValidTrades ? rawPf : null;
+  const maxDd = hasValidTrades ? rawMaxDd : null;
+  
   const isPaperStage = ["PAPER", "SHADOW", "CANARY", "LIVE"].includes(genStage.toUpperCase());
-  const pnlLabel = isPaperStage ? "Paper P&L" : "Backtest P&L";
-  
-  const getSourceLabel = (): { label: string; color: string; icon: typeof CheckCircle2 } => {
-    if (metricsSource.includes("backtest_sessions")) {
-      return { label: "Backtest Sessions", color: "text-blue-400", icon: CheckCircle2 };
-    }
-    if (metricsSource.includes("paper_trades")) {
-      const suffix = isActiveGen ? " (Cumulative)" : " (Historical)";
-      return { label: `Paper Trades${suffix}`, color: "text-green-400", icon: CheckCircle2 };
-    }
-    if (metricsSource === "computed") {
-      return { label: "No Trades Yet", color: "text-muted-foreground", icon: AlertTriangle };
-    }
-    return { label: metricsSource, color: "text-muted-foreground", icon: Activity };
-  };
-  
-  const sourceInfo = getSourceLabel();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Header with source info */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-primary" />
-          <h4 className="text-sm font-medium">Performance vs Goals</h4>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge 
-            variant={passed === total ? "default" : passed >= total / 2 ? "secondary" : "destructive"}
-            className="text-xs"
-          >
-            {passed}/{total} Gates
-          </Badge>
-          <Badge className={cn("text-[10px]", getStageBadgeStyle(genStage))}>
-            {genStage}
-          </Badge>
-          <Badge variant="secondary" className="text-[10px] font-mono">
-            Gen {gen.generationNumber}
-          </Badge>
-          {gen.timeframe && (
-            <Badge variant="outline" className="text-[10px] font-mono">
-              {gen.timeframe}
-            </Badge>
+          {metricsSource.includes("paper_trades") ? (
+            <CheckCircle2 className="w-4 h-4 text-green-400" />
+          ) : metricsSource.includes("backtest") ? (
+            <CheckCircle2 className="w-4 h-4 text-blue-400" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-muted-foreground" />
           )}
+          <span className="text-xs text-muted-foreground">
+            {metricsSource.includes("paper_trades") 
+              ? (isActiveGen ? "Paper Trades (Cumulative)" : "Paper Trades (Historical)")
+              : metricsSource.includes("backtest") 
+              ? "Backtest Data" 
+              : "No Trades Yet"}
+          </span>
+          {isActiveGen && <Badge variant="outline" className="text-[9px] px-1 py-0 text-primary border-primary/50">Active</Badge>}
         </div>
-      </div>
-      
-      <div className={cn(
-        "flex items-center gap-2 p-2 rounded-md text-[11px]",
-        hasValidTrades ? "bg-primary/5 border border-primary/20" : "bg-muted/30 border border-muted"
-      )}>
-        <sourceInfo.icon className={cn("w-3.5 h-3.5 shrink-0", sourceInfo.color)} />
-        <span className={sourceInfo.color}>
-          <span className="font-medium">{sourceInfo.label}</span>
-          {isActiveGen && <span className="ml-1.5 text-[10px] text-primary">(Active)</span>}
-        </span>
         {metricsAsOf && hasValidTrades && (
-          <span className="text-muted-foreground/50 ml-auto text-[10px]">
-            Last Trade: {new Date(metricsAsOf).toLocaleString()}
+          <span className="text-[10px] text-muted-foreground/50">
+            Last: {new Date(metricsAsOf).toLocaleDateString()}
           </span>
         )}
       </div>
-      
-      {pnl !== null && (
-        <div className={cn(
-          "p-3 rounded-md flex items-center justify-between",
-          pnl >= 0 ? "bg-green-500/10 border border-green-500/20" : "bg-red-500/10 border border-red-500/20"
+
+      {/* HERO: P&L Display */}
+      <div className={cn(
+        "p-4 rounded-lg text-center",
+        !hasValidTrades ? "bg-muted/20" :
+        pnl !== null && pnl >= 0 ? "bg-green-500/10 border border-green-500/30" : "bg-red-500/10 border border-red-500/30"
+      )}>
+        <p className="text-xs text-muted-foreground mb-1">{isPaperStage ? "Paper P&L" : "Backtest P&L"}</p>
+        <p className={cn(
+          "text-3xl font-mono font-bold",
+          !hasValidTrades ? "text-muted-foreground" :
+          pnl !== null && pnl >= 0 ? "text-green-400" : "text-red-400"
         )}>
-          <div className="flex items-center gap-2">
-            {pnl >= 0 ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
-            <span className="text-sm text-muted-foreground">{pnlLabel}</span>
-          </div>
-          <span className={cn("text-lg font-mono font-bold", pnl >= 0 ? "text-green-400" : "text-red-400")}>
-            ${pnl.toFixed(2)}
-          </span>
+          {pnl !== null ? `$${pnl.toFixed(2)}` : "—"}
+        </p>
+      </div>
+
+      {/* Key Metrics Strip */}
+      <div className="grid grid-cols-4 gap-2">
+        <div className="text-center p-2 rounded-md bg-muted/20">
+          <p className="text-[10px] text-muted-foreground">Trades</p>
+          <p className="text-sm font-mono font-medium">{trades || "—"}</p>
         </div>
-      )}
-      
-      <div className="grid grid-cols-2 gap-2">
-        {gates.map((gate) => (
-          <GateIndicator key={gate.name} gate={gate} />
-        ))}
+        <div className="text-center p-2 rounded-md bg-muted/20">
+          <p className="text-[10px] text-muted-foreground">Win Rate</p>
+          <p className={cn("text-sm font-mono font-medium", winRate !== null && winRate >= 40 ? "text-green-400" : winRate !== null ? "text-red-400" : "")}>
+            {winRate !== null ? `${winRate.toFixed(1)}%` : "—"}
+          </p>
+        </div>
+        <div className="text-center p-2 rounded-md bg-muted/20">
+          <p className="text-[10px] text-muted-foreground">Profit Factor</p>
+          <p className={cn("text-sm font-mono font-medium", pf !== null && pf >= 1.3 ? "text-green-400" : pf !== null ? "text-red-400" : "")}>
+            {pf !== null ? `${pf.toFixed(2)}x` : "—"}
+          </p>
+        </div>
+        <div className="text-center p-2 rounded-md bg-muted/20">
+          <p className="text-[10px] text-muted-foreground">Max DD</p>
+          <p className={cn("text-sm font-mono font-medium", maxDd !== null && maxDd <= 15 ? "text-green-400" : maxDd !== null ? "text-red-400" : "")}>
+            {maxDd !== null ? `${maxDd.toFixed(1)}%` : "—"}
+          </p>
+        </div>
+      </div>
+
+      {/* Gates Summary */}
+      <div className="border border-border rounded-lg overflow-hidden">
+        <button
+          onClick={() => setShowAllGates(!showAllGates)}
+          className="w-full flex items-center justify-between p-3 hover-elevate"
+          data-testid="button-toggle-gates"
+        >
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Graduation Gates</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant={passed === total ? "default" : passed >= total / 2 ? "secondary" : "destructive"}
+              className="text-xs"
+            >
+              {passed}/{total} Passed
+            </Badge>
+            <span className="text-muted-foreground text-xs">{showAllGates ? "▲" : "▼"}</span>
+          </div>
+        </button>
+        
+        {showAllGates && (
+          <div className="border-t border-border p-3 grid grid-cols-2 gap-2">
+            {gates.map((gate) => (
+              <GateIndicator key={gate.name} gate={gate} />
+            ))}
+          </div>
+        )}
       </div>
       
       <AlphaDecayDetail botId={gen.botId} />
       
       {(gen.mutationObjective || gen.summaryDiff) && (
-        <div className="pt-4 border-t border-border space-y-3">
+        <div className="pt-3 border-t border-border space-y-2">
           {gen.mutationObjective && (
             <div>
-              <h5 className="text-xs font-medium mb-1.5 flex items-center gap-1.5 text-primary">
+              <h5 className="text-xs font-medium mb-1 flex items-center gap-1.5 text-primary">
                 <Target className="w-3 h-3" />
                 Evolution Objective
               </h5>
@@ -495,9 +490,9 @@ function DetailPanel({
           )}
           {gen.summaryDiff && (
             <div>
-              <h5 className="text-xs font-medium mb-1.5 flex items-center gap-1.5 text-amber-400">
+              <h5 className="text-xs font-medium mb-1 flex items-center gap-1.5 text-amber-400">
                 <Zap className="w-3 h-3" />
-                Changes from Previous
+                Changes
               </h5>
               <p className="text-xs text-muted-foreground bg-amber-500/5 p-2 rounded font-mono">
                 {gen.summaryDiff}
@@ -508,12 +503,12 @@ function DetailPanel({
       )}
       
       {gen.humanRulesMd && (
-        <div className="pt-4 border-t border-border">
-          <h5 className="text-xs font-medium mb-2 flex items-center gap-1.5">
+        <div className="pt-3 border-t border-border">
+          <h5 className="text-xs font-medium mb-1.5 flex items-center gap-1.5">
             <BookOpen className="w-3.5 h-3.5 text-sky-400" />
             Strategy Rules
           </h5>
-          <div className="p-3 bg-muted/30 rounded-md">
+          <div className="p-2 bg-muted/30 rounded-md">
             <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
               {gen.humanRulesMd}
             </p>
@@ -668,20 +663,11 @@ Generated by BlaidAgent Trading Platform
     URL.revokeObjectURL(url);
   };
 
-  const timelineRef = useRef<HTMLDivElement>(null);
-  
-  const handleOpenAutoFocus = useCallback((e: Event) => {
-    e.preventDefault();
-    setTimeout(() => {
-      timelineRef.current?.focus();
-    }, 0);
-  }, []);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="max-w-[900px] w-full max-h-[85vh] p-0 gap-0 [&>button]:hidden focus:outline-none focus-visible:outline-none"
-        onOpenAutoFocus={handleOpenAutoFocus}
+        className="max-w-[900px] w-full max-h-[85vh] p-0 gap-0 [&>button]:hidden"
       >
         <DialogHeader className="p-4 pb-3 border-b border-border">
           <div className="flex items-center justify-between gap-4">
@@ -736,11 +722,7 @@ Generated by BlaidAgent Trading Platform
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0" style={{ height: 'calc(85vh - 80px)' }}>
-          <div 
-            ref={timelineRef}
-            tabIndex={-1}
-            className="w-64 border-r border-border flex flex-col shrink-0 outline-none focus:outline-none focus-visible:outline-none"
-          >
+          <div className="w-56 border-r border-border flex flex-col shrink-0">
             <div className="p-3 border-b border-border bg-muted/20">
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Evolution Timeline
