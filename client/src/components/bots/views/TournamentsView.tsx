@@ -44,7 +44,7 @@ import {
   Trash2,
   GitBranch,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isValid } from "date-fns";
 import {
   useEvolutionTournaments,
   useTournamentEntries,
@@ -81,6 +81,18 @@ const actionIcons: Record<string, React.ReactNode> = {
   MUTATE: <Zap className="w-3 h-3" />,
   ROLLBACK: <RotateCcw className="w-3 h-3" />,
   RETIRE: <Trash2 className="w-3 h-3" />,
+};
+
+// Safe date formatting helper
+const safeFormatDistance = (dateValue: string | Date | null | undefined): string => {
+  if (!dateValue) return "Never";
+  try {
+    const date = new Date(dateValue);
+    if (!isValid(date)) return "Never";
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch {
+    return "Never";
+  }
 };
 
 export function TournamentsView() {
@@ -193,7 +205,7 @@ export function TournamentsView() {
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] font-mono h-5">2H</Badge>
                     <span className="text-[10px] text-muted-foreground">
-                      {lastIncremental ? formatDistanceToNow(new Date(lastIncremental.started_at), { addSuffix: true }) : "Never ran"}
+                      {lastIncremental ? safeFormatDistance(lastIncremental.started_at) : "Never ran"}
                     </span>
                   </div>
                   {schedulerStatus?.schedule.incremental.nextRun && (
@@ -214,7 +226,7 @@ export function TournamentsView() {
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] font-mono h-5">11PM ET</Badge>
                     <span className="text-[10px] text-muted-foreground">
-                      {lastMajor ? formatDistanceToNow(new Date(lastMajor.started_at), { addSuffix: true }) : "Never ran"}
+                      {lastMajor ? safeFormatDistance(lastMajor.started_at) : "Never ran"}
                     </span>
                   </div>
                   {schedulerStatus?.schedule.dailyMajor.nextRun && (
@@ -325,7 +337,7 @@ export function TournamentsView() {
                           <span className="text-xs font-mono">{t.cadence_type || "DAILY"}</span>
                         </div>
                         <span className="text-[10px] text-muted-foreground font-mono">
-                          {formatDistanceToNow(new Date(t.started_at), { addSuffix: true })}
+                          {safeFormatDistance(t.started_at)}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
@@ -373,7 +385,7 @@ export function TournamentsView() {
                 </div>
                 <div className="flex items-center gap-4 text-[10px] text-muted-foreground font-mono">
                   <span>{selectedTournament.entrants_count} entrants</span>
-                  <span>{formatDistanceToNow(new Date(selectedTournament.started_at), { addSuffix: true })}</span>
+                  <span>{safeFormatDistance(selectedTournament.started_at)}</span>
                 </div>
               </div>
               
