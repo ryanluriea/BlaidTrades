@@ -28,6 +28,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Trophy,
   Play,
   Loader2,
@@ -118,6 +123,23 @@ export function TournamentsView() {
   const completedTournaments = tournaments?.filter(t => t.status === "COMPLETED") || [];
   const totalEntrants = completedTournaments.reduce((sum, t) => sum + (t.entrants_count || 0), 0);
   const avgEntrants = completedTournaments.length > 0 ? Math.round(totalEntrants / completedTournaments.length) : 0;
+  
+  // Aggregate action counts across all completed tournaments
+  // actions_json stores numeric counts like {"BREED": 0, "MUTATE": 7, "RETIRE": 0}
+  const actionCounts = completedTournaments.reduce((counts, t) => {
+    const actions = t.actions_json as Record<string, number> | null;
+    if (actions) {
+      Object.entries(actions).forEach(([action, count]) => {
+        const upperAction = action.toUpperCase();
+        counts[upperAction] = (counts[upperAction] || 0) + (typeof count === 'number' ? count : 0);
+      });
+    }
+    return counts;
+  }, {} as Record<string, number>);
+  
+  const bredCount = actionCounts["BREED"] || 0;
+  const mutatedCount = actionCounts["MUTATE"] || 0;
+  const retiredCount = actionCounts["RETIRE"] || 0;
 
   const handleRunTournament = () => {
     runTournament.mutate({
@@ -129,20 +151,41 @@ export function TournamentsView() {
   return (
     <div className="h-full flex flex-col gap-3 p-2">
       {/* Top Stats Bar - Terminal Style */}
-      <div className="grid grid-cols-4 gap-2">
-        <div className="bg-card/80 border border-border/50 rounded-sm p-2">
+      <div className="grid grid-cols-7 gap-2">
+        <div className="bg-card/80 border border-border/50 rounded-sm p-2" data-testid="stat-total-runs">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Runs</div>
           <div className="text-lg font-mono font-semibold text-foreground">{tournaments?.length || 0}</div>
         </div>
-        <div className="bg-card/80 border border-border/50 rounded-sm p-2">
+        <div className="bg-card/80 border border-border/50 rounded-sm p-2" data-testid="stat-completed">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Completed</div>
           <div className="text-lg font-mono font-semibold text-emerald-400">{completedTournaments.length}</div>
         </div>
-        <div className="bg-card/80 border border-border/50 rounded-sm p-2">
+        <div className="bg-card/80 border border-border/50 rounded-sm p-2" data-testid="stat-bred">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <GitBranch className="w-2.5 h-2.5 text-emerald-400" />
+            Bred
+          </div>
+          <div className="text-lg font-mono font-semibold text-emerald-400">{bredCount}</div>
+        </div>
+        <div className="bg-card/80 border border-border/50 rounded-sm p-2" data-testid="stat-mutated">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Zap className="w-2.5 h-2.5 text-blue-400" />
+            Mutated
+          </div>
+          <div className="text-lg font-mono font-semibold text-blue-400">{mutatedCount}</div>
+        </div>
+        <div className="bg-card/80 border border-border/50 rounded-sm p-2" data-testid="stat-retired">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Trash2 className="w-2.5 h-2.5 text-destructive" />
+            Retired
+          </div>
+          <div className="text-lg font-mono font-semibold text-destructive">{retiredCount}</div>
+        </div>
+        <div className="bg-card/80 border border-border/50 rounded-sm p-2" data-testid="stat-avg-entrants">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Avg Entrants</div>
           <div className="text-lg font-mono font-semibold text-foreground">{avgEntrants}</div>
         </div>
-        <div className="bg-card/80 border border-border/50 rounded-sm p-2">
+        <div className="bg-card/80 border border-border/50 rounded-sm p-2" data-testid="stat-status">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</div>
           <div className="text-lg font-mono font-semibold">
             {runningTournament ? (
@@ -341,10 +384,22 @@ export function TournamentsView() {
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Users className="w-2.5 h-2.5" />
-                          {t.entrants_count || 0}
-                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={`flex items-center gap-1 ${(t.entrants_count || 0) === 0 ? "text-amber-400" : ""}`}>
+                              <Users className="w-2.5 h-2.5" />
+                              {t.entrants_count || 0}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[200px]">
+                            <p className="text-xs font-medium mb-1">Entrants: {t.entrants_count || 0}</p>
+                            {(t.entrants_count || 0) === 0 && (
+                              <p className="text-[10px] text-muted-foreground">
+                                No eligible bots. Bots must be in PAPER, SHADOW, or CANARY stage to enter tournaments.
+                              </p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
                         <span className="flex items-center gap-1">
                           <TrendingUp className="w-2.5 h-2.5" />
                           {(t.summary_json as Record<string, number>)?.avgFitness?.toFixed(0) || "—"}
@@ -449,17 +504,17 @@ export function TournamentsView() {
                                   </Badge>
                                 </TableCell>
                                 <TableCell className="text-right font-mono text-xs tabular-nums">
-                                  <span className={entry.fitness_v2 && entry.fitness_v2 > 50 ? "text-emerald-400" : ""}>
-                                    {entry.fitness_v2?.toFixed(0) || "—"}
+                                  <span className={entry.fitnessV2 && entry.fitnessV2 > 50 ? "text-emerald-400" : ""}>
+                                    {entry.fitnessV2?.toFixed(0) || "—"}
                                   </span>
                                 </TableCell>
                                 <TableCell className="text-right font-mono text-xs tabular-nums">
-                                  {entry.candidate_score || "—"}
+                                  {entry.candidateScore || "—"}
                                 </TableCell>
                                 <TableCell>
-                                  <Badge className={`text-[10px] gap-1 h-4 ${actionColors[entry.action_taken || "NONE"]}`}>
-                                    {actionIcons[entry.action_taken || "NONE"]}
-                                    {entry.action_taken || "—"}
+                                  <Badge className={`text-[10px] gap-1 h-4 ${actionColors[entry.actionTaken || "NONE"]}`}>
+                                    {actionIcons[entry.actionTaken || "NONE"]}
+                                    {entry.actionTaken || "—"}
                                   </Badge>
                                 </TableCell>
                               </TableRow>

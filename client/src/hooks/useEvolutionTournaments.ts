@@ -4,18 +4,19 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export interface TournamentEntry {
   id: string;
-  tournament_id: string;
-  bot_id: string;
+  tournamentId: string;
+  botId: string;
   lane: string | null;
   symbol: string | null;
-  trades_n: number | null;
-  fitness_v2: number | null;
-  candidate_score: number | null;
+  tradesN: number | null;
+  fitnessV2: number | null;
+  candidateScore: number | null;
   rank: number | null;
-  action_taken: string | null;
-  penalties_json: string[] | null;
-  metrics_json: Record<string, number> | null;
-  created_at: string;
+  actionTaken: string | null;
+  penaltiesJson: string[] | null;
+  metricsSnapshot: Record<string, number> | null;
+  createdAt: string;
+  bots?: { name: string } | null;
 }
 
 export interface Tournament {
