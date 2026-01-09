@@ -1,5 +1,5 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Bot, Moon } from "lucide-react";
+import { Bot, Moon, Clock, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStageColor } from "@/lib/stageConfig";
 
@@ -10,19 +10,58 @@ interface BotNameWithTooltipProps {
   showIcon?: boolean;
   isNearingSessionEnd?: boolean;
   stage?: string;
+  createdAt?: string | Date | null;
+  lastActiveAt?: string | Date | null;
 }
 
-// Extract technical name from description if it follows the pattern [TECH_NAME] Description
+function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
+function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return 'Never';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return 'Never';
+  
+  const now = Date.now();
+  const diffMs = now - d.getTime();
+  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+  
+  if (diffSec < 60) return 'Just now';
+  
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays === 1) return '1 day ago';
+  if (diffDays < 30) return `${diffDays} days ago`;
+  
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths === 1) return '1 month ago';
+  return `${diffMonths} months ago`;
+}
+
 function extractTechnicalName(description: string | null | undefined): string | null {
   if (!description) return null;
   const match = description.match(/^\[([^\]]+)\]/);
   return match ? match[1] : null;
 }
 
-// Extract the clean description without the technical name prefix
 function extractCleanDescription(description: string | null | undefined): string | null {
   if (!description) return null;
-  // If no brackets, return the full description (e.g., "MES Trend Following Strategy")
   if (!description.match(/^\[/)) return description;
   return description.replace(/^\[[^\]]+\]\s*/, '');
 }
@@ -33,22 +72,24 @@ export function BotNameWithTooltip({
   className = "",
   showIcon = false,
   isNearingSessionEnd = false,
-  stage = "TRIALS"
+  stage = "TRIALS",
+  createdAt,
+  lastActiveAt
 }: BotNameWithTooltipProps) {
   const technicalName = extractTechnicalName(description);
   const cleanDescription = extractCleanDescription(description);
   
-  const hasTooltipContent = technicalName || cleanDescription || isNearingSessionEnd;
+  const hasTooltipContent = technicalName || cleanDescription || isNearingSessionEnd || createdAt || lastActiveAt;
   
-  // Show moon for PAPER+ stages when nearing session end
   const isPaperPlus = stage && ['PAPER', 'SHADOW', 'CANARY', 'LIVE'].includes(stage);
   const showMoon = isPaperPlus && isNearingSessionEnd;
   
-  // Get stage-specific color for the bot name
   const stageColor = getStageColor(stage);
+  
+  const createdAtFormatted = formatDateTime(createdAt);
+  const lastActiveFormatted = formatRelativeTime(lastActiveAt);
+  const lastActiveFullDate = formatDateTime(lastActiveAt);
 
-  // For names without tooltip content, always wrap with tooltip showing full name
-  // This ensures long names truncated by CSS can still be viewed in full
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
@@ -67,8 +108,7 @@ export function BotNameWithTooltip({
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
-          <div className="space-y-1">
-            {/* Always show full name in tooltip (may be truncated in UI) */}
+          <div className="space-y-1.5">
             <p className="text-xs font-medium">{name}</p>
             {showMoon && (
               <p className="text-xs text-amber-400 font-medium">
@@ -84,6 +124,25 @@ export function BotNameWithTooltip({
               <p className="text-xs text-muted-foreground">
                 {cleanDescription}
               </p>
+            )}
+            {(createdAtFormatted || lastActiveAt) && (
+              <div className="pt-1 border-t border-muted-foreground/20 space-y-0.5">
+                {createdAtFormatted && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <Clock className="w-3 h-3" />
+                    <span>Created: {createdAtFormatted}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Activity className="w-3 h-3" />
+                  <span>
+                    Active: {lastActiveFormatted}
+                    {lastActiveFullDate && lastActiveFormatted !== 'Never' && lastActiveFormatted !== 'Just now' && (
+                      <span className="opacity-70"> ({lastActiveFullDate})</span>
+                    )}
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         </TooltipContent>
