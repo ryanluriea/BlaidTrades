@@ -512,7 +512,7 @@ export const jobRunEvents = pgTable("job_run_events", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const activityStateEnum = pgEnum("activity_state", ["IDLE", "SCANNING", "IN_TRADE", "EXITING", "STOPPED", "ERROR", "MAINTENANCE"]);
+export const activityStateEnum = pgEnum("activity_state", ["IDLE", "SCANNING", "IN_TRADE", "EXITING", "STOPPED", "ERROR", "MAINTENANCE", "MARKET_CLOSED"]);
 export const jobTypeEnum = pgEnum("job_type", ["RUNNER", "BACKTESTER", "EVOLVER", "RECONCILER"]);
 
 export const botInstances = pgTable("bot_instances", {
