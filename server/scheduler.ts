@@ -68,6 +68,7 @@ let qcEvolutionWorkerInterval: NodeJS.Timeout | null = null;
 let grokResearchInterval: NodeJS.Timeout | null = null;
 let sentToLabPromotionInterval: NodeJS.Timeout | null = null;
 let tournamentWorkerInterval: NodeJS.Timeout | null = null;
+let systemAuditInterval: NodeJS.Timeout | null = null;
 let isSchedulerRunning = false;
 
 // Grok Research Engine State - independent from Perplexity
@@ -100,6 +101,9 @@ const RUNNER_WORKER_INTERVAL_MS = 30_000; // 30 seconds - heartbeat interval
 
 // Economic calendar refresh (4 times per day)
 const ECONOMIC_CALENDAR_INTERVAL_MS = 6 * 60 * 60_000; // 6 hours
+
+// AUTONOMOUS: System audit worker - runs comprehensive checks for observability dashboard
+const SYSTEM_AUDIT_INTERVAL_MS = 4 * 60 * 60_000; // 4 hours - institutional audit frequency
 
 // Integration verification worker - runs on startup and periodically
 // AUTONOMOUS: Aggressive verification for fast self-healing
@@ -4012,7 +4016,6 @@ async function runRunnerWorker(): Promise<void> {
       }
       
       if (rows[0]?.result === 'blocked_by_existing') {
-        console.log(`[RUNNER_WORKER] trace_id=${traceId} SKIP_HAS_RUNNING bot=${stuck.bot_id.slice(0,8)} (atomic check blocked)`);
         continue;
       }
       
@@ -5373,6 +5376,184 @@ async function runIntegrationVerificationWorker(): Promise<void> {
 }
 
 /**
+ * AUTONOMOUS: System Audit Worker
+ * Runs comprehensive health and data integrity checks for the observability dashboard
+ * Stores results in audit_reports table so the System Health panel shows "Verified" status
+ */
+async function runSystemAuditWorker(): Promise<void> {
+  const traceId = `audit-${crypto.randomUUID().slice(0, 8)}`;
+  console.log(`[SYSTEM_AUDIT_WORKER] trace_id=${traceId} Starting autonomous system audit...`);
+  
+  try {
+    const startTime = Date.now();
+    const checks: Array<{
+      name: string;
+      category: string;
+      severity: string;
+      pass: boolean;
+      details: Record<string, any>;
+      ms: number;
+    }> = [];
+    
+    // Check 1: Autonomy Loops Health
+    const autonomyLoops = await storage.getAutonomyLoops();
+    const unhealthyLoops = autonomyLoops.filter(l => !l.isHealthy);
+    checks.push({
+      name: "AUTONOMY_LOOPS",
+      category: "SYSTEM",
+      severity: unhealthyLoops.length > 0 ? "CRITICAL" : "INFO",
+      pass: unhealthyLoops.length === 0,
+      details: {
+        total: autonomyLoops.length,
+        healthy: autonomyLoops.filter(l => l.isHealthy).length,
+        unhealthy: unhealthyLoops.map(l => l.loopName),
+      },
+      ms: Date.now() - startTime,
+    });
+    
+    // Check 2: Database Connectivity
+    try {
+      await db.execute(sql`SELECT 1`);
+      checks.push({
+        name: "DATABASE_CONNECTIVITY",
+        category: "INFRASTRUCTURE",
+        severity: "INFO",
+        pass: true,
+        details: { connected: true },
+        ms: Date.now() - startTime,
+      });
+    } catch (dbError: any) {
+      checks.push({
+        name: "DATABASE_CONNECTIVITY",
+        category: "INFRASTRUCTURE",
+        severity: "CRITICAL",
+        pass: false,
+        details: { connected: false, error: dbError.message },
+        ms: Date.now() - startTime,
+      });
+    }
+    
+    // Check 3: Bot Fleet Health
+    // health_state enum values are: OK, WARN, DEGRADED
+    const allBots = await db.execute(sql`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE health_state = 'DEGRADED') as degraded,
+        COUNT(*) FILTER (WHERE health_state = 'WARN') as warning,
+        COUNT(*) FILTER (WHERE health_state = 'OK' OR health_state IS NULL) as healthy
+      FROM bots
+    `);
+    const botStats = allBots.rows[0] as { total: string; degraded: string; warning: string; healthy: string };
+    const degradedCount = Number(botStats?.degraded || 0);
+    checks.push({
+      name: "BOT_FLEET_HEALTH",
+      category: "BOTS",
+      severity: degradedCount > 0 ? "WARN" : "INFO",
+      pass: degradedCount === 0,
+      details: {
+        total: Number(botStats?.total || 0),
+        healthy: Number(botStats?.healthy || 0),
+        warning: Number(botStats?.warning || 0),
+        degraded: Number(botStats?.degraded || 0),
+      },
+      ms: Date.now() - startTime,
+    });
+    
+    // Check 4: Paper Runner Instances
+    const activeInstances = await db.execute(sql`
+      SELECT COUNT(*) as active FROM bot_instances WHERE is_active = true
+    `);
+    const instanceCount = Number((activeInstances.rows[0] as any)?.active || 0);
+    checks.push({
+      name: "ACTIVE_INSTANCES",
+      category: "RUNTIME",
+      severity: "INFO",
+      pass: true,
+      details: { activeInstances: instanceCount },
+      ms: Date.now() - startTime,
+    });
+    
+    // Check 5: Job Queue Health
+    const pendingJobs = await db.execute(sql`
+      SELECT 
+        COUNT(*) FILTER (WHERE status = 'QUEUED') as queued,
+        COUNT(*) FILTER (WHERE status = 'RUNNING') as running,
+        COUNT(*) FILTER (WHERE status = 'FAILED') as failed
+      FROM bot_jobs
+      WHERE created_at > NOW() - INTERVAL '24 hours'
+    `);
+    const jobStats = pendingJobs.rows[0] as { queued: string; running: string; failed: string };
+    const failedCount = Number(jobStats?.failed || 0);
+    checks.push({
+      name: "JOB_QUEUE_HEALTH",
+      category: "JOBS",
+      severity: failedCount > 10 ? "WARN" : "INFO",
+      pass: failedCount <= 10,
+      details: {
+        queued: Number(jobStats?.queued || 0),
+        running: Number(jobStats?.running || 0),
+        failed: Number(jobStats?.failed || 0),
+      },
+      ms: Date.now() - startTime,
+    });
+    
+    // Determine overall audit status
+    const auditStatus = checks.every(c => c.pass) 
+      ? "PASS" 
+      : checks.some(c => c.severity === "CRITICAL" && !c.pass) 
+        ? "FAIL" 
+        : "WARN";
+    
+    // Get or create a system user for audit reports
+    // Try to find any existing user for associating the audit report
+    const systemUser = await db.execute(sql`
+      SELECT id FROM users ORDER BY created_at LIMIT 1
+    `);
+    
+    if (systemUser.rows.length > 0) {
+      const userId = (systemUser.rows[0] as any).id;
+      
+      // Save audit report
+      await db.insert(schema.auditReports).values({
+        userId,
+        suiteType: "autonomous",
+        status: auditStatus,
+        checksJson: checks,
+        summaryJson: {
+          total: checks.length,
+          passed: checks.filter(c => c.pass).length,
+          failed: checks.filter(c => !c.pass).length,
+          criticalFailures: checks.filter(c => !c.pass && c.severity === "CRITICAL").length,
+        },
+        performanceJson: {
+          totalMs: Date.now() - startTime,
+        },
+      });
+      
+      console.log(`[SYSTEM_AUDIT_WORKER] trace_id=${traceId} Completed: status=${auditStatus} checks=${checks.length} passed=${checks.filter(c => c.pass).length} failed=${checks.filter(c => !c.pass).length} ms=${Date.now() - startTime}`);
+      
+      await logActivityEvent({
+        eventType: "SYSTEM_AUDIT",
+        severity: auditStatus === "PASS" ? "INFO" : auditStatus === "FAIL" ? "CRITICAL" : "WARN",
+        title: `Autonomous system audit: ${auditStatus}`,
+        summary: `${checks.filter(c => c.pass).length}/${checks.length} checks passed`,
+        payload: { 
+          traceId, 
+          status: auditStatus,
+          checks: checks.map(c => ({ name: c.name, pass: c.pass })),
+        },
+        traceId,
+      });
+    } else {
+      console.log(`[SYSTEM_AUDIT_WORKER] trace_id=${traceId} No users found - skipping audit report storage`);
+    }
+    
+  } catch (error: any) {
+    console.error(`[SYSTEM_AUDIT_WORKER] trace_id=${traceId} Error:`, error.message);
+  }
+}
+
+/**
  * QC AUTO-TRIGGER WORKER
  * Automatically queues QC verification for high-confidence strategies
  * Uses user-configured threshold and tier settings from Strategy Lab state
@@ -6205,6 +6386,10 @@ function clearAllWorkerIntervals(): void {
   if (tournamentWorkerInterval) {
     clearInterval(tournamentWorkerInterval);
     tournamentWorkerInterval = null;
+  }
+  if (systemAuditInterval) {
+    clearInterval(systemAuditInterval);
+    systemAuditInterval = null;
   }
   
   console.log("[SCHEDULER] All worker intervals cleared");
@@ -7888,6 +8073,14 @@ async function initializeWorkers(): Promise<void> {
   
   // Run integration verification immediately at startup for instant audit status
   setTimeout(() => runIntegrationVerificationWorker().catch(err => console.error(`[INTEGRATION_VERIFY] Startup run failed:`, err)), 5000);
+  
+  // AUTONOMOUS: System Audit Worker - runs comprehensive checks for observability dashboard
+  systemAuditInterval = setInterval(createSelfHealingWorker("system-audit", runSystemAuditWorker), SYSTEM_AUDIT_INTERVAL_MS);
+  console.log(`[SCHEDULER] System audit worker started (interval: ${SYSTEM_AUDIT_INTERVAL_MS / 3600_000}h)`);
+  
+  // Run system audit immediately on startup (3s delay for DB init)
+  setTimeout(() => runSystemAuditWorker().catch(err => console.error(`[SYSTEM_AUDIT] Startup run failed:`, err)), 3_000);
+  console.log(`[SCHEDULER] System audit will run in 3s on startup`);
   
   strategyLabResearchInterval = setInterval(createSelfHealingWorker("strategy-lab", runStrategyLabResearchWorker), STRATEGY_LAB_RESEARCH_INTERVAL_MS);
   console.log(`[SCHEDULER] Strategy Lab research worker started (check interval: ${STRATEGY_LAB_RESEARCH_INTERVAL_MS / 60000}min, actual run interval by depth)`);
