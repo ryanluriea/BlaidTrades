@@ -473,7 +473,7 @@ function PnlSlot({ label, value, tooltip, trades, lastTradeAt, onTradesClick, st
           ) : (
             <span className="text-[11px] font-mono font-semibold leading-none">
               {hasValue 
-                ? `${effectiveValue >= 0 ? '+' : '-'}$${Math.abs(effectiveValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                ? formatPnlCompact(effectiveValue)
                 : '-'
               }
             </span>
@@ -583,9 +583,8 @@ function formatMetricValue(type: string, value: number | null | undefined): stri
       if (value <= 0) return '-';
       return value.toFixed(2);
     case 'expectancy':
-      // Expected $ per trade - show with sign and dollar
-      const sign = value >= 0 ? '+' : '-';
-      return `${sign}$${Math.abs(value).toFixed(0)}`;
+      // Expected $ per trade - show as compact value, preserves negative for losses
+      return formatPnlCompact(value);
     default:
       return String(value);
   }
@@ -676,6 +675,30 @@ function formatBalanceCompact(balance: number | null | undefined, includeDollarS
     return `${prefix}${thousands},${remainder.toString().padStart(3, '0')}`;
   }
   return `${prefix}${rounded}`;
+}
+
+/**
+ * Format P&L values as compact whole numbers: $1.2k, $10.1k, -$500 etc.
+ * User preference: No "+" prefix for positive, but keep "-" for negative, 
+ * rounded to whole numbers, compact notation for thousands.
+ */
+function formatPnlCompact(value: number | null | undefined): string {
+  if (value == null) return '-';
+  const absValue = Math.abs(value);
+  const prefix = value < 0 ? '-$' : '$';
+  
+  // Use compact notation for thousands
+  if (absValue >= 10000) {
+    // 10k+ shows as 10.1k or -10.1k
+    return `${prefix}${(absValue / 1000).toFixed(1)}k`;
+  }
+  if (absValue >= 1000) {
+    // 1k-9.9k shows as 1.24k or -1.24k
+    return `${prefix}${(absValue / 1000).toFixed(2)}k`;
+  }
+  
+  // Under 1000: round to whole number
+  return `${prefix}${Math.round(absValue)}`;
 }
 
 export function WalletSlot({ 

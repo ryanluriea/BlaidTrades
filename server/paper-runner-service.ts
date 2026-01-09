@@ -393,6 +393,10 @@ class PaperRunnerServiceImpl {
       return;
     }
     
+    // CRITICAL: Clear stale MAINTENANCE/CLOSED states on startup
+    // This fixes bots showing "Paused for maintenance" outside of maintenance hours
+    await this.clearStaleSessionStates();
+    
     await liveDataService.start();
     console.log("[PAPER_RUNNER_SERVICE] Started");
     
@@ -401,6 +405,55 @@ class PaperRunnerServiceImpl {
     
     // INSTITUTIONAL SAFETY: Start periodic autonomy check
     this.startAutonomyWatch();
+  }
+  
+  /**
+   * Clear stale MAINTENANCE/CLOSED activity states on startup.
+   * This handles the case where a server restart happens after a maintenance window,
+   * but before enforceSessionEnd runs to clear the states.
+   */
+  private async clearStaleSessionStates(): Promise<void> {
+    const marketStatus = getCMEMarketStatus(new Date());
+    
+    // Only clear states if market is currently OPEN
+    if (marketStatus.status !== "OPEN") {
+      console.log(`[PAPER_RUNNER_SERVICE] Market is ${marketStatus.status}, not clearing session states`);
+      return;
+    }
+    
+    try {
+      // Find all PAPER+ bot instances with stale MAINTENANCE or session states
+      const result = await db
+        .update(botInstances)
+        .set({
+          activityState: sql`CASE 
+            WHEN ${botInstances.activityState} = 'MAINTENANCE' THEN 'SCANNING'
+            WHEN ${botInstances.activityState} = 'IDLE' AND (state_json->>'sessionState' = 'MAINTENANCE' OR state_json->>'sessionState' = 'CLOSED') THEN 'SCANNING'
+            ELSE ${botInstances.activityState}
+          END`,
+          stateJson: sql`state_json || jsonb_build_object(
+            'sessionState', 'ACTIVE',
+            'isSleeping', false,
+            'outsideSession', false,
+            'staleStateClearedAt', ${new Date().toISOString()}
+          )`,
+        })
+        .where(
+          sql`${botInstances.status} = 'RUNNING'
+              AND ${botInstances.stoppedAt} IS NULL
+              AND ${botInstances.jobType} = 'RUNNER'
+              AND (${botInstances.activityState} = 'MAINTENANCE' 
+                   OR state_json->>'sessionState' = 'MAINTENANCE'
+                   OR state_json->>'sessionState' = 'CLOSED')`
+        )
+        .returning({ id: botInstances.id });
+      
+      if (result.length > 0) {
+        console.log(`[PAPER_RUNNER_SERVICE] STARTUP_CLEANUP: Cleared ${result.length} stale MAINTENANCE/CLOSED states`);
+      }
+    } catch (error) {
+      console.error("[PAPER_RUNNER_SERVICE] Failed to clear stale session states:", error);
+    }
   }
   
   /**
