@@ -114,22 +114,61 @@ poolWeb.on('error', (err) => {
   console.error('[DB_POOL_WEB] Unexpected pool error:', err.message);
 });
 
-poolWeb.on('connect', (client) => {
-  client.on('error', (err) => {
-    console.error('[DB_CLIENT_WEB] Client error:', err.message);
-  });
-});
-
 pool.on('error', (err) => {
   console.error('[DB_POOL] Unexpected pool error:', err.message);
   openCircuit();
 });
 
-pool.on('connect', (client) => {
-  client.on('error', (err) => {
-    console.error('[DB_CLIENT] Client error:', err.message);
-  });
-});
+let queryMetricsRecorder: ((metric: { queryType: string; durationMs: number; timestamp: number; success: boolean; errorCode?: string }) => void) | null = null;
+
+export function registerQueryMetricsRecorder(recorder: typeof queryMetricsRecorder): void {
+  queryMetricsRecorder = recorder;
+}
+
+function instrumentPool(targetPool: typeof pool, poolName: string): typeof pool {
+  const originalQuery = targetPool.query.bind(targetPool);
+  
+  (targetPool as any).query = async (...args: any[]) => {
+    const startTime = Date.now();
+    try {
+      const result = await originalQuery(...args);
+      const durationMs = Date.now() - startTime;
+      
+      if (queryMetricsRecorder) {
+        queryMetricsRecorder({
+          queryType: poolName,
+          durationMs,
+          timestamp: Date.now(),
+          success: true,
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      const durationMs = Date.now() - startTime;
+      
+      if (queryMetricsRecorder) {
+        queryMetricsRecorder({
+          queryType: poolName,
+          durationMs,
+          timestamp: Date.now(),
+          success: false,
+          errorCode: (error as any)?.code || 'UNKNOWN',
+        });
+      }
+      
+      throw error;
+    }
+  };
+  
+  return targetPool;
+}
+
+instrumentPool(pool, 'worker');
+instrumentPool(poolWeb, 'web');
+if (DATABASE_READER_URL && poolWriter !== pool) {
+  instrumentPool(poolWriter, 'writer');
+}
 
 // Drizzle instances for each pool
 export const dbWeb = drizzle(poolWeb, { schema }); // For auth/web requests

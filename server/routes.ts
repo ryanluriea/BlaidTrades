@@ -398,6 +398,73 @@ export function registerRoutes(app: Express) {
   });
 
   // =====================================================
+  // OBSERVABILITY DASHBOARD - Production Monitoring
+  // =====================================================
+  
+  app.get("/api/observability/dashboard", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { getObservabilityDashboard } = await import("./ops/observabilityDashboard");
+      const dashboard = await getObservabilityDashboard();
+      res.json({ success: true, data: dashboard });
+    } catch (err) {
+      console.error("[OBSERVABILITY] Dashboard error:", err);
+      res.status(500).json({ error: "Failed to get observability dashboard" });
+    }
+  });
+
+  app.get("/api/observability/db-metrics", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { getDbMonitorMetrics } = await import("./ops/dbQueryMonitor");
+      res.json({ success: true, data: getDbMonitorMetrics() });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get database metrics" });
+    }
+  });
+
+  app.post("/api/observability/load-test", requireAuth, tradingRateLimit, async (req: Request, res: Response) => {
+    try {
+      const { startLoadTest } = await import("./ops/loadTestRunner");
+      const { profile = "health", durationSeconds = 30, concurrency = 5 } = req.body;
+      
+      const result = await startLoadTest({
+        profile,
+        durationSeconds: Math.min(durationSeconds, 300),
+        concurrency: Math.min(concurrency, 20),
+      });
+      
+      res.json({ success: true, data: result });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to start load test";
+      res.status(400).json({ error: message });
+    }
+  });
+
+  app.get("/api/observability/load-test", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { getCurrentLoadTest, getLoadTestHistory } = await import("./ops/loadTestRunner");
+      res.json({
+        success: true,
+        data: {
+          current: getCurrentLoadTest(),
+          history: getLoadTestHistory(),
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get load test status" });
+    }
+  });
+
+  app.post("/api/observability/load-test/cancel", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { cancelLoadTest } = await import("./ops/loadTestRunner");
+      const cancelled = cancelLoadTest();
+      res.json({ success: true, cancelled });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to cancel load test" });
+    }
+  });
+
+  // =====================================================
   // SYSTEM POWER CONTROL - Master On/Off Switch
   // =====================================================
   

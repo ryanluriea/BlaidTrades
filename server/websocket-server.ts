@@ -480,6 +480,32 @@ class LivePnLWebSocketServer {
     return count;
   }
 
+  getTotalSubscriptions(): number {
+    let total = 0;
+    this.clients.forEach((client) => {
+      total += client.subscribedBots.size;
+    });
+    return total;
+  }
+
+  getMetrics(): {
+    connectedClients: number;
+    authenticatedClients: number;
+    subscriptionsTotal: number;
+    messagesSent24h: number;
+    lastBroadcastAt: string | null;
+  } {
+    return {
+      connectedClients: this.clients.size,
+      authenticatedClients: this.getAuthenticatedClientCount(),
+      subscriptionsTotal: this.getTotalSubscriptions(),
+      messagesSent24h: 0,
+      lastBroadcastAt: this.lastBroadcast.size > 0 
+        ? new Date(Math.max(...this.lastBroadcast.values())).toISOString()
+        : null,
+    };
+  }
+
   shutdown(): void {
     if (this.sessionCheckInterval) {
       clearInterval(this.sessionCheckInterval);

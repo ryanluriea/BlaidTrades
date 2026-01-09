@@ -60,6 +60,19 @@ if (isWorkerOnlyMode) {
     
     log(`[STARTUP] Database ready - starting scheduler workers`);
     
+    // Register DB query metrics recorder for production monitoring (worker mode)
+    // Must happen BEFORE scheduler starts to capture all queries
+    try {
+      const [{ registerQueryMetricsRecorder }, { recordQueryMetric }] = await Promise.all([
+        import("./db"),
+        import("./ops/dbQueryMonitor")
+      ]);
+      registerQueryMetricsRecorder(recordQueryMetric);
+      log(`[STARTUP] DB query metrics recorder registered (worker mode)`);
+    } catch (err) {
+      log(`[STARTUP] Failed to register DB query metrics: ${(err as Error).message}`);
+    }
+    
     // Register scheduler callbacks for memory management
     registerSchedulerCallbacks(pauseHeavyWorkers, resumeHeavyWorkers);
     
@@ -132,6 +145,24 @@ if (isWorkerOnlyMode) {
       
       // Initialize WebSocket server for real-time LIVE P&L updates
       livePnLWebSocket.initialize(server);
+      
+      // Register WebSocket metrics with observability dashboard
+      import("./ops/observabilityDashboard").then(({ registerWebSocketMetricsProvider }) => {
+        registerWebSocketMetricsProvider(() => livePnLWebSocket.getMetrics());
+      }).catch(err => {
+        log(`[STARTUP] Failed to register WS metrics: ${err.message}`);
+      });
+      
+      // Register DB query metrics recorder for production monitoring
+      Promise.all([
+        import("./db"),
+        import("./ops/dbQueryMonitor")
+      ]).then(([{ registerQueryMetricsRecorder }, { recordQueryMetric }]) => {
+        registerQueryMetricsRecorder(recordQueryMetric);
+        log(`[STARTUP] DB query metrics recorder registered`);
+      }).catch(err => {
+        log(`[STARTUP] Failed to register DB query metrics: ${err.message}`);
+      });
       
       // Initialize Research Monitor WebSocket for live AI research activity
       researchMonitorWS.initialize(server);
