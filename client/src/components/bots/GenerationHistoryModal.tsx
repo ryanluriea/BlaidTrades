@@ -160,7 +160,7 @@ function evaluateGates(snapshot: Record<string, unknown>, thresholds: GateThresh
     name: 'Max DD',
     current: maxDd,
     goal: thresholds.maxDrawdownPct,
-    passed: maxDd !== null && maxDd > 0 && maxDd <= thresholds.maxDrawdownPct,
+    passed: maxDd !== null && maxDd >= 0 && maxDd <= thresholds.maxDrawdownPct,
     gap: maxDd !== null 
       ? (maxDd <= thresholds.maxDrawdownPct ? `${(thresholds.maxDrawdownPct - maxDd).toFixed(1)}% margin` : `${(maxDd - thresholds.maxDrawdownPct).toFixed(1)}% over`)
       : 'N/A',
@@ -390,6 +390,23 @@ function DetailPanel({
   const rawPnl = (snapshot.backtestPnl ?? snapshot.pnl ?? snapshot.simPnl ?? snapshot.latestPnl ?? null) as number | null;
   const pnl = hasValidTrades ? rawPnl : null;
   const metricsSource = (snapshot as any)?._source || "computed";
+  const stageSource = (snapshot as any)?._stageSource || "stored";
+  const computedAt = (snapshot as any)?._computedAt;
+  
+  const getSourceLabel = (): { label: string; color: string; icon: typeof CheckCircle2 } => {
+    if (metricsSource.includes("backtest_sessions")) {
+      return { label: "Backtest Sessions (DB)", color: "text-blue-400", icon: CheckCircle2 };
+    }
+    if (metricsSource.includes("paper_trades")) {
+      return { label: "Paper Trades (DB)", color: "text-green-400", icon: CheckCircle2 };
+    }
+    if (metricsSource === "computed") {
+      return { label: "No Data Yet", color: "text-muted-foreground", icon: AlertTriangle };
+    }
+    return { label: metricsSource, color: "text-muted-foreground", icon: Activity };
+  };
+  
+  const sourceInfo = getSourceLabel();
 
   return (
     <div className="space-y-6">
@@ -419,12 +436,20 @@ function DetailPanel({
         </div>
       </div>
       
-      {metricsSource !== "snapshot" && (
-        <div className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
-          <Activity className="w-3 h-3" />
-          <span>Metrics from: {metricsSource === "backtest_sessions" ? "Backtest Sessions" : metricsSource === "paper_trades" ? "Paper Trades" : metricsSource}</span>
-        </div>
-      )}
+      <div className={cn(
+        "flex items-center gap-2 p-2 rounded-md text-[11px]",
+        hasValidTrades ? "bg-primary/5 border border-primary/20" : "bg-muted/30 border border-muted"
+      )}>
+        <sourceInfo.icon className={cn("w-3.5 h-3.5 shrink-0", sourceInfo.color)} />
+        <span className={sourceInfo.color}>
+          Data Source: <span className="font-medium">{sourceInfo.label}</span>
+        </span>
+        {computedAt && (
+          <span className="text-muted-foreground/50 ml-auto text-[10px]">
+            Updated: {new Date(computedAt).toLocaleString()}
+          </span>
+        )}
+      </div>
       
       {pnl !== null && (
         <div className={cn(
