@@ -1414,7 +1414,7 @@ export function ActivityGrid({
     : runnerState === 'MAINTENANCE'
       ? 'Paused for daily maintenance (5-6 PM ET)'
     : runnerState === 'SCANNING' 
-      ? `Scanning for signals${scanningSinceStr ? ` (${scanningSinceStr})` : ''}`
+      ? `Scanning for entry signals.\n${scanningSinceStr ? `Waiting ${scanningSinceStr} for a valid setup.` : 'Monitoring market conditions.'}`
     : runnerState === 'STARTING' ? 'Starting up...' : '';
 
   const matrixTooltip = matrixStatus === 'RUNNING'
@@ -1499,7 +1499,7 @@ export function ActivityGrid({
         }
         // CLOSED: Full market closure (weekend/holiday) - show "Closed" 
         return isSleeping || sessionState === 'CLOSED' || runnerState === 'MARKET_CLOSED' ? (
-          <ActivitySlot key={key} icon={Moon} isActive={true} isRunning={false} tooltip="CME futures market closed. Sleeping until next market open." activeColor="text-indigo-400 bg-indigo-500/20" label="Closed" />
+          <ActivitySlot key={key} icon={Moon} isActive={true} isRunning={false} tooltip="Market Closed: CME futures trading session ended.\nBot is sleeping and will resume when market reopens.\n(Weekdays 6PM-5PM CT, closed on weekends)" activeColor="text-indigo-400 bg-indigo-500/20" label="Closed" />
         ) : (
           <ActivitySlot key={key} icon={RunnerIcon} isActive={hasRunnerActivity} isRunning={runnerState === 'TRADING' || runnerState === 'SIGNAL' || runnerState === 'SCANNING' || runnerState === 'DATA_FROZEN'} tooltip={runnerTooltip} count={runnerState === 'TRADING' && positionQuantity ? positionQuantity : undefined} activeColor={runnerState === 'TRADING' ? (positionSide === 'SHORT' ? "text-red-400 bg-red-500/20" : "text-green-400 bg-green-500/20") : runnerState === 'SIGNAL' ? "text-yellow-400 bg-yellow-500/20" : runnerState === 'SCANNING' ? "text-cyan-400 bg-cyan-500/20" : runnerState === 'DATA_FROZEN' ? "text-cyan-400 bg-cyan-500/20" : runnerState === 'STARTING' ? "text-orange-400 bg-orange-500/20" : "text-muted-foreground bg-muted/30"} label={runnerState === 'TRADING' ? (positionSide === 'SHORT' ? "Short" : "Long") : runnerState === 'SIGNAL' ? "Signal" : runnerState === 'SCANNING' ? "Scan" : runnerState === 'DATA_FROZEN' ? "Awaiting" : runnerState === 'STARTING' ? "Start" : "Runner"} duration={runnerState === 'TRADING' ? positionElapsedStr : runnerState === 'SCANNING' ? scanningSinceStr : null} clickable={runnerState === 'TRADING'} onClick={() => setTradeIdeaOpen(true)} />
         );

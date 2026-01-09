@@ -4611,7 +4611,28 @@ export function registerRoutes(app: Express) {
           storage.getBotInstances({ botId }),
           storage.getBot(botId),
         ]);
-        const primaryRunner = instances.find(i => i.isPrimaryRunner && i.jobType === 'RUNNER');
+        // CRITICAL FIX: Select runner based on STATUS and RECENCY, not just is_primary_runner flag
+        // The is_primary_runner flag can be stale (many STOPPED instances marked as primary),
+        // so we should always prefer RUNNING > STARTING > most-recently-started-STOPPED
+        const runnerInstances = instances.filter(i => i.jobType === 'RUNNER');
+        // Sort by status priority (RUNNING > STARTING > others), then by startedAt DESC
+        const sortedRunners = runnerInstances.sort((a, b) => {
+          const statusPriority = (s: string | null | undefined) => {
+            const upper = s?.toUpperCase() || '';
+            if (upper === 'RUNNING') return 3;
+            if (upper === 'STARTING') return 2;
+            if (upper === 'STOPPED') return 1;
+            return 0;
+          };
+          const aPriority = statusPriority(a.status);
+          const bPriority = statusPriority(b.status);
+          if (aPriority !== bPriority) return bPriority - aPriority;
+          // Same status: prefer more recent startedAt
+          const aTime = a.startedAt?.getTime() || 0;
+          const bTime = b.startedAt?.getTime() || 0;
+          return bTime - aTime;
+        });
+        const primaryRunner = sortedRunners[0];
         
         // Extract lastEvaluationAt and warmup state from stateJson if present
         const stateJson = (primaryRunner?.stateJson || {}) as Record<string, any>;
