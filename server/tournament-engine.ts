@@ -432,12 +432,20 @@ export async function getTournamentById(id: string): Promise<EvolutionTournament
   return tournament;
 }
 
-export async function getTournamentEntries(tournamentId: string): Promise<TournamentEntry[]> {
-  return db
-    .select()
+export async function getTournamentEntries(tournamentId: string): Promise<(TournamentEntry & { bots: { name: string } | null })[]> {
+  const results = await db
+    .select({
+      ...tournamentEntries,
+      bots: {
+        name: bots.name,
+      },
+    })
     .from(tournamentEntries)
+    .leftJoin(bots, eq(tournamentEntries.botId, bots.id))
     .where(eq(tournamentEntries.tournamentId, tournamentId))
     .orderBy(tournamentEntries.rank);
+  
+  return results as (TournamentEntry & { bots: { name: string } | null })[];
 }
 
 export async function getLiveEligibleBots(userId: string): Promise<{
