@@ -8910,6 +8910,165 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // =========== BOT SIGNALS ENDPOINT ===========
+  // GET /api/bots/:botId/signals
+  // Returns trading signals derived from trade logs and decision traces
+  app.get("/api/bots/:botId/signals", async (req: Request, res: Response) => {
+    try {
+      const { botId } = req.params;
+      const rawLimit = parseInt(req.query.limit as string);
+      const limit = Number.isNaN(rawLimit) || rawLimit <= 0 ? 20 : Math.min(rawLimit, 100);
+      
+      // Validate bot exists
+      const bot = await storage.getBot(botId);
+      if (!bot) {
+        return res.status(404).json({ error: "Bot not found" });
+      }
+      
+      // Fetch trading signals from trade_logs with entry/exit reasons
+      const signals = await db.execute(sql`
+        SELECT 
+          tl.id,
+          tl.symbol as instrument,
+          tl.side as direction,
+          CASE 
+            WHEN tl.is_open = true THEN 'entry'
+            WHEN tl.exit_price IS NOT NULL THEN 'exit'
+            ELSE 'entry'
+          END as signal_type,
+          tl.entry_reason as reason,
+          tl.entry_reason_code as reason_code,
+          tl.entry_price as price,
+          tl.quantity,
+          tl.pnl,
+          COALESCE(dt.confidence, 0) as confidence,
+          dt.decision as ai_decision,
+          dt.final_reasoning as reasoning,
+          tl.created_at
+        FROM trade_logs tl
+        LEFT JOIN decision_traces dt ON dt.trade_log_id = tl.id
+        WHERE tl.bot_id = ${botId}::uuid
+          AND tl.is_invalid = false
+        ORDER BY tl.created_at DESC
+        LIMIT ${limit}
+      `);
+      
+      const formattedSignals = signals.rows.map((row: any) => ({
+        id: row.id,
+        instrument: row.instrument || 'MES',
+        direction: row.direction?.toUpperCase() || 'BUY',
+        signal_type: row.signal_type || 'entry',
+        reason: row.reason || row.ai_decision || 'Strategy signal',
+        reason_code: row.reason_code,
+        price: row.price,
+        quantity: row.quantity,
+        pnl: row.pnl,
+        confidence: row.confidence,
+        reasoning: row.reasoning,
+        created_at: row.created_at,
+      }));
+      
+      res.json({
+        success: true,
+        data: formattedSignals,
+      });
+    } catch (error) {
+      console.error("Error fetching bot signals:", error);
+      res.status(500).json({ error: "Failed to fetch bot signals" });
+    }
+  });
+
+  // =========== BOT BIAS FEED ENDPOINT ===========
+  // GET /api/bots/:botId/bias-feed
+  // Returns market bias events for the bot from activity events
+  app.get("/api/bots/:botId/bias-feed", async (req: Request, res: Response) => {
+    try {
+      const { botId } = req.params;
+      const rawLimit = parseInt(req.query.limit as string);
+      const limit = Number.isNaN(rawLimit) || rawLimit <= 0 ? 20 : Math.min(rawLimit, 100);
+      
+      // Validate bot exists
+      const bot = await storage.getBot(botId);
+      if (!bot) {
+        return res.status(404).json({ error: "Bot not found" });
+      }
+      
+      // Fetch bias events from activity_events 
+      const biasEvents = await db.execute(sql`
+        SELECT 
+          id,
+          event_type,
+          title,
+          summary,
+          payload,
+          created_at
+        FROM activity_events
+        WHERE bot_id = ${botId}::uuid
+          AND (event_type LIKE '%BIAS%' 
+               OR event_type LIKE '%MARKET%' 
+               OR event_type LIKE '%SIGNAL%'
+               OR event_type = 'BOT_DECISION')
+        ORDER BY created_at DESC
+        LIMIT ${limit}
+      `);
+      
+      // Also get recent decision traces for bias context
+      const decisions = await db.execute(sql`
+        SELECT 
+          id,
+          decision,
+          confidence,
+          variables_used,
+          final_reasoning,
+          created_at
+        FROM decision_traces
+        WHERE bot_id = ${botId}::uuid
+        ORDER BY created_at DESC
+        LIMIT ${Math.floor(limit / 2)}
+      `);
+      
+      // Combine and format bias events
+      const formattedEvents = [
+        ...biasEvents.rows.map((row: any) => {
+          const payload = row.payload || {};
+          return {
+            id: row.id,
+            bias_type: payload.bias || payload.direction || 'neutral',
+            timeframe: payload.timeframe || '1H',
+            confidence: payload.confidence || payload.score || 50,
+            source: row.event_type,
+            summary: row.summary || row.title,
+            created_at: row.created_at,
+          };
+        }),
+        ...decisions.rows.map((row: any) => {
+          const variables = row.variables_used || {};
+          const decision = (row.decision || '').toLowerCase();
+          return {
+            id: row.id,
+            bias_type: decision.includes('buy') || decision.includes('long') ? 'bullish' 
+                     : decision.includes('sell') || decision.includes('short') ? 'bearish'
+                     : decision.includes('hold') ? 'neutral' : 'mixed',
+            timeframe: 'DECISION',
+            confidence: row.confidence || 50,
+            source: 'AI_DECISION',
+            summary: row.final_reasoning || row.decision,
+            created_at: row.created_at,
+          };
+        }),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+       .slice(0, limit);
+      
+      res.json({
+        success: true,
+        data: formattedEvents,
+      });
+    } catch (error) {
+      console.error("Error fetching bot bias feed:", error);
+      res.status(500).json({ error: "Failed to fetch bot bias feed" });
+    }
+  });
+
   app.get("/api/system-events", async (req: Request, res: Response) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;

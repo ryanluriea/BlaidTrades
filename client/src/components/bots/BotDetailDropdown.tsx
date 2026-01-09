@@ -8,9 +8,7 @@ import { BotOpenPositions } from "./dropdown/BotOpenPositions";
 import { BotRecentTrades } from "./dropdown/BotRecentTrades";
 import { BotMindConsole } from "./dropdown/BotMindConsole";
 import { BotBiasFeed } from "./dropdown/BotBiasFeed";
-import { BotActivityPanel } from "./dropdown/BotActivityPanel";
 import { BotHistoryPanel } from "./dropdown/BotHistoryPanel";
-import { BotGenerationsPanel } from "./dropdown/BotGenerationsPanel";
 import { BotSizingPreview } from "./dropdown/BotSizingPreview";
 import { BotExecutionStatus } from "./dropdown/BotExecutionStatus";
 import { BotInlineControls } from "./dropdown/BotInlineControls";
@@ -122,15 +120,13 @@ export function BotDetailDropdown({ bot, isExpanded }: BotDetailDropdownProps) {
         <BotInlineControls bot={bot} />
       </div>
 
-      {/* Tabs for different sections */}
+      {/* Tabs for different sections - Streamlined for production */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap bg-background/50 h-8">
           <TabsTrigger value="overview" className="text-xs px-2">Overview</TabsTrigger>
-          <TabsTrigger value="activity" className="text-xs px-2">Activity</TabsTrigger>
           <TabsTrigger value="trades" className="text-xs px-2">Trades</TabsTrigger>
           <TabsTrigger value="evolution" className="text-xs px-2">Evolution</TabsTrigger>
           <TabsTrigger value="history" className="text-xs px-2">History</TabsTrigger>
-          <TabsTrigger value="generations" className="text-xs px-2">Generations</TabsTrigger>
           <TabsTrigger value="signals" className="text-xs px-2">Signals</TabsTrigger>
         </TabsList>
 
@@ -144,10 +140,6 @@ export function BotDetailDropdown({ bot, isExpanded }: BotDetailDropdownProps) {
             botRiskConfig={bot.risk_config as Record<string, unknown>}
             instrumentSymbol={(bot.strategy_config as any)?.instrument || "ES"}
           />
-        </TabsContent>
-
-        <TabsContent value="activity" className="mt-3 space-y-3">
-          <BotActivityPanel botId={bot.id} />
           <BotLinkedAccounts botId={bot.id} />
         </TabsContent>
 
@@ -164,10 +156,6 @@ export function BotDetailDropdown({ bot, isExpanded }: BotDetailDropdownProps) {
 
         <TabsContent value="history" className="mt-3">
           <BotHistoryPanel botId={bot.id} />
-        </TabsContent>
-
-        <TabsContent value="generations" className="mt-3">
-          <BotGenerationsPanel bot={bot} />
         </TabsContent>
 
         <TabsContent value="signals" className="mt-3 space-y-3">
