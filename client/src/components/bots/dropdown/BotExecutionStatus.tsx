@@ -96,13 +96,15 @@ export function BotExecutionStatus({ botId }: BotExecutionStatusProps) {
     );
   }
 
-  const executionMode = activeInstance.mode as ExecutionMode;
+  const executionMode = (activeInstance.mode || "BACKTEST_ONLY") as ExecutionMode;
   const accountType = (account?.accountType || "SIM") as AccountType;
   const provider = (account as any)?.provider || "INTERNAL";
   const dataFeedOverride = (account as any)?.data_feed_mode_override as DataFeedMode | null;
   
   const routing = getExecutionRouting(accountType, executionMode);
-  const dataFeedMode = getDataFeedMode(executionMode, dataFeedOverride);
+  const dataFeedMode = executionMode && EXECUTION_MODE_INFO[executionMode] 
+    ? getDataFeedMode(executionMode, dataFeedOverride)
+    : "HISTORICAL_DATA";
   
   const isLiveData = dataFeedMode === "LIVE_DATA";
   const isBrokerRouting = routing === "BROKER_FILLS";
