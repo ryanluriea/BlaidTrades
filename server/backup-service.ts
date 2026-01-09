@@ -991,6 +991,9 @@ export async function startBackupScheduler(): Promise<void> {
 
   const nextBackup = new Date(Date.now() + intervalMs);
   await updateBackupSettings({ nextBackupAt: nextBackup.toISOString() });
+  
+  // Clear dashboard cache so frontend gets updated nextBackupAt
+  clearDashboardCache();
 
   console.log(`[BACKUP_SCHEDULER] Started with ${settings.backupFrequency} frequency, next backup at ${nextBackup.toISOString()}`);
 }
