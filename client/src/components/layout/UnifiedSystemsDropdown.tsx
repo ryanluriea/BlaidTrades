@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -546,13 +546,13 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
 
   return (
     <>
-      <Popover open={isOpen} onOpenChange={(open) => {
+      <Dialog open={isOpen} onOpenChange={(open) => {
         if (!confirmDialog.open) {
           setIsOpen(open);
         }
       }}>
         <Tooltip open={isOpen ? false : undefined}>
-          <PopoverTrigger asChild>
+          <DialogTrigger asChild>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
@@ -570,13 +570,13 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                 />
               </Button>
             </TooltipTrigger>
-          </PopoverTrigger>
+          </DialogTrigger>
           <TooltipContent side="bottom">
             <p className="text-xs">AI & Autonomous Systems</p>
           </TooltipContent>
         </Tooltip>
 
-        <PopoverContent className="w-[28rem] p-0" align="end">
+        <DialogContent className="w-[32rem] max-w-[32rem] p-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="p-2 border-b border-border">
               <TabsList className="w-full grid grid-cols-2">
@@ -1026,8 +1026,8 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
               </div>
             </TabsContent>
           </Tabs>
-        </PopoverContent>
-      </Popover>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && handleDialogClose(false)}>
         <AlertDialogContent>
