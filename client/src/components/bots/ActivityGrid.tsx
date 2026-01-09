@@ -795,12 +795,9 @@ export function WalletSlot({
       <Tooltip>
         <TooltipTrigger asChild>
           <div 
-            className="relative w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all bg-amber-500/20 text-amber-500 border-amber-500/30 cursor-not-allowed"
+            className="w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all bg-amber-500/20 text-amber-500 border-amber-500/30 cursor-not-allowed"
             data-testid={`wallet-slot-degraded-${botId}`}
           >
-            <span className="absolute -top-2 -left-2 p-0.5 bg-amber-500 rounded shadow-sm shadow-amber-500/50">
-              <Wallet className="w-3 h-3 text-white" />
-            </span>
             <span className="text-[9px] uppercase leading-none opacity-70">ACCT</span>
             <span className="text-[11px] font-mono font-semibold leading-none">--</span>
           </div>
@@ -819,15 +816,9 @@ export function WalletSlot({
       <Tooltip>
         <TooltipTrigger asChild>
           <div 
-            className="relative w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all opacity-50 text-muted-foreground border-muted-foreground/30 cursor-not-allowed"
+            className="w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all opacity-50 text-muted-foreground border-muted-foreground/30 cursor-not-allowed"
             data-testid={`wallet-slot-locked-${botId}`}
           >
-            <span className="absolute -top-2 -left-2 p-0.5 bg-muted-foreground rounded shadow-sm">
-              <Wallet className="w-3 h-3 text-white" />
-            </span>
-            <span className="absolute -top-1 left-2 p-0.5 bg-muted-foreground/80 rounded-full">
-              <Lock className="w-2 h-2 text-white" />
-            </span>
             <span className="text-[9px] uppercase leading-none opacity-70">ACCT</span>
             <span className="text-[11px] font-mono font-semibold leading-none">{balanceDisplay}</span>
           </div>
@@ -853,7 +844,7 @@ export function WalletSlot({
           <PopoverTrigger asChild>
             <div 
               className={cn(
-                "relative w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all cursor-pointer hover-elevate",
+                "w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all cursor-pointer hover-elevate",
                 isBlownAccount
                   ? "text-red-500 border-red-500/50 bg-red-500/10"
                   : hasAccount 
@@ -863,18 +854,6 @@ export function WalletSlot({
               onClick={(e) => e.stopPropagation()}
               data-testid={`button-wallet-${botId}`}
             >
-              {isBlownAccount ? (
-                <span className="absolute -top-2 -left-2 p-0.5 bg-red-500 rounded shadow-sm shadow-red-500/50">
-                  <Bomb className="w-3 h-3 text-white" />
-                </span>
-              ) : (
-                <span className={cn(
-                  "absolute -top-2 -left-2 p-0.5 rounded shadow-sm",
-                  hasAccount ? "bg-blue-500 shadow-blue-500/50" : "bg-muted-foreground/50"
-                )}>
-                  <Wallet className="w-3 h-3 text-white" />
-                </span>
-              )}
               <span className="text-[9px] uppercase leading-none opacity-70">ACCT</span>
               {isBlownAccount ? (
                 <span className="text-[11px] font-mono font-semibold leading-none">
