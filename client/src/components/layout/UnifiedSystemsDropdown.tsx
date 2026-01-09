@@ -941,9 +941,9 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
 
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
-                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                  <Label className="text-xs font-medium flex items-center gap-1.5 text-cyan-400">
                     <FlaskConical className="h-3 w-3" />
-                    QuantConnect Verification
+                    QC Verification [TEST]
                   </Label>
                   <Tooltip>
                     <TooltipTrigger asChild>
