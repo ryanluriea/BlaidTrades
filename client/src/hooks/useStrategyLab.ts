@@ -1386,8 +1386,10 @@ export function useToggleStrategyLabState() {
     onSuccess: (data, variables) => {
       // Optimistically update the cache with the returned data to prevent stale refetch overwrites
       // Server returns the full state object, so we replace the cached data entirely
-      queryClient.setQueryData(["/api/strategy-lab/state"], { success: true, data });
-      // Still invalidate to ensure consistency, but the cache already has correct values
+      // Use query key with user id to match the actual query
+      const userId = user?.id;
+      queryClient.setQueryData(["/api/strategy-lab/state", userId], { success: true, data });
+      // Invalidate all strategy lab state queries (with any user id) to ensure consistency
       queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/state"] });
       queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/candidates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/overview"] });

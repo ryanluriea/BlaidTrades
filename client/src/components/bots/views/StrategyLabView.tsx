@@ -617,6 +617,17 @@ export function StrategyLabView() {
   const [qcAutoTriggerThreshold, setQcAutoTriggerThreshold] = useState(80);
   const [qcAutoTriggerTier, setQcAutoTriggerTier] = useState<"A" | "B" | "AB">("AB");
   
+  // Derive effective QC enabled state from server (authoritative) or local state
+  // While loading, fall back to local state which tracks the server value after sync
+  const isQcColumnVisible = useMemo(() => {
+    // Use server state when available for authoritative value
+    if (autonomousState?.qcAutoTriggerEnabled !== undefined) {
+      return autonomousState.qcAutoTriggerEnabled;
+    }
+    // Fall back to local state (synced from server or default)
+    return qcAutoTriggerEnabled;
+  }, [autonomousState?.qcAutoTriggerEnabled, qcAutoTriggerEnabled]);
+  
   // Fast-track to PAPER settings (skip TRIALS if QC results are exceptional)
   const [fastTrackEnabled, setFastTrackEnabled] = useState(true);
   const [fastTrackMinTrades, setFastTrackMinTrades] = useState(50);
@@ -1219,7 +1230,7 @@ export function StrategyLabView() {
       {/* Subheader - Column Headers + Menu in one row */}
       <div className="sticky top-0 z-50 flex items-center gap-3 px-4 lg:px-6 py-1.5 -mx-4 lg:-mx-6 bg-card border-b border-border/30">
         {/* Column Headers Grid - 3 columns when QC enabled, 2 columns when disabled */}
-        <div className={cn("flex-1 grid gap-3", qcAutoTriggerEnabled ? "grid-cols-3" : "grid-cols-2")} data-testid="kanban-header">
+        <div className={cn("flex-1 grid gap-3", isQcColumnVisible ? "grid-cols-3" : "grid-cols-2")} data-testid="kanban-header">
           {/* New Column Header */}
           <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/10 rounded-lg border border-border/30">
             <Tooltip>
@@ -1325,7 +1336,7 @@ export function StrategyLabView() {
           </div>
           
           {/* Testing Column Header - Only visible when QC is enabled */}
-          {qcAutoTriggerEnabled && (
+          {isQcColumnVisible && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/10 rounded-lg border border-border/30 text-cyan-400">
             <Shield className="w-4 h-4" />
             <span className="text-sm font-medium">Testing</span>
@@ -1950,7 +1961,7 @@ export function StrategyLabView() {
                 </div>
                 <div className="flex items-center gap-1">
                   <TooltipProvider>
-                    {qcAutoTriggerEnabled && (
+                    {isQcColumnVisible && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -2001,7 +2012,7 @@ export function StrategyLabView() {
             
             {/* Kanban Body - Independently Scrolling, with spacer to match header */}
             <div className="flex flex-1 min-h-0 items-stretch gap-3">
-              <div className={cn("flex-1 grid gap-3 min-h-0", qcAutoTriggerEnabled ? "grid-cols-3" : "grid-cols-2")} data-testid="kanban-grid">
+              <div className={cn("flex-1 grid gap-3 min-h-0", isQcColumnVisible ? "grid-cols-3" : "grid-cols-2")} data-testid="kanban-grid">
                 {renderColumnBody(
                   "new",
                   Sparkles,
@@ -2013,7 +2024,7 @@ export function StrategyLabView() {
                   newColumnVisible,
                   newSentinelRef
                 )}
-                {qcAutoTriggerEnabled && renderColumnBody(
+                {isQcColumnVisible && renderColumnBody(
                   "testing",
                   Shield,
                   sortedQcTesting,
@@ -2029,8 +2040,8 @@ export function StrategyLabView() {
                   Rocket,
                   sortedSentToLab,
                   "No bots in trials",
-                  qcAutoTriggerEnabled ? "Strategies that pass QC go here" : "Send strategies here for trials",
-                  qcAutoTriggerEnabled,
+                  isQcColumnVisible ? "Strategies that pass QC go here" : "Send strategies here for trials",
+                  isQcColumnVisible,
                   false,
                   trialsColumnVisible,
                   trialsSentinelRef
