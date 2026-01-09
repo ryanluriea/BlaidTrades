@@ -50,7 +50,50 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, differenceInSeconds } from "date-fns";
+
+function useCountdown(targetDate: string | null | undefined) {
+  const [timeLeft, setTimeLeft] = useState<string>("");
+  
+  useEffect(() => {
+    if (!targetDate) {
+      setTimeLeft("");
+      return;
+    }
+    
+    const calculateTimeLeft = () => {
+      const target = new Date(targetDate);
+      const now = new Date();
+      const diffSecs = differenceInSeconds(target, now);
+      
+      if (diffSecs <= 0) {
+        return "any moment";
+      }
+      
+      const hours = Math.floor(diffSecs / 3600);
+      const minutes = Math.floor((diffSecs % 3600) / 60);
+      const seconds = diffSecs % 60;
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m ${seconds}s`;
+      } else if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+      } else {
+        return `${seconds}s`;
+      }
+    };
+    
+    setTimeLeft(calculateTimeLeft());
+    
+    const interval = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [targetDate]);
+  
+  return timeLeft;
+}
 
 interface BackupMetadata {
   id: string;
@@ -241,6 +284,9 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
 
   const dashboard = dashboardData?.data;
   const backupStatus = statusData?.data;
+  
+  // Live streaming countdown for next backup
+  const nextBackupCountdown = useCountdown(dashboard?.settings?.nextBackupAt);
   
   // Connection detection with BULLETPROOF state management
   // Problem: Status endpoint can return connected:false during token refresh
@@ -531,9 +577,9 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                       ? formatDistanceToNow(new Date(backupStatus.lastBackupAt), { addSuffix: true })
                       : (isStatusLoading ? "Loading..." : "Never")}
                   </div>
-                  {dashboard?.settings?.nextBackupAt && (
-                    <div className="text-xs text-muted-foreground">
-                      Next: {formatDistanceToNow(new Date(dashboard.settings.nextBackupAt), { addSuffix: true })}
+                  {nextBackupCountdown && (
+                    <div className="text-xs text-muted-foreground font-mono">
+                      Next: {nextBackupCountdown}
                     </div>
                   )}
                 </div>
@@ -544,8 +590,8 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                   <div className="font-medium">Auto Backup</div>
                   <div className="text-sm text-muted-foreground">
                     {dashboard?.settings?.autoBackupEnabled 
-                      ? dashboard?.settings?.nextBackupAt
-                        ? `Next backup ${formatDistanceToNow(new Date(dashboard.settings.nextBackupAt), { addSuffix: true })}`
+                      ? nextBackupCountdown
+                        ? <span>Next backup in <span className="font-mono">{nextBackupCountdown}</span></span>
                         : `Running ${dashboard?.settings?.backupFrequency ?? 'daily'}`
                       : "Disabled"}
                   </div>
