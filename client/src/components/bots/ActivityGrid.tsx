@@ -813,7 +813,7 @@ export function WalletSlot({
     );
   }
   
-  // Locked state - show disabled grid box
+  // Locked state - show disabled grid box (wallet badge with lock overlay)
   if (isLocked) {
     return (
       <Tooltip>
@@ -823,7 +823,10 @@ export function WalletSlot({
             data-testid={`wallet-slot-locked-${botId}`}
           >
             <span className="absolute -top-2 -left-2 p-0.5 bg-muted-foreground rounded shadow-sm">
-              <Lock className="w-3 h-3 text-white" />
+              <Wallet className="w-3 h-3 text-white" />
+            </span>
+            <span className="absolute -top-1 left-2 p-0.5 bg-muted-foreground/80 rounded-full">
+              <Lock className="w-2 h-2 text-white" />
             </span>
             <span className="text-[9px] uppercase leading-none opacity-70">ACCT</span>
             <span className="text-[11px] font-mono font-semibold leading-none">{balanceDisplay}</span>
