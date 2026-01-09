@@ -2312,6 +2312,12 @@ export function registerRoutes(app: Express) {
   // CLOUD BACKUP API - Google Drive backup/restore for user data
   // ============================================================================
   app.get("/api/cloud-backup/dashboard", async (req: Request, res: Response) => {
+    // Disable HTTP caching to ensure fresh nextBackupAt for countdown timer
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    res.removeHeader("ETag");
+    
     if (!req.session.userId) {
       return res.status(401).json({ success: false, message: "Authentication required" });
     }

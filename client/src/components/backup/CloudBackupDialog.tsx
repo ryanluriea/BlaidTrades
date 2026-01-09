@@ -238,7 +238,8 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
       try {
         const res = await fetch("/api/cloud-backup/dashboard", { 
           credentials: "include",
-          signal: controller.signal 
+          signal: controller.signal,
+          cache: "no-store"  // Bypass browser cache to get fresh nextBackupAt
         });
         clearTimeout(timeout);
         if (res.status === 401) {
