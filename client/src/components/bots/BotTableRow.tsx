@@ -438,7 +438,9 @@ export function BotTableRow({
   const { filteredSymbols } = useSymbolPreference();
   
   // Fetch improvement state for TRIALS bots to show rolling consistency gate
-  const { data: improvementState } = useBotImprovementState(stage === 'TRIALS' ? bot.id : undefined);
+  // Uses fetched data if parent didn't pass it as prop
+  const { data: fetchedImprovementState } = useBotImprovementState(stage === 'TRIALS' && !improvementState ? bot.id : undefined);
+  const effectiveImprovementState = improvementState || fetchedImprovementState;
   
   // Get real-time heartbeat from WebSocket (updates every ~30s)
   const wsHeartbeat = useBotHeartbeat(bot.id);
@@ -1243,7 +1245,7 @@ export function BotTableRow({
             displayAllowed={displayAllowed}
             dataSource={dataSource}
             isMaintenanceWindow={isMaintenanceWindow}
-            rollingMetricsConsistency={improvementState?.rollingMetricsConsistency}
+            rollingMetricsConsistency={effectiveImprovementState?.rollingMetricsConsistency}
           />
           </div>
 
@@ -1264,7 +1266,7 @@ export function BotTableRow({
               <DemotionRecoveryBadge
                 demotion={latestDemotion}
                 currentStage={stage}
-                improvementStatus={improvementState?.status}
+                improvementStatus={effectiveImprovementState?.status}
               />
             )}
 
@@ -1291,11 +1293,11 @@ export function BotTableRow({
                   
                   const hasEvolveJob = jobs.evolvingRunning > 0 || jobs.evolvingQueued > 0;
 
-                  if (improvementState?.status === 'PAUSED' && hasAnyJobs) return null;
+                  if (effectiveImprovementState?.status === 'PAUSED' && hasAnyJobs) return null;
 
                   return (
                     <ImprovementBadge
-                      state={improvementState}
+                      state={effectiveImprovementState}
                       graduationEligible={graduationStatus.isEligible}
                       hasEvolveJob={hasEvolveJob}
                       evolveStartedAt={jobs.evolveStartedAt}
