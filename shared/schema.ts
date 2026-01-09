@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, bigint, boolean, timestamp, jsonb, real, uuid, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, bigint, boolean, timestamp, jsonb, real, uuid, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -534,7 +535,11 @@ export const botInstances = pgTable("bot_instances", {
   positionSide: text("position_side"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("bot_instances_single_primary_runner_idx")
+    .on(table.botId)
+    .where(sql`${table.isPrimaryRunner} = true AND ${table.jobType} = 'RUNNER'`)
+]);
 
 export const tradeLogs = pgTable("trade_logs", {
   id: uuid("id").primaryKey().defaultRandom(),

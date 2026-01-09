@@ -181,6 +181,33 @@ if (isWorkerOnlyMode) {
             const { storage } = await import('./storage');
             await storage.seedInstruments();
             log(`[STARTUP] Instruments seeded successfully`);
+            
+            // INSTITUTIONAL SAFEGUARD: Start periodic runner state cleanup
+            // Demotes stale STOPPED/FAILED runners from is_primary_runner = true
+            // Runs every 5 minutes to prevent state drift
+            const RUNNER_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+            setInterval(async () => {
+              try {
+                const demoted = await storage.demoteStaleRunnerPrimaries();
+                if (demoted > 0) {
+                  log(`[MAINTENANCE] Demoted ${demoted} stale runner primaries`);
+                }
+                
+                // Also check for stale heartbeats (runners claiming RUNNING but no heartbeat)
+                const staleRunners = await storage.getStaleHeartbeatRunners(120000); // 2 min TTL
+                if (staleRunners.length > 0) {
+                  log(`[MAINTENANCE] Found ${staleRunners.length} runners with stale heartbeats`);
+                  for (const runner of staleRunners) {
+                    await storage.updateBotInstance(runner.id, { status: 'STALE', isPrimaryRunner: false });
+                    log(`[MAINTENANCE] Marked runner ${runner.id} as STALE (bot: ${runner.botId})`);
+                  }
+                }
+              } catch (err) {
+                log(`[MAINTENANCE] Runner cleanup error: ${err instanceof Error ? err.message : 'unknown'}`);
+              }
+            }, RUNNER_CLEANUP_INTERVAL_MS);
+            log(`[STARTUP] Runner state cleanup scheduled (every 5 min)`);
+            
           } catch (err) {
             log(`[STARTUP] Failed to seed instruments: ${err instanceof Error ? err.message : 'unknown'}`);
           }

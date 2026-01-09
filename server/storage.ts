@@ -1488,6 +1488,60 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  /**
+   * INSTITUTIONAL SAFEGUARD: Atomically promote a runner to primary while demoting all others.
+   * This ensures only one primary runner per bot exists at any time, preventing stale state issues.
+   * @param botId - The bot ID
+   * @param instanceId - The instance ID to promote as primary
+   */
+  async promoteToPrimaryRunner(botId: string, instanceId: string): Promise<void> {
+    await db.execute(sql`
+      UPDATE bot_instances 
+      SET is_primary_runner = false, updated_at = NOW()
+      WHERE bot_id = ${botId} 
+        AND job_type = 'RUNNER' 
+        AND is_primary_runner = true 
+        AND id != ${instanceId}
+    `);
+    await db.update(schema.botInstances)
+      .set({ isPrimaryRunner: true, updatedAt: new Date() })
+      .where(eq(schema.botInstances.id, instanceId));
+  }
+
+  /**
+   * INSTITUTIONAL SAFEGUARD: Demote stale runners that have STOPPED/FAILED status.
+   * Called periodically and on instance status transitions to prevent state drift.
+   * @param botId - Optional bot ID to scope cleanup (null = all bots)
+   * @returns Number of runners demoted
+   */
+  async demoteStaleRunnerPrimaries(botId?: string): Promise<number> {
+    const result = await db.execute(sql`
+      UPDATE bot_instances 
+      SET is_primary_runner = false, updated_at = NOW()
+      WHERE job_type = 'RUNNER'
+        AND is_primary_runner = true
+        AND (status IN ('STOPPED', 'FAILED', 'stopped', 'failed') OR status IS NULL)
+        ${botId ? sql`AND bot_id = ${botId}` : sql``}
+      RETURNING id
+    `);
+    return (result as any).rowCount || 0;
+  }
+
+  /**
+   * INSTITUTIONAL SAFEGUARD: Detect runners with stale heartbeats (missed TTL).
+   * Returns instances that haven't sent a heartbeat in the given TTL window.
+   * @param ttlMs - Heartbeat TTL in milliseconds (default: 60 seconds)
+   */
+  async getStaleHeartbeatRunners(ttlMs: number = 60000): Promise<schema.BotInstance[]> {
+    const cutoff = new Date(Date.now() - ttlMs);
+    return db.select().from(schema.botInstances)
+      .where(and(
+        eq(schema.botInstances.jobType, 'RUNNER'),
+        eq(schema.botInstances.status, 'RUNNING'),
+        sql`${schema.botInstances.lastHeartbeatAt} < ${cutoff}`
+      ));
+  }
+
   async deleteBotInstance(id: string): Promise<boolean> {
     const result = await db.delete(schema.botInstances)
       .where(eq(schema.botInstances.id, id))
