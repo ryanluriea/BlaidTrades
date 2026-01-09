@@ -304,6 +304,7 @@ interface TradesSlotProps {
   tooltip: string;
   onClick?: () => void;
   lastTradeAt?: string | null;
+  stage?: string;
 }
 
 function formatRelativeTime(dateStr: string | null | undefined): string | null {
@@ -329,8 +330,11 @@ function formatRelativeTime(dateStr: string | null | undefined): string | null {
   return `${diffDays}d`;
 }
 
-function TradesSlot({ trades, tooltip, onClick, lastTradeAt }: TradesSlotProps) {
+function TradesSlot({ trades, tooltip, onClick, lastTradeAt, stage = 'TRIALS' }: TradesSlotProps) {
   const hasValue = trades != null && trades > 0;
+  
+  // Gate status determines color - green when passed, amber when near, cyan when below
+  const gateStatus = getTradesGateStatus(trades ?? 0, stage);
   
   // Auto-refresh relative time every 30 seconds
   const [, setTick] = useState(0);
@@ -349,16 +353,30 @@ function TradesSlot({ trades, tooltip, onClick, lastTradeAt }: TradesSlotProps) 
   
   const relativeTime = formatRelativeTime(lastTradeAt);
   
+  // Color based on gate status
+  const getSlotStyle = () => {
+    if (!hasValue) return "opacity-40 text-muted-foreground border-muted-foreground/30";
+    if (gateStatus === 'passed') return "text-emerald-400 bg-emerald-500/20 border-emerald-500/30";
+    if (gateStatus === 'near') return "text-amber-400 bg-amber-500/20 border-amber-500/30";
+    return "text-cyan-400 bg-cyan-500/20 border-cyan-500/30";
+  };
+  
+  const getHoverStyle = () => {
+    if (!onClick) return "";
+    if (gateStatus === 'passed') return "hover:bg-emerald-500/30";
+    if (gateStatus === 'near') return "hover:bg-amber-500/30";
+    return "hover:bg-cyan-500/30";
+  };
+  
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <div 
           className={cn(
             "w-[64px] h-6 flex flex-col items-center justify-center rounded-sm border transition-all",
-            hasValue
-              ? "text-cyan-400 bg-cyan-500/20 border-cyan-500/30"
-              : "opacity-40 text-muted-foreground border-muted-foreground/30",
-            onClick && "cursor-pointer hover:bg-cyan-500/30"
+            getSlotStyle(),
+            onClick && "cursor-pointer",
+            getHoverStyle()
           )}
           data-testid="trades-slot"
           onClick={onClick}
@@ -375,6 +393,12 @@ function TradesSlot({ trades, tooltip, onClick, lastTradeAt }: TradesSlotProps) 
       <TooltipContent side="top" className="text-xs">
         <div className="font-medium">Total Trades</div>
         <div className="text-muted-foreground">{tooltip}</div>
+        {gateStatus === 'passed' && (
+          <div className="text-emerald-400 mt-1">Gate passed - meets threshold</div>
+        )}
+        {gateStatus === 'near' && (
+          <div className="text-amber-400 mt-1">Approaching threshold</div>
+        )}
         {lastTradeAt && (
           <div className="text-muted-foreground mt-1">
             Last trade: {new Date(lastTradeAt).toLocaleString()}
@@ -1454,7 +1478,7 @@ export function ActivityGrid({
         // TRIALS bots have separate TRADES slot, so don't show trades badge here
         return <PnlSlot key={key} label="NET" value={netPnl ?? null} tooltip={netPnl != null ? "Cumulative realized P&L" : "No trades yet"} trades={isPaperPlus ? trades : undefined} lastTradeAt={isPaperPlus ? lastTradeAt : undefined} onTradesClick={isPaperPlus ? onTradesClick : undefined} stage={stage} />;
       case 'TRADES':
-        return <TradesSlot key={key} trades={trades ?? null} tooltip={trades ? `${trades} total trades executed` : "No trades yet"} onClick={onTradesClick} lastTradeAt={lastTradeAt} />;
+        return <TradesSlot key={key} trades={trades ?? null} tooltip={trades ? `${trades} total trades executed` : "No trades yet"} onClick={onTradesClick} lastTradeAt={lastTradeAt} stage={stage} />;
       case 'CONSISTENCY':
         return <ConsistencySlot key={key} metSessions={rollingMetricsConsistency?.metSessions ?? 0} requiredSessions={rollingMetricsConsistency?.requiredSessions ?? 3} passed={rollingMetricsConsistency?.passed ?? false} status={rollingMetricsConsistency?.status ?? 'insufficient_data'} />;
       case 'LIVE':
