@@ -129,11 +129,20 @@ if (isWorkerOnlyMode) {
 
     const server = createServer(app);
 
-    // On Replit, always serve static files to avoid Vite client WebSocket issues
-    // The Vite dev server's client script causes white screen crashes on Replit's proxy
-    const useViteDev = app.get("env") === "development" && !process.env.REPL_ID;
+    // On Replit, prefer static files if dist/public exists to avoid Vite client WebSocket issues
+    // The Vite dev server's client script can cause issues on Replit's proxy
+    // However, if dist/public is missing (deleted to clear stale cache), fall back to Vite
+    const fs = await import("fs");
+    const path = await import("path");
+    const distPath = path.resolve(process.cwd(), "dist", "public");
+    const hasDistPublic = fs.existsSync(distPath);
+    
+    const useViteDev = app.get("env") === "development" && (!process.env.REPL_ID || !hasDistPublic);
     
     if (useViteDev) {
+      if (!hasDistPublic && process.env.REPL_ID) {
+        log(`[STARTUP] dist/public not found - using Vite dev server (run 'npm run build' to restore static serving)`);
+      }
       await setupVite(app, server);
     } else {
       serveStatic(app);
