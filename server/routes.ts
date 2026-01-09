@@ -8607,11 +8607,14 @@ export function registerRoutes(app: Express) {
         }
       }
       
-      // Find the active/current generation (highest generation number)
-      const sortedByGenNum = [...generations].sort((a, b) => 
+      // CRITICAL FIX: Use bot's AUTHORITATIVE currentGenerationId, NOT highest generation number
+      // LAB evolutions can create higher-numbered generations while an older generation is still running
+      // Fallback chain: bot.currentGenerationId → highest gen number (for legacy bots)
+      const botCurrentGenId = (bot as any).currentGenerationId || (bot as any).current_generation_id;
+      const fallbackGenId = [...generations].sort((a, b) => 
         (b.generationNumber || 0) - (a.generationNumber || 0)
-      );
-      const currentGenId = sortedByGenNum[0]?.id;
+      )[0]?.id;
+      const currentGenId = botCurrentGenId || fallbackGenId;
       const botCurrentStage = (bot.stage || "TRIALS").toUpperCase();
       
       // Process generations with batched metrics (no N+1!)
