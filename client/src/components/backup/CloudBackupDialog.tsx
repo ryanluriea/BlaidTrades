@@ -475,7 +475,7 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
               <TabsTrigger value="settings" data-testid="tab-backup-settings">Settings</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="flex-1 overflow-auto mt-4 space-y-4">
+            <TabsContent value="overview" className="flex-1 overflow-auto mt-4 space-y-4 min-h-[380px]">
               {/* Live Progress Display - Only shows when there's detailed progress data */}
               {isBackupInProgress && backupStatus?.progress && (backupStatus.progress.totalItems > 0 || backupStatus.progress.totalBytes > 0 || backupStatus.progress.currentItem) && (
                 <div className="p-4 rounded-md border bg-card border-primary/30 space-y-3">
@@ -594,7 +594,7 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
               </div>
             </TabsContent>
 
-            <TabsContent value="packs" className="flex-1 overflow-auto mt-4 space-y-4">
+            <TabsContent value="packs" className="flex-1 overflow-auto mt-4 space-y-4 min-h-[380px]">
               <div className="text-sm text-muted-foreground mb-4">
                 Download individual bot configurations from your latest cloud backup.
               </div>
@@ -773,7 +773,7 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
               )}
             </TabsContent>
 
-            <TabsContent value="backups" className="flex-1 overflow-hidden mt-4">
+            <TabsContent value="backups" className="flex-1 overflow-hidden mt-4 min-h-[380px]">
               <ScrollArea className="h-[350px]">
                 {(dashboard?.recentBackups?.length ?? 0) === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -830,7 +830,7 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="settings" className="flex-1 overflow-auto mt-4 space-y-6">
+            <TabsContent value="settings" className="flex-1 overflow-auto mt-4 space-y-6 min-h-[380px]">
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="auto-backup">Auto Backup</Label>

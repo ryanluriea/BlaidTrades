@@ -601,7 +601,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
               </TabsList>
             </div>
 
-            <TabsContent value="systems" className="p-6 space-y-4 mt-0">
+            <TabsContent value="systems" className="p-6 space-y-4 mt-0 min-h-[420px]">
               <div>
                 <h3 className="text-sm font-medium mb-1">Autonomous Systems</h3>
                 <p className="text-xs text-muted-foreground">Control automated research and trading systems</p>
@@ -779,7 +779,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
               </div>
             </TabsContent>
 
-            <TabsContent value="ai" className="p-6 space-y-6 mt-0">
+            <TabsContent value="ai" className="p-6 space-y-6 mt-0 min-h-[420px]">
               {/* Evolution Settings Card */}
               <div className="rounded-lg border border-border bg-card p-4 space-y-4">
                 <div className="flex items-center justify-between">
