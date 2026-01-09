@@ -11,6 +11,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from "react";
+import { toast } from "@/hooks/use-toast";
 
 interface LivePnLUpdate {
   type: "LIVE_PNL_UPDATE";
@@ -34,6 +35,17 @@ interface HeartbeatUpdate {
   lastHeartbeatAt: string;
   activityState: string | null;
   hasRunner: boolean;
+  timestamp: number;
+}
+
+interface StageChangeUpdate {
+  type: "STAGE_CHANGE";
+  botId: string;
+  botName: string;
+  fromStage: string;
+  toStage: string;
+  changeType: "PROMOTION" | "DEMOTION";
+  reason?: string;
   timestamp: number;
 }
 
@@ -146,6 +158,17 @@ export function LivePnLProvider({ children }: { children: ReactNode }) {
               const next = new Map(prev);
               next.set(data.botId, data as HeartbeatUpdate);
               return next;
+            });
+          } else if (data.type === "STAGE_CHANGE") {
+            const stageChange = data as StageChangeUpdate;
+            const isPromotion = stageChange.changeType === "PROMOTION";
+            const reasonText = stageChange.reason ? ` (${stageChange.reason})` : "";
+            
+            toast({
+              title: isPromotion ? "Bot Promoted" : "Bot Demoted",
+              description: `${stageChange.botName}: ${stageChange.fromStage} → ${stageChange.toStage}${reasonText}`,
+              variant: isPromotion ? "default" : "destructive",
+              duration: Infinity, // Persistent - requires manual dismiss
             });
           }
         } catch (error) {

@@ -22,6 +22,13 @@ interface RunnerStatusInfo {
   serverNow?: number;
 }
 
+interface RollingConsistencyInfo {
+  metSessions: number;
+  requiredSessions: number;
+  passed: boolean;
+  status: 'pending' | 'passed' | 'insufficient_data';
+}
+
 interface RatingDotsProps {
   gatesPassed: number;
   gatesTotal: number;
@@ -37,6 +44,8 @@ interface RatingDotsProps {
   runnerStatus?: RunnerStatusInfo;
   /** Large dots (8px) with spacing for horizontal full-width display */
   large?: boolean;
+  /** Rolling metrics consistency info for TRIALS bots */
+  rollingConsistency?: RollingConsistencyInfo | null;
 }
 
 // Dot colors with more distinct progression
@@ -74,6 +83,7 @@ export function RatingDots({
   vertical = false,
   runnerStatus,
   large = false,
+  rollingConsistency,
 }: RatingDotsProps) {
   const isHealthBlocked = healthState === 'DEGRADED' || healthState === 'FROZEN';
   const nextStage = stage === 'TRIALS' ? 'PAPER' : stage === 'PAPER' ? 'SHADOW' : stage === 'SHADOW' ? 'CANARY' : 'LIVE';
@@ -195,6 +205,32 @@ export function RatingDots({
               <AlertTriangle className="w-3 h-3 text-warning flex-shrink-0 mt-0.5" />
               <div className="text-xs text-warning">
                 Blocked by: {blockers.join(', ')}
+              </div>
+            </div>
+          )}
+
+          {/* Rolling Consistency - TRIALS bots only */}
+          {stage === 'TRIALS' && rollingConsistency && (
+            <div className="flex items-start gap-1.5 pt-1 border-t border-border/50">
+              {rollingConsistency.passed ? (
+                <Check className="w-3 h-3 text-emerald-400 flex-shrink-0 mt-0.5" />
+              ) : rollingConsistency.status === 'pending' ? (
+                <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5" />
+              ) : (
+                <X className="w-3 h-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+              )}
+              <div className={cn(
+                "text-xs",
+                rollingConsistency.passed ? "text-emerald-400" : 
+                rollingConsistency.status === 'pending' ? "text-amber-400" : 
+                "text-muted-foreground"
+              )}>
+                {rollingConsistency.passed 
+                  ? `Consistency: ${rollingConsistency.metSessions}/${rollingConsistency.requiredSessions} sessions passed`
+                  : rollingConsistency.status === 'pending'
+                    ? `Building Consistency (${rollingConsistency.metSessions}/${rollingConsistency.requiredSessions})`
+                    : `Need ${rollingConsistency.requiredSessions} consecutive passing sessions`
+                }
               </div>
             </div>
           )}

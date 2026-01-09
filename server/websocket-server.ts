@@ -74,6 +74,17 @@ interface HeartbeatUpdate {
   timestamp: number;
 }
 
+interface StageChangeUpdate {
+  type: "STAGE_CHANGE";
+  botId: string;
+  botName: string;
+  fromStage: string;
+  toStage: string;
+  changeType: "PROMOTION" | "DEMOTION";
+  reason?: string;
+  timestamp: number;
+}
+
 interface SubscribeMessage {
   type: "SUBSCRIBE" | "UNSUBSCRIBE" | "AUTH";
   botIds?: string[];
@@ -487,6 +498,39 @@ class LivePnLWebSocketServer {
 
   broadcastHeartbeatBatch(updates: Array<Omit<HeartbeatUpdate, "type" | "timestamp">>): void {
     updates.forEach((update) => this.broadcastHeartbeat(update));
+  }
+
+  /**
+   * Broadcast stage change notifications (promotions/demotions) to all subscribed clients.
+   * These are NOT throttled as they are rare, important events.
+   */
+  broadcastStageChange(update: Omit<StageChangeUpdate, "type" | "timestamp">): void {
+    if (!this.wss || this.clients.size === 0) return;
+
+    const message: StageChangeUpdate = {
+      type: "STAGE_CHANGE",
+      ...update,
+      timestamp: Date.now(),
+    };
+
+    const payload = JSON.stringify(message);
+
+    log(`[WS_SERVER] Broadcasting stage change: ${update.botName} ${update.fromStage} → ${update.toStage} (${update.changeType})`);
+
+    // Broadcast to ALL authenticated clients (not just those subscribed to this bot)
+    // Stage changes are important enough to notify everyone
+    this.clients.forEach((client) => {
+      if (client.ws.readyState === WebSocket.OPEN) {
+        if (this.REQUIRE_AUTH && !client.authenticated) {
+          return;
+        }
+        try {
+          client.ws.send(payload);
+        } catch (error) {
+          console.error("[WS_SERVER] Failed to send stage change to client:", error);
+        }
+      }
+    });
   }
 
   getClientCount(): number {

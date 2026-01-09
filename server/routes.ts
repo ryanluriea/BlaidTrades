@@ -26,6 +26,7 @@ import { paperRunnerService, getCMEMarketStatus, getCMEHolidayName } from "./pap
 import { priceAuthority } from "./price-authority";
 import { normalizeMetrics, validateMetricsForStage, getMetricSourceForStage } from "@shared/metricsPolicy";
 import { codeHealthCache, CODE_HEALTH_CACHE_TTL } from "./code-health-cache";
+import { livePnLWebSocket } from "./websocket-server";
 import { 
   getStrategyLabStatus, 
   getCandidatesByDisposition, 
@@ -11925,6 +11926,16 @@ export function registerRoutes(app: Express) {
 
       console.log(`[STAGE_CHANGE] trace_id=${traceId} bot_id=${botId} ${bot.stage}→${new_stage} mode=${newMode} user=${user_id || 'unknown'}`);
 
+      // Broadcast stage change to all connected WebSocket clients for real-time UI updates
+      livePnLWebSocket.broadcastStageChange({
+        botId,
+        botName: bot.name,
+        fromStage: bot.stage || 'TRIALS',
+        toStage: new_stage,
+        changeType: isPromotion ? 'PROMOTION' : 'DEMOTION',
+        reason: requiresApproval ? 'Dual-control approved' : 'Manual stage change',
+      });
+
       res.json({ success: true, data: updated, trace_id: traceId });
     } catch (error) {
       console.error(`[STAGE_CHANGE] trace_id=${traceId} error:`, error);
@@ -12306,6 +12317,16 @@ export function registerRoutes(app: Express) {
         reasonsJson: { force, autoAssignedAccount, autoAssignWarning },
       });
 
+      // Broadcast promotion to all connected WebSocket clients
+      livePnLWebSocket.broadcastStageChange({
+        botId,
+        botName: bot.name,
+        fromStage: bot.stage || 'TRIALS',
+        toStage: target.stage,
+        changeType: 'PROMOTION',
+        reason: force ? 'Force promoted' : 'Promotion gates passed',
+      });
+
       res.json({ 
         success: true, 
         data: { 
@@ -12344,6 +12365,16 @@ export function registerRoutes(app: Express) {
         decision: 'DEMOTED',
         triggeredBy: triggered_by || 'manual',
         reasonsJson: { reason },
+      });
+
+      // Broadcast demotion to all connected WebSocket clients
+      livePnLWebSocket.broadcastStageChange({
+        botId,
+        botName: bot.name,
+        fromStage: bot.stage || 'UNKNOWN',
+        toStage: target_stage,
+        changeType: 'DEMOTION',
+        reason: reason || 'Manual demotion',
       });
 
       res.json({ success: true, data: { demoted: true } });

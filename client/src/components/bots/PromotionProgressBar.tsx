@@ -11,6 +11,13 @@ interface RunnerStatusInfo {
   serverNow?: number;
 }
 
+interface RollingConsistencyInfo {
+  metSessions: number;
+  requiredSessions: number;
+  passed: boolean;
+  status: 'pending' | 'passed' | 'insufficient_data';
+}
+
 interface PromotionProgressBarProps {
   stage: string;
   healthState: 'OK' | 'WARN' | 'DEGRADED' | 'FROZEN';
@@ -36,6 +43,8 @@ interface PromotionProgressBarProps {
   runnerStatus?: RunnerStatusInfo;
   /** Large dots (8px) for horizontal full-width display */
   large?: boolean;
+  /** Rolling metrics consistency info for TRIALS bots */
+  rollingConsistency?: RollingConsistencyInfo | null;
 }
 
 export function PromotionProgressBar({
@@ -50,6 +59,7 @@ export function PromotionProgressBar({
   vertical = false,
   runnerStatus,
   large = false,
+  rollingConsistency,
 }: PromotionProgressBarProps) {
   // Build metrics input for graduation gates
   const metrics: BotMetricsInput = {
@@ -78,6 +88,7 @@ export function PromotionProgressBar({
       vertical={vertical}
       runnerStatus={runnerStatus}
       large={large}
+      rollingConsistency={rollingConsistency}
     />
   );
 }

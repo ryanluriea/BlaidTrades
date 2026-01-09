@@ -1106,6 +1106,7 @@ export function BotTableRow({
                   isIdle: true,
                 } : undefined}
                 large
+                rollingConsistency={stage === 'TRIALS' && effectiveImprovementState?.rollingMetricsConsistency ? effectiveImprovementState.rollingMetricsConsistency : undefined}
               />
               {/* Compact instrument selector - inline with dots */}
               {filteredSymbols.length > 0 && (
