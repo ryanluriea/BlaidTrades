@@ -770,7 +770,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
               </div>
             </TabsContent>
 
-            <TabsContent value="ai" className="p-3 space-y-4 mt-0">
+            <TabsContent value="ai" className="p-3 space-y-4 mt-0 max-h-[400px] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Cpu className="h-4 w-4 text-purple-400" />
