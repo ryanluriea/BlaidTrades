@@ -14,10 +14,27 @@ interface BotNameWithTooltipProps {
   lastActiveAt?: string | Date | null;
 }
 
+function parseTimestamp(date: string | Date | null | undefined): Date | null {
+  if (!date) return null;
+  if (date instanceof Date) return isNaN(date.getTime()) ? null : date;
+  
+  // PostgreSQL timestamps come as "2026-01-06 00:32:04.81192" (space separator, no timezone)
+  // Normalize to ISO format: replace first space with 'T' and append 'Z' if no timezone
+  let normalized = date;
+  if (typeof date === 'string' && date.includes(' ') && !date.includes('T')) {
+    normalized = date.replace(' ', 'T');
+    if (!normalized.includes('Z') && !normalized.includes('+') && !normalized.includes('-', 10)) {
+      normalized += 'Z';
+    }
+  }
+  
+  const d = new Date(normalized);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function formatDateTime(date: string | Date | null | undefined): string {
-  if (!date) return '';
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return '';
+  const d = parseTimestamp(date);
+  if (!d) return '';
   return d.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -29,9 +46,8 @@ function formatDateTime(date: string | Date | null | undefined): string {
 }
 
 function formatRelativeTime(date: string | Date | null | undefined): string {
-  if (!date) return 'Never';
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return 'Never';
+  const d = parseTimestamp(date);
+  if (!d) return 'Never';
   
   const now = Date.now();
   const diffMs = now - d.getTime();
