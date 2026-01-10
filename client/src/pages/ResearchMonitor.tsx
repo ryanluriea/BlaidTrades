@@ -7,7 +7,7 @@ import {
   Download, GitBranch, History, Users, MoreVertical
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface ResearchActivity {
   isActive: boolean;
@@ -858,6 +858,20 @@ export default function ResearchMonitor() {
     },
   });
 
+  const toggleResearchMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const [labRes, grokRes] = await Promise.all([
+        apiRequest("POST", "/api/strategy-lab/state", { isPlaying: enabled }),
+        apiRequest("POST", "/api/grok-research/state", { enabled }),
+      ]);
+      return { lab: await labRes.json(), grok: await grokRes.json() };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/grok-research/state"] });
+    },
+  });
+
   const activeProvider = events.length > 0 ? events[events.length - 1].source : null;
 
   return (
@@ -966,8 +980,19 @@ export default function ResearchMonitor() {
                 ) : (strategyLabEnabled || grokEnabled) ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center gap-2 h-7 px-3 bg-emerald-500/10 rounded-md border border-emerald-500/20 cursor-help">
-                        <Clock className="h-3.5 w-3.5 text-emerald-400" />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleResearchMutation.mutate(false)}
+                        disabled={toggleResearchMutation.isPending}
+                        className="h-7 px-3 gap-2 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20"
+                        data-testid="button-pause-research"
+                      >
+                        {toggleResearchMutation.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 text-emerald-400" />
+                        )}
                         <span className="text-xs font-medium text-emerald-400">Scheduled</span>
                         {(() => {
                           const nextIn = Math.min(
@@ -983,7 +1008,7 @@ export default function ResearchMonitor() {
                           }
                           return null;
                         })()}
-                      </div>
+                      </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-xs">
                       <div className="text-xs space-y-1">
@@ -993,15 +1018,33 @@ export default function ResearchMonitor() {
                         {grokEnabled && (
                           <p>Grok Research: {nextCycleInfo.grokNextIn !== null ? `Next in ${formatCountdown(nextCycleInfo.grokNextIn)}` : "Ready"}</p>
                         )}
-                        <p className="text-muted-foreground pt-1">Click button below to run immediately</p>
+                        <p className="text-muted-foreground pt-1">Click to pause autonomous research</p>
                       </div>
                     </TooltipContent>
                   </Tooltip>
                 ) : (
-                  <div className="flex items-center gap-2 h-7 px-3 bg-muted/50 rounded-md border border-border">
-                    <Pause className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">Paused</span>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleResearchMutation.mutate(true)}
+                        disabled={toggleResearchMutation.isPending}
+                        className="h-7 px-3 gap-2"
+                        data-testid="button-enable-research"
+                      >
+                        {toggleResearchMutation.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Play className="h-3.5 w-3.5" />
+                        )}
+                        <span className="text-xs font-medium">Paused</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">Click to enable autonomous research</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 
                 <Button 
@@ -1020,19 +1063,6 @@ export default function ResearchMonitor() {
                   Run Now
                 </Button>
                 
-                <div className="w-px h-4 bg-border mx-1" />
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" onClick={() => setPaused(!paused)} data-testid="button-pause" className="h-7 w-7">
-                      {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">{paused ? "Resume updates" : "Pause updates"}</p>
-                  </TooltipContent>
-                </Tooltip>
-                
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button size="icon" variant="ghost" className="h-7 w-7" data-testid="button-more-options">
@@ -1041,12 +1071,43 @@ export default function ResearchMonitor() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem 
+                      onClick={() => setPaused(!paused)}
+                      data-testid="menu-pause-updates"
+                    >
+                      {paused ? <Play className="h-4 w-4 mr-2" /> : <Pause className="h-4 w-4 mr-2" />}
+                      {paused ? "Resume Updates" : "Pause Updates"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
                       onClick={() => setAutoScroll(!autoScroll)}
                       data-testid="menu-autoscroll"
                     >
                       <ArrowDownCircle className={cn("h-4 w-4 mr-2", autoScroll && "text-primary")} />
                       Auto-scroll {autoScroll ? "ON" : "OFF"}
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={() => setViewMode("insights")}
+                      data-testid="menu-view-cards"
+                    >
+                      <Layers className={cn("h-4 w-4 mr-2", viewMode === "insights" && "text-primary")} />
+                      Cards View {viewMode === "insights" && "✓"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setViewMode("activity")}
+                      data-testid="menu-view-log"
+                    >
+                      <Activity className={cn("h-4 w-4 mr-2", viewMode === "activity" && "text-primary")} />
+                      Log View {viewMode === "activity" && "✓"}
+                    </DropdownMenuItem>
+                    {stats.rejections > 0 && (
+                      <DropdownMenuItem 
+                        onClick={() => setViewMode("rejected")}
+                        data-testid="menu-view-rejected"
+                      >
+                        <XCircle className={cn("h-4 w-4 mr-2 text-red-400", viewMode === "rejected" && "text-primary")} />
+                        Rejected ({stats.rejections}) {viewMode === "rejected" && "✓"}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       onClick={clearEvents}
@@ -1074,69 +1135,6 @@ export default function ResearchMonitor() {
         <div className="flex-1 flex min-h-0">
           {/* Left Panel - Strategy Insights */}
           <div className="flex-1 flex flex-col min-h-0 border-r border-border">
-            <div className="px-4 py-2.5 border-b border-border flex items-center justify-between bg-muted/5">
-              <div className="flex items-center gap-2">
-                <Layers className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs font-medium uppercase tracking-wide text-foreground/80">Strategies</span>
-                {candidates.length > 0 && (
-                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{candidates.length}</Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-0.5 bg-muted/50 rounded-md p-0.5">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant={viewMode === "insights" ? "secondary" : "ghost"} 
-                      className="h-6 px-2.5 text-[10px]"
-                      onClick={() => setViewMode("insights")}
-                      data-testid="tab-insights"
-                    >
-                      Cards
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">View strategy cards</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant={viewMode === "activity" ? "secondary" : "ghost"} 
-                      className="h-6 px-2.5 text-[10px]"
-                      onClick={() => setViewMode("activity")}
-                      data-testid="tab-activity"
-                    >
-                      Log
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">Real-time activity feed</p>
-                  </TooltipContent>
-                </Tooltip>
-                {stats.rejections > 0 && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        size="sm" 
-                        variant={viewMode === "rejected" ? "secondary" : "ghost"} 
-                        className="h-6 px-2.5 text-[10px]"
-                        onClick={() => setViewMode("rejected")}
-                        data-testid="tab-rejected"
-                      >
-                        <XCircle className="h-2.5 w-2.5 mr-1 text-red-400" />
-                        {stats.rejections}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="text-xs">Rejected strategies with reasons</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-            </div>
-            
             <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
               {viewMode === "insights" ? (
                 candidates.length === 0 ? (
