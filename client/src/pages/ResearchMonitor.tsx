@@ -436,151 +436,143 @@ function ProviderActivityPanel({
     }
   };
 
-  // Only show loading spinner if loading AND no cached data exists
   const showLoadingSpinner = isQueryLoading && !activity;
-  // Show error banner but keep cached data visible
   const showErrorBanner = isQueryError && !isQueryLoading;
+  const isPaused = !activity?.enabled && !activity?.isActive;
+  const hasActivity = (activity?.stats24h?.totalRequests ?? 0) > 0 || 
+                      (activity?.recentActivity && activity.recentActivity.length > 0);
 
+  // Compact loading state
   if (showLoadingSpinner) {
     return (
       <Card className="flex-1" data-testid={`panel-${provider.toLowerCase()}-activity`}>
-        <CardHeader className="pb-2">
-          <div className="flex items-center gap-2">
+        <CardContent className="py-3 px-4">
+          <div className="flex items-center gap-3">
             <div className={cn("p-1.5 rounded", colorClass)}>
               <Icon className="h-4 w-4" />
             </div>
-            <div>
-              <CardTitle className="text-sm">{provider}</CardTitle>
-              <CardDescription className="text-[10px]">Loading...</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <span className="text-sm font-medium">{provider}</span>
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground ml-auto" />
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  return (
-    <Card className="flex-1" data-testid={`panel-${provider.toLowerCase()}-activity`}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={cn("p-1.5 rounded", colorClass)}>
-              <Icon className="h-4 w-4" />
+  // Compact paused state - single row (but show error if connection issue)
+  if (isPaused && !hasActivity && !showErrorBanner) {
+    return (
+      <Card className="flex-1 opacity-60" data-testid={`panel-${provider.toLowerCase()}-activity`}>
+        <CardContent className="py-3 px-4">
+          <div className="flex items-center gap-3">
+            <div className={cn("p-1.5 rounded bg-muted/50", colorClass.replace(/bg-\w+-500\/20/, 'bg-muted/30'))}>
+              <Icon className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div>
-              <CardTitle className="text-sm">{provider}</CardTitle>
-              <CardDescription className="text-[10px]">
-                {activity?.mode || "Idle"}
-              </CardDescription>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {activity?.isActive ? (
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[9px] gap-1">
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                Active
-              </Badge>
-            ) : activity?.enabled ? (
-              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px]">
-                Enabled
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-[9px]">
-                Paused
-              </Badge>
-            )}
+            <span className="text-sm font-medium text-muted-foreground">{provider}</span>
+            <Badge variant="outline" className="text-[9px] ml-auto">Paused</Badge>
             {onTrigger && (
               <Button
                 size="icon"
                 variant="ghost"
                 className="h-6 w-6"
                 onClick={onTrigger}
-                disabled={isLoading || activity?.isActive}
+                disabled={isLoading}
                 data-testid={`button-${provider.toLowerCase()}-run`}
               >
                 <Rocket className="h-3 w-3" />
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Active/enabled state - compact but informative
+  return (
+    <Card className="flex-1" data-testid={`panel-${provider.toLowerCase()}-activity`}>
+      <CardContent className="py-3 px-4 space-y-2">
+        {/* Header row */}
+        <div className="flex items-center gap-3">
+          <div className={cn("p-1.5 rounded", colorClass)}>
+            <Icon className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{provider}</span>
+              {activity?.isActive ? (
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[9px] gap-1">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                  Active
+                </Badge>
+              ) : activity?.enabled ? (
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px]">
+                  Enabled
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[9px]">Paused</Badge>
+              )}
+            </div>
+          </div>
+          {onTrigger && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={onTrigger}
+              disabled={isLoading || activity?.isActive}
+              data-testid={`button-${provider.toLowerCase()}-run`}
+            >
+              <Rocket className="h-3 w-3" />
+            </Button>
+          )}
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Error banner - inline, preserves cached data */}
+        
+        {/* Error banner - compact */}
         {showErrorBanner && (
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-red-500/10 border border-red-500/20 text-[10px]" data-testid={`error-${provider.toLowerCase()}`}>
-            <AlertCircle className="h-3 w-3 text-red-400 shrink-0" />
-            <span className="text-red-400">Connection error - showing cached data</span>
+          <div className="flex items-center gap-1.5 text-[10px] text-amber-400" data-testid={`error-${provider.toLowerCase()}`}>
+            <AlertCircle className="h-3 w-3 shrink-0" />
+            <span>Connection issue</span>
           </div>
         )}
         
-        {/* 24h Stats */}
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-muted/30 rounded p-2">
-            <div className="text-lg font-mono font-bold text-primary">
-              {activity?.stats24h?.strategiesGenerated ?? 0}
-            </div>
-            <div className="text-[9px] text-muted-foreground">Strategies</div>
+        {/* Compact stats row */}
+        <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-1">
+            <span className="font-mono font-bold text-primary">{activity?.stats24h?.strategiesGenerated ?? 0}</span>
+            <span className="text-muted-foreground text-[10px]">strats</span>
           </div>
-          <div className="bg-muted/30 rounded p-2">
-            <div className="text-lg font-mono font-bold">
-              {activity?.stats24h?.totalRequests ?? 0}
-            </div>
-            <div className="text-[9px] text-muted-foreground">API Calls</div>
+          <div className="flex items-center gap-1">
+            <span className="font-mono font-bold">{activity?.stats24h?.totalRequests ?? 0}</span>
+            <span className="text-muted-foreground text-[10px]">calls</span>
           </div>
-          <div className="bg-muted/30 rounded p-2">
-            <div className="text-lg font-mono font-bold text-emerald-400">
-              {activity?.stats24h?.successful ?? 0}
-            </div>
-            <div className="text-[9px] text-muted-foreground">Successful</div>
+          <div className="flex items-center gap-1">
+            <span className="font-mono font-bold text-emerald-400">{activity?.stats24h?.successful ?? 0}</span>
+            <span className="text-muted-foreground text-[10px]">ok</span>
           </div>
+          <span className="text-muted-foreground text-[10px] ml-auto">
+            {formatTime(activity?.stats24h?.lastRequest ?? null)}
+          </span>
         </div>
         
-        {/* Last Activity */}
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Last request:</span>
-          <span className="font-mono">{formatTime(activity?.stats24h?.lastRequest ?? null)}</span>
-        </div>
-        
+        {/* Next cycle - only if applicable */}
         {activity?.nextCycleIn !== undefined && activity.nextCycleIn !== null && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Next cycle:</span>
-            <span className="font-mono text-primary">{formatCountdown(activity.nextCycleIn)}</span>
+          <div className="text-[10px] text-muted-foreground">
+            Next: <span className="font-mono text-primary">{formatCountdown(activity.nextCycleIn)}</span>
           </div>
         )}
         
-        {/* Recent Activity Log */}
+        {/* Recent activity - compact, only show if has activity */}
         {activity?.recentActivity && activity.recentActivity.length > 0 && (
-          <div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Recent Activity</div>
-            <ScrollArea className="h-24">
-              <div className="space-y-1">
-                {activity.recentActivity.slice(0, 5).map((event, idx) => (
-                  <div 
-                    key={event.id || idx} 
-                    className="flex items-start gap-2 text-[10px] bg-muted/20 rounded px-2 py-1"
-                  >
-                    <Activity className="h-2.5 w-2.5 mt-0.5 shrink-0 text-muted-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <span className="truncate block">{event.title}</span>
-                      <span className="text-muted-foreground">
-                        {formatTime(event.timestamp)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
-        
-        {(!activity?.recentActivity || activity.recentActivity.length === 0) && (
-          <div className="text-center py-4 text-xs text-muted-foreground">
-            No recent activity
+          <div className="pt-1 border-t border-border/50">
+            <div className="space-y-0.5">
+              {activity.recentActivity.slice(0, 3).map((event, idx) => (
+                <div key={event.id || idx} className="flex items-center gap-1.5 text-[10px]">
+                  <Activity className="h-2 w-2 shrink-0 text-muted-foreground" />
+                  <span className="truncate flex-1 text-muted-foreground">{event.title}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>

@@ -230,13 +230,19 @@ if (isWorkerOnlyMode) {
         
         // Load research orchestrator state from DB early to prevent stale defaults
         // Must happen BEFORE any API requests could read orchestrator status
+        // AUTONOMOUS: Auto-enable research on startup for 24/7 operation
         (async () => {
           try {
-            const { loadOrchestratorState } = await import('./research-orchestrator');
+            const { loadOrchestratorState, enableFullSpectrum } = await import('./research-orchestrator');
             await loadOrchestratorState();
             log(`[STARTUP] Research orchestrator state loaded from DB`);
+            
+            // Auto-enable research for fully autonomous 24/7 operation
+            // Research runs whether user is logged in or not
+            await enableFullSpectrum(true);
+            log(`[STARTUP] Research orchestrator AUTO-ENABLED for autonomous operation`);
           } catch (err) {
-            log(`[STARTUP] Failed to load orchestrator state: ${err instanceof Error ? err.message : 'unknown'}`);
+            log(`[STARTUP] Failed to load/enable orchestrator: ${err instanceof Error ? err.message : 'unknown'}`);
           }
         })();
         
