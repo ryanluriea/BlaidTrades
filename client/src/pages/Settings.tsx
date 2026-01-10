@@ -1500,6 +1500,16 @@ export default function Settings() {
   const updateSettings = useUpdateAppSettings();
   const queryClient = useQueryClient();
 
+  // Valid tab values for Settings page
+  const validTabs = ["profile", "general", "security", "risk", "labs", "appearance", "notifications", "cloud-backup", "prompts"];
+  
+  // Read initial tab from URL parameter, validate against known tabs, default to "profile"
+  const [activeTab, setActiveTab] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get("tab");
+    return tabParam && validTabs.includes(tabParam) ? tabParam : "profile";
+  });
+
   // Handle OAuth callback URL parameters (Google Drive connection success/error)
   // Runs once on mount, captures initial URL state before any cleanup
   useEffect(() => {
@@ -1525,6 +1535,11 @@ export default function Settings() {
       cleanUrl.search = "";
     }
     window.history.replaceState({}, "", cleanUrl.toString());
+    
+    // Switch to the cloud-backup tab if coming from OAuth (already validated by inclusion check)
+    if (tabParam && validTabs.includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
     
     if (googleDriveConnected === "true") {
       // Use async IIFE to await refetch before showing success feedback
@@ -1671,7 +1686,7 @@ export default function Settings() {
   return (
     <AppLayout title="Settings">
       <div className="space-y-6">
-        <Tabs defaultValue="profile" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="h-auto p-1 bg-muted/50 border border-border rounded-md flex flex-wrap gap-1">
             <TabsTrigger 
               value="profile" 
