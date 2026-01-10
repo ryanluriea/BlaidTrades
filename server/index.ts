@@ -6,7 +6,8 @@ import { createServer } from "http";
 import { startScheduler, pauseHeavyWorkers, resumeHeavyWorkers } from "./scheduler";
 import { livePnLWebSocket } from "./websocket-server";
 import { researchMonitorWS } from "./research-monitor-ws";
-import { validateSchemaAtStartup, warmupDatabase } from "./db";
+import { validateSchemaAtStartup, warmupDatabase, poolWeb } from "./db";
+import bcrypt from "bcryptjs";
 import { startMemorySentinel, loadSheddingMiddleware, getInstanceId, registerSchedulerCallbacks, registerCacheEvictionCallback } from "./ops/memorySentinel";
 import { trimCacheForMemoryPressure } from "./bar-cache";
 import { execSync } from "child_process";
@@ -36,6 +37,53 @@ function cleanupStaleTemporaryFiles(): void {
 }
 
 cleanupStaleTemporaryFiles();
+
+/**
+ * Bootstrap admin account on first deploy when users table is empty
+ * Uses ADMIN_EMAIL and ADMIN_PASSWORD environment variables
+ */
+async function bootstrapAdminAccount(): Promise<void> {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  
+  if (!adminEmail || !adminPassword) {
+    log("[BOOTSTRAP] No ADMIN_EMAIL/ADMIN_PASSWORD set - skipping admin bootstrap");
+    return;
+  }
+  
+  try {
+    // Check if any users exist
+    const result = await poolWeb.query("SELECT COUNT(*) as count FROM users");
+    const userCount = parseInt(result.rows[0].count, 10);
+    
+    if (userCount > 0) {
+      log(`[BOOTSTRAP] Users table has ${userCount} users - skipping bootstrap`);
+      return;
+    }
+    
+    // Create admin account using ON CONFLICT to handle race conditions in multi-replica deploys
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    const adminUsername = adminEmail.split("@")[0];
+    
+    const insertResult = await poolWeb.query(
+      `INSERT INTO users (id, email, username, password, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW())
+       ON CONFLICT (email) DO NOTHING
+       RETURNING id`,
+      [adminEmail, adminUsername, hashedPassword]
+    );
+    
+    if (insertResult.rowCount && insertResult.rowCount > 0) {
+      log(`[BOOTSTRAP] SUCCESS: Created admin account: ${adminEmail}`);
+      log(`[BOOTSTRAP] You can now log in with the password from ADMIN_PASSWORD env var`);
+    } else {
+      log(`[BOOTSTRAP] Admin account ${adminEmail} already exists (concurrent create)`);
+    }
+    
+  } catch (error) {
+    log(`[BOOTSTRAP] FAILED to create admin account: ${error instanceof Error ? error.message : 'unknown'}`);
+  }
+}
 
 // Start memory sentinel early (doesn't need DB)
 startMemorySentinel();
@@ -111,6 +159,9 @@ if (isWorkerOnlyMode) {
     
     if (dbReady) {
       log(`[STARTUP] Database ready - PostgreSQL session store will be used`);
+      
+      // Bootstrap admin account on first deploy (when users table is empty)
+      await bootstrapAdminAccount();
     } else {
       log(`[STARTUP] WARNING: Database warmup failed - sessions will use MemoryStore (not persistent)`);
     }
