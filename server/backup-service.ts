@@ -548,7 +548,8 @@ export async function restoreBackup(
   } = {}
 ): Promise<{ success: boolean; restored?: { bots: number; strategies: number; accounts: number }; error?: string }> {
   try {
-    const data = await downloadBackup(backupId) as BackupData;
+    const { downloadBackupForUser } = await import("./google-drive-client");
+    const data = await downloadBackupForUser(userId, backupId) as BackupData;
     
     if (!data.version || !data.userId) {
       return { success: false, error: 'Invalid backup format' };
@@ -707,13 +708,15 @@ export async function restoreBackup(
   }
 }
 
-export async function listUserBackups(): Promise<BackupMetadata[]> {
-  return listBackups();
+export async function listUserBackups(userId: string): Promise<BackupMetadata[]> {
+  const { listBackupsForUser } = await import("./google-drive-client");
+  return listBackupsForUser(userId);
 }
 
-export async function deleteUserBackup(backupId: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteUserBackup(userId: string, backupId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    await deleteBackup(backupId);
+    const { deleteBackupForUser } = await import("./google-drive-client");
+    await deleteBackupForUser(userId, backupId);
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -789,7 +792,10 @@ export async function getBackupQuickStatus(userId?: string): Promise<{
       lastBackupAtValue = cachedDriveTimestamp.value;
     } else {
       try {
-        const backups = await listBackups();
+        const { listBackupsForUser } = await import("./google-drive-client");
+        const backups = userId 
+          ? await listBackupsForUser(userId)
+          : await listBackups();
         if (backups.length > 0 && backups[0].createdTime) {
           lastBackupAtValue = backups[0].createdTime;
         }
@@ -898,7 +904,10 @@ export async function getCloudBackupDashboard(userId?: string): Promise<{
     return result;
   }
 
-  const backupsPromise = listBackups();
+  const { listBackupsForUser } = await import("./google-drive-client");
+  const backupsPromise = userId 
+    ? listBackupsForUser(userId) 
+    : listBackups();
   const backups = await withTimeout(backupsPromise, DASHBOARD_TIMEOUT_MS, []);
   const totalSize = backups.reduce((sum, b) => sum + parseInt(b.size || '0', 10), 0);
   
@@ -944,12 +953,6 @@ export async function startBackupScheduler(): Promise<void> {
     return;
   }
 
-  const connected = await isGoogleDriveConnected();
-  if (!connected) {
-    console.log('[BACKUP_SCHEDULER] Google Drive not connected, skipping scheduler');
-    return;
-  }
-
   const intervalMs = {
     hourly: 60 * 60 * 1000,
     daily: 24 * 60 * 60 * 1000,
@@ -960,25 +963,37 @@ export async function startBackupScheduler(): Promise<void> {
     console.log('[BACKUP_SCHEDULER] Running scheduled backup...');
     
     const allUsers = await db.select().from(users);
+    const { listBackupsForUser, deleteBackupForUser } = await import("./google-drive-client");
     
     for (const user of allUsers) {
+      const userConnected = await isGoogleDriveConnectedForUser(user.id);
+      if (!userConnected) {
+        console.log(`[BACKUP_SCHEDULER] User ${user.username} has no Google Drive connected, skipping`);
+        continue;
+      }
+      
       const result = await createBackup(user.id);
       if (result.success) {
         console.log(`[BACKUP_SCHEDULER] Backup created for user ${user.username}`);
+        
+        const currentSettings = await getBackupSettings();
+        if (currentSettings.backupRetentionCount > 0) {
+          try {
+            const userBackups = await listBackupsForUser(user.id);
+            if (userBackups.length > currentSettings.backupRetentionCount) {
+              const toDelete = userBackups.slice(currentSettings.backupRetentionCount);
+              for (const backup of toDelete) {
+                await deleteBackupForUser(user.id, backup.id);
+                console.log(`[BACKUP_SCHEDULER] Deleted old backup for ${user.username}: ${backup.name}`);
+              }
+              clearDashboardCache(user.id);
+            }
+          } catch (retentionError) {
+            console.error(`[BACKUP_SCHEDULER] Retention cleanup failed for ${user.username}:`, retentionError);
+          }
+        }
       } else {
         console.error(`[BACKUP_SCHEDULER] Backup failed for user ${user.username}: ${result.error}`);
-      }
-    }
-
-    const currentSettings = await getBackupSettings();
-    if (currentSettings.backupRetentionCount > 0) {
-      const backups = await listBackups();
-      if (backups.length > currentSettings.backupRetentionCount) {
-        const toDelete = backups.slice(currentSettings.backupRetentionCount);
-        for (const backup of toDelete) {
-          await deleteBackup(backup.id);
-          console.log(`[BACKUP_SCHEDULER] Deleted old backup: ${backup.name}`);
-        }
       }
     }
 

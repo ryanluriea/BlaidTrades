@@ -2462,8 +2462,9 @@ export function registerRoutes(app: Express) {
     }
     
     try {
+      const userId = req.session.userId;
       const { listUserBackups } = await import("./backup-service");
-      const backups = await listUserBackups();
+      const backups = await listUserBackups(userId);
       res.json({ success: true, data: backups });
     } catch (error) {
       res.status(500).json({ success: false, message: String(error) });
@@ -2476,9 +2477,10 @@ export function registerRoutes(app: Express) {
     }
     
     try {
+      const userId = req.session.userId;
       const { backupId } = req.params;
       const { deleteUserBackup } = await import("./backup-service");
-      const result = await deleteUserBackup(backupId);
+      const result = await deleteUserBackup(userId, backupId);
       
       if (result.success) {
         res.json({ success: true });
