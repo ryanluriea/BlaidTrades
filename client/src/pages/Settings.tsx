@@ -40,6 +40,7 @@ import {
   Key,
   Eye,
   EyeOff,
+  Unlink,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
@@ -439,6 +440,26 @@ function CloudBackupSection() {
     },
   });
 
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/auth/google-drive/disconnect", { 
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Google Drive disconnected successfully");
+      queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/google-drive/status"] });
+    },
+    onError: (error: any) => {
+      toast.error(`Disconnect failed: ${error.message}`);
+    },
+  });
+
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
@@ -580,6 +601,20 @@ function CloudBackupSection() {
           </Button>
           <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-backup-status">
             Refresh Status
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => disconnectMutation.mutate()}
+            disabled={disconnectMutation.isPending}
+            className="gap-2 text-destructive hover:text-destructive"
+            data-testid="button-disconnect-google-drive-settings"
+          >
+            {disconnectMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Unlink className="w-4 h-4" />
+            )}
+            Disconnect
           </Button>
         </div>
 
