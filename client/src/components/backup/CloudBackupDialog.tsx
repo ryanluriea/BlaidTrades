@@ -992,7 +992,7 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="bottom">
-                              <p>Restore from this backup</p>
+                              <p>Restore</p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>

@@ -780,7 +780,7 @@ function CloudBackupSection() {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">
-                        <p>Restore from this backup</p>
+                        <p>Restore</p>
                       </TooltipContent>
                     </Tooltip>
                     <Tooltip>
