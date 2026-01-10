@@ -20,7 +20,11 @@ import {
   ChevronDown,
   BadgeCheck,
   Shield,
-  Clock
+  Clock,
+  CheckSquare,
+  Zap,
+  DollarSign,
+  Timer
 } from "lucide-react";
 import { type QCBadgeState } from "./QCBadge";
 import { QCProofPopup } from "./QCProofPopup";
@@ -472,52 +476,32 @@ function UniquenessBadgeWithDetails({ score, candidate, formatTimeAgo }: Uniquen
             </span>
           </div>
           
-          {/* Plain Language Summary - What/How/When */}
-          {plainSummary?.what && (
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex gap-1.5">
-                <span className="text-blue-400 font-medium shrink-0 w-10">What:</span>
-                <span className="text-foreground">{plainSummary.what}</span>
-              </div>
-              <div className="flex gap-1.5">
-                <span className="text-emerald-400 font-medium shrink-0 w-10">How:</span>
-                <span className="text-foreground">{plainSummary.how || "Signal-based execution"}</span>
-              </div>
-              <div className="flex gap-1.5">
-                <span className="text-amber-400 font-medium shrink-0 w-10">When:</span>
-                <span className="text-foreground">{plainSummary.when || "RTH sessions"}</span>
-              </div>
+          {/* Layman-Friendly What/When/Why - Always show with fallbacks */}
+          <div className="space-y-2 text-[11px]">
+            <div className="flex items-start gap-2">
+              <div className="bg-blue-500/20 text-blue-400 rounded px-1.5 py-0.5 text-[9px] font-medium shrink-0">What</div>
+              <span className="text-foreground leading-relaxed">
+                {plainSummary?.what || 
+                 candidate.hypothesis || 
+                 `Looks for ${candidate.archetypeName?.replace(/_/g, ' ') || 'trading'} opportunities.`}
+              </span>
             </div>
-          )}
-          
-          {/* Mechanics */}
-          <div className="space-y-1 text-[11px] pt-2 border-t border-border/50">
-            <div className="flex gap-1.5">
-              <span className="text-emerald-400 font-medium shrink-0 w-12">Entry:</span>
-              <span className="text-muted-foreground">{candidate.rulesJson?.entry || "Signal-based"}</span>
+            <div className="flex items-start gap-2">
+              <div className="bg-emerald-500/20 text-emerald-400 rounded px-1.5 py-0.5 text-[9px] font-medium shrink-0">When</div>
+              <span className="text-foreground leading-relaxed">
+                {plainSummary?.when || "During regular trading hours (9:30 AM - 4:00 PM ET)"}
+              </span>
             </div>
-            <div className="flex gap-1.5">
-              <span className="text-amber-400 font-medium shrink-0 w-12">Exit:</span>
-              <span className="text-muted-foreground">{candidate.rulesJson?.exit || "Time/target-based"}</span>
-            </div>
-            <div className="flex gap-1.5">
-              <span className="text-red-400 font-medium shrink-0 w-12">Invalid:</span>
-              <span className="text-muted-foreground">{normalizeInvalidCondition(candidate.rulesJson?.riskModel)}</span>
+            <div className="flex items-start gap-2">
+              <div className="bg-purple-500/20 text-purple-400 rounded px-1.5 py-0.5 text-[9px] font-medium shrink-0">Why</div>
+              <span className="text-foreground leading-relaxed">
+                {plainSummary?.why || 
+                 (candidate.explainersJson as any)?.why ||
+                 candidate.hypothesis ||
+                 "Captures predictable price patterns."}
+              </span>
             </div>
           </div>
-          
-          {/* Why This Strategy */}
-          {(candidate.explainersJson?.why || candidate.hypothesis) && (
-            <div className="pt-2 border-t border-border/50">
-              <div className="flex items-center gap-1 mb-1">
-                <Target className="h-3 w-3 text-purple-400" />
-                <span className="text-[9px] font-semibold uppercase text-purple-400">Intent</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                {candidate.hypothesis || (candidate.explainersJson as any)?.why || "Exploiting structural inefficiency"}
-              </p>
-            </div>
-          )}
           
           {/* Meta info */}
           <div className="flex items-center gap-2 pt-2 border-t border-border/50 text-[9px] text-muted-foreground">
@@ -600,31 +584,29 @@ function UniquenessPill({ score, candidate, formatTimeAgo }: UniquenessBadgeWith
             </span>
           </div>
           
-          {plainSummary?.what && (
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex gap-1.5">
-                <span className="text-blue-400 font-medium shrink-0 w-10">What:</span>
-                <span className="text-foreground">{plainSummary.what}</span>
-              </div>
-              <div className="flex gap-1.5">
-                <span className="text-emerald-400 font-medium shrink-0 w-10">How:</span>
-                <span className="text-foreground">{plainSummary.how || "Signal-based execution"}</span>
-              </div>
-              <div className="flex gap-1.5">
-                <span className="text-amber-400 font-medium shrink-0 w-10">When:</span>
-                <span className="text-foreground">{plainSummary.when || "RTH sessions"}</span>
-              </div>
+          {/* Layman-Friendly What/When/Why - Always show with fallbacks */}
+          <div className="space-y-2 text-[11px]">
+            <div className="flex items-start gap-2">
+              <div className="bg-blue-500/20 text-blue-400 rounded px-1.5 py-0.5 text-[9px] font-medium shrink-0">What</div>
+              <span className="text-foreground leading-relaxed">
+                {plainSummary?.what || 
+                 candidate.hypothesis || 
+                 `Looks for ${candidate.archetypeName?.replace(/_/g, ' ') || 'trading'} opportunities.`}
+              </span>
             </div>
-          )}
-          
-          <div className="space-y-1 text-[11px] pt-2 border-t border-border/50">
-            <div className="flex gap-1.5">
-              <span className="text-emerald-400 font-medium shrink-0 w-12">Entry:</span>
-              <span className="text-muted-foreground">{candidate.rulesJson?.entry || "Signal-based"}</span>
+            <div className="flex items-start gap-2">
+              <div className="bg-emerald-500/20 text-emerald-400 rounded px-1.5 py-0.5 text-[9px] font-medium shrink-0">When</div>
+              <span className="text-foreground leading-relaxed">
+                {plainSummary?.when || "During regular trading hours (9:30 AM - 4:00 PM ET)"}
+              </span>
             </div>
-            <div className="flex gap-1.5">
-              <span className="text-amber-400 font-medium shrink-0 w-12">Exit:</span>
-              <span className="text-muted-foreground">{candidate.rulesJson?.exit || "Time/target-based"}</span>
+            <div className="flex items-start gap-2">
+              <div className="bg-purple-500/20 text-purple-400 rounded px-1.5 py-0.5 text-[9px] font-medium shrink-0">Why</div>
+              <span className="text-foreground leading-relaxed">
+                {plainSummary?.why || 
+                 (candidate.explainersJson as any)?.why ||
+                 "Captures predictable price patterns."}
+              </span>
             </div>
           </div>
           
@@ -951,6 +933,7 @@ export function StrategyCandidateTableRow({
   const [archetypeCategory, setArchetypeCategory] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [qcProofOpen, setQcProofOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   
   const isRejected = candidate.disposition === "REJECTED";
   
@@ -1025,12 +1008,32 @@ export function StrategyCandidateTableRow({
 
   const plainSummary = candidate.plainLanguageSummaryJson;
   
+  // Handler that only opens details dialog for clicks on the card surface
+  // (not on buttons, inputs, or other interactive elements)
+  const handleCardClick = (e: MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    // Skip if clicking on interactive elements or their children
+    const interactiveTagNames = ['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT', 'A'];
+    let currentEl: HTMLElement | null = target;
+    while (currentEl && currentEl !== e.currentTarget) {
+      if (interactiveTagNames.includes(currentEl.tagName) ||
+          currentEl.getAttribute('role') === 'button' ||
+          currentEl.getAttribute('role') === 'menuitem' ||
+          currentEl.getAttribute('data-testid')?.startsWith('button-') ||
+          currentEl.getAttribute('data-testid')?.startsWith('menu-')) {
+        return; // Don't open dialog for interactive element clicks
+      }
+      currentEl = currentEl.parentElement;
+    }
+    setDetailsDialogOpen(true);
+  };
+  
   return (
     <div 
       className="flex items-stretch" 
       data-testid={`candidate-row-${candidate.id}`}
-      onClick={selectable ? () => onSelectChange?.(candidate.id, !selected) : undefined}
-      style={selectable ? { cursor: 'pointer' } : undefined}
+      onClick={handleCardClick}
+      style={{ cursor: 'pointer' }}
     >
       <Card className={cn(
         "flex-1 transition-colors overflow-hidden border-l-4", 
@@ -1371,7 +1374,7 @@ export function StrategyCandidateTableRow({
             ) : null}
             {/* 3-dot Actions Menu */}
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Button 
                   size="icon" 
                   variant="ghost"
@@ -1380,7 +1383,18 @@ export function StrategyCandidateTableRow({
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+                {/* Select for bulk actions - only when selectable */}
+                {selectable && onSelectChange && (
+                  <DropdownMenuItem 
+                    onClick={() => onSelectChange(candidate.id, !selected)}
+                    data-testid={`menu-select-${candidate.id}`}
+                  >
+                    <CheckSquare className="h-4 w-4 mr-2" />
+                    {selected ? "Deselect" : "Select for Bulk Actions"}
+                  </DropdownMenuItem>
+                )}
+                {selectable && onSelectChange && <DropdownMenuSeparator />}
                 {/* Manual Promote option - only when auto-promote is disabled */}
                 {showManualPromote && onSendToLab && status !== "SENT_TO_LAB" && status !== "REJECTED" && (
                   <>
@@ -1615,6 +1629,125 @@ export function StrategyCandidateTableRow({
               candidateName={candidate.strategyName}
               canRerun={qcBudget?.canRun ?? true}
             />
+            
+            {/* Layman-Friendly Strategy Details Dialog */}
+            <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+              <DialogContent className="max-w-lg" onClick={(e) => e.stopPropagation()}>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-lg">
+                    <Target className="h-5 w-5 text-primary" />
+                    {candidate.strategyName}
+                  </DialogTitle>
+                  <DialogDescription className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">{candidate.archetypeName || "Custom Strategy"}</span>
+                    <span className="text-muted-foreground/50">|</span>
+                    <span className="text-muted-foreground">{formatTimeAgo(candidate.createdAt)}</span>
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-2">
+                  {/* Simple Summary Cards */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-muted/30 rounded-lg p-3 text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        <Zap className="h-4 w-4 text-amber-400" />
+                      </div>
+                      <div className="text-lg font-bold text-foreground">{candidate.confidenceScore}%</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Confidence</div>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-3 text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        <DollarSign className="h-4 w-4 text-emerald-400" />
+                      </div>
+                      <div className="text-lg font-bold text-foreground">{expectedWinRate}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Win Rate</div>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-3 text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        <Timer className="h-4 w-4 text-blue-400" />
+                      </div>
+                      <div className="text-lg font-bold text-foreground">{tradeFrequency}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Trade Freq</div>
+                    </div>
+                  </div>
+                  
+                  {/* Plain Language Explanation */}
+                  <div className="space-y-3 pt-2 border-t border-border/50">
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <div className="bg-blue-500/20 text-blue-400 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase shrink-0 mt-0.5">What</div>
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {plainSummary?.what || 
+                           candidate.hypothesis || 
+                           `This strategy looks for ${candidate.archetypeName?.replace(/_/g, ' ') || 'trading'} opportunities in the market.`}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <div className="bg-emerald-500/20 text-emerald-400 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase shrink-0 mt-0.5">When</div>
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {plainSummary?.when || 
+                           (candidate.rulesJson?.tradingSession 
+                             ? `Trades during ${candidate.rulesJson.tradingSession}`
+                             : "Active during regular trading hours (9:30 AM - 4:00 PM ET)")}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <div className="bg-purple-500/20 text-purple-400 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase shrink-0 mt-0.5">Why</div>
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {plainSummary?.why || 
+                           (candidate.explainersJson as any)?.why ||
+                           "Designed to capture predictable price movements based on technical patterns and market structure."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Risk Level */}
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                    <span className="text-sm text-muted-foreground">Risk Level:</span>
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "text-xs",
+                        riskProfile === "Low" && "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+                        riskProfile === "Medium" && "bg-amber-500/15 text-amber-400 border-amber-500/30",
+                        riskProfile === "High" && "bg-red-500/15 text-red-400 border-red-500/30"
+                      )}
+                    >
+                      {riskProfile}
+                    </Badge>
+                  </div>
+                  
+                  {/* Status */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Current Status:</span>
+                    {getStatusBadge(status)}
+                  </div>
+                </div>
+                
+                <DialogFooter className="gap-2">
+                  <Button variant="outline" onClick={() => setDetailsDialogOpen(false)}>
+                    Close
+                  </Button>
+                  {showManualPromote && onSendToLab && status !== "SENT_TO_LAB" && status !== "REJECTED" && (
+                    <Button 
+                      onClick={() => { onSendToLab(candidate.id); setDetailsDialogOpen(false); }}
+                      disabled={isSending}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {isSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowUpRight className="h-4 w-4 mr-2" />}
+                      Send to Trials
+                    </Button>
+                  )}
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             </div>
           </div>
         </CardContent>

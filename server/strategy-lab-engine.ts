@@ -1725,6 +1725,39 @@ async function processCandidate(
   
   const candidateId = insertResult[0]?.id;
   
+  // Calculate and persist novelty score for new candidate
+  if (candidateId) {
+    try {
+      // Get all existing candidates for comparison
+      const existingCandidates = await db.execute(sql`
+        SELECT id, archetype_name, hypothesis, rules_json
+        FROM strategy_candidates
+        WHERE id != ${candidateId}
+        LIMIT 500
+      `);
+      
+      const noveltyData: NoveltyComparisonData = {
+        id: candidateId,
+        archetype_name: candidate.archetypeName || null,
+        hypothesis: candidate.hypothesis,
+        rules_json: candidate.rules,
+      };
+      
+      const noveltyScore = calculateNoveltyScore(noveltyData, existingCandidates.rows as NoveltyComparisonData[]);
+      
+      // Update the candidate with calculated novelty score
+      await db.execute(sql`
+        UPDATE strategy_candidates
+        SET novelty_score = ${noveltyScore}
+        WHERE id = ${candidateId}
+      `);
+      
+      console.log(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} novelty_score=${noveltyScore} for candidate="${candidate.strategyName}"`);
+    } catch (noveltyError) {
+      console.warn(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} failed to calculate novelty:`, noveltyError);
+    }
+  }
+  
   // Create AI injection record for feedback tracking (works for Perplexity and other providers)
   if (candidateId && disposition !== "REJECTED") {
     try {

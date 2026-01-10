@@ -285,6 +285,21 @@ if (isWorkerOnlyMode) {
           }).catch(err => {
             log(`[STARTUP] Schema validation error: ${err.message}`);
           });
+          
+          // Backfill novelty scores for strategy candidates that are missing them
+          // This ensures uniqueness badges display actual values instead of N/A
+          import('./strategy-lab-engine').then(async ({ backfillNoveltyScores }) => {
+            try {
+              const result = await backfillNoveltyScores();
+              if (result.updated > 0) {
+                log(`[STARTUP] Novelty scores backfilled: ${result.updated} updated, ${result.errors} errors`);
+              }
+            } catch (err) {
+              log(`[STARTUP] Novelty backfill error: ${err instanceof Error ? err.message : 'unknown'}`);
+            }
+          }).catch(err => {
+            log(`[STARTUP] Failed to import strategy-lab-engine: ${err.message}`);
+          });
         })();
       } else {
         log(`[STARTUP] WARNING: Running in degraded mode - DB-dependent features disabled`);
