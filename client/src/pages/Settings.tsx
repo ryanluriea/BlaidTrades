@@ -1535,8 +1535,8 @@ export default function Settings() {
   const updateSettings = useUpdateAppSettings();
   const queryClient = useQueryClient();
 
-  // Valid tab values for Settings page
-  const validTabs = ["profile", "general", "security", "risk", "labs", "appearance", "notifications", "cloud-backup", "prompts"];
+  // Valid tab values for Settings page (consolidated: General+Theme→Preferences, Labs→Autonomy, Migrate+Cloud→Backup)
+  const validTabs = ["profile", "preferences", "security", "risk", "autonomy", "notifications", "llm-budget", "backup"];
   
   // Read initial tab from URL parameter, validate against known tabs, default to "profile"
   const [activeTab, setActiveTab] = useState(() => {
@@ -1734,81 +1734,70 @@ export default function Settings() {
     <AppLayout title="Settings">
       <div className="space-y-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="h-auto p-1 bg-muted/50 border border-border rounded-md flex flex-wrap gap-1">
+          <TabsList className="h-auto p-1.5 bg-muted/30 border border-border rounded-lg flex flex-wrap gap-1">
             <TabsTrigger 
               value="profile" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-primary/20 rounded-sm" 
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border rounded-md transition-colors" 
               data-testid="tab-profile"
             >
               <User className="w-4 h-4" />
               Profile
             </TabsTrigger>
             <TabsTrigger 
-              value="general" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-sm"
+              value="preferences" 
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border rounded-md transition-colors"
+              data-testid="tab-preferences"
             >
               <SettingsIcon className="w-4 h-4" />
-              General
+              Preferences
             </TabsTrigger>
             <TabsTrigger 
               value="security" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-sm"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border rounded-md transition-colors"
+              data-testid="tab-security"
             >
               <Lock className="w-4 h-4" />
               Security
             </TabsTrigger>
             <TabsTrigger 
               value="risk" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-sm"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border rounded-md transition-colors"
+              data-testid="tab-risk"
             >
               <Shield className="w-4 h-4" />
               Risk
             </TabsTrigger>
             <TabsTrigger 
-              value="labs" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-sm"
+              value="autonomy" 
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border rounded-md transition-colors"
+              data-testid="tab-autonomy"
             >
               <FlaskConical className="w-4 h-4" />
-              Labs
-            </TabsTrigger>
-            <TabsTrigger 
-              value="appearance" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-sm"
-            >
-              <Palette className="w-4 h-4" />
-              Theme
+              Autonomy
             </TabsTrigger>
             <TabsTrigger 
               value="notifications" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-sm" 
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border rounded-md transition-colors" 
               data-testid="tab-notifications"
             >
               <Bell className="w-4 h-4" />
-              Notify
+              Notifications
             </TabsTrigger>
             <TabsTrigger 
               value="llm-budget" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-sm" 
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border rounded-md transition-colors" 
               data-testid="tab-llm-budget"
             >
               <Cpu className="w-4 h-4" />
               AI/LLM
             </TabsTrigger>
             <TabsTrigger 
-              value="data-migration" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-sm" 
-              data-testid="tab-data-migration"
+              value="backup" 
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border rounded-md transition-colors" 
+              data-testid="tab-backup"
             >
               <Database className="w-4 h-4" />
-              Migrate
-            </TabsTrigger>
-            <TabsTrigger 
-              value="cloud-backup" 
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-sm" 
-              data-testid="tab-cloud-backup"
-            >
-              <Cloud className="w-4 h-4" />
-              Cloud
+              Backup
             </TabsTrigger>
           </TabsList>
 
@@ -1849,77 +1838,110 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="general">
-            <Card>
-              <CardHeader>
-                <CardTitle>General Settings</CardTitle>
-                <CardDescription>Configure general application settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="timezone">Timezone</Label>
-                  <Select 
-                    value={generalSettings.timezone} 
-                    onValueChange={(v) => setGeneralSettings({ ...generalSettings, timezone: v })}
-                  >
-                    <SelectTrigger id="timezone">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
-                      <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
-                      <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
-                      <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
-                      <SelectItem value="UTC">UTC</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <TabsContent value="preferences">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>General Settings</CardTitle>
+                  <CardDescription>Configure timezone and currency preferences</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="timezone">Timezone</Label>
+                    <Select 
+                      value={generalSettings.timezone} 
+                      onValueChange={(v) => setGeneralSettings({ ...generalSettings, timezone: v })}
+                    >
+                      <SelectTrigger id="timezone">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                        <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                        <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                        <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+                        <SelectItem value="UTC">UTC</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="currency">Default Currency</Label>
-                  <Select 
-                    value={generalSettings.currency} 
-                    onValueChange={(v) => setGeneralSettings({ ...generalSettings, currency: v })}
-                  >
-                    <SelectTrigger id="currency">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD ($)</SelectItem>
-                      <SelectItem value="EUR">EUR (€)</SelectItem>
-                      <SelectItem value="GBP">GBP (£)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="currency">Default Currency</Label>
+                    <Select 
+                      value={generalSettings.currency} 
+                      onValueChange={(v) => setGeneralSettings({ ...generalSettings, currency: v })}
+                    >
+                      <SelectTrigger id="currency">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD ($)</SelectItem>
+                        <SelectItem value="EUR">EUR (€)</SelectItem>
+                        <SelectItem value="GBP">GBP (£)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <Button onClick={handleSaveGeneral} disabled={updateSettings.isPending}>
-                  {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Save Changes
-                </Button>
-              </CardContent>
-            </Card>
+                  <Button onClick={handleSaveGeneral} disabled={updateSettings.isPending}>
+                    {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Save General Settings
+                  </Button>
+                </CardContent>
+              </Card>
 
-            <Card className="mt-6 border-destructive/30">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-destructive">
-                  <LogOut className="w-5 h-5" />
-                  Sign Out
-                </CardTitle>
-                <CardDescription>
-                  Sign out of your BlaidAgent account on this device
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button 
-                  variant="destructive" 
-                  onClick={signOut}
-                  data-testid="button-sign-out"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Appearance</CardTitle>
+                  <CardDescription>Customize the look and feel</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label>Theme</Label>
+                    <Select value={theme} onValueChange={(v) => setTheme(v as any)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="dark">Dark</SelectItem>
+                        <SelectItem value="system">System</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Compact Mode</p>
+                      <p className="text-sm text-muted-foreground">
+                        Reduce spacing for denser information display
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={appearanceSettings.compact_mode}
+                      onCheckedChange={(v) => setAppearanceSettings({ ...appearanceSettings, compact_mode: v })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Show P&L Colors</p>
+                      <p className="text-sm text-muted-foreground">
+                        Use green/red colors for profit/loss values
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={appearanceSettings.show_pnl_colors}
+                      onCheckedChange={(v) => setAppearanceSettings({ ...appearanceSettings, show_pnl_colors: v })}
+                    />
+                  </div>
+
+                  <Button onClick={handleSaveAppearance} disabled={updateSettings.isPending}>
+                    {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Save Appearance
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="security">
@@ -2141,11 +2163,14 @@ export default function Settings() {
             </div>
           </TabsContent>
 
-          <TabsContent value="labs">
+          <TabsContent value="autonomy">
             <Card>
               <CardHeader>
-                <CardTitle>Labs (Experimental)</CardTitle>
-                <CardDescription>Autonomy and experimental features for semi-autonomous operation</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <FlaskConical className="w-5 h-5" />
+                  Autonomy Settings
+                </CardTitle>
+                <CardDescription>Configure autonomous operation features for zero-intervention trading</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -2202,62 +2227,7 @@ export default function Settings() {
 
                 <Button onClick={handleSaveLabs} disabled={updateSettings.isPending}>
                   {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Save Lab Settings
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="appearance">
-            <Card>
-              <CardHeader>
-                <CardTitle>Appearance</CardTitle>
-                <CardDescription>Customize the look and feel</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Theme</Label>
-                  <Select value={theme} onValueChange={(v) => setTheme(v as any)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="light">Light</SelectItem>
-                      <SelectItem value="dark">Dark</SelectItem>
-                      <SelectItem value="system">System</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Compact Mode</p>
-                    <p className="text-sm text-muted-foreground">
-                      Reduce spacing for denser information display
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={appearanceSettings.compact_mode}
-                    onCheckedChange={(v) => setAppearanceSettings({ ...appearanceSettings, compact_mode: v })}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Show P&L Colors</p>
-                    <p className="text-sm text-muted-foreground">
-                      Use green/red colors for profit/loss values
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={appearanceSettings.show_pnl_colors}
-                    onCheckedChange={(v) => setAppearanceSettings({ ...appearanceSettings, show_pnl_colors: v })}
-                  />
-                </div>
-
-                <Button onClick={handleSaveAppearance} disabled={updateSettings.isPending}>
-                  {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Save Appearance
+                  Save Autonomy Settings
                 </Button>
               </CardContent>
             </Card>
@@ -2369,12 +2339,11 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="data-migration">
-            <DataMigrationSection />
-          </TabsContent>
-
-          <TabsContent value="cloud-backup">
-            <CloudBackupSection />
+          <TabsContent value="backup">
+            <div className="space-y-6">
+              <CloudBackupSection />
+              <DataMigrationSection />
+            </div>
           </TabsContent>
 
           <TabsContent value="prompts">

@@ -17425,6 +17425,174 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // =========== PROFILE & ACCOUNT MANAGEMENT ENDPOINTS ===========
+
+  // Update profile (username only)
+  app.put("/api/auth/profile", requireAuth, csrfProtection, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    const userId = req.session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Authentication required", trace_id: traceId });
+    }
+    
+    const { username } = req.body;
+    
+    if (!username || typeof username !== "string" || username.trim().length < 2) {
+      return res.status(400).json({ success: false, error: "Username must be at least 2 characters", trace_id: traceId });
+    }
+    
+    console.log(`[PROFILE_UPDATE] trace_id=${traceId} userId=${userId.slice(0, 8)}`);
+    
+    try {
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, error: "User not found", trace_id: traceId });
+      }
+      
+      await storage.updateUser(userId, { username: username.trim() });
+      
+      // Update session
+      if (req.session) {
+        req.session.username = username.trim();
+      }
+      
+      console.log(`[PROFILE_UPDATE] trace_id=${traceId} success username_updated`);
+      res.json({ success: true, message: "Profile updated successfully", trace_id: traceId });
+    } catch (error: any) {
+      console.error(`[PROFILE_UPDATE] trace_id=${traceId} error=`, error.message);
+      res.status(500).json({ success: false, error: "Failed to update profile", trace_id: traceId });
+    }
+  });
+
+  // Change email (requires current password verification)
+  app.put("/api/auth/email", requireAuth, csrfProtection, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    const userId = req.session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Authentication required", trace_id: traceId });
+    }
+    
+    const { newEmail, currentPassword } = req.body;
+    
+    if (!newEmail || typeof newEmail !== "string") {
+      return res.status(400).json({ success: false, error: "New email is required", trace_id: traceId });
+    }
+    
+    if (!currentPassword || typeof currentPassword !== "string") {
+      return res.status(400).json({ success: false, error: "Current password is required", trace_id: traceId });
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      return res.status(400).json({ success: false, error: "Invalid email format", trace_id: traceId });
+    }
+    
+    console.log(`[EMAIL_CHANGE] trace_id=${traceId} userId=${userId.slice(0, 8)}`);
+    
+    try {
+      const bcrypt = await import("bcryptjs");
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ success: false, error: "User not found", trace_id: traceId });
+      }
+      
+      // Verify current password
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        console.log(`[EMAIL_CHANGE] trace_id=${traceId} error=INVALID_PASSWORD`);
+        return res.status(401).json({ success: false, error: "Incorrect password", trace_id: traceId });
+      }
+      
+      // Check if new email is already in use
+      const existingUser = await storage.getUserByEmail(newEmail.toLowerCase().trim());
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).json({ success: false, error: "Email is already in use", trace_id: traceId });
+      }
+      
+      await storage.updateUser(userId, { email: newEmail.toLowerCase().trim() });
+      
+      // Update session
+      if (req.session) {
+        req.session.email = newEmail.toLowerCase().trim();
+      }
+      
+      console.log(`[EMAIL_CHANGE] trace_id=${traceId} success email_updated`);
+      res.json({ success: true, message: "Email updated successfully", trace_id: traceId });
+    } catch (error: any) {
+      console.error(`[EMAIL_CHANGE] trace_id=${traceId} error=`, error.message);
+      res.status(500).json({ success: false, error: "Failed to update email", trace_id: traceId });
+    }
+  });
+
+  // Change password (requires current password verification)
+  app.put("/api/auth/password", requireAuth, csrfProtection, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    const userId = req.session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Authentication required", trace_id: traceId });
+    }
+    
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ success: false, error: "All password fields are required", trace_id: traceId });
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ success: false, error: "New passwords do not match", trace_id: traceId });
+    }
+    
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, error: "Password must be at least 8 characters", trace_id: traceId });
+    }
+    
+    // Password complexity validation
+    const hasUpperCase = /[A-Z]/.test(newPassword);
+    const hasLowerCase = /[a-z]/.test(newPassword);
+    const hasNumbers = /\d/.test(newPassword);
+    
+    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Password must contain uppercase, lowercase, and a number", 
+        trace_id: traceId 
+      });
+    }
+    
+    console.log(`[PASSWORD_CHANGE] trace_id=${traceId} userId=${userId.slice(0, 8)}`);
+    
+    try {
+      const bcrypt = await import("bcryptjs");
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ success: false, error: "User not found", trace_id: traceId });
+      }
+      
+      // Verify current password
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        console.log(`[PASSWORD_CHANGE] trace_id=${traceId} error=INVALID_PASSWORD`);
+        return res.status(401).json({ success: false, error: "Incorrect current password", trace_id: traceId });
+      }
+      
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(userId, { password: hashedPassword });
+      
+      console.log(`[PASSWORD_CHANGE] trace_id=${traceId} success password_updated`);
+      res.json({ success: true, message: "Password updated successfully", trace_id: traceId });
+    } catch (error: any) {
+      console.error(`[PASSWORD_CHANGE] trace_id=${traceId} error=`, error.message);
+      res.status(500).json({ success: false, error: "Failed to update password", trace_id: traceId });
+    }
+  });
+
   // =========== 2FA AUTHENTICATION ENDPOINTS ===========
   
   // Setup 2FA - generates TOTP secret and QR code (requires session auth)
