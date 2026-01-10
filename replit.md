@@ -154,6 +154,12 @@ Estimated cost: $110-300/month for production with auto-scaling.
 - **Impact**: Dashboard correctly displays backup count (e.g., "1" instead of "0") after this fix
 - **Verified**: Logs show `[BACKUP_SERVICE] Dashboard: Got 1 backups` and `/api/cloud-backup/dashboard 200 722ms`
 
+### 2026-01-10: Legacy Backup Discovery Fixed
+- **Root Cause**: `listBackupsForUser` only searched the `BlaidTrades_Backups` folder, missing legacy backups stored in the Drive root before the folder system was implemented
+- **Fix**: Now executes parallel queries for both folder backups and legacy root backups (`name contains 'blaidtrades_backup'`), merges results by ID, and sorts by createdTime desc
+- **Impact**: All 4 user backups now correctly discovered (1 in folder + 3 legacy in root) instead of just 1
+- **Verified**: Logs show `Found 1 in folder, 3 legacy (747ms)` and `Total 4 backup files`
+
 ### 2026-01-10: Industry-Standard Resilience Improvements
 - **Google Drive Retry/Backoff**: Added exponential backoff with jitter for all Google Drive API calls (`server/google-drive-client.ts`)
   - Rate limit (429) and server errors (5xx) automatically retry up to 3 times
