@@ -417,28 +417,35 @@ export function translateToLEAN(input: StrategyTranslationInput): TranslationRes
       const hasValidLong = !parsedRules.longEntry.startsWith('False');
       const hasValidShort = !parsedRules.shortEntry.startsWith('False');
       
-      if (hasValidLong || hasValidShort) {
-        // Use parsed rules - at least one direction has valid conditions
-        console.log(`[LEAN_TRANSLATOR] Parsed rules valid: long=${hasValidLong} short=${hasValidShort}`);
-        signalLogic = `
+      // Get archetype-based fallback logic for per-direction fallbacks
+      const archetypeFallback = getSignalLogic(input.archetype, input.strategyConfig);
+      const archetypeLongMatch = archetypeFallback.match(/def should_enter_long\(self, price\):[\s\S]*?return (.*?)$/m);
+      const archetypeShortMatch = archetypeFallback.match(/def should_enter_short\(self, price\):[\s\S]*?return (.*?)$/m);
+      
+      // Per-direction fallback: if one direction parses but not the other, use archetype for the missing direction
+      const longLogic = hasValidLong 
+        ? parsedRules.longEntry 
+        : (archetypeLongMatch?.[1] || 'price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < 30');
+      const shortLogic = hasValidShort 
+        ? parsedRules.shortEntry 
+        : (archetypeShortMatch?.[1] || 'price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > 70');
+      
+      console.log(`[LEAN_TRANSLATOR] Per-direction: long=${hasValidLong ? 'PARSED' : 'FALLBACK'} short=${hasValidShort ? 'PARSED' : 'FALLBACK'}`);
+      
+      signalLogic = `
     def should_enter_long(self, price):
-        """Long entry signal - parsed from rules_json"""
+        """Long entry signal - ${hasValidLong ? 'parsed from rules_json' : 'archetype fallback'}"""
         if not self.IndicatorsReady():
             return False
-        # Parsed from rules_json entry conditions: ${JSON.stringify(input.rulesJson?.entry?.slice(0, 2))}
-        return ${parsedRules.longEntry}
+        # ${hasValidLong ? `Parsed: ${JSON.stringify(input.rulesJson?.entry?.slice(0, 2))}` : `Fallback: archetype=${input.archetype}`}
+        return ${longLogic}
     
     def should_enter_short(self, price):
-        """Short entry signal - parsed from rules_json"""
+        """Short entry signal - ${hasValidShort ? 'parsed from rules_json' : 'archetype fallback'}"""
         if not self.IndicatorsReady():
             return False
-        # Parsed from rules_json entry conditions
-        return ${parsedRules.shortEntry}`;
-      } else {
-        // Parser yielded no valid conditions - fallback to archetype
-        console.log(`[LEAN_TRANSLATOR] Parser yielded empty conditions for ${input.botName}, falling back to archetype=${input.archetype}`);
-        signalLogic = getSignalLogic(input.archetype, input.strategyConfig);
-      }
+        # ${hasValidShort ? 'Parsed from rules_json' : `Fallback: archetype=${input.archetype}`}
+        return ${shortLogic}`;
     } else {
       // No rulesJson - use archetype-based signals
       console.log(`[LEAN_TRANSLATOR] Using ARCHETYPE FALLBACK for ${input.botName}: archetype=${input.archetype}`);

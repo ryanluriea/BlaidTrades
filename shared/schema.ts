@@ -1695,10 +1695,10 @@ export const costCategoryEnum = pgEnum("cost_category", [
   "llm", "data_market", "data_options", "data_macro", "data_news", "compute"
 ]);
 
-// Bot cost events - tracks every cost-incurring action per bot
+// Bot cost events - tracks every cost-incurring action per bot (or system-level costs)
 export const botCostEvents = pgTable("bot_cost_events", {
   id: uuid("id").primaryKey().defaultRandom(),
-  botId: uuid("bot_id").notNull().references(() => bots.id),
+  botId: uuid("bot_id"), // Nullable for system-level costs (Strategy Lab research, etc.)
   userId: uuid("user_id").notNull().references(() => users.id),
   category: costCategoryEnum("category").notNull(),
   provider: text("provider").notNull(), // e.g., "groq", "databento", "unusual_whales"

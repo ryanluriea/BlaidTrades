@@ -12,6 +12,7 @@ import { startMemorySentinel, loadSheddingMiddleware, getInstanceId, registerSch
 import { trimCacheForMemoryPressure } from "./bar-cache";
 import { execSync } from "child_process";
 import { requestInstrumentationMiddleware } from "./middleware/request-instrumentation";
+import { securityHeaders } from "./security-middleware";
 
 // Check for worker-only mode (for AWS ECS worker tier)
 const isWorkerOnlyMode = process.argv.includes("--worker-only") || process.env.WORKER_MODE === "true";
@@ -147,6 +148,7 @@ if (isWorkerOnlyMode) {
   const app = express();
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
+  app.use(securityHeaders); // Security headers (HSTS, CSP, X-Frame-Options, etc.)
   app.use(loadSheddingMiddleware);
   app.use(requestInstrumentationMiddleware);
 

@@ -73,17 +73,24 @@ try {
 // - pool: Worker pool for background jobs (backtests, runners)
 // This prevents background workers from starving user requests
 
-const STATEMENT_TIMEOUT_MS = 5000;
-const STATEMENT_TIMEOUT_WORKERS_MS = 15000; // Workers get longer timeout
-const CONNECTION_TIMEOUT_MS = 5000; // Fast fail for web requests
-const CONNECTION_TIMEOUT_WORKERS_MS = 10000;
+// All pool settings configurable via environment variables for production tuning
+const STATEMENT_TIMEOUT_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_WEB_MS || "5000", 10);
+const STATEMENT_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_WORKER_MS || "15000", 10);
+const CONNECTION_TIMEOUT_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WEB_MS || "5000", 10);
+const CONNECTION_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WORKER_MS || "10000", 10);
+const IDLE_TIMEOUT_MS = parseInt(process.env.DB_IDLE_TIMEOUT_MS || "30000", 10);
+const POOL_WEB_MAX = parseInt(process.env.DB_POOL_WEB_MAX || "6", 10);
+const POOL_WORKER_MAX = parseInt(process.env.DB_POOL_WORKER_MAX || "12", 10);
+const POOL_WRITER_MAX = parseInt(process.env.DB_POOL_WRITER_MAX || "4", 10);
+
+console.log(`[DB_POOL] Config: web_max=${POOL_WEB_MAX} worker_max=${POOL_WORKER_MAX} idle_timeout=${IDLE_TIMEOUT_MS}ms`);
 
 // HIGH-PRIORITY: Web/Auth pool - reserved for user-facing requests
 // Increased to handle concurrent API load without starvation
 export const poolWeb = new Pool({ 
   connectionString: DATABASE_URL,
-  max: 6, // Increased from 4 to handle API bursts
-  idleTimeoutMillis: 30000,
+  max: POOL_WEB_MAX,
+  idleTimeoutMillis: IDLE_TIMEOUT_MS,
   connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
   allowExitOnIdle: true,
   options: `-c statement_timeout=${STATEMENT_TIMEOUT_MS}`,
@@ -94,8 +101,8 @@ export const poolWeb = new Pool({
 // Increased to prevent connection starvation during heavy workloads
 export const pool = new Pool({ 
   connectionString: DATABASE_READER_URL || DATABASE_URL,
-  max: 12, // Increased from 8 to handle concurrent job processing
-  idleTimeoutMillis: 30000,
+  max: POOL_WORKER_MAX,
+  idleTimeoutMillis: IDLE_TIMEOUT_MS,
   connectionTimeoutMillis: CONNECTION_TIMEOUT_WORKERS_MS,
   allowExitOnIdle: true,
   options: `-c statement_timeout=${STATEMENT_TIMEOUT_WORKERS_MS}`,
@@ -104,8 +111,8 @@ export const pool = new Pool({
 // Writer pool for worker mutations (when using reader for reads)
 export const poolWriter = DATABASE_READER_URL ? new Pool({ 
   connectionString: DATABASE_URL,
-  max: 4, // Dedicated writer connections
-  idleTimeoutMillis: 30000,
+  max: POOL_WRITER_MAX,
+  idleTimeoutMillis: IDLE_TIMEOUT_MS,
   connectionTimeoutMillis: CONNECTION_TIMEOUT_WORKERS_MS,
   allowExitOnIdle: true,
   options: `-c statement_timeout=${STATEMENT_TIMEOUT_WORKERS_MS}`,

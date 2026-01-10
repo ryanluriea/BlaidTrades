@@ -560,7 +560,7 @@ async function updateBudgetSpend(userId: string, costUsd: number): Promise<void>
 }
 
 async function logCostEvent(
-  botId: string,
+  botId: string | null,
   userId: string,
   inputTokens: number,
   outputTokens: number,
@@ -570,7 +570,7 @@ async function logCostEvent(
 ): Promise<void> {
   try {
     await db.insert(botCostEvents).values({
-      botId,
+      botId: botId || null, // Allow null for system-level research costs
       userId,
       category: "llm",
       provider: "xai",
@@ -757,7 +757,7 @@ export async function runGrokResearch(
     if (userId) {
       await updateBudgetSpend(userId, costUsd);
       await logCostEvent(
-        context?.sourceLabBotId || "00000000-0000-0000-0000-000000000000",
+        context?.sourceLabBotId || null, // Null for system-level research costs
         userId,
         inputTokens,
         outputTokens,

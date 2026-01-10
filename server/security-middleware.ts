@@ -124,6 +124,46 @@ export function clearDeviceBinding(tokenHash: string) {
   deviceBindings.delete(tokenHash);
 }
 
+/**
+ * Security headers middleware for production hardening
+ * Adds HSTS, CSP, X-Frame-Options, and other security headers
+ */
+export function securityHeaders(req: Request, res: Response, next: NextFunction) {
+  // HSTS - Force HTTPS (only in production with proper SSL)
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  
+  // Prevent clickjacking
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  
+  // XSS protection
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  
+  // Prevent MIME sniffing
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  
+  // Referrer policy
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  
+  // Content Security Policy - restrictive but allows necessary resources
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Allow inline scripts for React
+    "style-src 'self' 'unsafe-inline'", // Allow inline styles for CSS-in-JS
+    "img-src 'self' data: https: blob:",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' wss: https:",
+    "frame-ancestors 'self'",
+  ].join("; ");
+  res.setHeader("Content-Security-Policy", csp);
+  
+  // Permissions policy
+  res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+  
+  next();
+}
+
 setInterval(() => {
   const now = Date.now();
   for (const [key, record] of rateLimitStore.entries()) {

@@ -117,10 +117,14 @@ class LivePnLWebSocketServer {
   private wss: WebSocketServer | null = null;
   private clients: Map<WebSocket, ClientState> = new Map();
   private lastBroadcast: Map<string, number> = new Map();
-  private readonly THROTTLE_MS = 100;
-  private readonly SESSION_CHECK_INTERVAL_MS = 60_000;
+  // Configurable via environment variables for production tuning
+  private readonly THROTTLE_MS = parseInt(process.env.WS_THROTTLE_MS || "100", 10);
+  private readonly SESSION_CHECK_INTERVAL_MS = parseInt(process.env.WS_SESSION_CHECK_MS || "60000", 10);
+  private readonly IDLE_TIMEOUT_MS = parseInt(process.env.WS_IDLE_TIMEOUT_MS || "300000", 10); // 5 min default
+  private readonly BROADCAST_MAP_TTL_MS = parseInt(process.env.WS_BROADCAST_TTL_MS || "300000", 10); // 5 min TTL for lastBroadcast cleanup
   private readonly REQUIRE_AUTH = process.env.WS_REQUIRE_AUTH !== "false";
   private sessionCheckInterval: NodeJS.Timeout | null = null;
+  private broadcastCleanupInterval: NodeJS.Timeout | null = null;
   /** Global sequence counter for ordering updates - monotonically increasing */
   private updateSequence: number = 0;
 
@@ -329,24 +333,24 @@ class LivePnLWebSocketServer {
   private startSessionCheck(): void {
     if (this.sessionCheckInterval) return;
     
-    const IDLE_TIMEOUT_MS = 5 * 60_000; // 5 minutes idle = disconnect
-    const SESSION_REVALIDATION_INTERVAL_MS = 60_000; // Re-check session every 60s
+    // Start broadcast map TTL cleanup to prevent memory leaks
+    this.startBroadcastCleanup();
 
     this.sessionCheckInterval = setInterval(async () => {
       const now = Date.now();
       const clientsToRemove: WebSocket[] = [];
       
       for (const [ws, client] of this.clients.entries()) {
-        // Check 1: Idle timeout (no activity for 5 minutes)
-        if (now - client.lastActivity > IDLE_TIMEOUT_MS) {
+        // Check 1: Idle timeout (configurable via WS_IDLE_TIMEOUT_MS env var)
+        if (now - client.lastActivity > this.IDLE_TIMEOUT_MS) {
           console.log(`[WS_SERVER] IDLE_TIMEOUT user=${client.userId?.slice(0,8) || "anon"} idle=${Math.round((now - client.lastActivity) / 1000)}s`);
           clientsToRemove.push(ws);
           continue;
         }
         
-        // Check 2: Session re-validation (every 60 seconds)
+        // Check 2: Session re-validation (configurable via WS_SESSION_CHECK_MS env var)
         if (client.authenticated && client.sessionId && 
-            (now - client.lastSessionValidation > SESSION_REVALIDATION_INTERVAL_MS)) {
+            (now - client.lastSessionValidation > this.SESSION_CHECK_INTERVAL_MS)) {
           const stillValid = await this.validateSessionStillValid(client.sessionId);
           
           if (!stillValid) {
@@ -579,16 +583,45 @@ class LivePnLWebSocketServer {
     };
   }
 
+  /**
+   * Periodically clean up stale entries in lastBroadcast map to prevent memory leaks
+   * Entries older than BROADCAST_MAP_TTL_MS are removed
+   */
+  private startBroadcastCleanup(): void {
+    if (this.broadcastCleanupInterval) return;
+    
+    this.broadcastCleanupInterval = setInterval(() => {
+      const now = Date.now();
+      let cleaned = 0;
+      
+      for (const [key, timestamp] of this.lastBroadcast.entries()) {
+        if (now - timestamp > this.BROADCAST_MAP_TTL_MS) {
+          this.lastBroadcast.delete(key);
+          cleaned++;
+        }
+      }
+      
+      if (cleaned > 0) {
+        console.log(`[WS_SERVER] BROADCAST_CLEANUP removed ${cleaned} stale entries, remaining=${this.lastBroadcast.size}`);
+      }
+    }, 60_000); // Run cleanup every minute
+  }
+
   shutdown(): void {
     if (this.sessionCheckInterval) {
       clearInterval(this.sessionCheckInterval);
       this.sessionCheckInterval = null;
+    }
+    if (this.broadcastCleanupInterval) {
+      clearInterval(this.broadcastCleanupInterval);
+      this.broadcastCleanupInterval = null;
     }
     if (this.wss) {
       this.wss.close();
       this.wss = null;
     }
     this.clients.clear();
+    this.lastBroadcast.clear();
   }
 }
 

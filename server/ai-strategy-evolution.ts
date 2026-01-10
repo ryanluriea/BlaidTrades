@@ -53,7 +53,7 @@ interface CostEventMetadata {
 }
 
 async function logCostEvent(
-  botId: string,
+  botId: string | null,
   userId: string,
   provider: string,
   model: string,
@@ -65,7 +65,7 @@ async function logCostEvent(
 ): Promise<void> {
   try {
     await db.insert(botCostEvents).values({
-      botId,
+      botId: botId || null, // Allow null for system-level costs
       userId,
       category: "llm",
       provider,
@@ -2304,7 +2304,7 @@ export async function runPerplexityResearch(
       if (userId) {
         await updateBudgetSpend(userId, provider, costUsd);
         await logCostEvent(
-          context?.sourceLabBotId || "00000000-0000-0000-0000-000000000000",
+          context?.sourceLabBotId || null, // Null for system-level research costs
           userId,
           provider,
           config.model,
