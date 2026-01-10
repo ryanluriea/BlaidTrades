@@ -755,6 +755,20 @@ export function setStrategyLabPlaying(playing: boolean, reason?: string): Strate
     pauseReason: playing ? undefined : reason,
   };
   console.log(`[STRATEGY_LAB] state changed: isPlaying=${playing}${reason ? ` reason=${reason}` : ''}`);
+  
+  // CRITICAL: When pausing, broadcast IDLE state so WebSocket clients clear live indicators
+  // When resuming, don't broadcast - let the scheduler update activity when the next cycle starts
+  if (!playing) {
+    setResearchActivity({
+      isActive: false,
+      phase: "IDLE",
+      provider: null,
+      message: reason || "Strategy Lab paused",
+      candidatesFound: 0,
+      traceId: null,
+    });
+  }
+  
   return getStrategyLabState();
 }
 
