@@ -820,12 +820,22 @@ export async function getBackupQuickStatus(userId?: string): Promise<{
   };
 }
 
-const DASHBOARD_TIMEOUT_MS = 3000;
+const DASHBOARD_TIMEOUT_MS = 30000; // Increased to 30s for Google Drive API (production latency can be high)
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T, label?: string): Promise<T> {
+  let didTimeout = false;
   return Promise.race([
-    promise,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs))
+    promise.then(result => {
+      if (didTimeout) {
+        console.log(`[BACKUP_SERVICE] ${label || 'Operation'} completed AFTER timeout was triggered`);
+      }
+      return result;
+    }),
+    new Promise<T>((resolve) => setTimeout(() => {
+      didTimeout = true;
+      console.warn(`[BACKUP_SERVICE] TIMEOUT: ${label || 'Operation'} exceeded ${timeoutMs}ms, returning fallback`);
+      resolve(fallback);
+    }, timeoutMs))
   ]);
 }
 
@@ -882,7 +892,7 @@ export async function getCloudBackupDashboard(userId?: string): Promise<{
   const connectedPromise = userId 
     ? isGoogleDriveConnectedForUser(userId) 
     : isGoogleDriveConnected();
-  const connected = await withTimeout(connectedPromise, DASHBOARD_TIMEOUT_MS, false);
+  const connected = await withTimeout(connectedPromise, DASHBOARD_TIMEOUT_MS, false, 'isGoogleDriveConnected');
   
   if (userId) {
     setCachedConnectionStatus(userId, connected);
@@ -906,10 +916,12 @@ export async function getCloudBackupDashboard(userId?: string): Promise<{
   }
 
   const { listBackupsForUser } = await import("./google-drive-client");
+  console.log(`[BACKUP_SERVICE] Dashboard: Fetching backups for user ${userId?.substring(0, 8) || 'default'}...`);
   const backupsPromise = userId 
     ? listBackupsForUser(userId) 
     : listBackups();
-  const backups = await withTimeout(backupsPromise, DASHBOARD_TIMEOUT_MS, []);
+  const backups = await withTimeout(backupsPromise, DASHBOARD_TIMEOUT_MS, [], 'listBackups');
+  console.log(`[BACKUP_SERVICE] Dashboard: Got ${backups.length} backups`);
   const totalSize = backups.reduce((sum, b) => sum + parseInt(b.size || '0', 10), 0);
   
   if (backups.length > 0 && backups[0].createdTime) {

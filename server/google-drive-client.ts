@@ -156,25 +156,34 @@ export async function isGoogleDriveConnected(): Promise<boolean> {
 }
 
 export async function isGoogleDriveConnectedForUser(userId: string): Promise<boolean> {
+  const startTime = Date.now();
+  console.log(`[GOOGLE_DRIVE] isConnectedForUser: Checking for user ${userId.substring(0, 8)}...`);
+  
   // Check cache first for instant response
   const cached = getCachedConnectionStatus(userId);
   if (cached !== null) {
+    console.log(`[GOOGLE_DRIVE] isConnectedForUser: Cache hit=${cached} for user ${userId.substring(0, 8)} (${Date.now() - startTime}ms)`);
     return cached;
   }
   
   const userToken = await fetchUserOAuthToken(userId);
   if (userToken) {
+    console.log(`[GOOGLE_DRIVE] isConnectedForUser: User OAuth token found for user ${userId.substring(0, 8)} (${Date.now() - startTime}ms)`);
     setCachedConnectionStatus(userId, true);
     return true;
   }
   
+  console.log(`[GOOGLE_DRIVE] isConnectedForUser: No user token, checking Replit connector... (${Date.now() - startTime}ms)`);
+  
   if (!hasReplitConnectorConfigured()) {
+    console.log(`[GOOGLE_DRIVE] isConnectedForUser: No Replit connector configured, user ${userId.substring(0, 8)} not connected (${Date.now() - startTime}ms)`);
     setCachedConnectionStatus(userId, false);
     return false;
   }
   
   const replitToken = await fetchReplitConnectorToken();
   const connected = !!replitToken;
+  console.log(`[GOOGLE_DRIVE] isConnectedForUser: Replit connector=${connected} for user ${userId.substring(0, 8)} (${Date.now() - startTime}ms)`);
   setCachedConnectionStatus(userId, connected);
   return connected;
 }
@@ -208,29 +217,39 @@ export async function ensureBackupFolder(): Promise<string> {
 }
 
 export async function ensureBackupFolderForUser(userId: string): Promise<string> {
-  const drive = await getGoogleDriveClientForUser(userId);
-  
-  const response = await drive.files.list({
-    q: `name='${BACKUP_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-    fields: 'files(id, name)',
-  });
+  try {
+    const drive = await getGoogleDriveClientForUser(userId);
+    
+    const query = `name='${BACKUP_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    console.log(`[GOOGLE_DRIVE] ensureBackupFolderForUser: Searching for folder with query: ${query}`);
+    
+    const response = await drive.files.list({
+      q: query,
+      fields: 'files(id, name)',
+    });
 
-  if (response.data.files && response.data.files.length > 0) {
-    return response.data.files[0].id!;
+    if (response.data.files && response.data.files.length > 0) {
+      console.log(`[GOOGLE_DRIVE] ensureBackupFolderForUser: Found existing folder ${response.data.files[0].id}`);
+      return response.data.files[0].id!;
+    }
+
+    console.log(`[GOOGLE_DRIVE] ensureBackupFolderForUser: No folder found, creating new one`);
+    const folderMetadata = {
+      name: BACKUP_FOLDER_NAME,
+      mimeType: 'application/vnd.google-apps.folder',
+    };
+
+    const folder = await drive.files.create({
+      requestBody: folderMetadata,
+      fields: 'id',
+    });
+
+    console.log(`[GOOGLE_DRIVE] Created backup folder for user ${userId.substring(0, 8)}: ${folder.data.id}`);
+    return folder.data.id!;
+  } catch (error: any) {
+    console.error(`[GOOGLE_DRIVE] ensureBackupFolderForUser: ERROR for user ${userId.substring(0, 8)}:`, error.message || error);
+    throw error;
   }
-
-  const folderMetadata = {
-    name: BACKUP_FOLDER_NAME,
-    mimeType: 'application/vnd.google-apps.folder',
-  };
-
-  const folder = await drive.files.create({
-    requestBody: folderMetadata,
-    fields: 'id',
-  });
-
-  console.log(`[GOOGLE_DRIVE] Created backup folder for user ${userId}: ${folder.data.id}`);
-  return folder.data.id!;
 }
 
 export interface BackupMetadata {
@@ -262,23 +281,46 @@ export async function listBackups(): Promise<BackupMetadata[]> {
 }
 
 export async function listBackupsForUser(userId: string): Promise<BackupMetadata[]> {
-  const drive = await getGoogleDriveClientForUser(userId);
-  const folderId = await ensureBackupFolderForUser(userId);
+  try {
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Starting for user ${userId.substring(0, 8)}...`);
+    
+    const drive = await getGoogleDriveClientForUser(userId);
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Got drive client`);
+    
+    const folderId = await ensureBackupFolderForUser(userId);
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Found folder ${folderId}`);
 
-  const response = await drive.files.list({
-    q: `'${folderId}' in parents and mimeType='application/json' and trashed=false`,
-    fields: 'files(id, name, createdTime, size, description)',
-    orderBy: 'createdTime desc',
-    pageSize: 50,
-  });
+    const query = `'${folderId}' in parents and mimeType='application/json' and trashed=false`;
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Query = ${query}`);
+    
+    const response = await drive.files.list({
+      q: query,
+      fields: 'files(id, name, createdTime, size, description)',
+      orderBy: 'createdTime desc',
+      pageSize: 50,
+    });
 
-  return (response.data.files || []).map(file => ({
-    id: file.id!,
-    name: file.name!,
-    createdTime: file.createdTime!,
-    size: file.size || '0',
-    description: file.description || undefined,
-  }));
+    const files = response.data.files || [];
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Found ${files.length} backup files`);
+    
+    if (files.length > 0) {
+      console.log(`[GOOGLE_DRIVE] listBackupsForUser: First file = ${files[0].name}`);
+    }
+
+    return files.map(file => ({
+      id: file.id!,
+      name: file.name!,
+      createdTime: file.createdTime!,
+      size: file.size || '0',
+      description: file.description || undefined,
+    }));
+  } catch (error: any) {
+    console.error(`[GOOGLE_DRIVE] listBackupsForUser: ERROR for user ${userId.substring(0, 8)}:`, error.message || error);
+    if (error.response?.data) {
+      console.error(`[GOOGLE_DRIVE] listBackupsForUser: API Error Details:`, JSON.stringify(error.response.data));
+    }
+    throw error;
+  }
 }
 
 export async function uploadBackup(

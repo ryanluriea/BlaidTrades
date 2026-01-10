@@ -188,13 +188,19 @@ export async function disconnectGoogleDrive(userId: string): Promise<void> {
 }
 
 export async function getAccessTokenForUser(userId: string): Promise<string | null> {
+  const startTime = Date.now();
+  console.log(`[GOOGLE_DRIVE_OAUTH] getAccessTokenForUser: Starting for user ${userId.substring(0, 8)}...`);
+  
   try {
     const tokens = await db.select()
       .from(userGoogleDriveTokens)
       .where(eq(userGoogleDriveTokens.userId, userId))
       .limit(1);
     
+    console.log(`[GOOGLE_DRIVE_OAUTH] getAccessTokenForUser: DB query complete, found ${tokens.length} tokens (${Date.now() - startTime}ms)`);
+    
     if (tokens.length === 0) {
+      console.log(`[GOOGLE_DRIVE_OAUTH] getAccessTokenForUser: No token for user ${userId.substring(0, 8)} (${Date.now() - startTime}ms)`);
       return null;
     }
     
@@ -202,10 +208,11 @@ export async function getAccessTokenForUser(userId: string): Promise<string | nu
     const now = new Date();
     
     if (token.expiresAt > now) {
+      console.log(`[GOOGLE_DRIVE_OAUTH] getAccessTokenForUser: Valid token found for user ${userId.substring(0, 8)}, expires in ${Math.round((token.expiresAt.getTime() - now.getTime()) / 60000)}min (${Date.now() - startTime}ms)`);
       return token.accessToken;
     }
     
-    console.log(`[GOOGLE_DRIVE_OAUTH] Token expired for user ${userId}, refreshing...`);
+    console.log(`[GOOGLE_DRIVE_OAUTH] Token expired for user ${userId.substring(0, 8)}, refreshing... (${Date.now() - startTime}ms)`);
     
     const oauth2Client = getOAuth2Client();
     oauth2Client.setCredentials({
@@ -231,10 +238,10 @@ export async function getAccessTokenForUser(userId: string): Promise<string | nu
       })
       .where(eq(userGoogleDriveTokens.userId, userId));
     
-    console.log(`[GOOGLE_DRIVE_OAUTH] Refreshed token for user ${userId}`);
+    console.log(`[GOOGLE_DRIVE_OAUTH] Refreshed token for user ${userId.substring(0, 8)} (${Date.now() - startTime}ms)`);
     return credentials.access_token;
-  } catch (error) {
-    console.error('[GOOGLE_DRIVE_OAUTH] Failed to get access token:', error);
+  } catch (error: any) {
+    console.error(`[GOOGLE_DRIVE_OAUTH] Failed to get access token for user ${userId.substring(0, 8)} (${Date.now() - startTime}ms):`, error?.message || error);
     return null;
   }
 }
