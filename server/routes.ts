@@ -13201,9 +13201,10 @@ export function registerRoutes(app: Express) {
       const includeBots = include_bots === "true";
       
       // Always fetch TRIALS bots count for accurate display in frontend
+      // Must use same filters as /api/strategy-lab/overview: archived_at IS NULL AND killed_at IS NULL
       let trialsBotsCount = 0;
       try {
-        const trialsBotsResult = await db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE stage = 'TRIALS'`);
+        const trialsBotsResult = await db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE stage = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL`);
         trialsBotsCount = parseInt((trialsBotsResult.rows[0] as any)?.count || "0");
       } catch (countError) {
         console.warn("[STRATEGY_LAB_CANDIDATES] Failed to fetch trials bots count:", countError);
@@ -19418,15 +19419,15 @@ export function registerRoutes(app: Express) {
         if (!existingProviders.has(provider)) {
           budgets.push({
             id: null,
-            userId,
+            user_id: userId,
             provider,
-            monthlyLimitUsd: provider === "perplexity" ? 5 : 10,
-            currentMonthSpendUsd: 0,
-            isEnabled: true,
-            isPaused: false,
-            isAutoThrottled: false,
+            monthly_limit_usd: provider === "perplexity" ? 5 : 10,
+            current_month_spend_usd: 0,
+            is_enabled: true,
+            is_paused: false,
+            is_auto_throttled: false,
             priority: providers.indexOf(provider) + 1,
-            researchOnly: provider === "perplexity",
+            research_only: provider === "perplexity",
           });
         }
       }

@@ -41,7 +41,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Cpu, Zap, DollarSign, Clock, AlertTriangle, Loader2, HelpCircle, Play, Pause, Activity, Layers, FlaskConical } from "lucide-react";
+import { Cpu, Zap, DollarSign, Clock, AlertTriangle, Loader2, HelpCircle, Play, Pause, Activity, Layers, FlaskConical, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useStrategyLabAutonomousState, useToggleStrategyLabState } from "@/hooks/useStrategyLab";
@@ -646,7 +646,10 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                     <span className="text-xs font-medium">Strategy Lab</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground">{getModeLabel()}</span>
+                    <Badge variant="outline" className="gap-1">
+                      {getModeLabel()}
+                      <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                    </Badge>
                     <span
                       className={cn(
                         "text-[10px] font-medium",
@@ -699,7 +702,10 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                         <span className="text-xs font-medium">Grok Research</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-muted-foreground">{getDepthLabel(grokDepth)}</span>
+                        <Badge variant="outline" className="gap-1">
+                          {getDepthLabel(grokDepth)}
+                          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                        </Badge>
                         <span
                           className={cn(
                             "text-[10px] font-medium",
@@ -711,9 +717,10 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                                 const nextRunValues = (Object.values(orchestratorStatus?.nextRuns ?? {}).filter(v => v !== null) as number[])
                                   .filter(v => v >= 0)
                                   .concat([grokState?.nextCycleIn ?? 0].filter(v => v > 0));
-                                return formatNextCycle(nextRunValues.length > 0 ? Math.min(...nextRunValues) : null);
+                                const nextMs = nextRunValues.length > 0 ? Math.min(...nextRunValues) : null;
+                                return nextMs && nextMs > 0 ? formatNextCycle(nextMs) : "Running";
                               })()
-                            : formatNextCycle(grokState?.nextCycleIn)}
+                            : (grokState?.nextCycleIn && grokState.nextCycleIn > 0 ? formatNextCycle(grokState.nextCycleIn) : "Running")}
                         </span>
                       </div>
                     </button>
