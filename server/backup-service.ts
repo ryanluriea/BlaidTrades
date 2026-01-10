@@ -868,26 +868,11 @@ export async function getCloudBackupDashboard(userId?: string): Promise<{
   
   const settings = await getBackupSettings();
   
-  // Check connection cache first for instant "not connected" response
-  if (userId) {
-    const cachedConnected = getCachedConnectionStatus(userId);
-    if (cachedConnected === false) {
-      const result = {
-        connected: false,
-        settings,
-        status: {
-          connected: false,
-          folderExists: false,
-          backupCount: 0,
-          latestBackup: null,
-          totalSizeBytes: 0,
-        },
-        recentBackups: [],
-      };
-      dashboardCache.set(cacheKey, { data: result, timestamp: Date.now() });
-      return result;
-    }
-  }
+  // NOTE: We no longer short-circuit on cached "false" connection status because:
+  // 1. A transient failure could set cached false incorrectly
+  // 2. The user may have reconnected Google Drive since the cache was set
+  // 3. The /api/cloud-backup/status endpoint might have verified connection successfully
+  // Instead, we always verify the connection when the dashboard cache is stale
   
   const connectedPromise = userId 
     ? isGoogleDriveConnectedForUser(userId) 

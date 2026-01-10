@@ -148,6 +148,12 @@ Estimated cost: $110-300/month for production with auto-scaling.
 - **Migration file**: `migrations/0001_add_user_google_drive_tokens.sql`
 - **Production Deployment Note**: Run `npm run db:push` against production DATABASE_URL before enabling Google Drive backup
 
+### 2026-01-10: Dashboard Cache Bug Fixed
+- **Root Cause**: `getCloudBackupDashboard` had a stale cache short-circuit at lines 872-889 that returned 0 backups when `getCachedConnectionStatus(userId)` returned `false`, without ever querying Google Drive
+- **Fix**: Removed the cached false short-circuit logic; dashboard now always verifies connection status when cache is stale
+- **Impact**: Dashboard correctly displays backup count (e.g., "1" instead of "0") after this fix
+- **Verified**: Logs show `[BACKUP_SERVICE] Dashboard: Got 1 backups` and `/api/cloud-backup/dashboard 200 722ms`
+
 ### 2026-01-10: Industry-Standard Resilience Improvements
 - **Google Drive Retry/Backoff**: Added exponential backoff with jitter for all Google Drive API calls (`server/google-drive-client.ts`)
   - Rate limit (429) and server errors (5xx) automatically retry up to 3 times
