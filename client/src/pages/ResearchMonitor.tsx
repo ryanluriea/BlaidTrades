@@ -991,9 +991,9 @@ export default function ResearchMonitor() {
                         {toggleResearchMutation.isPending ? (
                           <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" />
                         ) : (
-                          <Clock className="h-3.5 w-3.5 text-emerald-400" />
+                          <Pause className="h-3.5 w-3.5 text-emerald-400" />
                         )}
-                        <span className="text-xs font-medium text-emerald-400">Scheduled</span>
+                        <span className="text-xs font-medium text-emerald-400">Running</span>
                         {(() => {
                           const nextIn = Math.min(
                             nextCycleInfo.strategyLabNextIn ?? Infinity,
