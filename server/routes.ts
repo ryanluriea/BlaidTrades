@@ -2362,7 +2362,8 @@ export function registerRoutes(app: Express) {
     
     try {
       const { getBackupQuickStatus } = await import("./backup-service");
-      const status = await getBackupQuickStatus();
+      // Pass userId to check connection status for this specific user
+      const status = await getBackupQuickStatus(req.session.userId);
       res.json({ success: true, data: status });
     } catch (error) {
       res.status(500).json({ success: false, message: String(error) });

@@ -769,14 +769,17 @@ export function invalidateDriveTimestampCache() {
   cachedDriveTimestamp = null;
 }
 
-export async function getBackupQuickStatus(): Promise<{
+export async function getBackupQuickStatus(userId?: string): Promise<{
   connected: boolean;
   backingUp: boolean;
   lastBackupSuccess: boolean | null;
   lastBackupAt: string | null;
   progress: BackupProgress | null;
 }> {
-  const connected = await isGoogleDriveConnected();
+  // Use user-specific connection check if userId provided
+  const connected = userId 
+    ? await isGoogleDriveConnectedForUser(userId)
+    : await isGoogleDriveConnected();
   const settings = await getBackupSettings();
   
   let lastBackupAtValue = settings.lastBackupAt;

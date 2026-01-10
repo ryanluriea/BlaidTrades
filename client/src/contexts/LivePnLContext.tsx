@@ -12,6 +12,8 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { toast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
+import { QUERY_KEYS, getBotRelatedKeys } from "@/lib/query-configs";
 
 interface LivePnLUpdate {
   type: "LIVE_PNL_UPDATE";
@@ -169,6 +171,13 @@ export function LivePnLProvider({ children }: { children: ReactNode }) {
               description: `${stageChange.botName}: ${stageChange.fromStage} → ${stageChange.toStage}${reasonText}`,
               variant: isPromotion ? "default" : "destructive",
               duration: Infinity, // Persistent - requires manual dismiss
+            });
+            
+            // INDUSTRY STANDARD: Invalidate related queries on stage change
+            // This ensures UI reflects the new stage immediately
+            const relatedKeys = getBotRelatedKeys(stageChange.botId);
+            relatedKeys.forEach(key => {
+              queryClient.invalidateQueries({ queryKey: [key] });
             });
           }
         } catch (error) {
