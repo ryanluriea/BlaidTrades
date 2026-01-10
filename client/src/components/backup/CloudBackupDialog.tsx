@@ -952,12 +952,13 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                             </div>
                           )}
                         </div>
-                        <div className="flex gap-1 ml-2">
+                        <div className="flex gap-1 ml-2 flex-shrink-0">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
                                 variant="outline"
-                                size="sm"
+                                size="icon"
+                                className="h-7 w-7"
                                 onClick={() => handleDownloadBackup(backup)}
                                 disabled={downloadingId === backup.id}
                                 data-testid={`button-download-${backup.id}`}
@@ -977,7 +978,8 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                             <TooltipTrigger asChild>
                               <Button
                                 variant="outline"
-                                size="sm"
+                                size="icon"
+                                className="h-7 w-7"
                                 onClick={() => setConfirmRestoreBackup(backup)}
                                 disabled={restoringId === backup.id}
                                 data-testid={`button-restore-${backup.id}`}
@@ -997,10 +999,10 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                             <TooltipTrigger asChild>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
                                 onClick={() => setConfirmDeleteBackup(backup)}
                                 disabled={deleteBackupMutation.isPending}
-                                className="text-muted-foreground hover:text-destructive"
                                 data-testid={`button-delete-${backup.id}`}
                               >
                                 <Trash2 className="w-3 h-3" />
