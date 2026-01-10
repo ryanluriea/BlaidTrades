@@ -43,6 +43,7 @@ import {
   FileText,
   FileJson,
   ChevronDown,
+  Unlink,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -460,6 +461,27 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
     },
     onError: (error) => {
       toast({ title: "Update Failed", description: String(error), variant: "destructive" });
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/auth/google-drive/disconnect", { 
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      hasEverConnectedRef.current = false;
+      toast({ title: "Google Drive Disconnected", description: "Your Google Drive has been unlinked from BlaidTrades." });
+      queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/google-drive/status"] });
+    },
+    onError: (error) => {
+      toast({ title: "Disconnect Failed", description: String(error), variant: "destructive" });
     },
   });
 
@@ -957,6 +979,35 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                   onCheckedChange={(checked) => updateSettingsMutation.mutate({ includeTradeLogs: checked })}
                   data-testid="switch-include-trades"
                 />
+              </div>
+
+              <Separator />
+
+              <div className="p-4 rounded-md border border-destructive/30 bg-destructive/5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-sm flex items-center gap-2">
+                      <Unlink className="w-4 h-4" />
+                      Disconnect Google Drive
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Remove the connection to your Google account. Your existing backups in Drive will not be deleted.
+                    </p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => disconnectMutation.mutate()}
+                    disabled={disconnectMutation.isPending}
+                    data-testid="button-disconnect-google-drive"
+                  >
+                    {disconnectMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Disconnect"
+                    )}
+                  </Button>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
