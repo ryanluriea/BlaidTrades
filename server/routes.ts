@@ -2500,6 +2500,14 @@ export function registerRoutes(app: Express) {
     try {
       const userId = req.session.userId;
       const { backupId } = req.params;
+      
+      if (!checkExportRateLimit(userId)) {
+        return res.status(429).json({ 
+          success: false, 
+          message: "Download rate limit exceeded. Please wait before downloading again." 
+        });
+      }
+      
       const { downloadBackupForUser } = await import("./google-drive-client");
       const data = await downloadBackupForUser(userId, backupId);
       
@@ -2507,11 +2515,15 @@ export function registerRoutes(app: Express) {
         return res.status(404).json({ success: false, message: "Backup not found" });
       }
       
+      console.log(`[BACKUP] User ${userId.slice(0, 8)} downloaded backup ${backupId.slice(0, 8)}`);
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename="blaidtrades_backup_${backupId}.json"`);
       res.send(JSON.stringify(data, null, 2));
-    } catch (error) {
+    } catch (error: any) {
       console.error("[BACKUP] Download error:", error);
+      if (error?.code === 404 || error?.message?.includes("not found")) {
+        return res.status(404).json({ success: false, message: "Backup not found or not accessible" });
+      }
       res.status(500).json({ success: false, message: String(error) });
     }
   });
