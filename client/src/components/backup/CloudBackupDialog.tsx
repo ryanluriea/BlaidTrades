@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   Cloud,
@@ -586,10 +587,19 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                     <HardDrive className="w-4 h-4" />
                     Total Backups
                   </div>
-                  <div className="text-2xl font-bold">{dashboard?.status?.backupCount ?? 0}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatBytes(dashboard?.status?.totalSizeBytes ?? 0)} stored
-                  </div>
+                  {isLoading ? (
+                    <>
+                      <Skeleton className="h-8 w-12 mb-1" />
+                      <Skeleton className="h-3 w-20" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">{dashboard?.status?.backupCount ?? 0}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatBytes(dashboard?.status?.totalSizeBytes ?? 0)} stored
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="p-4 rounded-md border bg-card">
@@ -597,15 +607,24 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                     <Clock className="w-4 h-4" />
                     Last Backup
                   </div>
-                  <div className="text-lg font-medium">
-                    {backupStatus?.lastBackupAt 
-                      ? formatDistanceToNow(new Date(backupStatus.lastBackupAt), { addSuffix: true })
-                      : (isStatusLoading ? "Loading..." : "Never")}
-                  </div>
-                  {nextBackupCountdown && (
-                    <div className="text-xs text-muted-foreground font-mono">
-                      Next: {nextBackupCountdown}
-                    </div>
+                  {isStatusLoading ? (
+                    <>
+                      <Skeleton className="h-6 w-28 mb-1" />
+                      <Skeleton className="h-3 w-24" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-lg font-medium">
+                        {backupStatus?.lastBackupAt 
+                          ? formatDistanceToNow(new Date(backupStatus.lastBackupAt), { addSuffix: true })
+                          : "Never"}
+                      </div>
+                      {nextBackupCountdown && (
+                        <div className="text-xs text-muted-foreground font-mono">
+                          Next: {nextBackupCountdown}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

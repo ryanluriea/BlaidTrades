@@ -497,6 +497,7 @@ export async function createBackup(userId: string, options?: { force?: boolean }
 
     await updateBackupSettings({ lastBackupAt: new Date().toISOString() });
     invalidateDriveTimestampCache();
+    clearDashboardCache(userId);
 
     await logActivityEvent({
       eventType: 'CLOUD_BACKUP',
