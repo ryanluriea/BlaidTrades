@@ -244,6 +244,90 @@ const TIMEFRAME_MAPPING: Record<string, { resolution: string; period: number; mi
   "1d": { resolution: "Resolution.Daily", period: 1, minutes: 1440 },
 };
 
+/**
+ * Indicator validation layer - verifies that indicators referenced in signal logic
+ * are properly instantiated in the generated code
+ */
+function validateIndicatorsForSignal(signalLogic: string, indicatorCode: string): {
+  valid: boolean;
+  missingIndicators: string[];
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+  const missingIndicators: string[] = [];
+  
+  // Map of indicator references in signal logic to their instantiation patterns
+  const indicatorPatterns: Record<string, RegExp> = {
+    'self.bb': /self\.bb\s*=/,
+    'self.rsi': /self\.rsi\s*=/,
+    'self.adx': /self\.adx\s*=/,
+    'self.atr': /self\.atr\s*=/,
+    'self.ema_fast': /self\.ema_fast\s*=/,
+    'self.ema_slow': /self\.ema_slow\s*=/,
+    'self.vwap': /self\.vwap\s*=/,
+  };
+  
+  for (const [indicator, pattern] of Object.entries(indicatorPatterns)) {
+    // Check if indicator is used in signal logic
+    if (signalLogic.includes(indicator)) {
+      // Check if it's instantiated in indicator code
+      if (!pattern.test(indicatorCode)) {
+        missingIndicators.push(indicator);
+        warnings.push(`Indicator ${indicator} is referenced but not instantiated`);
+      }
+    }
+  }
+  
+  if (missingIndicators.length > 0) {
+    console.warn(`[INDICATOR_VALIDATION] Missing indicators: ${missingIndicators.join(', ')}`);
+  }
+  
+  return {
+    valid: missingIndicators.length === 0,
+    missingIndicators,
+    warnings,
+  };
+}
+
+/**
+ * Get additional indicator instantiation code for missing indicators
+ */
+function getAdditionalIndicatorCode(missingIndicators: string[], config: Record<string, any>, resolution: string): string {
+  const bbPeriod = config.bbPeriod || 20;
+  const bbStd = config.bbStd || 2;
+  const rsiPeriod = config.rsiPeriod || 14;
+  const adxPeriod = config.adxPeriod || 14;
+  const atrPeriod = config.atrPeriod || 14;
+  const emaPeriod = config.emaPeriod || 21;
+  
+  const additions: string[] = [];
+  
+  for (const indicator of missingIndicators) {
+    switch (indicator) {
+      case 'self.bb':
+        additions.push(`self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})`);
+        break;
+      case 'self.rsi':
+        additions.push(`self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})`);
+        break;
+      case 'self.adx':
+        additions.push(`self.adx = self.ADX(self.symbol, ${adxPeriod}, ${resolution})`);
+        break;
+      case 'self.atr':
+        additions.push(`self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`);
+        break;
+      case 'self.ema_fast':
+        additions.push(`self.ema_fast = self.EMA(self.symbol, ${emaPeriod}, ${resolution})`);
+        break;
+      case 'self.ema_slow':
+        additions.push(`self.ema_slow = self.EMA(self.symbol, ${emaPeriod * 2}, ${resolution})`);
+        break;
+    }
+  }
+  
+  return additions.length > 0 ? '\n        ' + additions.join('\n        ') : '';
+}
+
 function getIndicatorCode(archetype: string, config: Record<string, any>, resolution: string): string {
   const bbPeriod = config.bbPeriod || 20;
   const bbStd = config.bbStd || 2;
@@ -466,6 +550,10 @@ export function translateToLEAN(input: StrategyTranslationInput): TranslationRes
       const confidencePct = hasValidLong && hasValidShort ? 100 : (hasValidLong || hasValidShort ? 50 : 0);
       console.log(`[LEAN_TRANSLATOR] Per-direction: long=${hasValidLong ? 'PARSED' : 'FALLBACK'} short=${hasValidShort ? 'PARSED' : 'FALLBACK'} confidence=${confidencePct}%`);
       
+      // Check if there's a valid exit condition from parsed rules
+      const hasValidExit = parsedRules.exitLogic && !parsedRules.exitLogic.startsWith('False');
+      const exitLogic = hasValidExit ? parsedRules.exitLogic : 'False';
+      
       signalLogic = `
     def should_enter_long(self, price):
         """Long entry signal - ${hasValidLong ? 'parsed from rules_json' : `archetype fallback (${input.archetype})`}"""
@@ -479,14 +567,33 @@ export function translateToLEAN(input: StrategyTranslationInput): TranslationRes
         if not self.IndicatorsReady():
             return False
         # ${hasValidShort ? 'Parsed from rules_json' : `Fallback: archetype=${input.archetype}`}
-        return ${shortLogic}`;
+        return ${shortLogic}
+    
+    def should_exit(self, price):
+        """Exit signal - ${hasValidExit ? 'parsed from rules_json exit conditions' : 'uses stop/target only'}"""
+        if not self.IndicatorsReady():
+            return False
+        # Parsed exit conditions from rules_json (in addition to stop/target)
+        return ${exitLogic}`;
     } else {
       // No rulesJson - use archetype-based signals
       console.log(`[LEAN_TRANSLATOR] Using ARCHETYPE FALLBACK for ${input.botName}: archetype=${input.archetype}`);
       signalLogic = getSignalLogic(input.archetype, input.strategyConfig);
     }
     
-    const indicatorCode = getIndicatorCode(input.archetype, input.strategyConfig, timeframeInfo.resolution);
+    let indicatorCode = getIndicatorCode(input.archetype, input.strategyConfig, timeframeInfo.resolution);
+    
+    // INDICATOR VALIDATION LAYER: Verify all referenced indicators are instantiated
+    const indicatorValidation = validateIndicatorsForSignal(signalLogic, indicatorCode);
+    if (!indicatorValidation.valid) {
+      console.log(`[LEAN_TRANSLATOR] Adding missing indicators: ${indicatorValidation.missingIndicators.join(', ')}`);
+      const additionalCode = getAdditionalIndicatorCode(
+        indicatorValidation.missingIndicators,
+        input.strategyConfig,
+        timeframeInfo.resolution
+      );
+      indicatorCode += additionalCode;
+    }
     
     // Calculate proper dates (avoiding weekends)
     const endDate = new Date();
@@ -1008,7 +1115,7 @@ ${signalLogic}
             self.EnsureProtectiveOrders(price)
     
     def CheckExits(self, price):
-        """Check exit conditions (stops/targets) on every bar - backup to stop orders"""
+        """Check exit conditions (stops/targets + parsed signals) on every bar"""
         # Skip if trading halted due to drawdown limit
         if self.trading_halted:
             return
@@ -1033,6 +1140,14 @@ ${signalLogic}
                 self.Liquidate()
                 self.trade_count += 1
                 self.Debug(f"EXIT SL (backup) at {price:.2f}, PnL: {pnl_ticks:.1f} ticks")
+                self.entry_price = None
+                self.position_side = None
+            # Check parsed exit conditions from rules_json (signal-based exits)
+            elif self.should_exit(price):
+                self.CancelAllStopOrders()
+                self.Liquidate()
+                self.trade_count += 1
+                self.Debug(f"EXIT SIGNAL at {price:.2f}, PnL: {pnl_ticks:.1f} ticks")
                 self.entry_price = None
                 self.position_side = None
     

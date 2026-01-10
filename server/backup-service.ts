@@ -44,6 +44,8 @@ import {
   type BackupMetadata 
 } from "./google-drive-client";
 import { logActivityEvent } from "./activity-logger";
+import { withCircuitBreaker, withRetry } from "./circuit-breaker";
+import { withIdempotency, generateIdempotencyKey } from "./idempotency";
 
 export interface BackupData {
   version: string;
@@ -520,11 +522,21 @@ export async function createBackup(userId: string, options?: { force?: boolean }
       totalBytes,
     });
 
-    const backup = await uploadBackupForUser(
-      userId,
-      filename, 
-      backupData,
-      `Full backup for ${user.username} (${user.email}) - ${userBots.length} bots, ${userCandidates.length} strategies, ${userTournaments.length} tournaments`
+    // Use circuit breaker + retry for Google Drive upload resilience
+    const backup = await withCircuitBreaker(
+      'google-drive-upload',
+      () => withRetry(
+        'backup-upload',
+        () => uploadBackupForUser(
+          userId,
+          filename, 
+          backupData,
+          `Full backup for ${user.username} (${user.email}) - ${userBots.length} bots, ${userCandidates.length} strategies, ${userTournaments.length} tournaments`
+        ),
+        { maxRetries: 2, initialDelayMs: 2000 }
+      ),
+      undefined,
+      { failureThreshold: 3, cooldownMs: 60000 }
     );
 
     // Update progress - upload complete (keep progress visible for one more poll cycle)
@@ -592,7 +604,18 @@ export async function restoreBackup(
 ): Promise<{ success: boolean; restored?: { bots: number; strategies: number; accounts: number }; error?: string }> {
   try {
     const { downloadBackupForUser } = await import("./google-drive-client");
-    const data = await downloadBackupForUser(userId, backupId) as BackupData;
+    
+    // Use circuit breaker + retry for Google Drive download resilience
+    const data = await withCircuitBreaker(
+      'google-drive-download',
+      () => withRetry(
+        'backup-download',
+        () => downloadBackupForUser(userId, backupId),
+        { maxRetries: 2, initialDelayMs: 2000 }
+      ),
+      undefined,
+      { failureThreshold: 3, cooldownMs: 60000 }
+    ) as BackupData;
     
     if (!data.version || !data.userId) {
       return { success: false, error: 'Invalid backup format' };

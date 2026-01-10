@@ -173,7 +173,9 @@ export function getStorageStats(): ColdStorageStats[] {
   try {
     const stats = fs.statSync(dbPath);
     fileSizeMb = stats.size / (1024 * 1024);
-  } catch {}
+  } catch (e) {
+    // File may not exist yet - benign, continue with 0 size
+  }
   
   const rows = database.prepare(`
     SELECT symbol, timeframe, bar_count, oldest_ts, newest_ts
@@ -200,7 +202,9 @@ export function getStorageSummary(): ColdStorageSummary {
   try {
     const stats = fs.statSync(dbPath);
     fileSizeMb = stats.size / (1024 * 1024);
-  } catch {}
+  } catch (e) {
+    // File may not exist yet - benign, continue with 0 size
+  }
   
   return {
     totalEntries: entries.length,
