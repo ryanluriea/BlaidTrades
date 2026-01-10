@@ -10,6 +10,8 @@ import { db } from './db';
 import { userGoogleDriveTokens } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
+import { clearConnectionCache } from './google-drive-client';
+import { clearDashboardCache } from './backup-service';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
@@ -177,6 +179,10 @@ export async function getUserGoogleDriveStatus(userId: string): Promise<{
 export async function disconnectGoogleDrive(userId: string): Promise<void> {
   await db.delete(userGoogleDriveTokens)
     .where(eq(userGoogleDriveTokens.userId, userId));
+  
+  // Clear all server-side caches so status endpoints immediately reflect disconnection
+  clearConnectionCache(userId);
+  clearDashboardCache(userId);
   
   console.log(`[GOOGLE_DRIVE_OAUTH] Disconnected Google Drive for user ${userId}`);
 }
