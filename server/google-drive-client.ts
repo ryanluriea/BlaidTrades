@@ -5,9 +5,67 @@
  * Supports two authentication modes:
  * 1. Replit Connector (development) - uses REPLIT_CONNECTORS_HOSTNAME
  * 2. User OAuth tokens (production) - uses stored user tokens from database
+ * 
+ * Industry-standard features:
+ * - Exponential backoff with jitter for API retries
+ * - Configurable retry limits
+ * - Detailed logging for observability
  */
 
 import { google, drive_v3 } from 'googleapis';
+
+interface RetryConfig {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+}
+
+const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 30000,
+};
+
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  label: string,
+  config: RetryConfig = DEFAULT_RETRY_CONFIG
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delay = Math.min(
+          config.baseDelayMs * Math.pow(2, attempt - 1) + Math.random() * 1000,
+          config.maxDelayMs
+        );
+        console.log(`[GOOGLE_DRIVE] Retry ${attempt}/${config.maxRetries} for ${label} after ${Math.round(delay)}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      const statusCode = error?.response?.status || error?.code;
+      
+      if (statusCode === 401 || statusCode === 403) {
+        console.error(`[GOOGLE_DRIVE] ${label} failed with auth error (${statusCode}), not retrying`);
+        throw error;
+      }
+      
+      if (statusCode === 429 || statusCode >= 500) {
+        console.warn(`[GOOGLE_DRIVE] ${label} attempt ${attempt + 1} failed with ${statusCode}, will retry`);
+        continue;
+      }
+      
+      if (attempt === config.maxRetries) {
+        console.error(`[GOOGLE_DRIVE] ${label} failed after ${config.maxRetries + 1} attempts:`, error?.message || error);
+      }
+    }
+  }
+  
+  throw lastError || new Error(`${label} failed after retries`);
+}
 
 let currentUserId: string | null = null;
 
@@ -217,19 +275,22 @@ export async function ensureBackupFolder(): Promise<string> {
 }
 
 export async function ensureBackupFolderForUser(userId: string): Promise<string> {
+  const startTime = Date.now();
   try {
     const drive = await getGoogleDriveClientForUser(userId);
     
     const query = `name='${BACKUP_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-    console.log(`[GOOGLE_DRIVE] ensureBackupFolderForUser: Searching for folder with query: ${query}`);
     
-    const response = await drive.files.list({
-      q: query,
-      fields: 'files(id, name)',
-    });
+    const response = await withRetry(
+      () => drive.files.list({
+        q: query,
+        fields: 'files(id, name)',
+      }),
+      `ensureBackupFolderForUser(${userId.substring(0, 8)})`
+    );
 
     if (response.data.files && response.data.files.length > 0) {
-      console.log(`[GOOGLE_DRIVE] ensureBackupFolderForUser: Found existing folder ${response.data.files[0].id}`);
+      console.log(`[GOOGLE_DRIVE] ensureBackupFolderForUser: Found existing folder ${response.data.files[0].id} (${Date.now() - startTime}ms)`);
       return response.data.files[0].id!;
     }
 
@@ -239,15 +300,18 @@ export async function ensureBackupFolderForUser(userId: string): Promise<string>
       mimeType: 'application/vnd.google-apps.folder',
     };
 
-    const folder = await drive.files.create({
-      requestBody: folderMetadata,
-      fields: 'id',
-    });
+    const folder = await withRetry(
+      () => drive.files.create({
+        requestBody: folderMetadata,
+        fields: 'id',
+      }),
+      `createBackupFolder(${userId.substring(0, 8)})`
+    );
 
-    console.log(`[GOOGLE_DRIVE] Created backup folder for user ${userId.substring(0, 8)}: ${folder.data.id}`);
+    console.log(`[GOOGLE_DRIVE] Created backup folder for user ${userId.substring(0, 8)}: ${folder.data.id} (${Date.now() - startTime}ms)`);
     return folder.data.id!;
   } catch (error: any) {
-    console.error(`[GOOGLE_DRIVE] ensureBackupFolderForUser: ERROR for user ${userId.substring(0, 8)}:`, error.message || error);
+    console.error(`[GOOGLE_DRIVE] ensureBackupFolderForUser: ERROR for user ${userId.substring(0, 8)} (${Date.now() - startTime}ms):`, error.message || error);
     throw error;
   }
 }
@@ -281,27 +345,30 @@ export async function listBackups(): Promise<BackupMetadata[]> {
 }
 
 export async function listBackupsForUser(userId: string): Promise<BackupMetadata[]> {
+  const startTime = Date.now();
+  console.log(`[GOOGLE_DRIVE] listBackupsForUser: Starting for user ${userId.substring(0, 8)}...`);
+  
   try {
-    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Starting for user ${userId.substring(0, 8)}...`);
-    
     const drive = await getGoogleDriveClientForUser(userId);
-    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Got drive client`);
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Got drive client (${Date.now() - startTime}ms)`);
     
     const folderId = await ensureBackupFolderForUser(userId);
-    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Found folder ${folderId}`);
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Found folder ${folderId} (${Date.now() - startTime}ms)`);
 
     const query = `'${folderId}' in parents and mimeType='application/json' and trashed=false`;
-    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Query = ${query}`);
     
-    const response = await drive.files.list({
-      q: query,
-      fields: 'files(id, name, createdTime, size, description)',
-      orderBy: 'createdTime desc',
-      pageSize: 50,
-    });
+    const response = await withRetry(
+      () => drive.files.list({
+        q: query,
+        fields: 'files(id, name, createdTime, size, description)',
+        orderBy: 'createdTime desc',
+        pageSize: 50,
+      }),
+      `listBackupsForUser(${userId.substring(0, 8)})`
+    );
 
     const files = response.data.files || [];
-    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Found ${files.length} backup files`);
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Found ${files.length} backup files (${Date.now() - startTime}ms)`);
     
     if (files.length > 0) {
       console.log(`[GOOGLE_DRIVE] listBackupsForUser: First file = ${files[0].name}`);
@@ -315,7 +382,7 @@ export async function listBackupsForUser(userId: string): Promise<BackupMetadata
       description: file.description || undefined,
     }));
   } catch (error: any) {
-    console.error(`[GOOGLE_DRIVE] listBackupsForUser: ERROR for user ${userId.substring(0, 8)}:`, error.message || error);
+    console.error(`[GOOGLE_DRIVE] listBackupsForUser: ERROR for user ${userId.substring(0, 8)} (${Date.now() - startTime}ms):`, error.message || error);
     if (error.response?.data) {
       console.error(`[GOOGLE_DRIVE] listBackupsForUser: API Error Details:`, JSON.stringify(error.response.data));
     }
@@ -368,13 +435,15 @@ export async function uploadBackupForUser(
   data: object,
   description?: string
 ): Promise<BackupMetadata> {
+  const startTime = Date.now();
+  console.log(`[GOOGLE_DRIVE] uploadBackupForUser: Starting for user ${userId.substring(0, 8)}...`);
+  
   const drive = await getGoogleDriveClientForUser(userId);
   const folderId = await ensureBackupFolderForUser(userId);
 
   const { Readable } = await import('stream');
   const jsonContent = JSON.stringify(data, null, 2);
   const contentLength = Buffer.byteLength(jsonContent, 'utf8');
-  const stream = Readable.from(jsonContent);
 
   const fileMetadata = {
     name: filename,
@@ -382,16 +451,22 @@ export async function uploadBackupForUser(
     description: description || `BlaidTrades backup created at ${new Date().toISOString()}`,
   };
 
-  const response = await drive.files.create({
-    requestBody: fileMetadata,
-    media: {
-      mimeType: 'application/json',
-      body: stream,
+  const response = await withRetry(
+    async () => {
+      const stream = Readable.from(jsonContent);
+      return drive.files.create({
+        requestBody: fileMetadata,
+        media: {
+          mimeType: 'application/json',
+          body: stream,
+        },
+        fields: 'id, name, createdTime, size, description',
+      });
     },
-    fields: 'id, name, createdTime, size, description',
-  });
+    `uploadBackupForUser(${userId.substring(0, 8)})`
+  );
 
-  console.log(`[GOOGLE_DRIVE] Uploaded backup for user ${userId}: ${response.data.name}`);
+  console.log(`[GOOGLE_DRIVE] Uploaded backup for user ${userId.substring(0, 8)}: ${response.data.name} (${Date.now() - startTime}ms)`);
 
   return {
     id: response.data.id!,
