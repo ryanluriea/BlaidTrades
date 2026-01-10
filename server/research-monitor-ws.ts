@@ -411,13 +411,69 @@ class ResearchMonitorWebSocketServer {
     });
   }
   
-  logRejection(source: ResearchSource, strategyName: string, reason: string): void {
+  logRejection(source: ResearchSource, strategyName: string, reason: string, metadata?: {
+    confidence?: number;
+    threshold?: number;
+    archetype?: string;
+    traceId?: string;
+  }): void {
     this.broadcast({
       eventType: "rejection",
       source,
       title: `Rejected: ${strategyName}`,
       details: reason,
-      metadata: { strategyName, rejectionReason: reason },
+      metadata: { 
+        strategyName, 
+        rejectionReason: reason,
+        ...metadata,
+      },
+    });
+  }
+  
+  logThinking(source: ResearchSource, thought: string, phase?: string, traceId?: string): void {
+    this.broadcast({
+      eventType: "reasoning",
+      source,
+      title: `Thinking: ${thought.slice(0, 60)}${thought.length > 60 ? "..." : ""}`,
+      details: thought,
+      metadata: { phase, traceId, isThinking: true },
+    });
+  }
+  
+  logCounterEvidence(source: ResearchSource, strategyName: string, counterEvidence: string, wasDisproven: boolean): void {
+    this.broadcast({
+      eventType: "validation",
+      source,
+      title: wasDisproven ? `Disproven: ${strategyName}` : `Tested: ${strategyName}`,
+      details: counterEvidence,
+      metadata: { 
+        strategyName, 
+        counterEvidence,
+        status: wasDisproven ? "FAIL" : "PASS",
+        validationResult: wasDisproven ? "FAIL" : "PASS",
+        validationType: "counter_evidence",
+      },
+    });
+  }
+  
+  logSourceWithSnippet(source: ResearchSource, sourceInfo: {
+    url: string;
+    title: string;
+    snippet: string;
+    category?: string;
+    credibility?: "HIGH" | "MEDIUM" | "LOW";
+  }): void {
+    this.broadcast({
+      eventType: "source",
+      source,
+      title: sourceInfo.title.slice(0, 80) + (sourceInfo.title.length > 80 ? "..." : ""),
+      details: sourceInfo.snippet,
+      metadata: { 
+        url: sourceInfo.url,
+        snippet: sourceInfo.snippet,
+        category: sourceInfo.category || "Research",
+        credibility: sourceInfo.credibility || "MEDIUM",
+      },
     });
   }
 

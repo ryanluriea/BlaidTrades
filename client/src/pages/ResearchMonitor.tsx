@@ -3,7 +3,7 @@ import {
   Wifi, WifiOff, Trash2, Pause, Play, Search, Brain, Globe, Target, Sparkles, 
   AlertCircle, Zap, Rocket, Loader2, DollarSign, Activity, Radio, Microscope,
   CheckCircle2, XCircle, Clock, ChevronRight, TrendingUp, Shield, Lightbulb,
-  ExternalLink, BarChart2, Layers, ArrowRight, BookOpen, MessageSquare
+  ExternalLink, BarChart2, Layers, ArrowRight, BookOpen, MessageSquare, ArrowDownCircle
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -86,6 +86,49 @@ const safeFormat = (date: Date | string | null | undefined, formatStr: string): 
     return "—";
   }
 };
+
+const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+
+function extractDomain(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch {
+    return url.slice(0, 30);
+  }
+}
+
+function ClickableText({ text, className }: { text: string; className?: string }) {
+  const parts = text.split(URL_REGEX);
+  const urls = text.match(URL_REGEX) || [];
+  
+  if (urls.length === 0) {
+    return <span className={className}>{text}</span>;
+  }
+  
+  return (
+    <span className={className}>
+      {parts.map((part, i) => (
+        <span key={i}>
+          {part}
+          {urls[i] && (
+            <a
+              href={urls[i]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline inline-flex items-center gap-0.5"
+              onClick={(e) => e.stopPropagation()}
+              data-testid={`link-${extractDomain(urls[i])}`}
+            >
+              {extractDomain(urls[i])}
+              <ExternalLink className="h-2.5 w-2.5 inline" />
+            </a>
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 function StrategyInsightCard({ candidate, isSelected, onClick }: { 
   candidate: StrategyCandidate; 
@@ -288,13 +331,17 @@ export default function ResearchMonitor() {
   const [paused, setPaused] = useState(false);
   const [usePolling, setUsePolling] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<StrategyCandidate | null>(null);
-  const [viewMode, setViewMode] = useState<"insights" | "activity">("insights");
+  const [viewMode, setViewMode] = useState<"insights" | "activity" | "rejected">("insights");
   const [stats, setStats] = useState({ 
     searches: 0, 
     sources: 0, 
     candidates: 0,
     totalCost: 0,
+    rejections: 0,
   });
+  const [providerCosts, setProviderCosts] = useState<Record<string, { cost: number; tokens: number; calls: number }>>({});
+  const [autoScroll, setAutoScroll] = useState(true);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [researchPhases, setResearchPhases] = useState<ResearchPhase[]>([
     { name: "Scouting", status: "pending" },
     { name: "Evidence", status: "pending" },
@@ -368,8 +415,24 @@ export default function ResearchMonitor() {
         searches: prev.searches + (evt.type === "search" ? 1 : 0),
         sources: prev.sources + (evt.type === "source" ? 1 : 0),
         candidates: prev.candidates + (evt.type === "candidate" ? 1 : 0),
+        rejections: prev.rejections + (evt.type === "rejection" ? 1 : 0),
         totalCost: prev.totalCost + (evt.metadata?.costUsd || 0),
       }));
+      
+      if (evt.type === "cost" && evt.metadata?.provider) {
+        setProviderCosts(prev => {
+          const provider = evt.metadata?.provider || "unknown";
+          const existing = prev[provider] || { cost: 0, tokens: 0, calls: 0 };
+          return {
+            ...prev,
+            [provider]: {
+              cost: existing.cost + (evt.metadata?.costUsd || 0),
+              tokens: existing.tokens + (evt.metadata?.inputTokens || 0) + (evt.metadata?.outputTokens || 0),
+              calls: existing.calls + 1,
+            }
+          };
+        });
+      }
       
       if (evt.type === "phase") {
         const phaseName = evt.metadata?.phase || evt.title;
@@ -385,7 +448,13 @@ export default function ResearchMonitor() {
         lastEventTimestamp.current = Math.max(lastEventTimestamp.current, evt.timestamp.getTime());
       }
     });
-  }, [paused]);
+    
+    if (autoScroll && scrollAreaRef.current) {
+      setTimeout(() => {
+        scrollAreaRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      }, 50);
+    }
+  }, [paused, autoScroll]);
 
   const pollEvents = useCallback(async () => {
     if (paused) return;
@@ -501,7 +570,8 @@ export default function ResearchMonitor() {
 
   const clearEvents = () => {
     setEvents([]);
-    setStats({ searches: 0, sources: 0, candidates: 0, totalCost: 0 });
+    setStats({ searches: 0, sources: 0, candidates: 0, totalCost: 0, rejections: 0 });
+    setProviderCosts({});
     setSelectedCandidate(null);
     setResearchPhases([
       { name: "Scouting", status: "pending" },
@@ -509,6 +579,23 @@ export default function ResearchMonitor() {
       { name: "Candidates", status: "pending" },
     ]);
   };
+  
+  const rejectedStrategies = useMemo(() => {
+    return events
+      .filter(e => e.type === "rejection")
+      .map(e => ({
+        id: e.id,
+        name: e.metadata?.strategyName || e.title.replace("Rejected: ", ""),
+        reason: e.metadata?.rejectionReason || e.details || "Unknown reason",
+        confidence: e.metadata?.confidence,
+        threshold: e.metadata?.threshold,
+        archetype: e.metadata?.archetype,
+        timestamp: e.timestamp,
+        provider: e.source,
+      }))
+      .reverse()
+      .slice(0, 10);
+  }, [events]);
 
   const triggerResearchMutation = useMutation({
     mutationFn: async () => {
@@ -597,6 +684,15 @@ export default function ResearchMonitor() {
                 <Button size="icon" variant="ghost" onClick={() => setPaused(!paused)} data-testid="button-pause">
                   {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
                 </Button>
+                <Button 
+                  size="icon" 
+                  variant={autoScroll ? "secondary" : "ghost"} 
+                  onClick={() => setAutoScroll(!autoScroll)} 
+                  data-testid="button-autoscroll"
+                  title={autoScroll ? "Auto-scroll enabled" : "Auto-scroll disabled"}
+                >
+                  <ArrowDownCircle className={cn("h-4 w-4", autoScroll && "text-primary")} />
+                </Button>
                 <Button size="icon" variant="ghost" onClick={clearEvents} data-testid="button-clear">
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -620,6 +716,7 @@ export default function ResearchMonitor() {
                   variant={viewMode === "insights" ? "secondary" : "ghost"} 
                   className="h-7 text-xs"
                   onClick={() => setViewMode("insights")}
+                  data-testid="tab-insights"
                 >
                   Cards
                 </Button>
@@ -628,13 +725,29 @@ export default function ResearchMonitor() {
                   variant={viewMode === "activity" ? "secondary" : "ghost"} 
                   className="h-7 text-xs"
                   onClick={() => setViewMode("activity")}
+                  data-testid="tab-activity"
                 >
                   Activity
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant={viewMode === "rejected" ? "secondary" : "ghost"} 
+                  className="h-7 text-xs"
+                  onClick={() => setViewMode("rejected")}
+                  data-testid="tab-rejected"
+                >
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Why Not
+                  {stats.rejections > 0 && (
+                    <Badge variant="outline" className="ml-1 text-[9px] h-4 px-1 text-red-400 border-red-500/30">
+                      {stats.rejections}
+                    </Badge>
+                  )}
                 </Button>
               </div>
             </div>
             
-            <ScrollArea className="flex-1 p-4">
+            <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
               {viewMode === "insights" ? (
                 candidates.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12">
@@ -653,6 +766,72 @@ export default function ResearchMonitor() {
                         isSelected={selectedCandidate?.id === candidate.id}
                         onClick={() => setSelectedCandidate(candidate)}
                       />
+                    ))}
+                  </div>
+                )
+              ) : viewMode === "rejected" ? (
+                rejectedStrategies.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                    <XCircle className="h-16 w-16 text-muted-foreground/15 mb-4" />
+                    <p className="text-sm text-muted-foreground">No rejected strategies yet</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">
+                      Strategies that don't meet criteria will appear here with reasons
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-xs text-muted-foreground mb-4 px-2">
+                      Strategies that were evaluated but not promoted, with specific reasons why.
+                    </div>
+                    {rejectedStrategies.map(rejected => (
+                      <Card 
+                        key={rejected.id} 
+                        className="border-red-500/20 bg-red-500/5"
+                        data-testid={`rejected-card-${rejected.id}`}
+                      >
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <XCircle className="h-3.5 w-3.5 text-red-400" />
+                                <Badge variant="outline" className={cn("text-[9px]", SOURCE_COLORS[rejected.provider])}>
+                                  {rejected.provider}
+                                </Badge>
+                                {rejected.archetype && (
+                                  <Badge variant="secondary" className="text-[9px]">
+                                    {rejected.archetype}
+                                  </Badge>
+                                )}
+                              </div>
+                              <CardTitle className="text-sm text-foreground/80">{rejected.name}</CardTitle>
+                            </div>
+                            {rejected.confidence !== undefined && (
+                              <div className="flex flex-col items-end">
+                                <span className="text-lg font-mono text-red-400">{rejected.confidence}%</span>
+                                {rejected.threshold && (
+                                  <span className="text-[9px] text-muted-foreground">
+                                    threshold: {rejected.threshold}%
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="bg-red-500/10 rounded px-3 py-2 border border-red-500/20">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <AlertCircle className="h-3 w-3 text-red-400" />
+                              <span className="text-[10px] text-red-300 uppercase tracking-wider">Rejection Reason</span>
+                            </div>
+                            <p className="text-xs text-foreground/70">{rejected.reason}</p>
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <span className="text-[10px] text-muted-foreground">
+                              {safeFormat(rejected.timestamp, "h:mm:ss a")}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 )
@@ -703,7 +882,12 @@ export default function ResearchMonitor() {
                       ) : (
                         <div 
                           key={event.id}
-                          className="px-3 py-2 flex items-start gap-3"
+                          className={cn(
+                            "px-3 py-2 flex items-start gap-3",
+                            event.type === "reasoning" && "bg-violet-500/5 border-l-2 border-violet-500/50",
+                            event.type === "validation" && "bg-emerald-500/5 border-l-2 border-emerald-500/50",
+                            event.type === "rejection" && "bg-red-500/5 border-l-2 border-red-500/50"
+                          )}
                           data-testid={`activity-event-${event.id}`}
                         >
                           <div className={cn(
@@ -712,17 +896,59 @@ export default function ResearchMonitor() {
                             event.type === "source" && "bg-cyan-400",
                             event.type === "error" && "bg-red-400",
                             event.type === "phase" && "bg-blue-400",
-                            !["candidate", "source", "error", "phase"].includes(event.type) && "bg-muted-foreground"
+                            event.type === "reasoning" && "bg-violet-400",
+                            event.type === "validation" && "bg-emerald-400",
+                            event.type === "rejection" && "bg-red-400",
+                            event.type === "cost" && "bg-amber-400",
+                            !["candidate", "source", "error", "phase", "reasoning", "validation", "rejection", "cost"].includes(event.type) && "bg-muted-foreground"
                           )} />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs truncate">{event.title}</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <ClickableText text={event.title} className="text-xs" />
                               <Badge variant="outline" className={cn("text-[9px] h-4 px-1", SOURCE_COLORS[event.source])}>
                                 {event.source}
                               </Badge>
+                              {event.type === "cost" && event.metadata?.costUsd && (
+                                <Badge variant="secondary" className="text-[9px] h-4 px-1 font-mono">
+                                  ${event.metadata.costUsd.toFixed(4)}
+                                </Badge>
+                              )}
+                              {event.type === "validation" && event.metadata?.status && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn(
+                                    "text-[9px] h-4 px-1",
+                                    event.metadata.status === "PASS" && "text-emerald-400 border-emerald-500/30",
+                                    event.metadata.status === "WARN" && "text-amber-400 border-amber-500/30",
+                                    event.metadata.status === "FAIL" && "text-red-400 border-red-500/30"
+                                  )}
+                                >
+                                  {event.metadata.status}
+                                </Badge>
+                              )}
                             </div>
                             {event.details && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{event.details}</p>
+                              <ClickableText 
+                                text={event.details} 
+                                className="text-[10px] text-muted-foreground mt-0.5 block" 
+                              />
+                            )}
+                            {event.metadata?.url && !event.details?.includes(event.metadata.url) && (
+                              <a 
+                                href={event.metadata.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-primary hover:underline flex items-center gap-1 mt-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" />
+                                {extractDomain(event.metadata.url)}
+                              </a>
+                            )}
+                            {event.metadata?.snippet && (
+                              <p className="text-[10px] text-muted-foreground/80 mt-1 italic line-clamp-2 bg-muted/20 px-2 py-1 rounded">
+                                "{event.metadata.snippet}"
+                              </p>
                             )}
                           </div>
                           <span className="text-[10px] text-muted-foreground font-mono shrink-0">
@@ -855,21 +1081,75 @@ export default function ResearchMonitor() {
                 <div className="px-4 py-2 border-b border-border">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-cyan-400" />
-                    <span className="text-sm font-medium">Research Sources</span>
+                    <span className="text-sm font-medium">Research Overview</span>
                   </div>
                 </div>
                 <ScrollArea className="flex-1 p-4">
-                  {allSources.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                      <Globe className="h-12 w-12 text-muted-foreground/15 mb-3" />
-                      <p className="text-sm text-muted-foreground">No sources yet</p>
-                      <p className="text-xs text-muted-foreground/60 mt-1">
-                        Sources will appear as research runs
-                      </p>
+                  <div className="space-y-6">
+                    {Object.keys(providerCosts).length > 0 && (
+                      <div data-testid="provider-costs">
+                        <div className="flex items-center gap-1.5 mb-3">
+                          <DollarSign className="h-3.5 w-3.5 text-amber-400" />
+                          <span className="text-xs font-medium">Cost by Provider</span>
+                        </div>
+                        <div className="space-y-2">
+                          {Object.entries(providerCosts)
+                            .sort(([,a], [,b]) => b.cost - a.cost)
+                            .map(([provider, data]) => (
+                              <div 
+                                key={provider} 
+                                className="bg-muted/30 rounded px-3 py-2 border border-border/30"
+                                data-testid={`cost-${provider}`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn("text-[9px]", SOURCE_COLORS[provider as ResearchSource] || "text-muted-foreground")}
+                                    >
+                                      {provider}
+                                    </Badge>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {data.calls} call{data.calls !== 1 ? "s" : ""}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm font-mono text-amber-400">
+                                    ${data.cost.toFixed(4)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground">
+                                  <span>{data.tokens.toLocaleString()} tokens</span>
+                                  <span>${(data.cost / Math.max(data.calls, 1)).toFixed(4)}/call avg</span>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <Globe className="h-3.5 w-3.5 text-cyan-400" />
+                        <span className="text-xs font-medium">Research Sources</span>
+                        {allSources.length > 0 && (
+                          <Badge variant="secondary" className="text-[9px] h-4 ml-auto">
+                            {allSources.length}
+                          </Badge>
+                        )}
+                      </div>
+                      {allSources.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center text-center py-8">
+                          <Globe className="h-10 w-10 text-muted-foreground/15 mb-2" />
+                          <p className="text-xs text-muted-foreground">No sources yet</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                            Sources will appear as research runs
+                          </p>
+                        </div>
+                      ) : (
+                        <SourcePanel sources={allSources} />
+                      )}
                     </div>
-                  ) : (
-                    <SourcePanel sources={allSources} />
-                  )}
+                  </div>
                 </ScrollArea>
               </>
             )}
