@@ -872,7 +872,9 @@ export async function getCloudBackupDashboard(userId?: string): Promise<{
     }
   }
   
-  const connectedPromise = isGoogleDriveConnected();
+  const connectedPromise = userId 
+    ? isGoogleDriveConnectedForUser(userId) 
+    : isGoogleDriveConnected();
   const connected = await withTimeout(connectedPromise, DASHBOARD_TIMEOUT_MS, false);
   
   if (userId) {
