@@ -84,6 +84,9 @@ let isSchedulerRunning = false;
 let grokResearchEnabled = false;
 let grokResearchDepth: GrokResearchDepth = "CONTRARIAN_SCAN";
 let lastGrokCycleAt: Date | null = null;
+// Use a counter to track concurrent Grok research cycles (manual + scheduled can overlap)
+let grokResearchActiveCount = 0;
+let grokResearchTraceId: string | null = null;
 
 // QC Verification Worker Configuration
 const QC_VERIFICATION_WORKER_INTERVAL_MS = 60_000; // 1 minute - check for queued QC jobs
@@ -7685,9 +7688,11 @@ export function setGrokResearchDepth(depth: GrokResearchDepth): void {
  */
 export function getGrokResearchState(): {
   enabled: boolean;
+  isActive: boolean;
   depth: GrokResearchDepth;
   lastCycleAt: Date | null;
   nextCycleIn: number | null;
+  traceId: string | null;
 } {
   const interval = GROK_DEPTH_INTERVALS[grokResearchDepth];
   let nextCycleIn: number | null = null;
@@ -7699,9 +7704,11 @@ export function getGrokResearchState(): {
   
   return {
     enabled: grokResearchEnabled,
+    isActive: grokResearchActiveCount > 0,
     depth: grokResearchDepth,
     lastCycleAt: lastGrokCycleAt,
     nextCycleIn,
+    traceId: grokResearchTraceId,
   };
 }
 
@@ -7719,15 +7726,27 @@ export async function triggerGrokResearchManual(
   traceId: string;
 }> {
   const effectiveDepth = depth || grokResearchDepth;
-  console.log(`[GROK_SCHEDULER] Manual Grok research triggered depth=${effectiveDepth}`);
+  const traceId = crypto.randomUUID().slice(0, 8);
+  console.log(`[GROK_SCHEDULER] trace_id=${traceId} Manual Grok research triggered depth=${effectiveDepth}`);
   
-  const result = await processGrokResearchCycle(effectiveDepth, userId);
+  // Increment active count for UI tracking (supports concurrent runs)
+  grokResearchActiveCount++;
+  grokResearchTraceId = traceId;
   
-  if (result.success) {
-    lastGrokCycleAt = new Date();
+  try {
+    const result = await processGrokResearchCycle(effectiveDepth, userId);
+    
+    if (result.success) {
+      lastGrokCycleAt = new Date();
+    }
+    
+    return result;
+  } finally {
+    grokResearchActiveCount = Math.max(0, grokResearchActiveCount - 1);
+    if (grokResearchActiveCount === 0) {
+      grokResearchTraceId = null;
+    }
   }
-  
-  return result;
 }
 
 /**
@@ -7750,6 +7769,10 @@ async function runGrokResearchWorker(): Promise<void> {
   }
   
   console.log(`[GROK_SCHEDULER] trace_id=${traceId} Running Grok research cycle depth=${grokResearchDepth}...`);
+  
+  // Increment active count for UI tracking (supports concurrent runs)
+  grokResearchActiveCount++;
+  grokResearchTraceId = traceId;
   
   try {
     const systemUserId = "00000000-0000-0000-0000-000000000000";
@@ -7777,6 +7800,12 @@ async function runGrokResearchWorker(): Promise<void> {
     }
   } catch (error) {
     console.error(`[GROK_SCHEDULER] trace_id=${traceId} Grok research worker failed:`, error);
+  } finally {
+    // Decrement active count when done (supports concurrent runs)
+    grokResearchActiveCount = Math.max(0, grokResearchActiveCount - 1);
+    if (grokResearchActiveCount === 0) {
+      grokResearchTraceId = null;
+    }
   }
 }
 

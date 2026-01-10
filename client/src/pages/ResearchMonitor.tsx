@@ -9,19 +9,33 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
+interface ResearchActivity {
+  isActive: boolean;
+  phase: string;
+  provider: string | null;
+  startedAt: string | null;
+  message: string;
+  candidatesFound: number;
+  traceId: string | null;
+}
+
 interface StrategyLabState {
   isPlaying: boolean;
-  isResearching: boolean;
-  currentPhase?: string;
-  currentProvider?: string;
-  lastActivity?: string;
+  researchActivity: ResearchActivity;
+  currentDepth?: string;
+  adaptiveMode?: string;
+  adaptiveIntervalMs?: number;
+  adaptiveReason?: string;
+  lastResearchCycleTime?: number;
 }
 
 interface GrokResearchState {
   enabled: boolean;
-  isResearching: boolean;
+  isActive: boolean;
   depth: string;
-  lastRun?: string;
+  lastCycleAt: string | null;
+  nextCycleIn: number | null;
+  traceId: string | null;
 }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -118,6 +132,18 @@ const safeFormat = (date: Date | string | null | undefined, formatStr: string): 
     return "—";
   }
 };
+
+function formatCountdown(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined) return "";
+  if (ms <= 0) return "now";
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
 
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
 
@@ -415,16 +441,44 @@ export default function ResearchMonitor() {
   });
 
   const isAnyResearchActive = useMemo(() => {
-    const strategyLabActive = strategyLabState?.data?.isResearching || strategyLabState?.data?.isPlaying;
-    const grokActive = grokResearchState?.data?.isResearching;
+    const strategyLabActive = strategyLabState?.data?.researchActivity?.isActive === true;
+    const grokActive = grokResearchState?.data?.isActive === true;
     return strategyLabActive || grokActive;
   }, [strategyLabState, grokResearchState]);
 
-  const activeResearchProvider = useMemo(() => {
-    if (strategyLabState?.data?.isResearching) {
-      return strategyLabState.data.currentProvider || "perplexity";
+  const strategyLabEnabled = useMemo(() => {
+    return strategyLabState?.data?.isPlaying === true;
+  }, [strategyLabState]);
+
+  const grokEnabled = useMemo(() => {
+    return grokResearchState?.data?.enabled === true;
+  }, [grokResearchState]);
+
+  const nextCycleInfo = useMemo(() => {
+    const strategyLab = strategyLabState?.data;
+    const grok = grokResearchState?.data;
+    
+    const now = Date.now();
+    let strategyLabNextIn: number | null = null;
+    let grokNextIn: number | null = null;
+    
+    if (strategyLab?.isPlaying && strategyLab.lastResearchCycleTime && strategyLab.adaptiveIntervalMs) {
+      const elapsed = now - strategyLab.lastResearchCycleTime;
+      strategyLabNextIn = Math.max(0, strategyLab.adaptiveIntervalMs - elapsed);
     }
-    if (grokResearchState?.data?.isResearching) {
+    
+    if (grok?.enabled && grok.nextCycleIn !== null) {
+      grokNextIn = grok.nextCycleIn;
+    }
+    
+    return { strategyLabNextIn, grokNextIn };
+  }, [strategyLabState, grokResearchState]);
+
+  const activeResearchProvider = useMemo(() => {
+    if (strategyLabState?.data?.researchActivity?.isActive) {
+      return strategyLabState.data.researchActivity.provider || "perplexity";
+    }
+    if (grokResearchState?.data?.isActive) {
       return "grok";
     }
     return null;
@@ -902,23 +956,62 @@ export default function ResearchMonitor() {
                       </Badge>
                     )}
                   </div>
+                ) : (strategyLabEnabled || grokEnabled) ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2 h-7 px-3 bg-emerald-500/10 rounded-md border border-emerald-500/20 cursor-help">
+                        <Clock className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="text-xs font-medium text-emerald-400">Scheduled</span>
+                        {(() => {
+                          const nextIn = Math.min(
+                            nextCycleInfo.strategyLabNextIn ?? Infinity,
+                            nextCycleInfo.grokNextIn ?? Infinity
+                          );
+                          if (nextIn < Infinity) {
+                            return (
+                              <Badge variant="outline" className="text-[9px] h-4 bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
+                                {formatCountdown(nextIn)}
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <div className="text-xs space-y-1">
+                        {strategyLabEnabled && (
+                          <p>Strategy Lab: {nextCycleInfo.strategyLabNextIn !== null ? `Next in ${formatCountdown(nextCycleInfo.strategyLabNextIn)}` : "Ready"}</p>
+                        )}
+                        {grokEnabled && (
+                          <p>Grok Research: {nextCycleInfo.grokNextIn !== null ? `Next in ${formatCountdown(nextCycleInfo.grokNextIn)}` : "Ready"}</p>
+                        )}
+                        <p className="text-muted-foreground pt-1">Click button below to run immediately</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 ) : (
-                  <Button 
-                    size="sm" 
-                    onClick={() => triggerResearchMutation.mutate()}
-                    disabled={triggerResearchMutation.isPending}
-                    data-testid="button-trigger-research"
-                    className="h-7 px-3"
-                    variant="outline"
-                  >
-                    {triggerResearchMutation.isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                    ) : (
-                      <Rocket className="h-3.5 w-3.5 mr-1.5" />
-                    )}
-                    Run Manual Research
-                  </Button>
+                  <div className="flex items-center gap-2 h-7 px-3 bg-muted/50 rounded-md border border-border">
+                    <Pause className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">Paused</span>
+                  </div>
                 )}
+                
+                <Button 
+                  size="sm" 
+                  onClick={() => triggerResearchMutation.mutate()}
+                  disabled={triggerResearchMutation.isPending || isAnyResearchActive}
+                  data-testid="button-trigger-research"
+                  className="h-7 px-3"
+                  variant="outline"
+                >
+                  {triggerResearchMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Rocket className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Run Now
+                </Button>
                 
                 <div className="w-px h-4 bg-border mx-1" />
                 
@@ -1064,16 +1157,10 @@ export default function ResearchMonitor() {
                         AI is actively analyzing markets, news, and data sources
                       </p>
                       <div className="flex items-center gap-3 mb-6">
-                        {strategyLabState?.data?.isPlaying && (
+                        {strategyLabState?.data?.researchActivity?.isActive && (
                           <Badge variant="outline" className={cn("gap-1.5", SOURCE_COLORS.perplexity)}>
                             <Loader2 className="h-3 w-3 animate-spin" />
                             Strategy Lab
-                          </Badge>
-                        )}
-                        {grokResearchState?.data?.isResearching && (
-                          <Badge variant="outline" className={cn("gap-1.5", SOURCE_COLORS.grok)}>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Grok Research
                           </Badge>
                         )}
                       </div>
@@ -1087,8 +1174,61 @@ export default function ResearchMonitor() {
                         Strategy candidates will appear here as they are discovered
                       </p>
                     </div>
+                  ) : (strategyLabEnabled || grokEnabled) ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center py-16" data-testid="research-scheduled">
+                      <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mb-6">
+                        <Clock className="h-10 w-10 text-emerald-400" />
+                      </div>
+                      <h3 className="text-base font-medium text-foreground mb-2">Research Scheduled</h3>
+                      <p className="text-sm text-muted-foreground max-w-[320px] mb-4">
+                        Autonomous research is enabled and waiting for next cycle
+                      </p>
+                      <div className="flex flex-col items-center gap-2 mb-6">
+                        {strategyLabEnabled && nextCycleInfo.strategyLabNextIn !== null && (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={cn("gap-1.5", SOURCE_COLORS.perplexity)}>
+                              <Clock className="h-3 w-3" />
+                              Strategy Lab
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              Next in {formatCountdown(nextCycleInfo.strategyLabNextIn)}
+                            </span>
+                          </div>
+                        )}
+                        {grokEnabled && nextCycleInfo.grokNextIn !== null && (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={cn("gap-1.5", SOURCE_COLORS.grok)}>
+                              <Clock className="h-3 w-3" />
+                              Grok Research
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              Next in {formatCountdown(nextCycleInfo.grokNextIn)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {strategyLabState?.data?.adaptiveReason && (
+                        <p className="text-xs text-muted-foreground/60 mb-4 max-w-[320px] italic">
+                          {strategyLabState.data.adaptiveReason}
+                        </p>
+                      )}
+                      <Button 
+                        onClick={() => triggerResearchMutation.mutate()}
+                        disabled={triggerResearchMutation.isPending}
+                        data-testid="button-empty-state-research"
+                        className="gap-2"
+                        variant="outline"
+                      >
+                        {triggerResearchMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Rocket className="h-4 w-4" />
+                        )}
+                        Run Now
+                      </Button>
+                    </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center py-16">
+                    <div className="flex flex-col items-center justify-center h-full text-center py-16" data-testid="research-paused">
                       <div className="w-20 h-20 rounded-full bg-muted/30 flex items-center justify-center mb-6">
                         <Brain className="h-10 w-10 text-muted-foreground/40" />
                       </div>
