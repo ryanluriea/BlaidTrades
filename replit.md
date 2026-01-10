@@ -147,3 +147,19 @@ Estimated cost: $110-300/month for production with auto-scaling.
 - **Routes Updated**: `/api/cloud-backup/list`, `/api/cloud-backup/:backupId` DELETE, `/api/cloud-backup/status` all pass userId
 - **Migration file**: `migrations/0001_add_user_google_drive_tokens.sql`
 - **Production Deployment Note**: Run `npm run db:push` against production DATABASE_URL before enabling Google Drive backup
+
+### 2026-01-10: Industry-Standard Resilience Improvements
+- **Google Drive Retry/Backoff**: Added exponential backoff with jitter for all Google Drive API calls (`server/google-drive-client.ts`)
+  - Rate limit (429) and server errors (5xx) automatically retry up to 3 times
+  - Auth errors (401/403) fail immediately without retry
+  - Non-retriable 4xx errors fail fast to avoid wasting quota
+- **Extended Timeouts**: Dashboard timeout increased to 30s for production latency tolerance
+- **Detailed Logging**: Timing metrics for OAuth token retrieval, folder operations, and backup listing
+
+### Industry-Standard Compliance Summary
+The platform includes the following institutional-grade features:
+- **Kill Switch**: `/api/system/power` endpoint for emergency halt of all trading
+- **Immutable Audit Log**: Blockchain-style hash chain in `institutional-governance.ts` with sequence numbers and tamper detection
+- **Risk Limits**: Per-bot, per-symbol, and total exposure limits in `institutional-risk.ts` with VaR calculations
+- **Health Monitoring**: `/api/health` endpoint with memory metrics, determinism tests, and session stability checks
+- **Maker-Checker Governance**: Dual-control approval workflow for CANARY→LIVE promotions

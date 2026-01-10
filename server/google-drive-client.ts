@@ -48,19 +48,23 @@ async function withRetry<T>(
       lastError = error;
       const statusCode = error?.response?.status || error?.code;
       
+      // Auth errors - never retry
       if (statusCode === 401 || statusCode === 403) {
         console.error(`[GOOGLE_DRIVE] ${label} failed with auth error (${statusCode}), not retrying`);
         throw error;
       }
       
-      if (statusCode === 429 || statusCode >= 500) {
+      // Rate limits and server errors - retry
+      const isRetryable = statusCode === 429 || (statusCode >= 500 && statusCode < 600);
+      
+      if (isRetryable && attempt < config.maxRetries) {
         console.warn(`[GOOGLE_DRIVE] ${label} attempt ${attempt + 1} failed with ${statusCode}, will retry`);
         continue;
       }
       
-      if (attempt === config.maxRetries) {
-        console.error(`[GOOGLE_DRIVE] ${label} failed after ${config.maxRetries + 1} attempts:`, error?.message || error);
-      }
+      // Non-retriable errors (4xx except 429) or exhausted retries - fail immediately
+      console.error(`[GOOGLE_DRIVE] ${label} failed with ${statusCode || 'unknown'} (attempt ${attempt + 1}/${config.maxRetries + 1}):`, error?.message || error);
+      throw error;
     }
   }
   
