@@ -92,6 +92,70 @@ export interface IronbeamQuote {
   timestamp: Date;
 }
 
+// ============================================================================
+// ORDER EXECUTION TYPES - Institutional-grade order management
+// ============================================================================
+
+export type OrderSide = "BUY" | "SELL";
+export type OrderType = "MARKET" | "LIMIT" | "STOP" | "STOP_LIMIT";
+export type OrderStatus = "PENDING" | "SUBMITTED" | "WORKING" | "PARTIAL" | "FILLED" | "CANCELLED" | "REJECTED" | "EXPIRED";
+
+export interface IronbeamOrder {
+  symbol: string;
+  side: OrderSide;
+  quantity: number;
+  orderType: OrderType;
+  limitPrice?: number;
+  stopPrice?: number;
+  timeInForce?: "DAY" | "GTC" | "IOC" | "FOK";
+  accountId?: string;
+  clientOrderId?: string;
+}
+
+export interface OrderResult {
+  orderId: string;
+  clientOrderId?: string;
+  status: OrderStatus;
+  filledQty: number;
+  avgPrice: number;
+  remainingQty: number;
+  symbol: string;
+  side: OrderSide;
+  orderType: OrderType;
+  submittedAt: Date;
+  updatedAt: Date;
+  error?: string;
+  errorCode?: string;
+  simulated?: boolean;
+}
+
+export interface IronbeamPosition {
+  symbol: string;
+  quantity: number;
+  side: "LONG" | "SHORT" | "FLAT";
+  avgEntryPrice: number;
+  currentPrice: number;
+  unrealizedPnL: number;
+  realizedPnL: number;
+  accountId: string;
+  timestamp: Date;
+}
+
+export interface CancelResult {
+  orderId: string;
+  success: boolean;
+  message: string;
+  error?: string;
+}
+
+export interface StageGateResult {
+  allowed: boolean;
+  reason: string;
+  stage: string;
+  environment: string;
+  simulateOnly: boolean;
+}
+
 export interface LiveBar {
   time: Date;
   open: number;
@@ -1159,6 +1223,585 @@ export class IronbeamLiveClient extends EventEmitter {
    */
   getAllOrderBooks(): Map<string, OrderBookSnapshot> {
     return new Map(this.orderBooks);
+  }
+
+  // ============================================================================
+  // ORDER EXECUTION METHODS - Stage-gated live/simulated order flow
+  // ============================================================================
+
+  /**
+   * Check if order execution is allowed based on bot stage and environment.
+   * Returns whether to execute live or simulate.
+   */
+  checkStageGate(botStage?: string): StageGateResult {
+    const ironbeamEnv = process.env.IRONBEAM_ENV || "demo";
+    const stage = botStage?.toUpperCase() || "PAPER";
+    
+    const liveStages = ["CANARY", "LIVE"];
+    const isLiveStage = liveStages.includes(stage);
+    const isLiveEnv = ironbeamEnv === "live";
+    
+    if (!isLiveStage) {
+      return {
+        allowed: true,
+        reason: `Stage ${stage} will simulate orders (paper trading)`,
+        stage,
+        environment: ironbeamEnv,
+        simulateOnly: true,
+      };
+    }
+    
+    if (!isLiveEnv) {
+      return {
+        allowed: true,
+        reason: `Live stage ${stage} but IRONBEAM_ENV=${ironbeamEnv}, simulating orders`,
+        stage,
+        environment: ironbeamEnv,
+        simulateOnly: true,
+      };
+    }
+    
+    return {
+      allowed: true,
+      reason: `Live execution enabled: stage=${stage}, env=${ironbeamEnv}`,
+      stage,
+      environment: ironbeamEnv,
+      simulateOnly: false,
+    };
+  }
+
+  /**
+   * Submit order to Ironbeam.
+   * Checks stage gate first - simulates if not CANARY/LIVE with live env.
+   */
+  async submitOrder(order: IronbeamOrder, botStage?: string): Promise<OrderResult> {
+    const gate = this.checkStageGate(botStage);
+    const clientOrderId = order.clientOrderId || crypto.randomUUID().slice(0, 16);
+    const now = new Date();
+    
+    console.log(`[IRONBEAM_LIVE] trace_id=${this.traceId} submitOrder: ${order.side} ${order.quantity} ${order.symbol} @ ${order.orderType} gate=${gate.simulateOnly ? "SIMULATE" : "LIVE"}`);
+    
+    if (gate.simulateOnly) {
+      return this.simulateOrder(order, clientOrderId, gate.reason);
+    }
+    
+    if (!this.token) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) {
+        return {
+          orderId: "",
+          clientOrderId,
+          status: "REJECTED",
+          filledQty: 0,
+          avgPrice: 0,
+          remainingQty: order.quantity,
+          symbol: order.symbol,
+          side: order.side,
+          orderType: order.orderType,
+          submittedAt: now,
+          updatedAt: now,
+          error: "Authentication failed",
+          errorCode: "AUTH_FAILED",
+          simulated: false,
+        };
+      }
+    }
+    
+    try {
+      const symbolMapping = getSymbolMapping();
+      const instrument = symbolMapping[order.symbol.toUpperCase()] || `XCME:${order.symbol.toUpperCase()}`;
+      
+      const orderPayload: Record<string, unknown> = {
+        symbol: instrument,
+        side: order.side,
+        quantity: order.quantity,
+        orderType: order.orderType,
+        timeInForce: order.timeInForce || "DAY",
+        clientOrderId,
+      };
+      
+      if (order.limitPrice !== undefined) {
+        orderPayload.limitPrice = order.limitPrice;
+      }
+      if (order.stopPrice !== undefined) {
+        orderPayload.stopPrice = order.stopPrice;
+      }
+      if (order.accountId) {
+        orderPayload.accountId = order.accountId;
+      }
+      
+      const response = await fetch(`${IRONBEAM_API_URL}/orders`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderPayload),
+      });
+      
+      if (response.status === 401) {
+        console.log(`[IRONBEAM_LIVE] trace_id=${this.traceId} token expired, re-authenticating...`);
+        const reauth = await this.authenticate();
+        if (!reauth) {
+          return {
+            orderId: "",
+            clientOrderId,
+            status: "REJECTED",
+            filledQty: 0,
+            avgPrice: 0,
+            remainingQty: order.quantity,
+            symbol: order.symbol,
+            side: order.side,
+            orderType: order.orderType,
+            submittedAt: now,
+            updatedAt: now,
+            error: "Re-authentication failed",
+            errorCode: "REAUTH_FAILED",
+            simulated: false,
+          };
+        }
+        
+        const retryResponse = await fetch(`${IRONBEAM_API_URL}/orders`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${this.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(orderPayload),
+        });
+        
+        return this.parseOrderResponse(retryResponse, order, clientOrderId, now);
+      }
+      
+      return this.parseOrderResponse(response, order, clientOrderId, now);
+    } catch (error) {
+      console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} submitOrder error:`, error);
+      
+      await logActivityEvent({
+        eventType: "ORDER_EXECUTION",
+        severity: "ERROR",
+        title: "Ironbeam Order Submission Failed",
+        summary: `Failed to submit ${order.side} ${order.quantity} ${order.symbol}: ${(error as Error).message}`,
+        payload: { order, error: (error as Error).message },
+        traceId: this.traceId,
+      });
+      
+      return {
+        orderId: "",
+        clientOrderId,
+        status: "REJECTED",
+        filledQty: 0,
+        avgPrice: 0,
+        remainingQty: order.quantity,
+        symbol: order.symbol,
+        side: order.side,
+        orderType: order.orderType,
+        submittedAt: now,
+        updatedAt: now,
+        error: (error as Error).message,
+        errorCode: "NETWORK_ERROR",
+        simulated: false,
+      };
+    }
+  }
+
+  private async parseOrderResponse(
+    response: Response,
+    order: IronbeamOrder,
+    clientOrderId: string,
+    submittedAt: Date
+  ): Promise<OrderResult> {
+    const now = new Date();
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} order rejected: ${response.status} - ${errorText}`);
+      
+      await logActivityEvent({
+        eventType: "ORDER_EXECUTION",
+        severity: "WARN",
+        title: "Ironbeam Order Rejected",
+        summary: `Order rejected: ${errorText}`,
+        payload: { order, status: response.status, error: errorText },
+        traceId: this.traceId,
+      });
+      
+      return {
+        orderId: "",
+        clientOrderId,
+        status: "REJECTED",
+        filledQty: 0,
+        avgPrice: 0,
+        remainingQty: order.quantity,
+        symbol: order.symbol,
+        side: order.side,
+        orderType: order.orderType,
+        submittedAt,
+        updatedAt: now,
+        error: errorText,
+        errorCode: `HTTP_${response.status}`,
+        simulated: false,
+      };
+    }
+    
+    const data = await response.json() as {
+      orderId?: string;
+      status?: string;
+      filledQty?: number;
+      avgPrice?: number;
+      remainingQty?: number;
+    };
+    
+    const status = this.mapOrderStatus(data.status || "SUBMITTED");
+    
+    console.log(`[IRONBEAM_LIVE] trace_id=${this.traceId} order accepted: orderId=${data.orderId} status=${status}`);
+    
+    await logActivityEvent({
+      eventType: "ORDER_EXECUTION",
+      severity: "INFO",
+      title: "Ironbeam Order Submitted",
+      summary: `${order.side} ${order.quantity} ${order.symbol} orderId=${data.orderId}`,
+      payload: { order, orderId: data.orderId, status },
+      traceId: this.traceId,
+    });
+    
+    await logIntegrationUsage({
+      provider: "ironbeam",
+      operation: "order_submit",
+      status: "OK",
+      latencyMs: now.getTime() - submittedAt.getTime(),
+      traceId: this.traceId,
+      metadata: { orderId: data.orderId, symbol: order.symbol, side: order.side, quantity: order.quantity },
+    });
+    
+    return {
+      orderId: data.orderId || "",
+      clientOrderId,
+      status,
+      filledQty: data.filledQty || 0,
+      avgPrice: data.avgPrice || 0,
+      remainingQty: data.remainingQty ?? order.quantity,
+      symbol: order.symbol,
+      side: order.side,
+      orderType: order.orderType,
+      submittedAt,
+      updatedAt: now,
+      simulated: false,
+    };
+  }
+
+  private simulateOrder(order: IronbeamOrder, clientOrderId: string, reason: string): OrderResult {
+    const now = new Date();
+    const simulatedOrderId = `SIM-${crypto.randomUUID().slice(0, 12)}`;
+    
+    const book = this.getOrderBook(order.symbol);
+    let fillPrice = 0;
+    
+    if (order.orderType === "MARKET") {
+      if (book) {
+        fillPrice = order.side === "BUY" ? book.asks[0]?.price || book.midPrice : book.bids[0]?.price || book.midPrice;
+      } else {
+        fillPrice = order.limitPrice || 0;
+      }
+    } else if (order.orderType === "LIMIT") {
+      fillPrice = order.limitPrice || 0;
+    } else if (order.orderType === "STOP" || order.orderType === "STOP_LIMIT") {
+      fillPrice = order.stopPrice || order.limitPrice || 0;
+    }
+    
+    console.log(`[IRONBEAM_LIVE] trace_id=${this.traceId} SIMULATED order: ${simulatedOrderId} ${order.side} ${order.quantity} ${order.symbol} @ ${fillPrice} (${reason})`);
+    
+    logActivityEvent({
+      eventType: "ORDER_EXECUTION",
+      severity: "INFO",
+      title: "Simulated Order Executed",
+      summary: `PAPER: ${order.side} ${order.quantity} ${order.symbol} @ ${fillPrice.toFixed(2)}`,
+      payload: { order, simulatedOrderId, fillPrice, reason },
+      traceId: this.traceId,
+    }).catch(console.error);
+    
+    return {
+      orderId: simulatedOrderId,
+      clientOrderId,
+      status: "FILLED",
+      filledQty: order.quantity,
+      avgPrice: fillPrice,
+      remainingQty: 0,
+      symbol: order.symbol,
+      side: order.side,
+      orderType: order.orderType,
+      submittedAt: now,
+      updatedAt: now,
+      simulated: true,
+    };
+  }
+
+  private mapOrderStatus(apiStatus: string): OrderStatus {
+    const statusMap: Record<string, OrderStatus> = {
+      "PENDING": "PENDING",
+      "NEW": "SUBMITTED",
+      "SUBMITTED": "SUBMITTED",
+      "WORKING": "WORKING",
+      "PARTIAL": "PARTIAL",
+      "PARTIALLY_FILLED": "PARTIAL",
+      "FILLED": "FILLED",
+      "CANCELLED": "CANCELLED",
+      "CANCELED": "CANCELLED",
+      "REJECTED": "REJECTED",
+      "EXPIRED": "EXPIRED",
+    };
+    return statusMap[apiStatus.toUpperCase()] || "PENDING";
+  }
+
+  /**
+   * Get order status from Ironbeam API.
+   */
+  async getOrderStatus(orderId: string): Promise<OrderResult | null> {
+    if (orderId.startsWith("SIM-")) {
+      console.log(`[IRONBEAM_LIVE] trace_id=${this.traceId} getOrderStatus: ${orderId} is simulated, returning filled`);
+      return null;
+    }
+    
+    if (!this.token) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) {
+        console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} getOrderStatus: auth failed`);
+        return null;
+      }
+    }
+    
+    try {
+      const response = await fetch(`${IRONBEAM_API_URL}/orders/${orderId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${this.token}`,
+        },
+      });
+      
+      if (response.status === 401) {
+        await this.authenticate();
+        const retryResponse = await fetch(`${IRONBEAM_API_URL}/orders/${orderId}`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${this.token}` },
+        });
+        if (!retryResponse.ok) {
+          console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} getOrderStatus failed after reauth`);
+          return null;
+        }
+        return this.parseOrderStatusResponse(await retryResponse.json(), orderId);
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} getOrderStatus failed: ${response.status} - ${errorText}`);
+        return null;
+      }
+      
+      return this.parseOrderStatusResponse(await response.json(), orderId);
+    } catch (error) {
+      console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} getOrderStatus error:`, error);
+      return null;
+    }
+  }
+
+  private parseOrderStatusResponse(data: Record<string, unknown>, orderId: string): OrderResult {
+    const now = new Date();
+    return {
+      orderId,
+      clientOrderId: (data.clientOrderId as string) || undefined,
+      status: this.mapOrderStatus((data.status as string) || "PENDING"),
+      filledQty: (data.filledQty as number) || 0,
+      avgPrice: (data.avgPrice as number) || (data.avgFillPrice as number) || 0,
+      remainingQty: (data.remainingQty as number) || (data.leavesQty as number) || 0,
+      symbol: this.normalizeSymbol((data.symbol as string) || ""),
+      side: ((data.side as string) || "BUY").toUpperCase() as OrderSide,
+      orderType: ((data.orderType as string) || "MARKET").toUpperCase() as OrderType,
+      submittedAt: data.submittedAt ? new Date(data.submittedAt as string) : now,
+      updatedAt: data.updatedAt ? new Date(data.updatedAt as string) : now,
+      simulated: false,
+    };
+  }
+
+  /**
+   * Cancel an order via Ironbeam API.
+   */
+  async cancelOrder(orderId: string): Promise<CancelResult> {
+    if (orderId.startsWith("SIM-")) {
+      console.log(`[IRONBEAM_LIVE] trace_id=${this.traceId} cancelOrder: ${orderId} is simulated`);
+      return {
+        orderId,
+        success: true,
+        message: "Simulated order cancelled",
+      };
+    }
+    
+    if (!this.token) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) {
+        return {
+          orderId,
+          success: false,
+          message: "Authentication failed",
+          error: "AUTH_FAILED",
+        };
+      }
+    }
+    
+    try {
+      console.log(`[IRONBEAM_LIVE] trace_id=${this.traceId} cancelOrder: ${orderId}`);
+      
+      const response = await fetch(`${IRONBEAM_API_URL}/orders/${orderId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${this.token}`,
+        },
+      });
+      
+      if (response.status === 401) {
+        await this.authenticate();
+        const retryResponse = await fetch(`${IRONBEAM_API_URL}/orders/${orderId}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${this.token}` },
+        });
+        
+        if (!retryResponse.ok) {
+          const errorText = await retryResponse.text();
+          return {
+            orderId,
+            success: false,
+            message: `Cancel failed: ${errorText}`,
+            error: errorText,
+          };
+        }
+        
+        return { orderId, success: true, message: "Order cancelled" };
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} cancelOrder failed: ${response.status} - ${errorText}`);
+        
+        await logActivityEvent({
+          eventType: "ORDER_EXECUTION",
+          severity: "WARN",
+          title: "Ironbeam Order Cancel Failed",
+          summary: `Failed to cancel ${orderId}: ${errorText}`,
+          payload: { orderId, error: errorText },
+          traceId: this.traceId,
+        });
+        
+        return {
+          orderId,
+          success: false,
+          message: `Cancel failed: ${errorText}`,
+          error: errorText,
+        };
+      }
+      
+      console.log(`[IRONBEAM_LIVE] trace_id=${this.traceId} order cancelled: ${orderId}`);
+      
+      await logActivityEvent({
+        eventType: "ORDER_EXECUTION",
+        severity: "INFO",
+        title: "Ironbeam Order Cancelled",
+        summary: `Order ${orderId} cancelled`,
+        payload: { orderId },
+        traceId: this.traceId,
+      });
+      
+      return {
+        orderId,
+        success: true,
+        message: "Order cancelled successfully",
+      };
+    } catch (error) {
+      console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} cancelOrder error:`, error);
+      return {
+        orderId,
+        success: false,
+        message: (error as Error).message,
+        error: (error as Error).message,
+      };
+    }
+  }
+
+  /**
+   * Get current open positions from Ironbeam API.
+   */
+  async getPositions(): Promise<IronbeamPosition[]> {
+    if (!this.token) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) {
+        console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} getPositions: auth failed`);
+        return [];
+      }
+    }
+    
+    try {
+      const response = await fetch(`${IRONBEAM_API_URL}/positions`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${this.token}`,
+        },
+      });
+      
+      if (response.status === 401) {
+        await this.authenticate();
+        const retryResponse = await fetch(`${IRONBEAM_API_URL}/positions`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${this.token}` },
+        });
+        if (!retryResponse.ok) {
+          console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} getPositions failed after reauth`);
+          return [];
+        }
+        return this.parsePositionsResponse(await retryResponse.json());
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} getPositions failed: ${response.status} - ${errorText}`);
+        return [];
+      }
+      
+      return this.parsePositionsResponse(await response.json());
+    } catch (error) {
+      console.error(`[IRONBEAM_LIVE] trace_id=${this.traceId} getPositions error:`, error);
+      return [];
+    }
+  }
+
+  private parsePositionsResponse(data: unknown): IronbeamPosition[] {
+    const positions: IronbeamPosition[] = [];
+    const now = new Date();
+    
+    const items = Array.isArray(data) ? data : (data as { positions?: unknown[] })?.positions || [];
+    
+    for (const item of items as Record<string, unknown>[]) {
+      const quantity = (item.quantity as number) || (item.netQty as number) || 0;
+      const symbol = this.normalizeSymbol((item.symbol as string) || "");
+      
+      if (quantity === 0) continue;
+      
+      const avgEntry = (item.avgEntryPrice as number) || (item.avgPrice as number) || 0;
+      const currentPrice = (item.currentPrice as number) || (item.lastPrice as number) || avgEntry;
+      const unrealizedPnL = (item.unrealizedPnL as number) || (item.openPnL as number) || 
+        (quantity * (currentPrice - avgEntry));
+      
+      positions.push({
+        symbol,
+        quantity: Math.abs(quantity),
+        side: quantity > 0 ? "LONG" : quantity < 0 ? "SHORT" : "FLAT",
+        avgEntryPrice: avgEntry,
+        currentPrice,
+        unrealizedPnL,
+        realizedPnL: (item.realizedPnL as number) || (item.closedPnL as number) || 0,
+        accountId: (item.accountId as string) || "",
+        timestamp: now,
+      });
+    }
+    
+    return positions;
   }
 
   /**
