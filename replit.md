@@ -121,6 +121,15 @@ Estimated cost: $110-300/month for production with auto-scaling.
 
 ## Recent Changes
 
+### 2026-01-10: CloudBackupDialog Modal Enhanced
+- **Download Feature**: Added `/api/cloud-backup/download/:backupId` endpoint with rate limiting
+- **Download Button**: Backups tab now has download button with tooltip to save backups locally
+- **Confirmation Dialogs**: Restore and Delete actions now require confirmation via AlertDialog
+  - Restore dialog: Explains data merge behavior
+  - Delete dialog: Warns about permanent deletion from Google Drive
+- **Tooltips**: All action buttons (download, restore, delete) have descriptive tooltips
+- **Security**: Download endpoint uses per-user OAuth tokens (inherent security) plus rate limiting
+
 ### 2026-01-10: Autonomous Trading Infrastructure Complete
 **Major autonomous systems implementation across 18 phases:**
 
