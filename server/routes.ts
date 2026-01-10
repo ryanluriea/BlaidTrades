@@ -2214,12 +2214,12 @@ export function registerRoutes(app: Express) {
       
       if (oauthError) {
         console.error(`[GOOGLE_DRIVE_OAUTH] OAuth error from Google: ${oauthError}`);
-        return res.redirect(`/settings?error=${encodeURIComponent(String(oauthError))}&tab=cloud-backup`);
+        return res.redirect(`/settings?error=${encodeURIComponent(String(oauthError))}&tab=backup`);
       }
       
       if (!code || !state) {
         console.error("[GOOGLE_DRIVE_OAUTH] Missing code or state in callback");
-        return res.redirect("/settings?error=missing_oauth_params&tab=cloud-backup");
+        return res.redirect("/settings?error=missing_oauth_params&tab=backup");
       }
       
       console.log(`[GOOGLE_DRIVE_OAUTH] Processing callback with state: ${String(state).substring(0, 8)}...`);
@@ -2243,18 +2243,18 @@ export function registerRoutes(app: Express) {
           console.error("[GOOGLE_DRIVE_OAUTH] Cache clear failed (non-fatal):", cacheError);
         }
         
-        res.redirect("/settings?google_drive_connected=true&tab=cloud-backup");
+        res.redirect("/settings?google_drive_connected=true&tab=backup");
       } else if (result.success) {
         // Fallback: success but no userId (shouldn't happen, but handle gracefully)
         console.warn("[GOOGLE_DRIVE_OAUTH] Callback successful but no userId returned");
-        res.redirect("/settings?google_drive_connected=true&tab=cloud-backup");
+        res.redirect("/settings?google_drive_connected=true&tab=backup");
       } else {
         console.error(`[GOOGLE_DRIVE_OAUTH] Callback failed: ${result.error}`);
-        res.redirect(`/settings?error=${encodeURIComponent(result.error || "oauth_failed")}&tab=cloud-backup`);
+        res.redirect(`/settings?error=${encodeURIComponent(result.error || "oauth_failed")}&tab=backup`);
       }
     } catch (error) {
       console.error("[GOOGLE_DRIVE_OAUTH] Callback exception:", error);
-      res.redirect(`/settings?error=${encodeURIComponent(String(error))}&tab=cloud-backup`);
+      res.redirect(`/settings?error=${encodeURIComponent(String(error))}&tab=backup`);
     }
   });
   
