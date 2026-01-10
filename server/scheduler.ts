@@ -84,9 +84,40 @@ let isSchedulerRunning = false;
 let grokResearchEnabled = false;
 let grokResearchDepth: GrokResearchDepth = "CONTRARIAN_SCAN";
 let lastGrokCycleAt: Date | null = null;
-// Use a counter to track concurrent Grok research cycles (manual + scheduled can overlap)
-let grokResearchActiveCount = 0;
-let grokResearchTraceId: string | null = null;
+
+// Map-based tracking for concurrent Grok research cycles (manual + scheduled can overlap)
+interface GrokActiveRun {
+  traceId: string;
+  startedAt: number;
+}
+const grokResearchActiveRuns = new Map<string, GrokActiveRun>();
+
+function addGrokActiveRun(runToken: string, traceId: string): void {
+  grokResearchActiveRuns.set(runToken, { traceId, startedAt: Date.now() });
+}
+
+function updateGrokActiveRunTrace(runToken: string, traceId: string): void {
+  const run = grokResearchActiveRuns.get(runToken);
+  if (run) {
+    run.traceId = traceId;
+  }
+}
+
+function removeGrokActiveRun(runToken: string): void {
+  grokResearchActiveRuns.delete(runToken);
+}
+
+function getGrokActiveTraceId(): string | null {
+  if (grokResearchActiveRuns.size === 0) return null;
+  // Return the most recent run's traceId
+  let latestRun: GrokActiveRun | null = null;
+  for (const run of grokResearchActiveRuns.values()) {
+    if (!latestRun || run.startedAt > latestRun.startedAt) {
+      latestRun = run;
+    }
+  }
+  return latestRun?.traceId ?? null;
+}
 
 // QC Verification Worker Configuration
 const QC_VERIFICATION_WORKER_INTERVAL_MS = 60_000; // 1 minute - check for queued QC jobs
@@ -7704,11 +7735,11 @@ export function getGrokResearchState(): {
   
   return {
     enabled: grokResearchEnabled,
-    isActive: grokResearchActiveCount > 0,
+    isActive: grokResearchActiveRuns.size > 0,
     depth: grokResearchDepth,
     lastCycleAt: lastGrokCycleAt,
     nextCycleIn,
-    traceId: grokResearchTraceId,
+    traceId: getGrokActiveTraceId(),
   };
 }
 
@@ -7726,15 +7757,19 @@ export async function triggerGrokResearchManual(
   traceId: string;
 }> {
   const effectiveDepth = depth || grokResearchDepth;
-  const traceId = crypto.randomUUID().slice(0, 8);
-  console.log(`[GROK_SCHEDULER] trace_id=${traceId} Manual Grok research triggered depth=${effectiveDepth}`);
+  const runToken = crypto.randomUUID().slice(0, 8);
+  console.log(`[GROK_SCHEDULER] runToken=${runToken} Manual Grok research triggered depth=${effectiveDepth}`);
   
-  // Increment active count for UI tracking (supports concurrent runs)
-  grokResearchActiveCount++;
-  grokResearchTraceId = traceId;
+  // Register this run for UI tracking (supports concurrent runs)
+  addGrokActiveRun(runToken, runToken);
   
   try {
     const result = await processGrokResearchCycle(effectiveDepth, userId);
+    
+    // Update traceId with the actual result traceId
+    if (result.traceId) {
+      updateGrokActiveRunTrace(runToken, result.traceId);
+    }
     
     if (result.success) {
       lastGrokCycleAt = new Date();
@@ -7742,10 +7777,7 @@ export async function triggerGrokResearchManual(
     
     return result;
   } finally {
-    grokResearchActiveCount = Math.max(0, grokResearchActiveCount - 1);
-    if (grokResearchActiveCount === 0) {
-      grokResearchTraceId = null;
-    }
+    removeGrokActiveRun(runToken);
   }
 }
 
@@ -7753,7 +7785,7 @@ export async function triggerGrokResearchManual(
  * Grok research worker - runs on interval, respects depth-specific timing
  */
 async function runGrokResearchWorker(): Promise<void> {
-  const traceId = crypto.randomUUID().slice(0, 8);
+  const runToken = crypto.randomUUID().slice(0, 8);
   
   if (!grokResearchEnabled) {
     return;
@@ -7764,23 +7796,27 @@ async function runGrokResearchWorker(): Promise<void> {
   
   if (lastGrokCycleAt && (now - lastGrokCycleAt.getTime()) < interval) {
     const remaining = Math.ceil((interval - (now - lastGrokCycleAt.getTime())) / 60_000);
-    console.log(`[GROK_SCHEDULER] trace_id=${traceId} Grok cycle skipped (next in ${remaining}min)`);
+    console.log(`[GROK_SCHEDULER] runToken=${runToken} Grok cycle skipped (next in ${remaining}min)`);
     return;
   }
   
-  console.log(`[GROK_SCHEDULER] trace_id=${traceId} Running Grok research cycle depth=${grokResearchDepth}...`);
+  console.log(`[GROK_SCHEDULER] runToken=${runToken} Running Grok research cycle depth=${grokResearchDepth}...`);
   
-  // Increment active count for UI tracking (supports concurrent runs)
-  grokResearchActiveCount++;
-  grokResearchTraceId = traceId;
+  // Register this run for UI tracking (supports concurrent runs)
+  addGrokActiveRun(runToken, runToken);
   
   try {
     const systemUserId = "00000000-0000-0000-0000-000000000000";
     const result = await processGrokResearchCycle(grokResearchDepth, systemUserId);
     
+    // Update traceId with the actual result traceId
+    if (result.traceId) {
+      updateGrokActiveRunTrace(runToken, result.traceId);
+    }
+    
     if (result.success) {
       lastGrokCycleAt = new Date();
-      console.log(`[GROK_SCHEDULER] trace_id=${traceId} Grok cycle completed: ${result.candidatesCreated} candidates created`);
+      console.log(`[GROK_SCHEDULER] runToken=${runToken} Grok cycle completed: ${result.candidatesCreated} candidates created`);
       
       await logActivityEvent({
         eventType: "GROK_CYCLE_COMPLETED",
@@ -7796,16 +7832,12 @@ async function runGrokResearchWorker(): Promise<void> {
         traceId: result.traceId,
       });
     } else {
-      console.error(`[GROK_SCHEDULER] trace_id=${traceId} Grok cycle failed: ${result.error}`);
+      console.error(`[GROK_SCHEDULER] runToken=${runToken} Grok cycle failed: ${result.error}`);
     }
   } catch (error) {
-    console.error(`[GROK_SCHEDULER] trace_id=${traceId} Grok research worker failed:`, error);
+    console.error(`[GROK_SCHEDULER] runToken=${runToken} Grok research worker failed:`, error);
   } finally {
-    // Decrement active count when done (supports concurrent runs)
-    grokResearchActiveCount = Math.max(0, grokResearchActiveCount - 1);
-    if (grokResearchActiveCount === 0) {
-      grokResearchTraceId = null;
-    }
+    removeGrokActiveRun(runToken);
   }
 }
 
