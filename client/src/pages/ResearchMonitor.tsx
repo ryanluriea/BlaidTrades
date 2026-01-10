@@ -258,7 +258,7 @@ export default function ResearchMonitor() {
 
   useEffect(() => {
     if (viewportRef.current && !paused) {
-      viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+      viewportRef.current.scrollTop = 0;
     }
   }, [events, paused]);
 
@@ -381,7 +381,7 @@ export default function ResearchMonitor() {
                     <p className="text-xs text-muted-foreground/60 mt-1">Events will appear here in real-time</p>
                   </div>
                 ) : (
-                  events.map(event => {
+                  [...events].reverse().map(event => {
                     const Icon = EVENT_ICONS[event.type] || Zap;
                     const isSelected = selectedEvent?.id === event.id;
                     return (
@@ -466,24 +466,88 @@ export default function ResearchMonitor() {
                       </div>
                     )}
                     
+                    {(selectedEvent.metadata?.archetype || selectedEvent.metadata?.aiProvider) && (
+                      <div className="flex flex-wrap items-center gap-2" data-testid="detail-section-meta-badges">
+                        {selectedEvent.metadata?.archetype && (
+                          <Badge variant="secondary" className="text-[10px]" data-testid="badge-archetype">
+                            <Target className="h-2.5 w-2.5 mr-1" />
+                            {selectedEvent.metadata.archetype}
+                          </Badge>
+                        )}
+                        {selectedEvent.metadata?.aiProvider && (
+                          <Badge variant="outline" className="text-[10px] text-primary" data-testid="badge-ai-provider">
+                            <Brain className="h-2.5 w-2.5 mr-1" />
+                            via {selectedEvent.metadata.aiProvider}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                    
+                    {selectedEvent.metadata?.hypothesis && (
+                      <div data-testid="detail-section-hypothesis">
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Strategy Hypothesis</div>
+                        <p className="text-sm text-foreground/90 leading-relaxed" data-testid="text-hypothesis">
+                          {selectedEvent.metadata.hypothesis}
+                        </p>
+                      </div>
+                    )}
+                    
                     {selectedEvent.metadata?.reasoning && (
                       <div data-testid="detail-section-reasoning">
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">AI Reasoning</div>
-                        <p className="text-sm text-foreground/80 italic border-l-2 border-primary/30 pl-3" data-testid="text-ai-reasoning">
+                        <p className="text-sm text-foreground/80 italic border-l-2 border-primary/30 pl-3 py-1" data-testid="text-ai-reasoning">
                           {selectedEvent.metadata.reasoning}
                         </p>
                       </div>
                     )}
                     
-                    {selectedEvent.metadata?.sources && (
+                    {selectedEvent.metadata?.synthesis && (
+                      <div data-testid="detail-section-synthesis">
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Research Synthesis</div>
+                        <p className="text-sm text-foreground/80 bg-muted/30 px-3 py-2 rounded" data-testid="text-synthesis">
+                          {selectedEvent.metadata.synthesis}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {selectedEvent.metadata?.sources && Array.isArray(selectedEvent.metadata.sources) && (
                       <div data-testid="detail-section-sources">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Sources Analyzed</div>
-                        <div className="space-y-1">
-                          {(selectedEvent.metadata.sources as string[]).map((src, i) => (
-                            <div key={i} className="text-xs text-muted-foreground flex items-center gap-2" data-testid={`source-item-${i}`}>
-                              <Globe className="h-3 w-3" />
-                              <span className="truncate">{src}</span>
-                            </div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
+                          Sources Analyzed ({selectedEvent.metadata.sources.length})
+                        </div>
+                        <div className="space-y-2">
+                          {selectedEvent.metadata.sources.map((src: any, i: number) => (
+                            typeof src === 'string' ? (
+                              <div key={i} className="text-xs text-muted-foreground flex items-center gap-2" data-testid={`source-item-${i}`}>
+                                <Globe className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{src}</span>
+                              </div>
+                            ) : (
+                              <div key={i} className="bg-muted/20 rounded p-2 border border-border/50" data-testid={`source-card-${i}`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Globe className="h-3 w-3 shrink-0 text-primary" />
+                                  <span className="text-xs font-medium truncate">{src.label || src.title || 'Source'}</span>
+                                  {src.type && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn(
+                                        "text-[9px] h-4 px-1 shrink-0",
+                                        src.type === "HIGH" && "text-emerald-400 border-emerald-400/30",
+                                        src.type === "MEDIUM" && "text-amber-400 border-amber-400/30",
+                                        src.type === "LOW" && "text-muted-foreground border-border"
+                                      )}
+                                    >
+                                      {src.type}
+                                    </Badge>
+                                  )}
+                                </div>
+                                {src.detail && (
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed pl-5">
+                                    {src.detail}
+                                  </p>
+                                )}
+                              </div>
+                            )
                           ))}
                         </div>
                       </div>
@@ -492,15 +556,44 @@ export default function ResearchMonitor() {
                     {selectedEvent.metadata?.confidence !== undefined && (
                       <div data-testid="detail-section-confidence">
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Confidence Score</div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mb-2">
                           <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                             <div 
-                              className="h-full bg-primary rounded-full transition-all" 
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                selectedEvent.metadata.confidence >= 70 && "bg-emerald-500",
+                                selectedEvent.metadata.confidence >= 40 && selectedEvent.metadata.confidence < 70 && "bg-amber-500",
+                                selectedEvent.metadata.confidence < 40 && "bg-red-500"
+                              )}
                               style={{ width: `${selectedEvent.metadata.confidence}%` }}
                             />
                           </div>
-                          <span className="text-sm font-mono" data-testid="text-confidence-value">{selectedEvent.metadata.confidence}%</span>
+                          <span className="text-sm font-mono font-semibold" data-testid="text-confidence-value">
+                            {selectedEvent.metadata.confidence}%
+                          </span>
                         </div>
+                        {selectedEvent.metadata?.confidenceBreakdown && (
+                          <div className="grid grid-cols-2 gap-1 mt-2" data-testid="confidence-breakdown">
+                            {Object.entries(selectedEvent.metadata.confidenceBreakdown)
+                              .filter(([_, v]) => typeof v === 'number' && v > 0)
+                              .sort(([, a], [, b]) => (b as number) - (a as number))
+                              .map(([key, value]) => (
+                                <div key={key} className="flex items-center justify-between text-[10px] bg-muted/30 rounded px-2 py-1">
+                                  <span className="text-muted-foreground capitalize truncate">
+                                    {key.replace(/([A-Z])/g, ' $1').trim()}
+                                  </span>
+                                  <span className={cn(
+                                    "font-mono ml-1",
+                                    (value as number) >= 15 && "text-emerald-400",
+                                    (value as number) >= 8 && (value as number) < 15 && "text-amber-400",
+                                    (value as number) < 8 && "text-muted-foreground"
+                                  )}>
+                                    {value}%
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        )}
                       </div>
                     )}
                     

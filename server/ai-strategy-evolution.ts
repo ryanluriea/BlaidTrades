@@ -887,6 +887,14 @@ export interface PlainLanguageSummary {
   when: string;
 }
 
+export interface ResearchSourceInsight {
+  url: string;
+  title: string;
+  keyInsight: string;
+  relevance: "HIGH" | "MEDIUM" | "LOW";
+  supportedClaims: string[];
+}
+
 export interface ResearchCandidate {
   strategyName: string;
   archetypeId?: string;
@@ -912,6 +920,11 @@ export interface ResearchCandidate {
     performanceDeltas: Record<string, number>;
     regimeAtFailure: string;
   };
+  // AI Research Provenance - captures how AI came to conclusions
+  aiReasoning?: string;                    // Plain-language explanation of WHY this strategy
+  aiResearchSources?: ResearchSourceInsight[];  // Detailed source insights
+  aiSynthesis?: string;                    // Summary of what sources found and how conclusions were reached
+  aiProvider?: string;                     // Which AI provider generated this
 }
 
 export type RegimeTrigger = 
@@ -1659,6 +1672,63 @@ function normalizeDrawdownProfile(value: any): string | null {
   return value; // Return as-is if can't normalize
 }
 
+function extractDomainFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch {
+    return url.slice(0, 50);
+  }
+}
+
+function buildAIReasoning(candidate: ResearchCandidate): string {
+  const parts: string[] = [];
+  
+  if (candidate.explainers?.whyThisExists) {
+    parts.push(`Strategy Foundation: ${candidate.explainers.whyThisExists}`);
+  }
+  
+  if (candidate.noveltyJustification?.whyItMatters) {
+    parts.push(`Uniqueness: ${candidate.noveltyJustification.whyItMatters}`);
+  }
+  
+  if (candidate.hypothesis) {
+    parts.push(`Core Hypothesis: ${candidate.hypothesis}`);
+  }
+  
+  if (candidate.confidence?.breakdown) {
+    const topFactors = Object.entries(candidate.confidence.breakdown)
+      .filter(([_, v]) => v > 15)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([k, v]) => `${k.replace(/([A-Z])/g, ' $1').trim()}: ${v}%`);
+    if (topFactors.length > 0) {
+      parts.push(`Key Confidence Drivers: ${topFactors.join(', ')}`);
+    }
+  }
+  
+  return parts.join(' | ') || 'AI-generated strategy based on web-grounded research.';
+}
+
+function buildAISynthesis(candidate: ResearchCandidate, citations: string[]): string {
+  const sourceCount = citations.length;
+  const evidenceCount = candidate.evidence?.length || 0;
+  const archetype = candidate.archetypeName || 'custom';
+  const instruments = candidate.instrumentUniverse?.join(', ') || 'futures';
+  
+  let synthesis = `Analyzed ${Math.max(sourceCount, evidenceCount)} research sources for ${archetype} strategy on ${instruments}. `;
+  
+  if (candidate.explainers?.expectedFailureModes?.length) {
+    synthesis += `Identified ${candidate.explainers.expectedFailureModes.length} potential failure modes. `;
+  }
+  
+  if (candidate.confidence?.score) {
+    synthesis += `Confidence: ${candidate.confidence.score}% based on research strength, structural soundness, and regime alignment.`;
+  }
+  
+  return synthesis;
+}
+
 function parseResearchResponse(response: string, citations?: string[]): ResearchCandidate[] {
   try {
     // Log response length for diagnostics
@@ -1763,6 +1833,19 @@ function parseResearchResponse(response: string, citations?: string[]): Research
           sourceTier: idx === 0 ? "PRIMARY" : "SECONDARY",
           snippet: "Citation from Perplexity web search",
           supports: ["hypothesis"] as ("hypothesis" | "filter" | "exit" | "risk")[],
+        }));
+      }
+      
+      // Build AI Research Provenance - capture WHY this strategy was chosen
+      candidate.aiReasoning = buildAIReasoning(candidate);
+      candidate.aiSynthesis = buildAISynthesis(candidate, citations || []);
+      if (citations && citations.length > 0) {
+        candidate.aiResearchSources = citations.slice(0, 5).map((url, idx) => ({
+          url,
+          title: extractDomainFromUrl(url),
+          keyInsight: candidate.evidence[idx]?.snippet || `Supporting research for ${candidate.archetypeName || 'strategy'} approach`,
+          relevance: idx === 0 ? "HIGH" as const : idx < 3 ? "MEDIUM" as const : "LOW" as const,
+          supportedClaims: [candidate.hypothesis?.slice(0, 100) || 'Strategy hypothesis'],
         }));
       }
       
@@ -1939,8 +2022,11 @@ export async function runPerplexityResearch(
         researchMonitorWS.logValidation(providerSource as any, "Candidate Parsing", "PASS", `Extracted ${candidates.length} strategies`);
       }
       
-      // INSTITUTIONAL: Log each candidate with full details
+      // INSTITUTIONAL: Log each candidate with full details and set provider
       for (const candidate of candidates) {
+        // Set the AI provider that generated this candidate
+        candidate.aiProvider = provider;
+        
         // Log scoring
         researchMonitorWS.logScoring(providerSource as any, 
           candidate.strategyName, 
@@ -1955,13 +2041,19 @@ export async function runPerplexityResearch(
           candidate.hypothesis
         );
         
-        // Log full candidate
+        // Log full candidate with AI research provenance
         researchMonitorWS.logCandidate(providerSource as any, candidate.strategyName, candidate.confidence.score, {
-          symbols: candidate.instrumentUniverse || candidate.symbols,
+          symbols: candidate.instrumentUniverse,
           archetype: candidate.archetypeName,
           hypothesis: candidate.hypothesis,
-          reasoning: (candidate as any).aiReasoning,
-          sources: (candidate as any).aiResearchSources,
+          reasoning: candidate.aiReasoning,
+          synthesis: candidate.aiSynthesis,
+          sources: candidate.aiResearchSources?.map(s => ({ 
+            type: s.relevance, 
+            label: s.title, 
+            detail: s.keyInsight 
+          })),
+          aiProvider: provider,
           confidenceBreakdown: candidate.confidence.breakdown as Record<string, number>,
           traceId,
         });

@@ -357,7 +357,9 @@ class ResearchMonitorWebSocketServer {
       archetype?: string;
       hypothesis?: string;
       reasoning?: string;
+      synthesis?: string;  // Research synthesis summary
       sources?: Array<{ type: string; label: string; detail: string }>;
+      aiProvider?: string;  // Which AI provider generated this
       confidenceBreakdown?: Record<string, number>;
       traceId?: string;
     }
@@ -375,7 +377,9 @@ class ResearchMonitorWebSocketServer {
         archetype: options?.archetype,
         hypothesis: options?.hypothesis,
         reasoning: options?.reasoning,
+        synthesis: options?.synthesis,
         sources: options?.sources,
+        aiProvider: options?.aiProvider,
         confidenceBreakdown: options?.confidenceBreakdown,
         traceId: options?.traceId,
       },
