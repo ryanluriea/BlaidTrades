@@ -10,6 +10,7 @@
  * - App settings (favorites, preferences)
  */
 
+import { randomUUID } from "crypto";
 import { db } from "./db";
 import { 
   users, 
@@ -460,8 +461,13 @@ export async function createBackup(userId: string, options?: { force?: boolean }
       })),
     };
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `blaidtrades_backup_${user.username}_${timestamp}.json`;
+    // Industry-standard filename: version prefix, clean date/time, short unique ID
+    // Format: blaidtrades_backup_v1_YYYYMMDD_HHMMSS_shortId.json
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+    const timeStr = now.toISOString().slice(11, 19).replace(/:/g, ''); // HHMMSS
+    const shortId = randomUUID().slice(0, 8); // 8-char unique suffix
+    const filename = `blaidtrades_backup_v1_${dateStr}_${timeStr}_${shortId}.json`;
 
     // Calculate total items for progress
     const totalItems = userBots.length + userCandidates.length + userAccounts.length + userBacktests.length + userTournaments.length;
