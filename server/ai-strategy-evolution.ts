@@ -1815,6 +1815,66 @@ function extractCleanJSON(rawContent: string): string | null {
     return result;
   }
   
+  // SELF-HEALING: Attempt to repair truncated JSON by closing unclosed braces/brackets
+  if (depth > 0 && depth <= 10) {
+    console.warn(`[STRATEGY_LAB] JSON truncated (depth=${depth}), attempting repair...`);
+    
+    // Track what needs to be closed by re-scanning
+    let repairContent = content;
+    const bracketStack: string[] = [];
+    let repairInString = false;
+    let repairEscaped = false;
+    
+    for (let i = 0; i < repairContent.length; i++) {
+      const char = repairContent[i];
+      
+      if (repairEscaped) {
+        repairEscaped = false;
+        continue;
+      }
+      
+      if (char === '\\' && repairInString) {
+        repairEscaped = true;
+        continue;
+      }
+      
+      if (char === '"') {
+        repairInString = !repairInString;
+        continue;
+      }
+      
+      if (!repairInString) {
+        if (char === '{') bracketStack.push('}');
+        else if (char === '[') bracketStack.push(']');
+        else if (char === '}' || char === ']') bracketStack.pop();
+      }
+    }
+    
+    // If we ended inside a string, close it first
+    if (repairInString) {
+      repairContent += '"';
+    }
+    
+    // Close any open brackets in reverse order
+    while (bracketStack.length > 0) {
+      const closer = bracketStack.pop();
+      repairContent += closer;
+    }
+    
+    // Verify the repair worked by parsing
+    try {
+      JSON.parse(repairContent);
+      console.log(`[STRATEGY_LAB] JSON repair SUCCESS - appended ${repairContent.length - content.length} closing chars`);
+      return repairContent;
+    } catch (repairErr) {
+      console.error(`[STRATEGY_LAB] JSON repair FAILED: ${repairErr instanceof Error ? repairErr.message : 'unknown'}`);
+    }
+  }
+  
+  // DEBUG: Log why extraction failed
+  console.error(`[STRATEGY_LAB] JSON extraction failed: depth=${depth} jsonStart=${jsonStart} content_len=${content.length}`);
+  console.error(`[STRATEGY_LAB] Last 200 chars: ${content.slice(-200)}`);
+  
   return null;
 }
 
@@ -2073,6 +2133,9 @@ export async function runPerplexityResearch(
         inputTokens = data.usage?.prompt_tokens || 0;
         outputTokens = data.usage?.completion_tokens || 0;
         citations = data.citations || [];
+        
+        // DEBUG: Log actual Perplexity response content
+        console.log(`[PERPLEXITY_DEBUG] trace_id=${traceId} content_length=${content.length} first_200_chars=${JSON.stringify(content.slice(0, 200))}`);
         
         // INSTITUTIONAL: Log citations discovered
         if (citations.length > 0) {

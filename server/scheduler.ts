@@ -8125,6 +8125,13 @@ async function initializeWorkers(): Promise<void> {
   console.log(`[SCHEDULER] Strategy Lab research worker started (check interval: ${STRATEGY_LAB_RESEARCH_INTERVAL_MS / 60000}min, actual run interval by depth)`);
   
   grokResearchInterval = setInterval(createSelfHealingWorker("grok-research", runGrokResearchWorker), GROK_RESEARCH_CHECK_INTERVAL_MS);
+  
+  // AUTONOMOUS: Auto-enable Grok research on startup if XAI_API_KEY is configured
+  // This ensures the Grok contrarian research system starts automatically without manual intervention
+  if (!grokResearchEnabled && process.env.XAI_API_KEY) {
+    grokResearchEnabled = true;
+    console.log(`[SCHEDULER] AUTO-ENABLED Grok research: XAI_API_KEY detected`);
+  }
   console.log(`[SCHEDULER] Grok research worker started (check interval: ${GROK_RESEARCH_CHECK_INTERVAL_MS / 60000}min, enabled=${grokResearchEnabled})`);
   
   tournamentWorkerInterval = setInterval(createSelfHealingWorker("tournament", runTournamentWorker), 30 * 60_000);
@@ -8309,6 +8316,26 @@ async function initializeWorkers(): Promise<void> {
       console.error(`[SCHEDULER] trace_id=${startupTraceId} Strategy Lab startup cycle failed:`, error);
     }
   }, 15_000);
+
+  // AUTONOMOUS: Run Grok research on startup if enabled
+  setTimeout(async () => {
+    const GROK_DEFAULT_USER = "489c9350-10da-4fb9-8f6b-aeffc9412a46";
+    try {
+      if (grokResearchEnabled) {
+        console.log(`[SCHEDULER] trace_id=${startupTraceId} Running Grok research startup cycle...`);
+        const result = await processGrokResearchCycle(grokResearchDepth, GROK_DEFAULT_USER);
+        if (result.success) {
+          console.log(`[SCHEDULER] trace_id=${startupTraceId} Grok startup cycle: ${result.candidatesCreated} candidates created`);
+        } else {
+          console.log(`[SCHEDULER] trace_id=${startupTraceId} Grok startup cycle: failed (${result.error || 'unknown error'})`);
+        }
+      } else {
+        console.log(`[SCHEDULER] trace_id=${startupTraceId} Grok research disabled, skipping startup cycle`);
+      }
+    } catch (error) {
+      console.error(`[SCHEDULER] trace_id=${startupTraceId} Grok research startup cycle failed:`, error);
+    }
+  }, 25_000);
   
   // AUTONOMOUS: Verify all integrations on startup immediately
   // First verification immediately (no delay) for instant status update
