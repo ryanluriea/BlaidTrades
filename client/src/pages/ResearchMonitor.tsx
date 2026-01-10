@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { format, isValid, formatDistanceToNow } from "date-fns";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -314,26 +315,42 @@ function SourcePanel({ sources }: { sources: Array<{ type: string; label: string
   );
 }
 
+const PHASE_DESCRIPTIONS: Record<string, string> = {
+  "Scouting": "AI scans markets, news, and data sources for trading opportunities",
+  "Evidence": "Gathering supporting data and validating signals from multiple sources",
+  "Candidates": "Synthesizing insights into actionable strategy candidates",
+};
+
 function ResearchPhaseTimeline({ phases }: { phases: ResearchPhase[] }) {
+  const hasActivity = phases.some(p => p.status !== "pending");
+  if (!hasActivity) return null;
+  
   return (
     <div className="flex items-center gap-1" data-testid="phase-timeline">
       {phases.map((phase, idx) => (
         <div key={phase.name} className="flex items-center">
-          <div className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium",
-            phase.status === "complete" && "bg-emerald-500/20 text-emerald-400",
-            phase.status === "active" && "bg-primary/20 text-primary animate-pulse",
-            phase.status === "pending" && "bg-muted text-muted-foreground",
-            phase.status === "error" && "bg-red-500/20 text-red-400"
-          )}>
-            {phase.status === "complete" && <CheckCircle2 className="h-3 w-3" />}
-            {phase.status === "active" && <Loader2 className="h-3 w-3 animate-spin" />}
-            {phase.status === "pending" && <Clock className="h-3 w-3" />}
-            {phase.status === "error" && <XCircle className="h-3 w-3" />}
-            {phase.name}
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium cursor-help transition-colors",
+                phase.status === "complete" && "bg-emerald-500/20 text-emerald-400",
+                phase.status === "active" && "bg-primary/20 text-primary animate-pulse",
+                phase.status === "pending" && "bg-muted text-muted-foreground",
+                phase.status === "error" && "bg-red-500/20 text-red-400"
+              )}>
+                {phase.status === "complete" && <CheckCircle2 className="h-3 w-3" />}
+                {phase.status === "active" && <Loader2 className="h-3 w-3 animate-spin" />}
+                {phase.status === "pending" && <Clock className="h-3 w-3" />}
+                {phase.status === "error" && <XCircle className="h-3 w-3" />}
+                {phase.name}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[200px]">
+              <p className="text-xs">{PHASE_DESCRIPTIONS[phase.name] || phase.name}</p>
+            </TooltipContent>
+          </Tooltip>
           {idx < phases.length - 1 && (
-            <ArrowRight className="h-3 w-3 mx-1 text-muted-foreground/50" />
+            <ChevronRight className="h-3 w-3 mx-0.5 text-muted-foreground/40" />
           )}
         </div>
       ))}
@@ -744,96 +761,169 @@ export default function ResearchMonitor() {
   return (
     <AppLayout title="Research Monitor">
       <div className="h-full flex flex-col">
-        {/* Header Banner - Summary Stats */}
-        <div className="border-b border-border bg-muted/20">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-6">
+        {/* Header Banner - Clean, Minimal Design */}
+        <div className="border-b border-border bg-muted/10">
+          <div className="flex items-center justify-between px-4 py-2.5">
+            {/* Left: Title and Connection Status */}
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Microscope className="h-5 w-5 text-primary" />
-                <span className="font-medium">AI Research Activity</span>
+                <Microscope className="h-4 w-4 text-primary" />
+                <span className="font-medium text-sm">Research Monitor</span>
               </div>
               
-              <div className="flex items-center gap-2" data-testid="status-connection">
-                {connected ? (
-                  <>
-                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-xs text-emerald-400 font-mono">{usePolling ? "POLLING" : "LIVE"}</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                    <span className="text-xs text-muted-foreground font-mono">DISCONNECTED</span>
-                  </>
-                )}
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5 cursor-help" data-testid="status-connection">
+                    {connected ? (
+                      <>
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[10px] text-emerald-400 font-mono uppercase">{usePolling ? "Polling" : "Live"}</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground font-mono">Offline</span>
+                      </>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">{connected ? "Real-time updates active" : "Reconnecting..."}</p>
+                </TooltipContent>
+              </Tooltip>
               
               {activeProvider && (
-                <Badge variant="outline" className={cn("text-[10px]", SOURCE_COLORS[activeProvider])}>
-                  {activeProvider} active
+                <Badge variant="outline" className={cn("text-[9px] h-5", SOURCE_COLORS[activeProvider])}>
+                  {activeProvider}
                 </Badge>
               )}
             </div>
 
+            {/* Center: Phase Timeline (only shows when active) */}
             <ResearchPhaseTimeline phases={researchPhases} />
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1.5" data-testid="stat-sources">
-                  <Globe className="h-3.5 w-3.5 text-cyan-400" />
-                  <span className="font-mono">{stats.sources}</span>
-                  <span className="text-xs text-muted-foreground">sources</span>
+            {/* Right: Stats (only show non-zero) and Actions */}
+            <div className="flex items-center gap-3">
+              {/* Stats - only show when there's data */}
+              {(stats.sources > 0 || stats.candidates > 0 || stats.totalCost > 0) && (
+                <div className="flex items-center gap-3 text-xs border-r border-border pr-3">
+                  {stats.sources > 0 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help" data-testid="stat-sources">
+                          <Globe className="h-3 w-3 text-cyan-400" />
+                          <span className="font-mono text-foreground">{stats.sources}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p className="text-xs">Research sources analyzed</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {stats.candidates > 0 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help" data-testid="stat-candidates">
+                          <Target className="h-3 w-3 text-emerald-400" />
+                          <span className="font-mono text-foreground">{stats.candidates}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p className="text-xs">Strategy candidates discovered</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {stats.totalCost > 0 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help" data-testid="stat-cost">
+                          <DollarSign className="h-3 w-3 text-amber-400" />
+                          <span className="font-mono text-foreground">${stats.totalCost.toFixed(2)}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p className="text-xs">Total AI API cost this session</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5" data-testid="stat-candidates">
-                  <Target className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="font-mono">{stats.candidates}</span>
-                  <span className="text-xs text-muted-foreground">strategies</span>
-                </div>
-                <div className="flex items-center gap-1.5" data-testid="stat-cost">
-                  <DollarSign className="h-3.5 w-3.5 text-amber-400" />
-                  <span className="font-mono">${stats.totalCost.toFixed(3)}</span>
-                </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-2">
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1">
                 <Button 
                   size="sm" 
-                  variant="outline"
                   onClick={() => triggerResearchMutation.mutate()}
                   disabled={triggerResearchMutation.isPending}
                   data-testid="button-trigger-research"
+                  className="h-7 px-3"
                 >
                   {triggerResearchMutation.isPending ? (
                     <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                   ) : (
                     <Rocket className="h-3.5 w-3.5 mr-1.5" />
                   )}
-                  Research
+                  Start Research
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => setPaused(!paused)} data-testid="button-pause">
-                  {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-                </Button>
-                <Button 
-                  size="icon" 
-                  variant={autoScroll ? "secondary" : "ghost"} 
-                  onClick={() => setAutoScroll(!autoScroll)} 
-                  data-testid="button-autoscroll"
-                  title={autoScroll ? "Auto-scroll enabled" : "Auto-scroll disabled"}
-                >
-                  <ArrowDownCircle className={cn("h-4 w-4", autoScroll && "text-primary")} />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={clearEvents} data-testid="button-clear">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-                <Button 
-                  size="icon" 
-                  variant="ghost" 
-                  onClick={exportReport} 
-                  data-testid="button-export"
-                  title="Export research report"
-                  disabled={candidates.length === 0}
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
+                
+                <div className="w-px h-4 bg-border mx-1" />
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="ghost" onClick={() => setPaused(!paused)} data-testid="button-pause" className="h-7 w-7">
+                      {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">{paused ? "Resume updates" : "Pause updates"}</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="icon" 
+                      variant={autoScroll ? "secondary" : "ghost"} 
+                      onClick={() => setAutoScroll(!autoScroll)} 
+                      data-testid="button-autoscroll"
+                      className="h-7 w-7"
+                    >
+                      <ArrowDownCircle className={cn("h-3.5 w-3.5", autoScroll && "text-primary")} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">{autoScroll ? "Auto-scroll: ON" : "Auto-scroll: OFF"}</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="ghost" onClick={clearEvents} data-testid="button-clear" className="h-7 w-7">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Clear all events</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      onClick={exportReport} 
+                      data-testid="button-export"
+                      disabled={candidates.length === 0}
+                      className="h-7 w-7"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">{candidates.length === 0 ? "No data to export" : "Download research report"}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           </div>
@@ -843,57 +933,93 @@ export default function ResearchMonitor() {
         <div className="flex-1 flex min-h-0">
           {/* Left Panel - Strategy Insights */}
           <div className="flex-1 flex flex-col min-h-0 border-r border-border">
-            <div className="px-4 py-2 border-b border-border flex items-center justify-between">
+            <div className="px-4 py-2.5 border-b border-border flex items-center justify-between bg-muted/5">
               <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Strategy Insights</span>
+                <Layers className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium uppercase tracking-wide text-foreground/80">Strategies</span>
+                {candidates.length > 0 && (
+                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{candidates.length}</Badge>
+                )}
               </div>
-              <div className="flex items-center gap-1">
-                <Button 
-                  size="sm" 
-                  variant={viewMode === "insights" ? "secondary" : "ghost"} 
-                  className="h-7 text-xs"
-                  onClick={() => setViewMode("insights")}
-                  data-testid="tab-insights"
-                >
-                  Cards
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant={viewMode === "activity" ? "secondary" : "ghost"} 
-                  className="h-7 text-xs"
-                  onClick={() => setViewMode("activity")}
-                  data-testid="tab-activity"
-                >
-                  Activity
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant={viewMode === "rejected" ? "secondary" : "ghost"} 
-                  className="h-7 text-xs"
-                  onClick={() => setViewMode("rejected")}
-                  data-testid="tab-rejected"
-                >
-                  <XCircle className="h-3 w-3 mr-1" />
-                  Why Not
-                  {stats.rejections > 0 && (
-                    <Badge variant="outline" className="ml-1 text-[9px] h-4 px-1 text-red-400 border-red-500/30">
-                      {stats.rejections}
-                    </Badge>
-                  )}
-                </Button>
+              <div className="flex items-center gap-0.5 bg-muted/50 rounded-md p-0.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant={viewMode === "insights" ? "secondary" : "ghost"} 
+                      className="h-6 px-2.5 text-[10px]"
+                      onClick={() => setViewMode("insights")}
+                      data-testid="tab-insights"
+                    >
+                      Cards
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">View strategy cards</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant={viewMode === "activity" ? "secondary" : "ghost"} 
+                      className="h-6 px-2.5 text-[10px]"
+                      onClick={() => setViewMode("activity")}
+                      data-testid="tab-activity"
+                    >
+                      Log
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Real-time activity feed</p>
+                  </TooltipContent>
+                </Tooltip>
+                {stats.rejections > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        variant={viewMode === "rejected" ? "secondary" : "ghost"} 
+                        className="h-6 px-2.5 text-[10px]"
+                        onClick={() => setViewMode("rejected")}
+                        data-testid="tab-rejected"
+                      >
+                        <XCircle className="h-2.5 w-2.5 mr-1 text-red-400" />
+                        {stats.rejections}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">Rejected strategies with reasons</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </div>
             
             <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
               {viewMode === "insights" ? (
                 candidates.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                    <Brain className="h-16 w-16 text-muted-foreground/15 mb-4" />
-                    <p className="text-sm text-muted-foreground">No strategies discovered yet</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">
-                      Click "Research" to start AI-powered strategy discovery
+                  <div className="flex flex-col items-center justify-center h-full text-center py-16">
+                    <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center mb-6">
+                      <Brain className="h-10 w-10 text-primary/40" />
+                    </div>
+                    <h3 className="text-base font-medium text-foreground mb-2">Ready to Discover Strategies</h3>
+                    <p className="text-sm text-muted-foreground max-w-[280px] mb-6">
+                      AI will analyze markets, news, and data sources to find trading opportunities
                     </p>
+                    <Button 
+                      onClick={() => triggerResearchMutation.mutate()}
+                      disabled={triggerResearchMutation.isPending}
+                      data-testid="button-empty-state-research"
+                      className="gap-2"
+                    >
+                      {triggerResearchMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Rocket className="h-4 w-4" />
+                      )}
+                      Start AI Research
+                    </Button>
                   </div>
                 ) : (
                   <div className="grid gap-4">
@@ -1102,21 +1228,23 @@ export default function ResearchMonitor() {
           </div>
 
           {/* Right Panel - Sources & Detail */}
-          <div className="w-[340px] flex flex-col min-h-0 bg-muted/5">
+          <div className="w-[320px] flex flex-col min-h-0 bg-muted/5">
             {selectedCandidate ? (
               <>
-                <div className="px-4 py-3 border-b border-border">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="outline" className={cn("text-[10px]", SOURCE_COLORS[selectedCandidate.provider])}>
+                <div className="px-4 py-2.5 border-b border-border bg-muted/5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Badge variant="outline" className={cn("text-[9px] h-4", SOURCE_COLORS[selectedCandidate.provider])}>
                       {selectedCandidate.provider}
                     </Badge>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {selectedCandidate.archetype}
-                    </Badge>
+                    {selectedCandidate.archetype && (
+                      <Badge variant="secondary" className="text-[9px] h-4">
+                        {selectedCandidate.archetype}
+                      </Badge>
+                    )}
                   </div>
-                  <h3 className="font-medium" data-testid="detail-strategy-name">{selectedCandidate.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {safeFormat(selectedCandidate.timestamp, "PPpp")}
+                  <h3 className="font-medium text-sm" data-testid="detail-strategy-name">{selectedCandidate.name}</h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {safeFormat(selectedCandidate.timestamp, "MMM d, h:mm a")}
                   </p>
                 </div>
                 
@@ -1216,14 +1344,14 @@ export default function ResearchMonitor() {
               </>
             ) : (
               <>
-                <div className="px-4 py-2 border-b border-border">
+                <div className="px-4 py-2.5 border-b border-border bg-muted/5">
                   <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-cyan-400" />
-                    <span className="text-sm font-medium">Research Overview</span>
+                    <Activity className="h-3.5 w-3.5 text-cyan-400" />
+                    <span className="text-xs font-medium uppercase tracking-wide text-foreground/80">Overview</span>
                   </div>
                 </div>
                 <ScrollArea className="flex-1 p-4">
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     {Object.keys(providerCosts).length > 0 && (
                       <div data-testid="provider-costs">
                         <div className="flex items-center gap-1.5 mb-3">
@@ -1377,28 +1505,28 @@ export default function ResearchMonitor() {
                       </div>
                     )}
                     
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-3">
-                        <Globe className="h-3.5 w-3.5 text-cyan-400" />
-                        <span className="text-xs font-medium">Research Sources</span>
-                        {allSources.length > 0 && (
-                          <Badge variant="secondary" className="text-[9px] h-4 ml-auto">
-                            {allSources.length}
-                          </Badge>
+                    {/* Sources - only show when there are some or no other content */}
+                    {(allSources.length > 0 || Object.keys(providerCosts).length === 0) && (
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-3">
+                          <Globe className="h-3.5 w-3.5 text-cyan-400" />
+                          <span className="text-xs font-medium">Research Sources</span>
+                          {allSources.length > 0 && (
+                            <Badge variant="secondary" className="text-[9px] h-4 ml-auto">
+                              {allSources.length}
+                            </Badge>
+                          )}
+                        </div>
+                        {allSources.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center text-center py-6 bg-muted/20 rounded-lg border border-border/30">
+                            <Globe className="h-8 w-8 text-muted-foreground/20 mb-2" />
+                            <p className="text-xs text-muted-foreground">Sources appear during research</p>
+                          </div>
+                        ) : (
+                          <SourcePanel sources={allSources} />
                         )}
                       </div>
-                      {allSources.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center text-center py-8">
-                          <Globe className="h-10 w-10 text-muted-foreground/15 mb-2" />
-                          <p className="text-xs text-muted-foreground">No sources yet</p>
-                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                            Sources will appear as research runs
-                          </p>
-                        </div>
-                      ) : (
-                        <SourcePanel sources={allSources} />
-                      )}
-                    </div>
+                    )}
                   </div>
                 </ScrollArea>
               </>
