@@ -2227,8 +2227,26 @@ export function registerRoutes(app: Express) {
       const { handleGoogleDriveCallback } = await import("./google-drive-oauth");
       const result = await handleGoogleDriveCallback(String(code), String(state));
       
-      if (result.success) {
-        console.log("[GOOGLE_DRIVE_OAUTH] Callback successful, redirecting to settings");
+      if (result.success && result.userId) {
+        console.log(`[GOOGLE_DRIVE_OAUTH] Callback successful for user ${result.userId}, clearing caches`);
+        
+        // Clear server-side caches for THIS USER ONLY so the dashboard refetch shows connected status immediately
+        try {
+          const { clearDashboardCache } = await import("./backup-service");
+          const { clearConnectionCache } = await import("./google-drive-client");
+          
+          // Clear only this user's cache entries, not the entire cache
+          clearDashboardCache(result.userId);
+          clearConnectionCache(result.userId);
+          console.log(`[GOOGLE_DRIVE_OAUTH] Caches cleared for user ${result.userId}`);
+        } catch (cacheError) {
+          console.error("[GOOGLE_DRIVE_OAUTH] Cache clear failed (non-fatal):", cacheError);
+        }
+        
+        res.redirect("/settings?google_drive_connected=true&tab=cloud-backup");
+      } else if (result.success) {
+        // Fallback: success but no userId (shouldn't happen, but handle gracefully)
+        console.warn("[GOOGLE_DRIVE_OAUTH] Callback successful but no userId returned");
         res.redirect("/settings?google_drive_connected=true&tab=cloud-backup");
       } else {
         console.error(`[GOOGLE_DRIVE_OAUTH] Callback failed: ${result.error}`);

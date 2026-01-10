@@ -76,7 +76,7 @@ export async function getGoogleDriveAuthUrl(userId: string): Promise<string> {
 export async function handleGoogleDriveCallback(
   code: string,
   state: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; userId?: string }> {
   const stateData = pendingOAuthStates.get(state);
   
   if (!stateData) {
@@ -137,7 +137,7 @@ export async function handleGoogleDriveCallback(
       console.log(`[GOOGLE_DRIVE_OAUTH] Stored new tokens for user ${userId}`);
     }
     
-    return { success: true };
+    return { success: true, userId };
   } catch (error) {
     console.error('[GOOGLE_DRIVE_OAUTH] Token exchange failed:', error);
     return { success: false, error: String(error) };
