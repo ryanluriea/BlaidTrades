@@ -22847,6 +22847,224 @@ export function registerRoutes(app: Express) {
       res.status(500).json({ success: false, trace_id: traceId, error: error.message });
     }
   });
+
+  // ============================================================================
+  // GOVERNANCE APPROVAL ENDPOINTS
+  // Maker-Checker dual approval workflow for CANARY → LIVE promotions
+  // ============================================================================
+  
+  app.post("/api/governance/request", requireAuth, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    try {
+      const userId = (req as any).userId;
+      const { botId, justification } = req.body;
+      
+      if (!botId || !justification) {
+        return res.status(400).json({ 
+          success: false, 
+          trace_id: traceId, 
+          error: "Missing required fields: botId and justification" 
+        });
+      }
+      
+      if (!isValidUuid(botId)) {
+        return res.status(400).json({ success: false, trace_id: traceId, error: "Invalid botId format" });
+      }
+      
+      const { requestGovernanceApproval } = await import("./governance-approval");
+      const result = await requestGovernanceApproval(botId, userId, justification);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          trace_id: traceId,
+          error: result.error,
+          requestId: result.requestId,
+        });
+      }
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        requestId: result.requestId,
+        message: "Governance approval request created successfully",
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
+
+  app.post("/api/governance/:requestId/approve", requireAuth, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    try {
+      const userId = (req as any).userId;
+      const { requestId } = req.params;
+      
+      if (!isValidUuid(requestId)) {
+        return res.status(400).json({ success: false, trace_id: traceId, error: "Invalid requestId format" });
+      }
+      
+      const { approveGovernanceRequest } = await import("./governance-approval");
+      const result = await approveGovernanceRequest(requestId, userId);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          trace_id: traceId,
+          error: result.error,
+          requestId,
+          botId: result.botId,
+        });
+      }
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        requestId,
+        botId: result.botId,
+        fromStage: result.fromStage,
+        toStage: result.toStage,
+        promotionResult: result.promotionResult,
+        message: "Governance request approved and bot promoted to LIVE",
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
+
+  app.post("/api/governance/:requestId/reject", requireAuth, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    try {
+      const userId = (req as any).userId;
+      const { requestId } = req.params;
+      const { reason } = req.body;
+      
+      if (!isValidUuid(requestId)) {
+        return res.status(400).json({ success: false, trace_id: traceId, error: "Invalid requestId format" });
+      }
+      
+      if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          trace_id: traceId, 
+          error: "Rejection reason is required" 
+        });
+      }
+      
+      const { rejectGovernanceRequest } = await import("./governance-approval");
+      const result = await rejectGovernanceRequest(requestId, userId, reason);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          trace_id: traceId,
+          error: result.error,
+          requestId,
+        });
+      }
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        requestId,
+        message: "Governance request rejected",
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
+
+  app.get("/api/governance/pending", requireAuth, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    try {
+      const { getPendingApprovalRequests } = await import("./governance-approval");
+      const pendingRequests = await getPendingApprovalRequests();
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        requests: pendingRequests,
+        count: pendingRequests.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
+
+  app.get("/api/governance/history/:botId", requireAuth, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    try {
+      const { botId } = req.params;
+      const { limit = "20" } = req.query as { limit?: string };
+      
+      if (!isValidUuid(botId)) {
+        return res.status(400).json({ success: false, trace_id: traceId, error: "Invalid botId format" });
+      }
+      
+      const { getGovernanceHistory } = await import("./governance-approval");
+      const history = await getGovernanceHistory(botId, parseInt(limit));
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        botId,
+        history,
+        count: history.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
+
+  app.post("/api/governance/:requestId/withdraw", requireAuth, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    try {
+      const userId = (req as any).userId;
+      const { requestId } = req.params;
+      
+      if (!isValidUuid(requestId)) {
+        return res.status(400).json({ success: false, trace_id: traceId, error: "Invalid requestId format" });
+      }
+      
+      const { withdrawGovernanceRequest } = await import("./governance-approval");
+      const result = await withdrawGovernanceRequest(requestId, userId);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          trace_id: traceId,
+          error: result.error,
+          requestId,
+        });
+      }
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        requestId,
+        message: "Governance request withdrawn",
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
+
+  app.post("/api/governance/expire-stale", adminRateLimit, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID();
+    try {
+      const { expireStaleRequests } = await import("./governance-approval");
+      const result = await expireStaleRequests();
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        expired: result.expired,
+        errors: result.errors,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
 }
 
 // Helper to log integration usage events
