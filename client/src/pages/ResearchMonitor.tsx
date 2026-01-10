@@ -3,7 +3,8 @@ import {
   Wifi, WifiOff, Trash2, Pause, Play, Search, Brain, Globe, Target, Sparkles, 
   AlertCircle, Zap, Rocket, Loader2, DollarSign, Activity, Radio, Microscope,
   CheckCircle2, XCircle, Clock, ChevronRight, TrendingUp, Shield, Lightbulb,
-  ExternalLink, BarChart2, Layers, ArrowRight, BookOpen, MessageSquare, ArrowDownCircle
+  ExternalLink, BarChart2, Layers, ArrowRight, BookOpen, MessageSquare, ArrowDownCircle,
+  Download, GitBranch, History, Users
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -54,6 +55,21 @@ interface ResearchPhase {
   startTime?: Date;
   endTime?: Date;
   message?: string;
+}
+
+interface ConfidencePoint {
+  timestamp: Date;
+  confidence: number;
+  reason: string;
+  provider: ResearchSource;
+}
+
+interface ProviderConclusion {
+  provider: ResearchSource;
+  confidence: number;
+  recommendation: "BUY" | "SELL" | "NEUTRAL" | "WATCH";
+  reasoning: string;
+  timestamp: Date;
 }
 
 const SOURCE_COLORS: Record<ResearchSource, string> = {
@@ -347,6 +363,8 @@ export default function ResearchMonitor() {
     { name: "Evidence", status: "pending" },
     { name: "Candidates", status: "pending" },
   ]);
+  const [confidenceHistory, setConfidenceHistory] = useState<ConfidencePoint[]>([]);
+  const [modelConclusions, setModelConclusions] = useState<ProviderConclusion[]>([]);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -442,6 +460,37 @@ export default function ResearchMonitor() {
             ? { ...p, status: phaseStatus, message: evt.details }
             : p
         ));
+      }
+      
+      if (evt.type === "candidate" && evt.metadata?.confidence) {
+        setConfidenceHistory(prev => [...prev.slice(-19), {
+          timestamp: evt.timestamp,
+          confidence: evt.metadata?.confidence || 0,
+          reason: evt.metadata?.strategyName || evt.title,
+          provider: evt.source,
+        }]);
+      }
+      
+      if (evt.type === "validation" && evt.metadata?.confidence) {
+        setConfidenceHistory(prev => [...prev.slice(-19), {
+          timestamp: evt.timestamp,
+          confidence: evt.metadata?.confidence || 0,
+          reason: evt.metadata?.check || "Validation",
+          provider: evt.source,
+        }]);
+      }
+      
+      if (evt.type === "reasoning" && evt.metadata?.recommendation) {
+        setModelConclusions(prev => {
+          const existing = prev.filter(p => p.provider !== evt.source);
+          return [...existing, {
+            provider: evt.source,
+            confidence: evt.metadata?.confidence || 50,
+            recommendation: evt.metadata?.recommendation || "NEUTRAL",
+            reasoning: evt.details || "",
+            timestamp: evt.timestamp,
+          }];
+        });
       }
       
       if (evt.timestamp instanceof Date) {
@@ -578,7 +627,43 @@ export default function ResearchMonitor() {
       { name: "Evidence", status: "pending" },
       { name: "Candidates", status: "pending" },
     ]);
+    setConfidenceHistory([]);
+    setModelConclusions([]);
   };
+  
+  const modelConsensus = useMemo(() => {
+    if (modelConclusions.length === 0) return null;
+    const avgConfidence = modelConclusions.reduce((sum, m) => sum + m.confidence, 0) / modelConclusions.length;
+    const recommendations = modelConclusions.map(m => m.recommendation);
+    const mostCommon = recommendations.sort((a, b) =>
+      recommendations.filter(v => v === b).length - recommendations.filter(v => v === a).length
+    )[0];
+    const agreement = recommendations.filter(r => r === mostCommon).length / recommendations.length;
+    return {
+      avgConfidence: Math.round(avgConfidence),
+      consensus: mostCommon,
+      agreement: Math.round(agreement * 100),
+      providers: modelConclusions.length,
+    };
+  }, [modelConclusions]);
+  
+  const strategyLineage = useMemo(() => {
+    const sortedByTime = [...candidates].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    return sortedByTime.map((c, idx) => {
+      const parentId = (c as any).parentId || (c as any).derivedFrom;
+      const parent = parentId 
+        ? sortedByTime.find(s => s.name === parentId || (s as any).id === parentId)
+        : (idx > 0 ? sortedByTime[idx - 1] : null);
+      return {
+        ...c,
+        generation: idx + 1,
+        parent: parent?.name || null,
+        improvement: parent ? c.confidence - parent.confidence : 0,
+      };
+    });
+  }, [candidates]);
   
   const rejectedStrategies = useMemo(() => {
     return events
@@ -596,6 +681,49 @@ export default function ResearchMonitor() {
       .reverse()
       .slice(0, 10);
   }, [events]);
+  
+  const exportReport = useCallback(() => {
+    const content = {
+      title: "BlaidTrades Research Report",
+      generatedAt: new Date().toISOString(),
+      summary: {
+        totalStrategies: candidates.length,
+        topStrategy: candidates[0]?.name || "None",
+        topConfidence: candidates[0]?.confidence || 0,
+        totalCost: stats.totalCost,
+        sourcesAnalyzed: stats.sources,
+        rejectedCount: stats.rejections,
+      },
+      strategies: candidates.map(c => ({
+        name: c.name,
+        archetype: c.archetype,
+        confidence: c.confidence,
+        hypothesis: c.hypothesis,
+        reasoning: c.reasoning,
+        provider: c.provider,
+        sources: c.sources,
+      })),
+      modelConsensus: modelConsensus,
+      confidenceTimeline: confidenceHistory,
+      rejectedStrategies: rejectedStrategies.map(r => ({
+        name: r.name,
+        reason: r.reason,
+        confidence: r.confidence,
+        threshold: r.threshold,
+      })),
+      providerCosts: providerCosts,
+    };
+    
+    const blob = new Blob([JSON.stringify(content, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `blaidtrades-research-${format(new Date(), "yyyy-MM-dd-HHmm")}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [candidates, stats, modelConsensus, confidenceHistory, rejectedStrategies, providerCosts]);
 
   const triggerResearchMutation = useMutation({
     mutationFn: async () => {
@@ -695,6 +823,16 @@ export default function ResearchMonitor() {
                 </Button>
                 <Button size="icon" variant="ghost" onClick={clearEvents} data-testid="button-clear">
                   <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  onClick={exportReport} 
+                  data-testid="button-export"
+                  title="Export research report"
+                  disabled={candidates.length === 0}
+                >
+                  <Download className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -1123,6 +1261,118 @@ export default function ResearchMonitor() {
                                 </div>
                               </div>
                             ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {modelConsensus && (
+                      <div data-testid="model-consensus">
+                        <div className="flex items-center gap-1.5 mb-3">
+                          <Users className="h-3.5 w-3.5 text-violet-400" />
+                          <span className="text-xs font-medium">Multi-Model Consensus</span>
+                        </div>
+                        <div className="bg-muted/30 rounded px-3 py-3 border border-border/30 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">Avg Confidence</span>
+                            <span className={cn(
+                              "text-sm font-mono font-bold",
+                              modelConsensus.avgConfidence >= 70 ? "text-emerald-400" : 
+                              modelConsensus.avgConfidence >= 50 ? "text-amber-400" : "text-red-400"
+                            )}>
+                              {modelConsensus.avgConfidence}%
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">Consensus</span>
+                            <Badge variant="secondary" className="text-[9px]">
+                              {modelConsensus.consensus}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">Agreement</span>
+                            <span className="text-xs font-mono">{modelConsensus.agreement}%</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">Providers</span>
+                            <span className="text-xs font-mono">{modelConsensus.providers}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {strategyLineage.length > 0 && (
+                      <div data-testid="strategy-lineage">
+                        <div className="flex items-center gap-1.5 mb-3">
+                          <GitBranch className="h-3.5 w-3.5 text-primary" />
+                          <span className="text-xs font-medium">Strategy Genealogy</span>
+                        </div>
+                        <div className="space-y-2">
+                          {strategyLineage.map((s, idx) => (
+                            <div 
+                              key={s.name} 
+                              className="bg-muted/30 rounded px-3 py-2 border border-border/30"
+                              data-testid={`lineage-${idx}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-[9px] h-4 px-1">
+                                    Gen {s.generation}
+                                  </Badge>
+                                  <span className="text-xs font-medium truncate max-w-[140px]">{s.name}</span>
+                                </div>
+                                <span className={cn(
+                                  "text-xs font-mono",
+                                  s.confidence >= 70 ? "text-emerald-400" : 
+                                  s.confidence >= 50 ? "text-amber-400" : "text-red-400"
+                                )}>
+                                  {s.confidence}%
+                                </span>
+                              </div>
+                              {s.parent && (
+                                <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+                                  <ArrowRight className="h-2.5 w-2.5" />
+                                  <span className="truncate">from {s.parent}</span>
+                                  {s.improvement !== 0 && (
+                                    <span className={cn(
+                                      "ml-auto",
+                                      s.improvement > 0 ? "text-emerald-400" : "text-red-400"
+                                    )}>
+                                      {s.improvement > 0 ? "+" : ""}{s.improvement}%
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {confidenceHistory.length > 0 && (
+                      <div data-testid="confidence-timeline">
+                        <div className="flex items-center gap-1.5 mb-3">
+                          <History className="h-3.5 w-3.5 text-amber-400" />
+                          <span className="text-xs font-medium">Confidence Evolution</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {confidenceHistory.slice(-8).map((point, idx) => (
+                            <div 
+                              key={idx} 
+                              className="flex items-center gap-2 text-[10px] bg-muted/20 rounded px-2 py-1"
+                            >
+                              <span className={cn(
+                                "font-mono w-8",
+                                point.confidence >= 70 ? "text-emerald-400" : 
+                                point.confidence >= 50 ? "text-amber-400" : "text-red-400"
+                              )}>
+                                {point.confidence}%
+                              </span>
+                              <Badge variant="outline" className={cn("text-[8px] h-3 px-1", SOURCE_COLORS[point.provider])}>
+                                {point.provider}
+                              </Badge>
+                              <span className="text-muted-foreground truncate flex-1">{point.reason}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
