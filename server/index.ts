@@ -228,6 +228,18 @@ if (isWorkerOnlyMode) {
       if (dbReady) {
         log(`[STARTUP] Database ready - running post-startup tasks`);
         
+        // Load research orchestrator state from DB early to prevent stale defaults
+        // Must happen BEFORE any API requests could read orchestrator status
+        (async () => {
+          try {
+            const { loadOrchestratorState } = await import('./research-orchestrator');
+            await loadOrchestratorState();
+            log(`[STARTUP] Research orchestrator state loaded from DB`);
+          } catch (err) {
+            log(`[STARTUP] Failed to load orchestrator state: ${err instanceof Error ? err.message : 'unknown'}`);
+          }
+        })();
+        
         // Seed instruments now that database is ready
         (async () => {
           try {

@@ -13753,6 +13753,134 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Research provider activity - consolidated Grok & Perplexity stats
+  app.get("/api/research-monitor/provider-activity", async (req: Request, res: Response) => {
+    try {
+      const { getGrokResearchState } = await import("./scheduler");
+      const { getOrchestratorStatusAsync } = await import("./research-orchestrator");
+      const { getStrategyLabState, getResearchActivity } = await import("./strategy-lab-engine");
+      
+      // Get Grok state
+      const grokState = getGrokResearchState();
+      const orchestratorStatus = await getOrchestratorStatusAsync();
+      
+      // Get Strategy Lab / Perplexity state
+      const strategyLabState = getStrategyLabState();
+      const researchActivity = getResearchActivity();
+      
+      // Get 24h stats from database
+      const grokStats = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total_requests,
+          SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
+          MAX(created_at) as last_request,
+          SUM(tokens_in + tokens_out) as total_tokens
+        FROM ai_requests
+        WHERE provider IN ('xai', 'grok')
+        AND created_at > NOW() - INTERVAL '24 hours'
+      `);
+      
+      const perplexityStats = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total_requests,
+          SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
+          MAX(created_at) as last_request,
+          SUM(tokens_in + tokens_out) as total_tokens
+        FROM ai_requests
+        WHERE provider = 'perplexity'
+        AND created_at > NOW() - INTERVAL '24 hours'
+      `);
+      
+      // Get strategy candidates by provider (last 24h)
+      const grokCandidates = await db.execute(sql`
+        SELECT COUNT(*) as count FROM strategy_candidates
+        WHERE provider = 'grok' AND created_at > NOW() - INTERVAL '24 hours'
+      `);
+      
+      const perplexityCandidates = await db.execute(sql`
+        SELECT COUNT(*) as count FROM strategy_candidates
+        WHERE provider = 'perplexity' AND created_at > NOW() - INTERVAL '24 hours'
+      `);
+      
+      // Get recent activity logs from research_events
+      const recentGrokActivity = await db.execute(sql`
+        SELECT id, event_type, title, details, created_at
+        FROM research_events
+        WHERE source = 'grok'
+        ORDER BY created_at DESC
+        LIMIT 10
+      `);
+      
+      const recentPerplexityActivity = await db.execute(sql`
+        SELECT id, event_type, title, details, created_at
+        FROM research_events
+        WHERE source = 'perplexity'
+        ORDER BY created_at DESC
+        LIMIT 10
+      `);
+      
+      const grokRow = grokStats.rows[0] as any;
+      const perplexityRow = perplexityStats.rows[0] as any;
+      const grokCandidateRow = grokCandidates.rows[0] as any;
+      const perplexityCandidateRow = perplexityCandidates.rows[0] as any;
+      
+      return res.json({
+        success: true,
+        data: {
+          grok: {
+            enabled: grokState?.enabled ?? false,
+            isActive: grokState?.isActive ?? false,
+            mode: orchestratorStatus.isFullSpectrum ? "FULL_SPECTRUM" : (grokState?.depth || "CONTRARIAN_SCAN"),
+            lastCycleAt: grokState?.lastCycleAt || null,
+            nextCycleIn: grokState?.nextCycleIn || null,
+            stats24h: {
+              totalRequests: parseInt(grokRow?.total_requests || 0),
+              successful: parseInt(grokRow?.successful || 0),
+              lastRequest: grokRow?.last_request || null,
+              totalTokens: parseInt(grokRow?.total_tokens || 0),
+              strategiesGenerated: parseInt(grokCandidateRow?.count || 0),
+            },
+            recentActivity: (recentGrokActivity.rows || []).map((r: any) => ({
+              id: r.id,
+              type: r.event_type,
+              title: r.title,
+              details: r.details,
+              timestamp: r.created_at,
+            })),
+          },
+          perplexity: {
+            enabled: strategyLabState?.isPlaying ?? false,
+            isActive: researchActivity?.isActive ?? false,
+            mode: researchActivity?.phase || "Idle",
+            lastCycleAt: researchActivity?.startedAt || null,
+            stats24h: {
+              totalRequests: parseInt(perplexityRow?.total_requests || 0),
+              successful: parseInt(perplexityRow?.successful || 0),
+              lastRequest: perplexityRow?.last_request || null,
+              totalTokens: parseInt(perplexityRow?.total_tokens || 0),
+              strategiesGenerated: parseInt(perplexityCandidateRow?.count || 0),
+            },
+            recentActivity: (recentPerplexityActivity.rows || []).map((r: any) => ({
+              id: r.id,
+              type: r.event_type,
+              title: r.title,
+              details: r.details,
+              timestamp: r.created_at,
+            })),
+          },
+          orchestrator: {
+            isEnabled: orchestratorStatus.isEnabled,
+            isFullSpectrum: orchestratorStatus.isFullSpectrum,
+            stateLoaded: orchestratorStatus.stateLoaded,
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error("[RESEARCH_MONITOR] Error getting provider activity:", error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // ============================================================================
   // GROK RESEARCH ENGINE API - Autonomous contrarian strategy discovery
   // ============================================================================
@@ -13821,8 +13949,8 @@ export function registerRoutes(app: Express) {
   
   app.get("/api/research-orchestrator/status", async (req: Request, res: Response) => {
     try {
-      const { getOrchestratorStatus } = await import("./research-orchestrator");
-      const status = getOrchestratorStatus();
+      const { getOrchestratorStatusAsync } = await import("./research-orchestrator");
+      const status = await getOrchestratorStatusAsync();
       
       return res.json({
         success: true,
@@ -13837,14 +13965,14 @@ export function registerRoutes(app: Express) {
   app.post("/api/research-orchestrator/full-spectrum", async (req: Request, res: Response) => {
     try {
       const { enabled } = req.body;
-      const { enableFullSpectrum, getOrchestratorStatus } = await import("./research-orchestrator");
+      const { enableFullSpectrum, getOrchestratorStatusAsync } = await import("./research-orchestrator");
       
       if (typeof enabled !== "boolean") {
         return res.status(400).json({ success: false, error: "enabled must be a boolean" });
       }
       
       await enableFullSpectrum(enabled);
-      const status = getOrchestratorStatus();
+      const status = await getOrchestratorStatusAsync();
       
       return res.json({
         success: true,

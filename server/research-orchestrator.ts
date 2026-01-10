@@ -77,6 +77,57 @@ let orchestratorState: OrchestratorState = {
 let orchestratorInterval: NodeJS.Timeout | null = null;
 const config = { ...DEFAULT_CONFIG };
 
+// Track whether state has been loaded from DB to prevent returning stale defaults
+let stateLoadedFromDb = false;
+let stateLoadPromise: Promise<void> | null = null;
+
+const ORCHESTRATOR_SINGLETON_ID = "00000000-0000-0000-0000-000000000001";
+
+/**
+ * Load orchestrator state from database.
+ * Must be called during server startup before any status API routes respond.
+ */
+export async function loadOrchestratorState(): Promise<void> {
+  if (stateLoadedFromDb) return;
+  
+  try {
+    const state = await db.query.researchOrchestratorState.findFirst({
+      where: eq(researchOrchestratorState.id, ORCHESTRATOR_SINGLETON_ID),
+    });
+    
+    if (state) {
+      orchestratorState.isFullSpectrumEnabled = state.isFullSpectrumEnabled ?? false;
+      orchestratorState.lastContrarianAt = state.lastContrarianAt;
+      orchestratorState.lastSentimentAt = state.lastSentimentAt;
+      orchestratorState.lastDeepReasoningAt = state.lastDeepReasoningAt;
+      orchestratorState.dailyCostUsd = state.totalCostToday ?? 0;
+      orchestratorState.dailyJobCount = state.totalJobsToday ?? 0;
+      console.log(`${LOG_PREFIX} State loaded from DB: Full Spectrum = ${state.isFullSpectrumEnabled}`);
+    } else {
+      console.log(`${LOG_PREFIX} No persisted state found, using defaults`);
+    }
+    
+    stateLoadedFromDb = true;
+  } catch (err) {
+    console.error(`${LOG_PREFIX} Failed to load state from DB:`, err);
+    stateLoadedFromDb = true; // Mark as loaded to prevent blocking, use defaults
+  }
+}
+
+/**
+ * Ensure state is loaded before returning status.
+ * This prevents returning stale defaults after server restart.
+ */
+export async function ensureStateLoaded(): Promise<void> {
+  if (stateLoadedFromDb) return;
+  
+  if (!stateLoadPromise) {
+    stateLoadPromise = loadOrchestratorState();
+  }
+  
+  await stateLoadPromise;
+}
+
 function getNextScheduledRun(mode: GrokResearchDepth): number | null {
   const lastRun = mode === "CONTRARIAN_SCAN" ? orchestratorState.lastContrarianAt
     : mode === "SENTIMENT_BURST" ? orchestratorState.lastSentimentAt
@@ -101,6 +152,7 @@ export function getOrchestratorStatus(): {
   dailyJobs: number;
   lastRuns: Record<string, Date | null>;
   nextRuns: Record<string, number | null>;
+  stateLoaded: boolean;
 } {
   return {
     isEnabled: orchestratorInterval !== null,
@@ -118,10 +170,18 @@ export function getOrchestratorStatus(): {
       SENTIMENT_BURST: getNextScheduledRun("SENTIMENT_BURST"),
       DEEP_REASONING: getNextScheduledRun("DEEP_REASONING"),
     } : {},
+    stateLoaded: stateLoadedFromDb,
   };
 }
 
-const ORCHESTRATOR_SINGLETON_ID = "00000000-0000-0000-0000-000000000001";
+/**
+ * Async version that ensures state is loaded from DB before returning status.
+ * Use this for API endpoints to prevent returning stale defaults.
+ */
+export async function getOrchestratorStatusAsync(): Promise<ReturnType<typeof getOrchestratorStatus>> {
+  await ensureStateLoaded();
+  return getOrchestratorStatus();
+}
 
 export async function enableFullSpectrum(enabled: boolean): Promise<void> {
   orchestratorState.isFullSpectrumEnabled = enabled;
@@ -495,18 +555,8 @@ export async function startOrchestrator(): Promise<void> {
     return;
   }
   
-  const state = await db.query.researchOrchestratorState.findFirst({
-    orderBy: [desc(researchOrchestratorState.createdAt)],
-  });
-  
-  if (state) {
-    orchestratorState.isFullSpectrumEnabled = state.isFullSpectrumEnabled ?? false;
-    orchestratorState.lastContrarianAt = state.lastContrarianAt;
-    orchestratorState.lastSentimentAt = state.lastSentimentAt;
-    orchestratorState.lastDeepReasoningAt = state.lastDeepReasoningAt;
-    orchestratorState.dailyCostUsd = state.totalCostToday ?? 0;
-    orchestratorState.dailyJobCount = state.totalJobsToday ?? 0;
-  }
+  // Ensure state is loaded from DB using singleton ID
+  await ensureStateLoaded();
   
   orchestratorInterval = setInterval(async () => {
     try {

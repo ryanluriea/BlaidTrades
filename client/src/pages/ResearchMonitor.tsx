@@ -37,6 +37,43 @@ interface GrokResearchState {
   nextCycleIn: number | null;
   traceId: string | null;
 }
+
+interface ProviderActivityStats {
+  totalRequests: number;
+  successful: number;
+  lastRequest: string | null;
+  totalTokens: number;
+  strategiesGenerated: number;
+}
+
+interface ProviderActivity {
+  enabled: boolean;
+  isActive: boolean;
+  mode: string;
+  lastCycleAt: string | null;
+  nextCycleIn?: number | null;
+  stats24h: ProviderActivityStats;
+  recentActivity: Array<{
+    id: string;
+    type: string;
+    title: string;
+    details?: string;
+    timestamp: string;
+  }>;
+}
+
+interface ProviderActivityResponse {
+  success: boolean;
+  data: {
+    grok: ProviderActivity;
+    perplexity: ProviderActivity;
+    orchestrator: {
+      isEnabled: boolean;
+      isFullSpectrum: boolean;
+      stateLoaded: boolean;
+    };
+  };
+}
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -369,6 +406,150 @@ const PHASE_DESCRIPTIONS: Record<string, string> = {
   "Candidates": "Synthesizing insights into actionable strategy candidates",
 };
 
+function ProviderActivityPanel({ 
+  provider, 
+  activity,
+  colorClass,
+  icon: Icon,
+  onToggle,
+  onTrigger,
+  isLoading,
+}: { 
+  provider: "Grok" | "Perplexity";
+  activity: ProviderActivity | undefined;
+  colorClass: string;
+  icon: typeof Brain;
+  onToggle?: (enabled: boolean) => void;
+  onTrigger?: () => void;
+  isLoading?: boolean;
+}) {
+  const formatTime = (timestamp: string | null) => {
+    if (!timestamp) return "Never";
+    try {
+      const date = new Date(timestamp);
+      if (!isValid(date)) return "Never";
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch {
+      return "Never";
+    }
+  };
+
+  return (
+    <Card className="flex-1" data-testid={`panel-${provider.toLowerCase()}-activity`}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={cn("p-1.5 rounded", colorClass)}>
+              <Icon className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm">{provider}</CardTitle>
+              <CardDescription className="text-[10px]">
+                {activity?.mode || "Idle"}
+              </CardDescription>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {activity?.isActive ? (
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[9px] gap-1">
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                Active
+              </Badge>
+            ) : activity?.enabled ? (
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px]">
+                Enabled
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[9px]">
+                Paused
+              </Badge>
+            )}
+            {onTrigger && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={onTrigger}
+                disabled={isLoading || activity?.isActive}
+                data-testid={`button-${provider.toLowerCase()}-run`}
+              >
+                <Rocket className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* 24h Stats */}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-muted/30 rounded p-2">
+            <div className="text-lg font-mono font-bold text-primary">
+              {activity?.stats24h?.strategiesGenerated ?? 0}
+            </div>
+            <div className="text-[9px] text-muted-foreground">Strategies</div>
+          </div>
+          <div className="bg-muted/30 rounded p-2">
+            <div className="text-lg font-mono font-bold">
+              {activity?.stats24h?.totalRequests ?? 0}
+            </div>
+            <div className="text-[9px] text-muted-foreground">API Calls</div>
+          </div>
+          <div className="bg-muted/30 rounded p-2">
+            <div className="text-lg font-mono font-bold text-emerald-400">
+              {activity?.stats24h?.successful ?? 0}
+            </div>
+            <div className="text-[9px] text-muted-foreground">Successful</div>
+          </div>
+        </div>
+        
+        {/* Last Activity */}
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Last request:</span>
+          <span className="font-mono">{formatTime(activity?.stats24h?.lastRequest ?? null)}</span>
+        </div>
+        
+        {activity?.nextCycleIn !== undefined && activity.nextCycleIn !== null && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Next cycle:</span>
+            <span className="font-mono text-primary">{formatCountdown(activity.nextCycleIn)}</span>
+          </div>
+        )}
+        
+        {/* Recent Activity Log */}
+        {activity?.recentActivity && activity.recentActivity.length > 0 && (
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Recent Activity</div>
+            <ScrollArea className="h-24">
+              <div className="space-y-1">
+                {activity.recentActivity.slice(0, 5).map((event, idx) => (
+                  <div 
+                    key={event.id || idx} 
+                    className="flex items-start gap-2 text-[10px] bg-muted/20 rounded px-2 py-1"
+                  >
+                    <Activity className="h-2.5 w-2.5 mt-0.5 shrink-0 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <span className="truncate block">{event.title}</span>
+                      <span className="text-muted-foreground">
+                        {formatTime(event.timestamp)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+        
+        {(!activity?.recentActivity || activity.recentActivity.length === 0) && (
+          <div className="text-center py-4 text-xs text-muted-foreground">
+            No recent activity
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ResearchPhaseTimeline({ phases }: { phases: ResearchPhase[] }) {
   const hasActivity = phases.some(p => p.status !== "pending");
   if (!hasActivity) return null;
@@ -456,6 +637,12 @@ export default function ResearchMonitor() {
   }>({
     queryKey: ["/api/costs/summary"],
     staleTime: 60000,
+  });
+
+  // Provider activity query for Grok & Perplexity panels
+  const { data: providerActivity } = useQuery<ProviderActivityResponse>({
+    queryKey: ["/api/research-monitor/provider-activity"],
+    refetchInterval: 5000,
   });
 
   const [persistedCostsLoaded, setPersistedCostsLoaded] = useState(false);
@@ -1180,6 +1367,28 @@ export default function ResearchMonitor() {
                 </DropdownMenu>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Provider Activity Panels - Grok & Perplexity */}
+        <div className="px-4 py-3 border-b border-border bg-muted/30">
+          <div className="flex items-center gap-4">
+            <ProviderActivityPanel
+              provider="Grok"
+              activity={providerActivity?.data?.grok}
+              colorClass="bg-purple-500/20 text-purple-400"
+              icon={Brain}
+              onTrigger={() => triggerResearchMutation.mutate()}
+              isLoading={triggerResearchMutation.isPending}
+            />
+            <ProviderActivityPanel
+              provider="Perplexity"
+              activity={providerActivity?.data?.perplexity}
+              colorClass="bg-blue-500/20 text-blue-400"
+              icon={Globe}
+              onTrigger={() => triggerResearchMutation.mutate()}
+              isLoading={triggerResearchMutation.isPending}
+            />
           </div>
         </div>
 
