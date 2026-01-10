@@ -124,34 +124,12 @@ export default function Accounts() {
   return (
     <AppLayout title="Accounts">
       <div className="space-y-4">
-        {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          <div className="flex items-center gap-2">
-            <ToggleGroup 
-              type="single" 
-              value={viewMode} 
-              onValueChange={(v) => v && setViewMode(v as "cards" | "table")}
-              className="border border-border rounded-md"
-            >
-              <ToggleGroupItem value="cards" size="sm" className="h-8 px-2">
-                <LayoutGrid className="w-4 h-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="table" size="sm" className="h-8 px-2">
-                <LayoutList className="w-4 h-4" />
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-1.5" />
-              Add Account
-            </Button>
-          </div>
-        </div>
-
-        {/* Stage Routing Defaults (Collapsible) */}
+        {/* Header Row - Stage Routing + Actions on same line */}
         <Collapsible open={showRouting} onOpenChange={setShowRouting}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="w-full justify-between h-8 text-xs text-muted-foreground hover:text-foreground">
-              <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between gap-4">
+            {/* Stage Routing Trigger */}
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="justify-start gap-1.5 h-8 text-xs text-muted-foreground hover:text-foreground">
                 <Settings className="w-3.5 h-3.5" />
                 Stage Routing Defaults
                 {!showRouting && (
@@ -172,10 +150,32 @@ export default function Accounts() {
                     })()}
                   </span>
                 )}
-              </span>
-              <ChevronDown className={cn("w-4 h-4 transition-transform", showRouting && "rotate-180")} />
-            </Button>
-          </CollapsibleTrigger>
+                <ChevronDown className={cn("w-4 h-4 transition-transform ml-1", showRouting && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <ToggleGroup 
+                type="single" 
+                value={viewMode} 
+                onValueChange={(v) => v && setViewMode(v as "cards" | "table")}
+                className="border border-border rounded-md"
+              >
+                <ToggleGroupItem value="cards" size="sm" className="h-8 px-2">
+                  <LayoutGrid className="w-4 h-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="table" size="sm" className="h-8 px-2">
+                  <LayoutList className="w-4 h-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-1.5" />
+                Add Account
+              </Button>
+            </div>
+          </div>
+          
           <CollapsibleContent className="pt-2">
             <StageRoutingPanel
               defaultAccounts={stageDefaults}
