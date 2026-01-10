@@ -921,17 +921,19 @@ export interface StrategyLabSettingsInit {
 }
 
 export function initializeStrategyLabFromSettings(settings: StrategyLabSettingsInit): void {
+  // CRITICAL: Always load isPlaying on FIRST call with valid settings
+  // This must happen before the settingsInitialized guard to ensure pause state
+  // is restored from database on server restart
+  if (!settingsInitialized && typeof settings.isPlaying === "boolean") {
+    strategyLabState.isPlaying = settings.isPlaying;
+    console.log(`[STRATEGY_LAB] Restored pause state from DB: isPlaying=${settings.isPlaying}`);
+  }
+  
   if (settingsInitialized) return;
   
   const validTiers = ["A", "B", "C", "ANY"];
   const validModels = ["QUICK", "BALANCED", "DEEP"];
   const validRecencies = ["HOUR", "DAY", "WEEK", "MONTH", "YEAR"];
-  
-  // FIX: Load pause state from database!
-  if (typeof settings.isPlaying === "boolean") {
-    strategyLabState.isPlaying = settings.isPlaying;
-    console.log(`[STRATEGY_LAB] Restored pause state from DB: isPlaying=${settings.isPlaying}`);
-  }
   
   if (typeof settings.requireManualApproval === "boolean") {
     strategyLabState.requireManualApproval = settings.requireManualApproval;
@@ -1009,7 +1011,7 @@ export function initializeStrategyLabFromSettings(settings: StrategyLabSettingsI
   }
   
   settingsInitialized = true;
-  console.log(`[STRATEGY_LAB] Initialized from persisted settings: requireManualApproval=${strategyLabState.requireManualApproval} threshold=${strategyLabState.autoPromoteThreshold} tier=${strategyLabState.autoPromoteTier} costEfficiency=${strategyLabState.costEfficiencyMode} qcDaily=${strategyLabState.qcDailyLimit} qcWeekly=${strategyLabState.qcWeeklyLimit} fastTrack=${strategyLabState.fastTrackEnabled} trialsAuto=${strategyLabState.trialsAutoPromoteEnabled}`);
+  console.log(`[STRATEGY_LAB] Initialized from persisted settings: isPlaying=${strategyLabState.isPlaying} requireManualApproval=${strategyLabState.requireManualApproval} threshold=${strategyLabState.autoPromoteThreshold} tier=${strategyLabState.autoPromoteTier} costEfficiency=${strategyLabState.costEfficiencyMode} qcDaily=${strategyLabState.qcDailyLimit} qcWeekly=${strategyLabState.qcWeeklyLimit} fastTrack=${strategyLabState.fastTrackEnabled} trialsAuto=${strategyLabState.trialsAutoPromoteEnabled}`);
 }
 
 export interface AutoPromoteResult {
