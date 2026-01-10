@@ -21,6 +21,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -511,20 +512,44 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
             <Cloud className="w-5 h-5" />
             Cloud Backup
             {isConnected && (
-              <Badge 
-                variant={backupStatus?.backingUp || createBackupMutation.isPending ? "secondary" : backupStatus?.lastBackupSuccess === false ? "destructive" : "outline"} 
-                className="ml-auto mr-8 gap-1"
-              >
-                {backupStatus?.backingUp || createBackupMutation.isPending ? (
-                  <><Loader2 className="w-3 h-3 animate-spin" />Backing up...</>
-                ) : backupStatus?.lastBackupSuccess === false ? (
-                  <><XCircle className="w-3 h-3" />Last backup failed</>
-                ) : ((dashboard?.status?.backupCount ?? 0) > 0 || backupStatus?.lastBackupAt) ? (
-                  <><CheckCircle2 className="w-3 h-3 text-emerald-500" />{backupStatus?.lastBackupAt ? `Last: ${formatDistanceToNow(new Date(backupStatus.lastBackupAt), { addSuffix: true })}` : `${dashboard?.status?.backupCount ?? 0} backup${(dashboard?.status?.backupCount ?? 0) !== 1 ? 's' : ''}`}</>
-                ) : (
-                  <><Clock className="w-3 h-3" />No backups yet</>
-                )}
-              </Badge>
+              <>
+                <Badge 
+                  variant={backupStatus?.backingUp || createBackupMutation.isPending ? "secondary" : backupStatus?.lastBackupSuccess === false ? "destructive" : "outline"} 
+                  className="ml-auto gap-1"
+                >
+                  {backupStatus?.backingUp || createBackupMutation.isPending ? (
+                    <><Loader2 className="w-3 h-3 animate-spin" />Backing up...</>
+                  ) : backupStatus?.lastBackupSuccess === false ? (
+                    <><XCircle className="w-3 h-3" />Last backup failed</>
+                  ) : ((dashboard?.status?.backupCount ?? 0) > 0 || backupStatus?.lastBackupAt) ? (
+                    <><CheckCircle2 className="w-3 h-3 text-emerald-500" />{backupStatus?.lastBackupAt ? `Last: ${formatDistanceToNow(new Date(backupStatus.lastBackupAt), { addSuffix: true })}` : `${dashboard?.status?.backupCount ?? 0} backup${(dashboard?.status?.backupCount ?? 0) !== 1 ? 's' : ''}`}</>
+                  ) : (
+                    <><Clock className="w-3 h-3" />No backups yet</>
+                  )}
+                </Badge>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 mr-6 text-muted-foreground hover:text-destructive"
+                      onClick={() => disconnectMutation.mutate()}
+                      disabled={disconnectMutation.isPending}
+                      aria-label="Disconnect Google Drive"
+                      data-testid="button-disconnect-google-drive"
+                    >
+                      {disconnectMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Unlink className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Disconnect Google Drive</p>
+                  </TooltipContent>
+                </Tooltip>
+              </>
             )}
           </DialogTitle>
           <DialogDescription>
@@ -998,35 +1023,6 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                   onCheckedChange={(checked) => updateSettingsMutation.mutate({ includeTradeLogs: checked })}
                   data-testid="switch-include-trades"
                 />
-              </div>
-
-              <Separator />
-
-              <div className="p-4 rounded-md border border-destructive/30 bg-destructive/5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-sm flex items-center gap-2">
-                      <Unlink className="w-4 h-4" />
-                      Disconnect Google Drive
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Remove the connection to your Google account. Your existing backups in Drive will not be deleted.
-                    </p>
-                  </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => disconnectMutation.mutate()}
-                    disabled={disconnectMutation.isPending}
-                    data-testid="button-disconnect-google-drive"
-                  >
-                    {disconnectMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      "Disconnect"
-                    )}
-                  </Button>
-                </div>
               </div>
             </TabsContent>
           </Tabs>
