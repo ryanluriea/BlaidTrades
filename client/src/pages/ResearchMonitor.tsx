@@ -6,8 +6,23 @@ import {
   ExternalLink, BarChart2, Layers, ArrowRight, BookOpen, MessageSquare, ArrowDownCircle,
   Download, GitBranch, History, Users
 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+
+interface StrategyLabState {
+  isPlaying: boolean;
+  isResearching: boolean;
+  currentPhase?: string;
+  currentProvider?: string;
+  lastActivity?: string;
+}
+
+interface GrokResearchState {
+  enabled: boolean;
+  isResearching: boolean;
+  depth: string;
+  lastRun?: string;
+}
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -388,6 +403,32 @@ export default function ResearchMonitor() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastEventTimestamp = useRef<number>(0);
   const wsFailCount = useRef(0);
+
+  const { data: strategyLabState } = useQuery<{ success: boolean; data: StrategyLabState }>({
+    queryKey: ["/api/strategy-lab/state"],
+    refetchInterval: 3000,
+  });
+
+  const { data: grokResearchState } = useQuery<{ success: boolean; data: GrokResearchState }>({
+    queryKey: ["/api/grok-research/state"],
+    refetchInterval: 3000,
+  });
+
+  const isAnyResearchActive = useMemo(() => {
+    const strategyLabActive = strategyLabState?.data?.isResearching || strategyLabState?.data?.isPlaying;
+    const grokActive = grokResearchState?.data?.isResearching;
+    return strategyLabActive || grokActive;
+  }, [strategyLabState, grokResearchState]);
+
+  const activeResearchProvider = useMemo(() => {
+    if (strategyLabState?.data?.isResearching) {
+      return strategyLabState.data.currentProvider || "perplexity";
+    }
+    if (grokResearchState?.data?.isResearching) {
+      return "grok";
+    }
+    return null;
+  }, [strategyLabState, grokResearchState]);
 
   const candidates = useMemo<StrategyCandidate[]>(() => {
     return events
@@ -851,20 +892,33 @@ export default function ResearchMonitor() {
 
               {/* Action Buttons */}
               <div className="flex items-center gap-1">
-                <Button 
-                  size="sm" 
-                  onClick={() => triggerResearchMutation.mutate()}
-                  disabled={triggerResearchMutation.isPending}
-                  data-testid="button-trigger-research"
-                  className="h-7 px-3"
-                >
-                  {triggerResearchMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  ) : (
-                    <Rocket className="h-3.5 w-3.5 mr-1.5" />
-                  )}
-                  Start Research
-                </Button>
+                {isAnyResearchActive ? (
+                  <div className="flex items-center gap-2 h-7 px-3 bg-primary/10 rounded-md border border-primary/20">
+                    <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                    <span className="text-xs font-medium text-primary">Researching</span>
+                    {activeResearchProvider && (
+                      <Badge variant="outline" className={cn("text-[9px] h-4", SOURCE_COLORS[activeResearchProvider as ResearchSource] || "")}>
+                        {activeResearchProvider}
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <Button 
+                    size="sm" 
+                    onClick={() => triggerResearchMutation.mutate()}
+                    disabled={triggerResearchMutation.isPending}
+                    data-testid="button-trigger-research"
+                    className="h-7 px-3"
+                    variant="outline"
+                  >
+                    {triggerResearchMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <Rocket className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    Run Manual Research
+                  </Button>
+                )}
                 
                 <div className="w-px h-4 bg-border mx-1" />
                 
@@ -999,28 +1053,65 @@ export default function ResearchMonitor() {
             <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
               {viewMode === "insights" ? (
                 candidates.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center py-16">
-                    <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center mb-6">
-                      <Brain className="h-10 w-10 text-primary/40" />
-                    </div>
-                    <h3 className="text-base font-medium text-foreground mb-2">Ready to Discover Strategies</h3>
-                    <p className="text-sm text-muted-foreground max-w-[280px] mb-6">
-                      AI will analyze markets, news, and data sources to find trading opportunities
-                    </p>
-                    <Button 
-                      onClick={() => triggerResearchMutation.mutate()}
-                      disabled={triggerResearchMutation.isPending}
-                      data-testid="button-empty-state-research"
-                      className="gap-2"
-                    >
-                      {triggerResearchMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Rocket className="h-4 w-4" />
+                  isAnyResearchActive ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center py-16" data-testid="research-in-progress">
+                      <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6 relative">
+                        <Brain className="h-12 w-12 text-primary animate-pulse" />
+                        <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping" style={{ animationDuration: "2s" }} />
+                      </div>
+                      <h3 className="text-lg font-medium text-foreground mb-2">Research in Progress</h3>
+                      <p className="text-sm text-muted-foreground max-w-[320px] mb-4">
+                        AI is actively analyzing markets, news, and data sources
+                      </p>
+                      <div className="flex items-center gap-3 mb-6">
+                        {strategyLabState?.data?.isPlaying && (
+                          <Badge variant="outline" className={cn("gap-1.5", SOURCE_COLORS.perplexity)}>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Strategy Lab
+                          </Badge>
+                        )}
+                        {grokResearchState?.data?.isResearching && (
+                          <Badge variant="outline" className={cn("gap-1.5", SOURCE_COLORS.grok)}>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Grok Research
+                          </Badge>
+                        )}
+                      </div>
+                      {activeResearchProvider && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Activity className="h-3 w-3 animate-pulse" />
+                          <span>Currently using {activeResearchProvider}</span>
+                        </div>
                       )}
-                      Start AI Research
-                    </Button>
-                  </div>
+                      <p className="text-xs text-muted-foreground/60 mt-4 max-w-[280px]">
+                        Strategy candidates will appear here as they are discovered
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center py-16">
+                      <div className="w-20 h-20 rounded-full bg-muted/30 flex items-center justify-center mb-6">
+                        <Brain className="h-10 w-10 text-muted-foreground/40" />
+                      </div>
+                      <h3 className="text-base font-medium text-foreground mb-2">Research Paused</h3>
+                      <p className="text-sm text-muted-foreground max-w-[280px] mb-6">
+                        Enable autonomous research in settings to start discovering strategies
+                      </p>
+                      <Button 
+                        onClick={() => triggerResearchMutation.mutate()}
+                        disabled={triggerResearchMutation.isPending}
+                        data-testid="button-empty-state-research"
+                        className="gap-2"
+                        variant="outline"
+                      >
+                        {triggerResearchMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Rocket className="h-4 w-4" />
+                        )}
+                        Run Manual Research
+                      </Button>
+                    </div>
+                  )
                 ) : (
                   <div className="grid gap-4">
                     {candidates.map(candidate => (
