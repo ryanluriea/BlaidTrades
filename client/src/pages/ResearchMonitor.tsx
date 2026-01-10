@@ -1,16 +1,19 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
   Wifi, WifiOff, Trash2, Pause, Play, Search, Brain, Globe, Target, Sparkles, 
   AlertCircle, Zap, Rocket, Loader2, DollarSign, Activity, Radio, Microscope,
-  CheckCircle2, XCircle, Clock, ChevronRight
+  CheckCircle2, XCircle, Clock, ChevronRight, TrendingUp, Shield, Lightbulb,
+  ExternalLink, BarChart2, Layers, ArrowRight, BookOpen, MessageSquare
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { format, isValid } from "date-fns";
+import { format, isValid, formatDistanceToNow } from "date-fns";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 type ResearchEventType = 
@@ -29,39 +32,28 @@ interface ResearchEvent {
   metadata?: Record<string, any>;
 }
 
-const EVENT_ICONS: Record<ResearchEventType, typeof Search> = {
-  search: Search,
-  source: Globe,
-  idea: Sparkles,
-  candidate: Target,
-  error: AlertCircle,
-  system: Zap,
-  analysis: Brain,
-  reasoning: Brain,
-  validation: CheckCircle2,
-  cost: DollarSign,
-  phase: Radio,
-  scoring: Target,
-  rejection: XCircle,
-  api_call: Zap,
-};
+interface StrategyCandidate {
+  id: string;
+  name: string;
+  archetype: string;
+  hypothesis: string;
+  confidence: number;
+  confidenceBreakdown?: Record<string, number>;
+  reasoning?: string;
+  synthesis?: string;
+  sources?: Array<{ type: string; label: string; detail: string; url?: string }>;
+  symbols?: string[];
+  provider: ResearchSource;
+  timestamp: Date;
+}
 
-const EVENT_COLORS: Record<ResearchEventType, string> = {
-  search: "text-blue-400",
-  source: "text-cyan-400",
-  idea: "text-amber-400",
-  candidate: "text-emerald-400",
-  error: "text-red-400",
-  system: "text-muted-foreground",
-  analysis: "text-purple-400",
-  reasoning: "text-violet-400",
-  validation: "text-emerald-400",
-  cost: "text-amber-400",
-  phase: "text-blue-400",
-  scoring: "text-orange-400",
-  rejection: "text-red-400",
-  api_call: "text-cyan-400",
-};
+interface ResearchPhase {
+  name: string;
+  status: "pending" | "active" | "complete" | "error";
+  startTime?: Date;
+  endTime?: Date;
+  message?: string;
+}
 
 const SOURCE_COLORS: Record<ResearchSource, string> = {
   perplexity: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -71,6 +63,16 @@ const SOURCE_COLORS: Record<ResearchSource, string> = {
   groq: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
   gemini: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   system: "bg-muted text-muted-foreground border-border",
+};
+
+const SOURCE_CATEGORY_ICONS: Record<string, typeof Search> = {
+  "Social": MessageSquare,
+  "Options Flow": BarChart2,
+  "Macro": Globe,
+  "Technical": TrendingUp,
+  "Academic": BookOpen,
+  "News": Zap,
+  "default": Globe,
 };
 
 const safeFormat = (date: Date | string | null | undefined, formatStr: string): string => {
@@ -84,24 +86,270 @@ const safeFormat = (date: Date | string | null | undefined, formatStr: string): 
   }
 };
 
+function StrategyInsightCard({ candidate, isSelected, onClick }: { 
+  candidate: StrategyCandidate; 
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const confidenceColor = candidate.confidence >= 70 ? "text-emerald-400" : 
+                          candidate.confidence >= 50 ? "text-amber-400" : "text-red-400";
+  const confidenceBgColor = candidate.confidence >= 70 ? "bg-emerald-500" : 
+                            candidate.confidence >= 50 ? "bg-amber-500" : "bg-red-500";
+  
+  return (
+    <Card 
+      className={cn(
+        "cursor-pointer transition-all hover-elevate",
+        isSelected && "ring-2 ring-primary"
+      )}
+      onClick={onClick}
+      data-testid={`strategy-card-${candidate.id}`}
+    >
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="outline" className={cn("text-[10px]", SOURCE_COLORS[candidate.provider])}>
+                {candidate.provider}
+              </Badge>
+              {candidate.archetype && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {candidate.archetype}
+                </Badge>
+              )}
+            </div>
+            <CardTitle className="text-base truncate" data-testid="text-strategy-name">
+              {candidate.name}
+            </CardTitle>
+          </div>
+          <div className="flex flex-col items-end">
+            <div className={cn("text-2xl font-mono font-bold", confidenceColor)} data-testid="text-confidence">
+              {candidate.confidence}%
+            </div>
+            <span className="text-[10px] text-muted-foreground">confidence</span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {candidate.hypothesis && (
+          <div data-testid="section-hypothesis">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Lightbulb className="h-3 w-3 text-amber-400" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Hypothesis</span>
+            </div>
+            <p className="text-sm text-foreground/90 leading-relaxed line-clamp-2">
+              {candidate.hypothesis}
+            </p>
+          </div>
+        )}
+        
+        {candidate.reasoning && (
+          <div data-testid="section-reasoning">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Brain className="h-3 w-3 text-violet-400" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Why This Strategy</span>
+            </div>
+            <p className="text-sm text-foreground/70 italic border-l-2 border-primary/30 pl-2 line-clamp-2">
+              {candidate.reasoning}
+            </p>
+          </div>
+        )}
+        
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-1">
+            {candidate.symbols?.map(s => (
+              <Badge key={s} variant="outline" className="text-[9px] h-4 px-1">
+                {s}
+              </Badge>
+            ))}
+          </div>
+          <span className="text-[10px] text-muted-foreground">
+            {safeFormat(candidate.timestamp, "h:mm a")}
+          </span>
+        </div>
+        
+        {candidate.confidenceBreakdown && Object.keys(candidate.confidenceBreakdown).length > 0 && (
+          <div className="pt-2 border-t border-border/50" data-testid="confidence-breakdown">
+            <div className="grid grid-cols-3 gap-1">
+              {Object.entries(candidate.confidenceBreakdown)
+                .filter(([_, v]) => typeof v === "number" && v > 0)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .slice(0, 3)
+                .map(([key, value]) => (
+                  <div key={key} className="text-center">
+                    <div className="text-xs font-mono text-primary">{value}%</div>
+                    <div className="text-[9px] text-muted-foreground truncate capitalize">
+                      {key.replace(/([A-Z])/g, " $1").trim().split(" ").slice(0, 2).join(" ")}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SourcePanel({ sources }: { sources: Array<{ type: string; label: string; detail: string; url?: string }> }) {
+  const categorizedSources = useMemo(() => {
+    const categories: Record<string, typeof sources> = {};
+    sources.forEach(src => {
+      const category = src.type || "Other";
+      if (!categories[category]) categories[category] = [];
+      categories[category].push(src);
+    });
+    return categories;
+  }, [sources]);
+  
+  return (
+    <div className="space-y-4" data-testid="source-panel">
+      {Object.entries(categorizedSources).map(([category, items]) => {
+        const Icon = SOURCE_CATEGORY_ICONS[category] || SOURCE_CATEGORY_ICONS.default;
+        return (
+          <div key={category}>
+            <div className="flex items-center gap-2 mb-2">
+              <Icon className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-medium">{category}</span>
+              <Badge variant="secondary" className="text-[9px] h-4 ml-auto">{items.length}</Badge>
+            </div>
+            <div className="space-y-1.5">
+              {items.map((src, idx) => (
+                <div 
+                  key={idx} 
+                  className="bg-muted/30 rounded px-2.5 py-2 border border-border/30"
+                  data-testid={`source-item-${category}-${idx}`}
+                >
+                  <div className="flex items-start gap-2">
+                    <Globe className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-medium truncate">{src.label}</span>
+                        {src.url && (
+                          <a 
+                            href={src.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="shrink-0 text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </a>
+                        )}
+                      </div>
+                      {src.detail && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">
+                          {src.detail}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ResearchPhaseTimeline({ phases }: { phases: ResearchPhase[] }) {
+  return (
+    <div className="flex items-center gap-1" data-testid="phase-timeline">
+      {phases.map((phase, idx) => (
+        <div key={phase.name} className="flex items-center">
+          <div className={cn(
+            "flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium",
+            phase.status === "complete" && "bg-emerald-500/20 text-emerald-400",
+            phase.status === "active" && "bg-primary/20 text-primary animate-pulse",
+            phase.status === "pending" && "bg-muted text-muted-foreground",
+            phase.status === "error" && "bg-red-500/20 text-red-400"
+          )}>
+            {phase.status === "complete" && <CheckCircle2 className="h-3 w-3" />}
+            {phase.status === "active" && <Loader2 className="h-3 w-3 animate-spin" />}
+            {phase.status === "pending" && <Clock className="h-3 w-3" />}
+            {phase.status === "error" && <XCircle className="h-3 w-3" />}
+            {phase.name}
+          </div>
+          {idx < phases.length - 1 && (
+            <ArrowRight className="h-3 w-3 mx-1 text-muted-foreground/50" />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ResearchMonitor() {
   const [events, setEvents] = useState<ResearchEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
   const [usePolling, setUsePolling] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<ResearchEvent | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<StrategyCandidate | null>(null);
+  const [viewMode, setViewMode] = useState<"insights" | "activity">("insights");
   const [stats, setStats] = useState({ 
     searches: 0, 
     sources: 0, 
     candidates: 0,
     totalCost: 0,
   });
-  const viewportRef = useRef<HTMLDivElement>(null);
+  const [researchPhases, setResearchPhases] = useState<ResearchPhase[]>([
+    { name: "Scouting", status: "pending" },
+    { name: "Evidence", status: "pending" },
+    { name: "Candidates", status: "pending" },
+  ]);
+  
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastEventTimestamp = useRef<number>(0);
   const wsFailCount = useRef(0);
+
+  const candidates = useMemo<StrategyCandidate[]>(() => {
+    return events
+      .filter(e => e.type === "candidate" && e.metadata)
+      .map(e => ({
+        id: e.id,
+        name: e.title || e.metadata?.strategyName || "Unnamed Strategy",
+        archetype: e.metadata?.archetype || "",
+        hypothesis: e.metadata?.hypothesis || "",
+        confidence: e.metadata?.confidence || 0,
+        confidenceBreakdown: e.metadata?.confidenceBreakdown,
+        reasoning: e.metadata?.reasoning || "",
+        synthesis: e.metadata?.synthesis || "",
+        sources: e.metadata?.sources || [],
+        symbols: e.metadata?.symbols || [],
+        provider: e.source,
+        timestamp: e.timestamp,
+      }))
+      .sort((a, b) => b.confidence - a.confidence);
+  }, [events]);
+
+  const allSources = useMemo(() => {
+    const sourcesMap = new Map<string, { type: string; label: string; detail: string; url?: string }>();
+    events
+      .filter(e => e.type === "source")
+      .forEach(e => {
+        const url = e.metadata?.url || e.details;
+        if (url && !sourcesMap.has(url)) {
+          sourcesMap.set(url, {
+            type: e.metadata?.category || "Research",
+            label: e.title || new URL(url).hostname,
+            detail: e.metadata?.snippet || "",
+            url,
+          });
+        }
+      });
+    candidates.forEach(c => {
+      c.sources?.forEach(src => {
+        if (src.label && !sourcesMap.has(src.label)) {
+          sourcesMap.set(src.label, src);
+        }
+      });
+    });
+    return Array.from(sourcesMap.values());
+  }, [events, candidates]);
 
   const addEvents = useCallback((newEvents: ResearchEvent[]) => {
     if (paused || newEvents.length === 0) return;
@@ -121,6 +369,17 @@ export default function ResearchMonitor() {
         candidates: prev.candidates + (evt.type === "candidate" ? 1 : 0),
         totalCost: prev.totalCost + (evt.metadata?.costUsd || 0),
       }));
+      
+      if (evt.type === "phase") {
+        const phaseName = evt.metadata?.phase || evt.title;
+        const phaseStatus = evt.metadata?.status || (evt.title.includes("Complete") ? "complete" : "active");
+        setResearchPhases(prev => prev.map(p => 
+          p.name.toLowerCase().includes(phaseName?.toLowerCase()) 
+            ? { ...p, status: phaseStatus, message: evt.details }
+            : p
+        ));
+      }
+      
       if (evt.timestamp instanceof Date) {
         lastEventTimestamp.current = Math.max(lastEventTimestamp.current, evt.timestamp.getTime());
       }
@@ -173,73 +432,56 @@ export default function ResearchMonitor() {
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        wsFailCount.current = 0;
+        console.log("[ResearchMonitor] WebSocket connected");
         setConnected(true);
+        wsFailCount.current = 0;
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
-          if (data.type === "connected" && data.recentEvents?.length > 0) {
-            const historicalEvents: ResearchEvent[] = data.recentEvents.map((evt: any) => ({
-              id: evt.id || `hist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              timestamp: new Date(evt.timestamp || Date.now()),
-              type: evt.eventType || "system",
-              source: evt.source || "system",
-              title: evt.title || "Research Activity",
-              details: evt.details,
-              metadata: evt.metadata,
-            }));
-            addEvents(historicalEvents);
-            return;
-          }
-          
-          if (paused) return;
-          
-          if (data.type === "research_event") {
-            const newEvent: ResearchEvent = {
-              id: data.id || `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              timestamp: new Date(data.timestamp || Date.now()),
-              type: data.eventType || "system",
-              source: data.source || "system",
-              title: data.title || "Research Activity",
-              details: data.details,
-              metadata: data.metadata,
+          if (data.type === "research_event" && data.event) {
+            const evt: ResearchEvent = {
+              id: data.event.id || crypto.randomUUID(),
+              timestamp: new Date(data.event.timestamp || Date.now()),
+              type: data.event.eventType || "system",
+              source: data.event.source || "system",
+              title: data.event.title,
+              details: data.event.details,
+              metadata: data.event.metadata,
             };
-            addEvents([newEvent]);
+            addEvents([evt]);
           }
-        } catch (e) {
-          console.error("[ResearchMonitor] Failed to parse message:", e);
+        } catch (err) {
+          console.error("[ResearchMonitor] Parse error:", err);
         }
       };
 
       ws.onclose = () => {
-        console.log("[ResearchMonitor] WebSocket disconnected");
         setConnected(false);
+        wsRef.current = null;
         wsFailCount.current++;
         
         if (wsFailCount.current >= 3) {
           startPolling();
         } else {
-          reconnectTimeoutRef.current = setTimeout(connectWebSocket, 2000);
+          reconnectTimeoutRef.current = setTimeout(connectWebSocket, 2000 * wsFailCount.current);
         }
       };
 
-      ws.onerror = (e) => {
-        console.error("[ResearchMonitor] WebSocket error:", e);
+      ws.onerror = (error) => {
+        console.error("[ResearchMonitor] WebSocket error:", error);
       };
 
       wsRef.current = ws;
-    } catch (e) {
+    } catch (err) {
+      console.error("[ResearchMonitor] Failed to connect:", err);
       wsFailCount.current++;
       if (wsFailCount.current >= 3) {
         startPolling();
-      } else {
-        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
       }
     }
-  }, [paused, usePolling, addEvents, startPolling]);
+  }, [addEvents, startPolling, usePolling]);
 
   useEffect(() => {
     let mounted = true;
@@ -256,16 +498,15 @@ export default function ResearchMonitor() {
     };
   }, [connectWebSocket]);
 
-  useEffect(() => {
-    if (viewportRef.current && !paused) {
-      viewportRef.current.scrollTop = 0;
-    }
-  }, [events, paused]);
-
   const clearEvents = () => {
     setEvents([]);
     setStats({ searches: 0, sources: 0, candidates: 0, totalCost: 0 });
-    setSelectedEvent(null);
+    setSelectedCandidate(null);
+    setResearchPhases([
+      { name: "Scouting", status: "pending" },
+      { name: "Evidence", status: "pending" },
+      { name: "Candidates", status: "pending" },
+    ]);
   };
 
   const triggerResearchMutation = useMutation({
@@ -273,372 +514,326 @@ export default function ResearchMonitor() {
       const res = await apiRequest("POST", "/api/strategy-lab/trigger-research");
       return res.json();
     },
+    onSuccess: () => {
+      setResearchPhases([
+        { name: "Scouting", status: "active" },
+        { name: "Evidence", status: "pending" },
+        { name: "Candidates", status: "pending" },
+      ]);
+    },
   });
+
+  const activeProvider = events.length > 0 ? events[events.length - 1].source : null;
 
   return (
     <AppLayout title="Research Monitor">
       <div className="h-full flex flex-col">
-        {/* Header with stats and controls */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Microscope className="h-5 w-5 text-primary" />
-              <span className="font-medium">AI Research Activity</span>
-            </div>
-            
-            {/* Connection Status */}
-            <div className="flex items-center gap-2" data-testid="status-connection">
-              {connected ? (
-                <>
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs text-emerald-400 font-mono" data-testid="text-connection-status">{usePolling ? "POLLING" : "LIVE"}</span>
-                </>
-              ) : (
-                <>
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                  <span className="text-xs text-muted-foreground font-mono" data-testid="text-connection-status">DISCONNECTED</span>
-                </>
+        {/* Header Banner - Summary Stats */}
+        <div className="border-b border-border bg-muted/20">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Microscope className="h-5 w-5 text-primary" />
+                <span className="font-medium">AI Research Activity</span>
+              </div>
+              
+              <div className="flex items-center gap-2" data-testid="status-connection">
+                {connected ? (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-xs text-emerald-400 font-mono">{usePolling ? "POLLING" : "LIVE"}</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                    <span className="text-xs text-muted-foreground font-mono">DISCONNECTED</span>
+                  </>
+                )}
+              </div>
+              
+              {activeProvider && (
+                <Badge variant="outline" className={cn("text-[10px]", SOURCE_COLORS[activeProvider])}>
+                  {activeProvider} active
+                </Badge>
               )}
             </div>
-          </div>
 
-          {/* Quick Stats */}
-          <div className="flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2" data-testid="stat-searches">
-              <Search className="h-3.5 w-3.5 text-blue-400" />
-              <span className="font-mono" data-testid="text-search-count">{stats.searches}</span>
-              <span className="text-xs text-muted-foreground">queries</span>
-            </div>
-            <div className="flex items-center gap-2" data-testid="stat-sources">
-              <Globe className="h-3.5 w-3.5 text-cyan-400" />
-              <span className="font-mono" data-testid="text-source-count">{stats.sources}</span>
-              <span className="text-xs text-muted-foreground">sources</span>
-            </div>
-            <div className="flex items-center gap-2" data-testid="stat-candidates">
-              <Target className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="font-mono" data-testid="text-candidate-count">{stats.candidates}</span>
-              <span className="text-xs text-muted-foreground">candidates</span>
-            </div>
-            <div className="flex items-center gap-2" data-testid="stat-cost">
-              <DollarSign className="h-3.5 w-3.5 text-amber-400" />
-              <span className="font-mono" data-testid="text-total-cost">${stats.totalCost.toFixed(3)}</span>
-            </div>
-          </div>
+            <ResearchPhaseTimeline phases={researchPhases} />
 
-          {/* Controls */}
-          <div className="flex items-center gap-2">
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={() => triggerResearchMutation.mutate()}
-              disabled={triggerResearchMutation.isPending}
-              data-testid="button-trigger-research"
-            >
-              {triggerResearchMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Rocket className="h-3.5 w-3.5 mr-1.5" />
-              )}
-              Research
-            </Button>
-            <Button 
-              size="icon" 
-              variant="ghost"
-              onClick={() => setPaused(!paused)}
-              data-testid="button-pause"
-            >
-              {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            </Button>
-            <Button 
-              size="icon" 
-              variant="ghost"
-              onClick={clearEvents}
-              data-testid="button-clear"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1.5" data-testid="stat-sources">
+                  <Globe className="h-3.5 w-3.5 text-cyan-400" />
+                  <span className="font-mono">{stats.sources}</span>
+                  <span className="text-xs text-muted-foreground">sources</span>
+                </div>
+                <div className="flex items-center gap-1.5" data-testid="stat-candidates">
+                  <Target className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="font-mono">{stats.candidates}</span>
+                  <span className="text-xs text-muted-foreground">strategies</span>
+                </div>
+                <div className="flex items-center gap-1.5" data-testid="stat-cost">
+                  <DollarSign className="h-3.5 w-3.5 text-amber-400" />
+                  <span className="font-mono">${stats.totalCost.toFixed(3)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => triggerResearchMutation.mutate()}
+                  disabled={triggerResearchMutation.isPending}
+                  data-testid="button-trigger-research"
+                >
+                  {triggerResearchMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Rocket className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Research
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => setPaused(!paused)} data-testid="button-pause">
+                  {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                </Button>
+                <Button size="icon" variant="ghost" onClick={clearEvents} data-testid="button-clear">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Main Content */}
+        {/* Main Content - Three Column Layout */}
         <div className="flex-1 flex min-h-0">
-          {/* Activity Feed - takes most of the space */}
+          {/* Left Panel - Strategy Insights */}
           <div className="flex-1 flex flex-col min-h-0 border-r border-border">
             <div className="px-4 py-2 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Activity Feed</span>
+                <Layers className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Strategy Insights</span>
               </div>
-              <Badge variant="secondary" className="text-[10px] h-5">{events.length} events</Badge>
+              <div className="flex items-center gap-1">
+                <Button 
+                  size="sm" 
+                  variant={viewMode === "insights" ? "secondary" : "ghost"} 
+                  className="h-7 text-xs"
+                  onClick={() => setViewMode("insights")}
+                >
+                  Cards
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant={viewMode === "activity" ? "secondary" : "ghost"} 
+                  className="h-7 text-xs"
+                  onClick={() => setViewMode("activity")}
+                >
+                  Activity
+                </Button>
+              </div>
             </div>
             
-            <ScrollArea className="flex-1" viewportRef={viewportRef}>
-              <div className="divide-y divide-border/50">
-                {events.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <Brain className="h-12 w-12 mx-auto mb-3 text-muted-foreground/20" />
-                    <p className="text-sm text-muted-foreground">Waiting for research activity...</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">Events will appear here in real-time</p>
+            <ScrollArea className="flex-1 p-4">
+              {viewMode === "insights" ? (
+                candidates.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                    <Brain className="h-16 w-16 text-muted-foreground/15 mb-4" />
+                    <p className="text-sm text-muted-foreground">No strategies discovered yet</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">
+                      Click "Research" to start AI-powered strategy discovery
+                    </p>
                   </div>
                 ) : (
-                  [...events].reverse().map(event => {
-                    const Icon = EVENT_ICONS[event.type] || Zap;
-                    const isSelected = selectedEvent?.id === event.id;
-                    return (
+                  <div className="grid gap-4">
+                    {candidates.map(candidate => (
+                      <StrategyInsightCard
+                        key={candidate.id}
+                        candidate={candidate}
+                        isSelected={selectedCandidate?.id === candidate.id}
+                        onClick={() => setSelectedCandidate(candidate)}
+                      />
+                    ))}
+                  </div>
+                )
+              ) : (
+                <div className="divide-y divide-border/50">
+                  {events.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <Activity className="h-12 w-12 mx-auto mb-3 text-muted-foreground/20" />
+                      <p className="text-sm text-muted-foreground">Waiting for research activity...</p>
+                    </div>
+                  ) : (
+                    [...events].reverse().map(event => (
                       <div 
                         key={event.id}
-                        className={cn(
-                          "px-4 py-2.5 cursor-pointer transition-colors flex items-start gap-3",
-                          isSelected ? "bg-primary/5 border-l-2 border-l-primary" : "hover:bg-muted/30"
-                        )}
-                        onClick={() => setSelectedEvent(event)}
-                        data-testid={`event-${event.id}`}
+                        className="px-3 py-2 flex items-start gap-3"
+                        data-testid={`activity-event-${event.id}`}
                       >
-                        <Icon className={cn("h-4 w-4 mt-0.5 shrink-0", EVENT_COLORS[event.type])} />
+                        <div className={cn(
+                          "w-1.5 h-1.5 rounded-full mt-2 shrink-0",
+                          event.type === "candidate" && "bg-emerald-400",
+                          event.type === "source" && "bg-cyan-400",
+                          event.type === "error" && "bg-red-400",
+                          event.type === "phase" && "bg-blue-400",
+                          !["candidate", "source", "error", "phase"].includes(event.type) && "bg-muted-foreground"
+                        )} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium truncate">{event.title}</span>
-                            <Badge 
-                              variant="outline" 
-                              className={cn("text-[9px] h-4 px-1.5 shrink-0", SOURCE_COLORS[event.source])}
-                            >
+                            <span className="text-xs truncate">{event.title}</span>
+                            <Badge variant="outline" className={cn("text-[9px] h-4 px-1", SOURCE_COLORS[event.source])}>
                               {event.source}
                             </Badge>
                           </div>
                           {event.details && (
-                            <p className="text-xs text-muted-foreground mt-0.5 truncate">{event.details}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{event.details}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            {safeFormat(event.timestamp, "h:mm:ss a")}
-                          </span>
-                          {isSelected && <ChevronRight className="h-3 w-3 text-primary" />}
-                        </div>
+                        <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                          {safeFormat(event.timestamp, "h:mm:ss")}
+                        </span>
                       </div>
-                    );
-                  })
-                )}
-              </div>
+                    ))
+                  )}
+                </div>
+              )}
             </ScrollArea>
           </div>
 
-          {/* Detail Panel */}
-          <div className="w-[400px] flex flex-col min-h-0 bg-muted/5" data-testid="panel-event-detail">
-            {selectedEvent ? (
+          {/* Right Panel - Sources & Detail */}
+          <div className="w-[340px] flex flex-col min-h-0 bg-muted/5">
+            {selectedCandidate ? (
               <>
                 <div className="px-4 py-3 border-b border-border">
                   <div className="flex items-center gap-2 mb-1">
-                    <Badge 
-                      variant="outline" 
-                      className={cn("text-[10px]", SOURCE_COLORS[selectedEvent.source])}
-                      data-testid="badge-event-source"
-                    >
-                      {selectedEvent.source}
+                    <Badge variant="outline" className={cn("text-[10px]", SOURCE_COLORS[selectedCandidate.provider])}>
+                      {selectedCandidate.provider}
                     </Badge>
-                    <Badge variant="secondary" className="text-[10px] uppercase" data-testid="badge-event-type">
-                      {selectedEvent.type}
+                    <Badge variant="secondary" className="text-[10px]">
+                      {selectedCandidate.archetype}
                     </Badge>
                   </div>
-                  <h3 className="font-medium" data-testid="text-event-title">{selectedEvent.title}</h3>
-                  <p className="text-xs text-muted-foreground mt-1" data-testid="text-event-timestamp">
-                    {safeFormat(selectedEvent.timestamp, "PPpp")}
+                  <h3 className="font-medium" data-testid="detail-strategy-name">{selectedCandidate.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {safeFormat(selectedCandidate.timestamp, "PPpp")}
                   </p>
                 </div>
                 
                 <ScrollArea className="flex-1">
-                  <div className="p-4 space-y-4" data-testid="event-detail-content">
-                    {selectedEvent.details && (
-                      <div data-testid="detail-section-details">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Details</div>
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed" data-testid="text-event-details">
-                          {selectedEvent.details}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {selectedEvent.metadata?.query && (
-                      <div data-testid="detail-section-query">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Search Query</div>
-                        <p className="text-sm font-mono bg-muted/50 px-2 py-1.5 rounded" data-testid="text-search-query">
-                          {selectedEvent.metadata.query}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {(selectedEvent.metadata?.archetype || selectedEvent.metadata?.aiProvider) && (
-                      <div className="flex flex-wrap items-center gap-2" data-testid="detail-section-meta-badges">
-                        {selectedEvent.metadata?.archetype && (
-                          <Badge variant="secondary" className="text-[10px]" data-testid="badge-archetype">
-                            <Target className="h-2.5 w-2.5 mr-1" />
-                            {selectedEvent.metadata.archetype}
-                          </Badge>
-                        )}
-                        {selectedEvent.metadata?.aiProvider && (
-                          <Badge variant="outline" className="text-[10px] text-primary" data-testid="badge-ai-provider">
-                            <Brain className="h-2.5 w-2.5 mr-1" />
-                            via {selectedEvent.metadata.aiProvider}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    
-                    {selectedEvent.metadata?.hypothesis && (
-                      <div data-testid="detail-section-hypothesis">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Strategy Hypothesis</div>
-                        <p className="text-sm text-foreground/90 leading-relaxed" data-testid="text-hypothesis">
-                          {selectedEvent.metadata.hypothesis}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {selectedEvent.metadata?.reasoning && (
-                      <div data-testid="detail-section-reasoning">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">AI Reasoning</div>
-                        <p className="text-sm text-foreground/80 italic border-l-2 border-primary/30 pl-3 py-1" data-testid="text-ai-reasoning">
-                          {selectedEvent.metadata.reasoning}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {selectedEvent.metadata?.synthesis && (
-                      <div data-testid="detail-section-synthesis">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Research Synthesis</div>
-                        <p className="text-sm text-foreground/80 bg-muted/30 px-3 py-2 rounded" data-testid="text-synthesis">
-                          {selectedEvent.metadata.synthesis}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {selectedEvent.metadata?.sources && Array.isArray(selectedEvent.metadata.sources) && (
-                      <div data-testid="detail-section-sources">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
-                          Sources Analyzed ({selectedEvent.metadata.sources.length})
+                  <div className="p-4 space-y-4">
+                    {selectedCandidate.hypothesis && (
+                      <div data-testid="detail-hypothesis">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Lightbulb className="h-3 w-3 text-amber-400" />
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Core Hypothesis</span>
                         </div>
-                        <div className="space-y-2">
-                          {selectedEvent.metadata.sources.map((src: any, i: number) => (
-                            typeof src === 'string' ? (
-                              <div key={i} className="text-xs text-muted-foreground flex items-center gap-2" data-testid={`source-item-${i}`}>
-                                <Globe className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{src}</span>
-                              </div>
-                            ) : (
-                              <div key={i} className="bg-muted/20 rounded p-2 border border-border/50" data-testid={`source-card-${i}`}>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Globe className="h-3 w-3 shrink-0 text-primary" />
-                                  <span className="text-xs font-medium truncate">{src.label || src.title || 'Source'}</span>
-                                  {src.type && (
-                                    <Badge 
-                                      variant="outline" 
-                                      className={cn(
-                                        "text-[9px] h-4 px-1 shrink-0",
-                                        src.type === "HIGH" && "text-emerald-400 border-emerald-400/30",
-                                        src.type === "MEDIUM" && "text-amber-400 border-amber-400/30",
-                                        src.type === "LOW" && "text-muted-foreground border-border"
-                                      )}
-                                    >
-                                      {src.type}
-                                    </Badge>
-                                  )}
-                                </div>
-                                {src.detail && (
-                                  <p className="text-[11px] text-muted-foreground leading-relaxed pl-5">
-                                    {src.detail}
-                                  </p>
-                                )}
-                              </div>
-                            )
-                          ))}
-                        </div>
+                        <p className="text-sm text-foreground/90 leading-relaxed">
+                          {selectedCandidate.hypothesis}
+                        </p>
                       </div>
                     )}
                     
-                    {selectedEvent.metadata?.confidence !== undefined && (
-                      <div data-testid="detail-section-confidence">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Confidence Score</div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                            <div 
-                              className={cn(
-                                "h-full rounded-full transition-all",
-                                selectedEvent.metadata.confidence >= 70 && "bg-emerald-500",
-                                selectedEvent.metadata.confidence >= 40 && selectedEvent.metadata.confidence < 70 && "bg-amber-500",
-                                selectedEvent.metadata.confidence < 40 && "bg-red-500"
-                              )}
-                              style={{ width: `${selectedEvent.metadata.confidence}%` }}
-                            />
-                          </div>
-                          <span className="text-sm font-mono font-semibold" data-testid="text-confidence-value">
-                            {selectedEvent.metadata.confidence}%
+                    {selectedCandidate.reasoning && (
+                      <div data-testid="detail-reasoning">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Brain className="h-3 w-3 text-violet-400" />
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">AI Reasoning</span>
+                        </div>
+                        <p className="text-sm text-foreground/80 italic border-l-2 border-primary/30 pl-3 py-1">
+                          {selectedCandidate.reasoning}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {selectedCandidate.synthesis && (
+                      <div data-testid="detail-synthesis">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Sparkles className="h-3 w-3 text-primary" />
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Research Synthesis</span>
+                        </div>
+                        <p className="text-sm text-foreground/70 bg-muted/30 px-3 py-2 rounded">
+                          {selectedCandidate.synthesis}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div data-testid="detail-confidence">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Shield className="h-3 w-3 text-emerald-400" />
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Confidence Analysis</span>
+                      </div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <Progress 
+                          value={selectedCandidate.confidence} 
+                          className="flex-1 h-2"
+                        />
+                        <span className={cn(
+                          "text-lg font-mono font-bold",
+                          selectedCandidate.confidence >= 70 ? "text-emerald-400" : 
+                          selectedCandidate.confidence >= 50 ? "text-amber-400" : "text-red-400"
+                        )}>
+                          {selectedCandidate.confidence}%
+                        </span>
+                      </div>
+                      {selectedCandidate.confidenceBreakdown && (
+                        <div className="grid grid-cols-2 gap-1">
+                          {Object.entries(selectedCandidate.confidenceBreakdown)
+                            .filter(([_, v]) => typeof v === "number" && v > 0)
+                            .sort(([, a], [, b]) => (b as number) - (a as number))
+                            .map(([key, value]) => (
+                              <div key={key} className="flex items-center justify-between text-[10px] bg-muted/30 rounded px-2 py-1">
+                                <span className="text-muted-foreground capitalize truncate">
+                                  {key.replace(/([A-Z])/g, " $1").trim()}
+                                </span>
+                                <span className={cn(
+                                  "font-mono ml-1",
+                                  (value as number) >= 15 && "text-emerald-400",
+                                  (value as number) >= 8 && (value as number) < 15 && "text-amber-400",
+                                  (value as number) < 8 && "text-muted-foreground"
+                                )}>
+                                  {value}%
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {selectedCandidate.sources && selectedCandidate.sources.length > 0 && (
+                      <div data-testid="detail-sources">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Globe className="h-3 w-3 text-cyan-400" />
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                            Research Sources ({selectedCandidate.sources.length})
                           </span>
                         </div>
-                        {selectedEvent.metadata?.confidenceBreakdown && (
-                          <div className="grid grid-cols-2 gap-1 mt-2" data-testid="confidence-breakdown">
-                            {Object.entries(selectedEvent.metadata.confidenceBreakdown)
-                              .filter(([_, v]) => typeof v === 'number' && v > 0)
-                              .sort(([, a], [, b]) => (b as number) - (a as number))
-                              .map(([key, value]) => (
-                                <div key={key} className="flex items-center justify-between text-[10px] bg-muted/30 rounded px-2 py-1">
-                                  <span className="text-muted-foreground capitalize truncate">
-                                    {key.replace(/([A-Z])/g, ' $1').trim()}
-                                  </span>
-                                  <span className={cn(
-                                    "font-mono ml-1",
-                                    (value as number) >= 15 && "text-emerald-400",
-                                    (value as number) >= 8 && (value as number) < 15 && "text-amber-400",
-                                    (value as number) < 8 && "text-muted-foreground"
-                                  )}>
-                                    {value}%
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {selectedEvent.metadata?.validationChecks && (
-                      <div data-testid="detail-section-validation">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Validation Checks</div>
-                        <div className="space-y-1">
-                          {(selectedEvent.metadata.validationChecks as Array<{name: string, passed: boolean}>).map((check, i) => (
-                            <div key={i} className="flex items-center gap-2 text-xs" data-testid={`validation-check-${i}`}>
-                              {check.passed ? (
-                                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                              ) : (
-                                <XCircle className="h-3 w-3 text-red-400" />
-                              )}
-                              <span className={check.passed ? "text-foreground/80" : "text-red-400"}>{check.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {selectedEvent.metadata?.costUsd !== undefined && (
-                      <div data-testid="detail-section-cost">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">API Cost</div>
-                        <p className="text-sm font-mono" data-testid="text-api-cost">${selectedEvent.metadata.costUsd.toFixed(4)}</p>
-                      </div>
-                    )}
-                    
-                    {selectedEvent.metadata?.latencyMs !== undefined && (
-                      <div data-testid="detail-section-latency">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Latency</div>
-                        <p className="text-sm font-mono" data-testid="text-latency-value">{selectedEvent.metadata.latencyMs}ms</p>
+                        <SourcePanel sources={selectedCandidate.sources} />
                       </div>
                     )}
                   </div>
                 </ScrollArea>
               </>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                <Brain className="h-16 w-16 text-muted-foreground/15 mb-4" />
-                <p className="text-sm text-muted-foreground">Select an event to view details</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">
-                  Click on any activity in the feed
-                </p>
-              </div>
+              <>
+                <div className="px-4 py-2 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-cyan-400" />
+                    <span className="text-sm font-medium">Research Sources</span>
+                  </div>
+                </div>
+                <ScrollArea className="flex-1 p-4">
+                  {allSources.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                      <Globe className="h-12 w-12 text-muted-foreground/15 mb-3" />
+                      <p className="text-sm text-muted-foreground">No sources yet</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">
+                        Sources will appear as research runs
+                      </p>
+                    </div>
+                  ) : (
+                    <SourcePanel sources={allSources} />
+                  )}
+                </ScrollArea>
+              </>
             )}
           </div>
         </div>

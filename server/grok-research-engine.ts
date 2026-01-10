@@ -208,23 +208,118 @@ function sanitizeStrategyName(name: string): string {
   return cleaned || "Unnamed Strategy";
 }
 
+function extractCleanJSONGrok(rawContent: string): string | null {
+  let content = rawContent.trim();
+  let sanitized = false;
+  
+  // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
+  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    content = fenceMatch[1].trim();
+    sanitized = true;
+  }
+  
+  // Step 2: Remove any leading prose/text before JSON starts
+  const jsonStartObj = content.indexOf('{');
+  const jsonStartArr = content.indexOf('[');
+  
+  let jsonStart = -1;
+  if (jsonStartObj >= 0 && jsonStartArr >= 0) {
+    jsonStart = Math.min(jsonStartObj, jsonStartArr);
+  } else if (jsonStartObj >= 0) {
+    jsonStart = jsonStartObj;
+  } else if (jsonStartArr >= 0) {
+    jsonStart = jsonStartArr;
+  }
+  
+  if (jsonStart > 0) {
+    const leadingText = content.slice(0, jsonStart).trim();
+    if (leadingText.length > 0) {
+      console.log(`[GROK_RESEARCH] Stripped ${leadingText.length} chars of leading prose before JSON`);
+      sanitized = true;
+    }
+    content = content.slice(jsonStart);
+  }
+  
+  if (jsonStart < 0) {
+    return null;
+  }
+  
+  // Step 3: Find the balanced JSON structure (object or array)
+  const startChar = content[0];
+  const endChar = startChar === '{' ? '}' : ']';
+  
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let jsonEnd = -1;
+  
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    
+    if (char === '\\' && inString) {
+      escaped = true;
+      continue;
+    }
+    
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === startChar) {
+        depth++;
+      } else if (char === endChar) {
+        depth--;
+        if (depth === 0) {
+          jsonEnd = i + 1;
+          break;
+        }
+      }
+    }
+  }
+  
+  if (jsonEnd > 0) {
+    const result = content.slice(0, jsonEnd);
+    if (sanitized) {
+      console.log(`[GROK_RESEARCH] JSON sanitization applied - extracted ${result.length} chars of clean JSON`);
+    }
+    return result;
+  }
+  
+  return null;
+}
+
 function parseGrokResponse(content: string): ResearchCandidate[] {
   try {
-    let jsonContent = content.trim();
-    
-    const jsonMatch = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1].trim();
+    // Use robust JSON extraction that handles markdown fences, leading prose, etc.
+    const cleanJson = extractCleanJSONGrok(content);
+    if (!cleanJson) {
+      console.error("[GROK_RESEARCH] No valid JSON found in response");
+      console.error(`[GROK_RESEARCH] Response preview (first 500 chars): ${content.slice(0, 500)}`);
+      return [];
     }
     
-    const arrayMatch = jsonContent.match(/\[[\s\S]*\]/);
-    if (arrayMatch) {
-      jsonContent = arrayMatch[0];
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanJson);
+    } catch (parseErr) {
+      console.error(`[GROK_RESEARCH] JSON parse error: ${parseErr instanceof Error ? parseErr.message : 'Unknown'}`);
+      console.error(`[GROK_RESEARCH] Clean JSON preview (first 500 chars): ${cleanJson.slice(0, 500)}`);
+      return [];
     }
     
-    const parsed = JSON.parse(jsonContent) as any[];
+    // Handle both array and object formats
+    const candidatesArray = Array.isArray(parsed) ? parsed : (parsed.candidates || parsed.strategies || [parsed]);
+    console.log(`[GROK_RESEARCH] Processing ${candidatesArray.length} candidates from parsed response`);
     
-    return parsed.map((item: any) => {
+    return candidatesArray.map((item: any) => {
       const candidate: ResearchCandidate = {
         strategyName: sanitizeStrategyName(item.strategyName || "Unnamed Strategy"),
         archetypeName: item.archetypeName || "BREAKOUT",

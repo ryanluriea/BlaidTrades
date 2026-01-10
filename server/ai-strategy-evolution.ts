@@ -1729,36 +1729,132 @@ function buildAISynthesis(candidate: ResearchCandidate, citations: string[]): st
   return synthesis;
 }
 
+function extractCleanJSON(rawContent: string): string | null {
+  let content = rawContent.trim();
+  let sanitized = false;
+  
+  // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
+  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    content = fenceMatch[1].trim();
+    sanitized = true;
+  }
+  
+  // Step 2: Remove any leading prose/text before JSON starts
+  // Look for first { or [ character
+  const jsonStartObj = content.indexOf('{');
+  const jsonStartArr = content.indexOf('[');
+  
+  let jsonStart = -1;
+  if (jsonStartObj >= 0 && jsonStartArr >= 0) {
+    jsonStart = Math.min(jsonStartObj, jsonStartArr);
+  } else if (jsonStartObj >= 0) {
+    jsonStart = jsonStartObj;
+  } else if (jsonStartArr >= 0) {
+    jsonStart = jsonStartArr;
+  }
+  
+  if (jsonStart > 0) {
+    const leadingText = content.slice(0, jsonStart).trim();
+    if (leadingText.length > 0) {
+      console.log(`[STRATEGY_LAB] Stripped ${leadingText.length} chars of leading prose before JSON`);
+      sanitized = true;
+    }
+    content = content.slice(jsonStart);
+  }
+  
+  if (jsonStart < 0) {
+    return null;
+  }
+  
+  // Step 3: Find the balanced JSON structure (object or array)
+  const startChar = content[0];
+  const endChar = startChar === '{' ? '}' : ']';
+  
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let jsonEnd = -1;
+  
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    
+    if (char === '\\' && inString) {
+      escaped = true;
+      continue;
+    }
+    
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === startChar) {
+        depth++;
+      } else if (char === endChar) {
+        depth--;
+        if (depth === 0) {
+          jsonEnd = i + 1;
+          break;
+        }
+      }
+    }
+  }
+  
+  if (jsonEnd > 0) {
+    const result = content.slice(0, jsonEnd);
+    if (sanitized) {
+      console.log(`[STRATEGY_LAB] JSON sanitization applied - extracted ${result.length} chars of clean JSON`);
+    }
+    return result;
+  }
+  
+  return null;
+}
+
 function parseResearchResponse(response: string, citations?: string[]): ResearchCandidate[] {
   try {
     // Log response length for diagnostics
     console.log(`[STRATEGY_LAB] Parsing response: ${response.length} chars`);
     
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("[STRATEGY_LAB] No JSON found in research response");
+    // Use robust JSON extraction that handles markdown fences, leading prose, etc.
+    const cleanJson = extractCleanJSON(response);
+    if (!cleanJson) {
+      console.error("[STRATEGY_LAB] No valid JSON found in research response");
       console.error(`[STRATEGY_LAB] Response preview (first 500 chars): ${response.slice(0, 500)}`);
       return [];
     }
     
-    let parsed: { candidates?: any[] };
+    let parsed: { candidates?: any[] } | any[];
     try {
-      parsed = JSON.parse(jsonMatch[0]);
+      parsed = JSON.parse(cleanJson);
     } catch (parseErr) {
       console.error(`[STRATEGY_LAB] JSON parse error: ${parseErr instanceof Error ? parseErr.message : 'Unknown'}`);
-      console.error(`[STRATEGY_LAB] JSON preview (first 500 chars): ${jsonMatch[0].slice(0, 500)}`);
+      console.error(`[STRATEGY_LAB] Clean JSON preview (first 500 chars): ${cleanJson.slice(0, 500)}`);
       return [];
     }
     
-    if (!parsed.candidates || !Array.isArray(parsed.candidates)) {
+    // Handle both formats: {candidates: [...]} or direct array [...]
+    let candidatesArray: any[];
+    if (Array.isArray(parsed)) {
+      candidatesArray = parsed;
+      console.log(`[STRATEGY_LAB] Parsed direct array with ${candidatesArray.length} items`);
+    } else if (parsed.candidates && Array.isArray(parsed.candidates)) {
+      candidatesArray = parsed.candidates;
+      console.log(`[STRATEGY_LAB] Found ${candidatesArray.length} raw candidates in object`);
+    } else {
       console.error("[STRATEGY_LAB] No candidates array in parsed response");
       console.error(`[STRATEGY_LAB] Parsed keys: ${Object.keys(parsed).join(', ')}`);
       return [];
     }
     
-    console.log(`[STRATEGY_LAB] Found ${parsed.candidates.length} raw candidates`);
-    
-    const mapped = parsed.candidates.map((c: any) => {
+    const mapped = candidatesArray.map((c: any) => {
       const candidate: ResearchCandidate = {
         strategyName: c.strategy_name || c.strategyName || "Unnamed Strategy",
         archetypeName: c.archetype_name || c.archetypeName,
