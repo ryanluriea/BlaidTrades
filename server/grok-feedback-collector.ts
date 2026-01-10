@@ -571,3 +571,582 @@ export async function getGrokBotPerformanceSummary(): Promise<Array<{
     return [];
   }
 }
+
+export interface TradePerformanceMetrics {
+  tradeId: string;
+  symbol: string;
+  side: "BUY" | "SELL";
+  entryPrice: number;
+  exitPrice: number;
+  pnl: number;
+  pnlPercent: number;
+  entryReasonCode?: string;
+  exitReasonCode?: string;
+  signalContext?: Record<string, any>;
+  entryTime: Date;
+  exitTime: Date;
+  isWin: boolean;
+}
+
+export async function logBotPerformance(
+  botId: string,
+  metrics: TradePerformanceMetrics
+): Promise<string | null> {
+  try {
+    const grokInjection = await db
+      .select({ id: grokInjections.id, strategyName: grokInjections.strategyName })
+      .from(grokInjections)
+      .where(eq(grokInjections.botId, botId))
+      .limit(1);
+
+    if (grokInjection.length === 0) {
+      return null;
+    }
+
+    const injectionId = grokInjection[0].id;
+    const strategyName = grokInjection[0].strategyName;
+
+    const performance: GrokPerformanceSnapshot = {
+      netPnl: metrics.pnl,
+      winRate: metrics.isWin ? 100 : 0,
+      tradeCount: 1,
+    };
+
+    const successPatterns = metrics.isWin ? {
+      entryReason: metrics.entryReasonCode,
+      exitReason: metrics.exitReasonCode,
+      signalContext: metrics.signalContext,
+      symbol: metrics.symbol,
+      side: metrics.side,
+      pnlPercent: metrics.pnlPercent,
+    } : undefined;
+
+    const improvementSuggestions = !metrics.isWin ? {
+      entryReason: metrics.entryReasonCode,
+      exitReason: metrics.exitReasonCode,
+      signalContext: metrics.signalContext,
+      symbol: metrics.symbol,
+      side: metrics.side,
+      pnlPercent: metrics.pnlPercent,
+      lossMagnitude: Math.abs(metrics.pnl),
+    } : undefined;
+
+    const [feedback] = await db.insert(grokFeedback).values({
+      injectionId,
+      botId,
+      eventType: metrics.isWin ? "LIVE_PERFORMANCE" : "GATE_FAILED",
+      performance,
+      successPatterns: successPatterns || {},
+      improvementSuggestions: improvementSuggestions || {},
+    }).returning({ id: grokFeedback.id });
+
+    console.log(`[GROK_FEEDBACK] Trade ${metrics.isWin ? "WIN" : "LOSS"} logged for bot ${botId.slice(0,8)} strategy="${strategyName}" pnl=${metrics.pnl.toFixed(2)}`);
+
+    return feedback.id;
+  } catch (error) {
+    console.error("[GROK_FEEDBACK] Failed to log trade performance:", error);
+    return null;
+  }
+}
+
+export interface WinningPattern {
+  entryReasonCode: string;
+  exitReasonCode: string;
+  frequency: number;
+  avgPnl: number;
+  avgPnlPercent: number;
+  winRate: number;
+  tradeCount: number;
+  avgHoldingMinutes: number;
+  commonSignals: Record<string, number>;
+}
+
+export async function extractWinningPatterns(botId: string, lookbackDays: number = 30): Promise<{
+  patterns: WinningPattern[];
+  topSignals: Array<{ signal: string; winRate: number; count: number }>;
+  bestTimeOfDay: string | null;
+  statisticalSignificance: number;
+}> {
+  try {
+    const result = await db.execute(sql`
+      SELECT 
+        pt.entry_reason_code,
+        pt.exit_reason_code,
+        pt.signal_context,
+        pt.pnl,
+        pt.pnl_percent,
+        pt.entry_time,
+        pt.exit_time,
+        EXTRACT(EPOCH FROM (pt.exit_time - pt.entry_time)) / 60 as holding_minutes
+      FROM paper_trades pt
+      WHERE pt.bot_id = ${botId}
+        AND pt.status = 'CLOSED'
+        AND pt.pnl > 0
+        AND pt.exit_time > NOW() - INTERVAL '${lookbackDays} days'
+      ORDER BY pt.exit_time DESC
+      LIMIT 200
+    `);
+
+    const trades = result.rows as any[];
+    if (trades.length < 5) {
+      return { patterns: [], topSignals: [], bestTimeOfDay: null, statisticalSignificance: 0 };
+    }
+
+    const patternMap = new Map<string, {
+      count: number;
+      totalPnl: number;
+      totalPnlPercent: number;
+      holdingMinutes: number[];
+      signals: Record<string, number>;
+    }>();
+
+    const signalWins = new Map<string, { wins: number; total: number }>();
+    const hourCounts = new Map<number, number>();
+
+    for (const trade of trades) {
+      const key = `${trade.entry_reason_code || 'UNKNOWN'}::${trade.exit_reason_code || 'UNKNOWN'}`;
+      const existing = patternMap.get(key) || { count: 0, totalPnl: 0, totalPnlPercent: 0, holdingMinutes: [], signals: {} };
+      
+      existing.count++;
+      existing.totalPnl += trade.pnl || 0;
+      existing.totalPnlPercent += trade.pnl_percent || 0;
+      existing.holdingMinutes.push(trade.holding_minutes || 0);
+
+      const signalContext = trade.signal_context || {};
+      for (const [signal, value] of Object.entries(signalContext)) {
+        if (value) {
+          existing.signals[signal] = (existing.signals[signal] || 0) + 1;
+          const sigStat = signalWins.get(signal) || { wins: 0, total: 0 };
+          sigStat.wins++;
+          sigStat.total++;
+          signalWins.set(signal, sigStat);
+        }
+      }
+
+      patternMap.set(key, existing);
+
+      const hour = new Date(trade.entry_time).getHours();
+      hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
+    }
+
+    const patterns: WinningPattern[] = Array.from(patternMap.entries())
+      .filter(([_, data]) => data.count >= 3)
+      .map(([key, data]) => {
+        const [entryReason, exitReason] = key.split('::');
+        const avgHolding = data.holdingMinutes.reduce((a, b) => a + b, 0) / data.holdingMinutes.length;
+        return {
+          entryReasonCode: entryReason,
+          exitReasonCode: exitReason,
+          frequency: data.count / trades.length,
+          avgPnl: data.totalPnl / data.count,
+          avgPnlPercent: data.totalPnlPercent / data.count,
+          winRate: 100,
+          tradeCount: data.count,
+          avgHoldingMinutes: avgHolding,
+          commonSignals: data.signals,
+        };
+      })
+      .sort((a, b) => b.avgPnl - a.avgPnl)
+      .slice(0, 10);
+
+    const topSignals = Array.from(signalWins.entries())
+      .map(([signal, stats]) => ({
+        signal,
+        winRate: (stats.wins / stats.total) * 100,
+        count: stats.total,
+      }))
+      .filter(s => s.count >= 3)
+      .sort((a, b) => b.winRate - a.winRate)
+      .slice(0, 5);
+
+    let bestTimeOfDay: string | null = null;
+    let maxHourCount = 0;
+    for (const [hour, count] of hourCounts.entries()) {
+      if (count > maxHourCount) {
+        maxHourCount = count;
+        bestTimeOfDay = `${hour.toString().padStart(2, '0')}:00`;
+      }
+    }
+
+    const statisticalSignificance = Math.min(1, trades.length / 50);
+
+    return { patterns, topSignals, bestTimeOfDay, statisticalSignificance };
+  } catch (error) {
+    console.error("[GROK_FEEDBACK] Failed to extract winning patterns:", error);
+    return { patterns: [], topSignals: [], bestTimeOfDay: null, statisticalSignificance: 0 };
+  }
+}
+
+export interface LosingPattern {
+  entryReasonCode: string;
+  exitReasonCode: string;
+  frequency: number;
+  avgLoss: number;
+  avgLossPercent: number;
+  tradeCount: number;
+  avgHoldingMinutes: number;
+  antiSignals: Record<string, number>;
+}
+
+export async function extractLosingPatterns(botId: string, lookbackDays: number = 30): Promise<{
+  patterns: LosingPattern[];
+  worstSignals: Array<{ signal: string; lossRate: number; count: number; avgLoss: number }>;
+  worstTimeOfDay: string | null;
+  commonExitReasons: Array<{ reason: string; count: number; avgLoss: number }>;
+}> {
+  try {
+    const result = await db.execute(sql`
+      SELECT 
+        pt.entry_reason_code,
+        pt.exit_reason_code,
+        pt.signal_context,
+        pt.pnl,
+        pt.pnl_percent,
+        pt.entry_time,
+        pt.exit_time,
+        EXTRACT(EPOCH FROM (pt.exit_time - pt.entry_time)) / 60 as holding_minutes
+      FROM paper_trades pt
+      WHERE pt.bot_id = ${botId}
+        AND pt.status = 'CLOSED'
+        AND pt.pnl < 0
+        AND pt.exit_time > NOW() - INTERVAL '${lookbackDays} days'
+      ORDER BY pt.pnl ASC
+      LIMIT 200
+    `);
+
+    const trades = result.rows as any[];
+    if (trades.length < 3) {
+      return { patterns: [], worstSignals: [], worstTimeOfDay: null, commonExitReasons: [] };
+    }
+
+    const patternMap = new Map<string, {
+      count: number;
+      totalLoss: number;
+      totalLossPercent: number;
+      holdingMinutes: number[];
+      antiSignals: Record<string, number>;
+    }>();
+
+    const signalLosses = new Map<string, { losses: number; total: number; totalLoss: number }>();
+    const hourCounts = new Map<number, { count: number; totalLoss: number }>();
+    const exitReasonCounts = new Map<string, { count: number; totalLoss: number }>();
+
+    for (const trade of trades) {
+      const key = `${trade.entry_reason_code || 'UNKNOWN'}::${trade.exit_reason_code || 'UNKNOWN'}`;
+      const existing = patternMap.get(key) || { count: 0, totalLoss: 0, totalLossPercent: 0, holdingMinutes: [], antiSignals: {} };
+      
+      existing.count++;
+      existing.totalLoss += Math.abs(trade.pnl || 0);
+      existing.totalLossPercent += Math.abs(trade.pnl_percent || 0);
+      existing.holdingMinutes.push(trade.holding_minutes || 0);
+
+      const signalContext = trade.signal_context || {};
+      for (const [signal, value] of Object.entries(signalContext)) {
+        if (value) {
+          existing.antiSignals[signal] = (existing.antiSignals[signal] || 0) + 1;
+          const sigStat = signalLosses.get(signal) || { losses: 0, total: 0, totalLoss: 0 };
+          sigStat.losses++;
+          sigStat.total++;
+          sigStat.totalLoss += Math.abs(trade.pnl || 0);
+          signalLosses.set(signal, sigStat);
+        }
+      }
+
+      patternMap.set(key, existing);
+
+      const hour = new Date(trade.entry_time).getHours();
+      const hourData = hourCounts.get(hour) || { count: 0, totalLoss: 0 };
+      hourData.count++;
+      hourData.totalLoss += Math.abs(trade.pnl || 0);
+      hourCounts.set(hour, hourData);
+
+      const exitReason = trade.exit_reason_code || 'UNKNOWN';
+      const exitData = exitReasonCounts.get(exitReason) || { count: 0, totalLoss: 0 };
+      exitData.count++;
+      exitData.totalLoss += Math.abs(trade.pnl || 0);
+      exitReasonCounts.set(exitReason, exitData);
+    }
+
+    const patterns: LosingPattern[] = Array.from(patternMap.entries())
+      .filter(([_, data]) => data.count >= 2)
+      .map(([key, data]) => {
+        const [entryReason, exitReason] = key.split('::');
+        const avgHolding = data.holdingMinutes.reduce((a, b) => a + b, 0) / data.holdingMinutes.length;
+        return {
+          entryReasonCode: entryReason,
+          exitReasonCode: exitReason,
+          frequency: data.count / trades.length,
+          avgLoss: data.totalLoss / data.count,
+          avgLossPercent: data.totalLossPercent / data.count,
+          tradeCount: data.count,
+          avgHoldingMinutes: avgHolding,
+          antiSignals: data.antiSignals,
+        };
+      })
+      .sort((a, b) => b.avgLoss - a.avgLoss)
+      .slice(0, 10);
+
+    const worstSignals = Array.from(signalLosses.entries())
+      .map(([signal, stats]) => ({
+        signal,
+        lossRate: (stats.losses / stats.total) * 100,
+        count: stats.total,
+        avgLoss: stats.totalLoss / stats.losses,
+      }))
+      .filter(s => s.count >= 3)
+      .sort((a, b) => b.avgLoss - a.avgLoss)
+      .slice(0, 5);
+
+    let worstTimeOfDay: string | null = null;
+    let maxHourLoss = 0;
+    for (const [hour, data] of hourCounts.entries()) {
+      if (data.totalLoss > maxHourLoss) {
+        maxHourLoss = data.totalLoss;
+        worstTimeOfDay = `${hour.toString().padStart(2, '0')}:00`;
+      }
+    }
+
+    const commonExitReasons = Array.from(exitReasonCounts.entries())
+      .map(([reason, data]) => ({
+        reason,
+        count: data.count,
+        avgLoss: data.totalLoss / data.count,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return { patterns, worstSignals, worstTimeOfDay, commonExitReasons };
+  } catch (error) {
+    console.error("[GROK_FEEDBACK] Failed to extract losing patterns:", error);
+    return { patterns: [], worstSignals: [], worstTimeOfDay: null, commonExitReasons: [] };
+  }
+}
+
+export interface EvolutionRecommendation {
+  strategyName: string;
+  archetypeName: string;
+  hypothesis: string;
+  rulesJson: Record<string, any>;
+  confidenceScore: number;
+  reasoning: string;
+  parentBotId?: string;
+  evolutionGeneration: number;
+}
+
+export async function applyGrokEvolution(
+  botId: string,
+  evolution: EvolutionRecommendation
+): Promise<{ success: boolean; candidateId?: string; message: string }> {
+  try {
+    const grokInjection = await db
+      .select({
+        id: grokInjections.id,
+        strategyName: grokInjections.strategyName,
+        evolutionGeneration: grokInjections.evolutionGeneration,
+        candidateId: grokInjections.candidateId,
+      })
+      .from(grokInjections)
+      .where(eq(grokInjections.botId, botId))
+      .limit(1);
+
+    if (grokInjection.length === 0) {
+      return { success: false, message: "Bot is not a Grok-generated bot" };
+    }
+
+    const injection = grokInjection[0];
+    const newGeneration = (injection.evolutionGeneration || 1) + 1;
+
+    const bot = await db
+      .select({ userId: bots.userId, archetypeId: bots.archetypeId })
+      .from(bots)
+      .where(eq(bots.id, botId))
+      .limit(1);
+
+    if (bot.length === 0) {
+      return { success: false, message: "Parent bot not found" };
+    }
+
+    const rulesHash = generateRulesHash(evolution.rulesJson);
+
+    const [newCandidate] = await db.insert(strategyCandidates).values({
+      userId: bot[0].userId,
+      candidateSource: "GROK_EVOLUTION",
+      strategyName: `${evolution.strategyName} G${newGeneration}`,
+      archetypeName: evolution.archetypeName,
+      hypothesis: evolution.hypothesis,
+      instrumentUniverse: ["MES", "MNQ"],
+      timeframePreferences: ["5m"],
+      sessionModePreference: "RTH",
+      rulesJson: evolution.rulesJson,
+      rulesHash,
+      confidenceScore: evolution.confidenceScore,
+      aiProviderUsed: "GROK",
+      aiModelUsed: "grok-4.1-fast",
+      researchDepth: "DEEP_REASONING",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning({ id: strategyCandidates.id });
+
+    await db.update(grokInjections)
+      .set({
+        evolutionGeneration: newGeneration,
+        lastEvolutionAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(grokInjections.id, injection.id));
+
+    await logActivityEvent({
+      botId,
+      eventType: "STRATEGY_EVOLVED",
+      severity: "INFO",
+      title: `Grok Evolution Applied: G${newGeneration}`,
+      summary: `Created evolved candidate "${evolution.strategyName} G${newGeneration}" from parent strategy`,
+      payload: {
+        parentBotId: botId,
+        newCandidateId: newCandidate.id,
+        generation: newGeneration,
+        confidenceScore: evolution.confidenceScore,
+        reasoning: evolution.reasoning,
+      },
+    });
+
+    console.log(`[GROK_EVOLUTION] Applied evolution for bot ${botId.slice(0,8)} → candidate ${newCandidate.id.slice(0,8)} gen=${newGeneration}`);
+
+    return { 
+      success: true, 
+      candidateId: newCandidate.id,
+      message: `Created evolved candidate G${newGeneration}` 
+    };
+  } catch (error) {
+    console.error("[GROK_EVOLUTION] Failed to apply evolution:", error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : "Unknown error" 
+    };
+  }
+}
+
+function generateRulesHash(rulesJson: Record<string, any>): string {
+  const str = JSON.stringify(rulesJson, Object.keys(rulesJson).sort());
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16).padStart(8, '0');
+}
+
+export interface FeedbackWorkerSummary {
+  botsScanned: number;
+  patternsExtracted: number;
+  evolutionsTriggered: number;
+  candidatesCreated: number;
+  errors: string[];
+  timestamp: Date;
+}
+
+export async function runGrokFeedbackWorker(): Promise<FeedbackWorkerSummary> {
+  const summary: FeedbackWorkerSummary = {
+    botsScanned: 0,
+    patternsExtracted: 0,
+    evolutionsTriggered: 0,
+    candidatesCreated: 0,
+    errors: [],
+    timestamp: new Date(),
+  };
+
+  try {
+    console.log("[GROK_FEEDBACK_WORKER] Starting feedback collection cycle...");
+
+    const grokBots = await getGrokBotPerformanceSummary();
+    summary.botsScanned = grokBots.length;
+
+    if (grokBots.length === 0) {
+      console.log("[GROK_FEEDBACK_WORKER] No Grok bots found");
+      return summary;
+    }
+
+    const botsNeedingEvolution = grokBots.filter(b => b.needsEvolution && b.tradeCount >= 10);
+
+    for (const bot of botsNeedingEvolution) {
+      try {
+        const [winPatterns, losePatterns] = await Promise.all([
+          extractWinningPatterns(bot.botId, 30),
+          extractLosingPatterns(bot.botId, 30),
+        ]);
+
+        if (winPatterns.patterns.length > 0 || losePatterns.patterns.length > 0) {
+          summary.patternsExtracted++;
+        }
+
+        const failureReasons: string[] = [];
+        if ((bot.sharpe || 0) < 0.5) failureReasons.push("LOW_SHARPE");
+        if ((bot.maxDrawdownPct || 0) > 15) failureReasons.push("HIGH_DRAWDOWN");
+        if ((bot.winRate || 0) < 45) failureReasons.push("LOW_WIN_RATE");
+
+        if (losePatterns.patterns.length > 0) {
+          const topLossPattern = losePatterns.patterns[0];
+          failureReasons.push(`PATTERN:${topLossPattern.entryReasonCode}->${topLossPattern.exitReasonCode}`);
+        }
+
+        if (failureReasons.length > 0) {
+          const performance: GrokPerformanceSnapshot = {
+            sharpe: bot.sharpe,
+            winRate: bot.winRate,
+            maxDrawdownPct: bot.maxDrawdownPct,
+            tradeCount: bot.tradeCount,
+          };
+
+          const evolutionResult = await requestGrokEvolution(
+            bot.botId,
+            failureReasons,
+            performance,
+            "UNKNOWN",
+          );
+
+          if (evolutionResult.success) {
+            summary.evolutionsTriggered++;
+            console.log(`[GROK_FEEDBACK_WORKER] Evolution triggered for "${bot.strategyName}"`);
+          }
+        }
+      } catch (botError) {
+        const errorMsg = `Failed to process bot ${bot.botId.slice(0,8)}: ${botError instanceof Error ? botError.message : 'Unknown error'}`;
+        summary.errors.push(errorMsg);
+        console.error(`[GROK_FEEDBACK_WORKER] ${errorMsg}`);
+      }
+    }
+
+    const promotedBots = grokBots.filter(b => !b.needsEvolution && b.currentStage !== "LAB" && b.tradeCount >= 20);
+    for (const bot of promotedBots.slice(0, 3)) {
+      try {
+        const winPatterns = await extractWinningPatterns(bot.botId, 30);
+        if (winPatterns.patterns.length > 0 && winPatterns.statisticalSignificance > 0.5) {
+          await logGrokSuccessPatterns(
+            bot.botId,
+            bot.currentStage,
+            bot.currentStage,
+            {
+              sharpe: bot.sharpe,
+              winRate: bot.winRate,
+              maxDrawdownPct: bot.maxDrawdownPct,
+              tradeCount: bot.tradeCount,
+            },
+          );
+          summary.patternsExtracted++;
+        }
+      } catch (error) {
+        console.error(`[GROK_FEEDBACK_WORKER] Failed to log success patterns:`, error);
+      }
+    }
+
+    console.log(`[GROK_FEEDBACK_WORKER] Completed: scanned=${summary.botsScanned} patterns=${summary.patternsExtracted} evolutions=${summary.evolutionsTriggered}`);
+
+    return summary;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    summary.errors.push(errorMsg);
+    console.error("[GROK_FEEDBACK_WORKER] Worker failed:", error);
+    return summary;
+  }
+}

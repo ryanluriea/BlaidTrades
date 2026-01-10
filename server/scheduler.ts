@@ -47,6 +47,9 @@ import { healthCheck as dbHealthCheck, getCircuitBreakerState } from "./db-resil
 import { startBackupScheduler, stopBackupScheduler } from "./backup-service";
 import { runConsistencySweep } from "./scheduled-consistency-sweep";
 import { startScheduledDriftDetection, stopScheduledDriftDetection } from "./drift-detector";
+import { runPromotionWorker } from "./promotion-engine";
+import { expireStaleRequests } from "./governance-approval";
+import { runRiskEnforcementCheck } from "./risk-enforcement";
 
 // Reconciliation interval - runs every 30 minutes to detect and fix stuck candidates
 let reconciliationInterval: NodeJS.Timeout | null = null;
@@ -72,6 +75,9 @@ let sentToLabPromotionInterval: NodeJS.Timeout | null = null;
 let tournamentWorkerInterval: NodeJS.Timeout | null = null;
 let systemAuditInterval: NodeJS.Timeout | null = null;
 let consistencySweepInterval: NodeJS.Timeout | null = null;
+let promotionWorkerInterval: NodeJS.Timeout | null = null;
+let governanceExpirationInterval: NodeJS.Timeout | null = null;
+let riskEnforcementInterval: NodeJS.Timeout | null = null;
 let isSchedulerRunning = false;
 
 // Grok Research Engine State - independent from Perplexity
@@ -108,6 +114,15 @@ const ECONOMIC_CALENDAR_INTERVAL_MS = 6 * 60 * 60_000; // 6 hours
 // AUTONOMOUS: System audit worker - runs comprehensive checks for observability dashboard
 const SYSTEM_AUDIT_INTERVAL_MS = 4 * 60 * 60_000; // 4 hours - institutional audit frequency
 const CONSISTENCY_SWEEP_INTERVAL_MS = 1 * 60 * 60_000; // 1 hour - industry-standard consistency checks
+
+// Promotion Worker Configuration - evaluates bots for automatic promotions/demotions
+const PROMOTION_WORKER_INTERVAL_MS = 30 * 60_000; // 30 minutes
+
+// Governance Expiration Worker - marks stale requests as EXPIRED
+const GOVERNANCE_EXPIRATION_INTERVAL_MS = 60 * 60_000; // 1 hour
+
+// Risk Enforcement Worker - checks all active bots for risk limit breaches
+const RISK_ENFORCEMENT_INTERVAL_MS = 5 * 60_000; // 5 minutes
 
 // Integration verification worker - runs on startup and periodically
 // AUTONOMOUS: Aggressive verification for fast self-healing
@@ -8228,6 +8243,33 @@ async function initializeWorkers(): Promise<void> {
   }, RECONCILIATION_INTERVAL_MS);
   console.log(`[SCHEDULER] Candidate reconciliation worker started (interval: ${RECONCILIATION_INTERVAL_MS / 60000}min)`);
   
+  // AUTONOMOUS: Promotion Worker - evaluates all bots for automatic promotions/demotions
+  promotionWorkerInterval = setInterval(createSelfHealingWorker("promotion", async () => {
+    const result = await runPromotionWorker();
+    if (result.promoted > 0 || result.demoted > 0) {
+      console.log(`[PROMOTION_WORKER] Completed: promoted=${result.promoted} demoted=${result.demoted} evaluated=${result.evaluated}`);
+    }
+  }), PROMOTION_WORKER_INTERVAL_MS);
+  console.log(`[SCHEDULER] Promotion worker started (interval: ${PROMOTION_WORKER_INTERVAL_MS / 60_000}min)`);
+  
+  // AUTONOMOUS: Governance Expiration Worker - marks 24h+ pending requests as EXPIRED
+  governanceExpirationInterval = setInterval(createSelfHealingWorker("governance-expiration", async () => {
+    const result = await expireStaleRequests();
+    if (result.expiredCount > 0) {
+      console.log(`[GOVERNANCE_EXPIRATION] Expired ${result.expiredCount} stale requests`);
+    }
+  }), GOVERNANCE_EXPIRATION_INTERVAL_MS);
+  console.log(`[SCHEDULER] Governance expiration worker started (interval: ${GOVERNANCE_EXPIRATION_INTERVAL_MS / 60_000}min)`);
+  
+  // AUTONOMOUS: Risk Enforcement Worker - checks all active bots for risk limit breaches
+  riskEnforcementInterval = setInterval(createSelfHealingWorker("risk-enforcement", async () => {
+    const result = await runRiskEnforcementCheck();
+    if (result.warnings > 0 || result.softBlocks > 0 || result.hardBlocks > 0 || result.blownAccounts > 0) {
+      console.log(`[RISK_ENFORCEMENT] Checked ${result.botsChecked} bots: warnings=${result.warnings} soft=${result.softBlocks} hard=${result.hardBlocks} blown=${result.blownAccounts}`);
+    }
+  }), RISK_ENFORCEMENT_INTERVAL_MS);
+  console.log(`[SCHEDULER] Risk enforcement worker started (interval: ${RISK_ENFORCEMENT_INTERVAL_MS / 60_000}min)`);
+  
   // AUTONOMOUS: Run SENT_TO_LAB promotion immediately on startup (5s delay for DB init)
   setTimeout(async () => {
     console.log(`[SCHEDULER] trace_id=${startupTraceId} Running SENT_TO_LAB promotion on startup...`);
@@ -8386,6 +8428,21 @@ export async function stopScheduler(): Promise<void> {
   if (reconciliationInterval) {
     clearInterval(reconciliationInterval);
     reconciliationInterval = null;
+  }
+  
+  if (promotionWorkerInterval) {
+    clearInterval(promotionWorkerInterval);
+    promotionWorkerInterval = null;
+  }
+  
+  if (governanceExpirationInterval) {
+    clearInterval(governanceExpirationInterval);
+    governanceExpirationInterval = null;
+  }
+  
+  if (riskEnforcementInterval) {
+    clearInterval(riskEnforcementInterval);
+    riskEnforcementInterval = null;
   }
   
   // Stop cloud backup scheduler
