@@ -29,6 +29,11 @@ The platform employs a modular monolith architecture, utilizing a React frontend
 - **Data Management:** PostgreSQL with Drizzle ORM, three-tier persistent bar caching (Redis → SQLite → Databento API), and real-time P&L infrastructure via WebSockets.
 - **Core Features:** Local session-based authentication, RESTful API, bot CRUD, asynchronous job queuing, data isolation, Discord notifications, full backtest executor, autonomy loop, signal fusion, and flexible session architecture.
 - **Self-Healing Infrastructure:** Incorporates Circuit Breaker Pattern, Self-Healing Worker, recovery policies, Health Watchdog, audit trails, per-job-type timeouts, and startup schema validation, including an AI Cascade Auto-Recovery system.
+- **Production Resilience (Jan 2026):**
+    - **Security Headers:** HSTS, CSP, X-Frame-Options, XSS protection, MIME sniffing prevention via middleware.
+    - **Configurable Infrastructure:** All DB pool settings (DB_POOL_WEB_MAX, DB_POOL_WORKER_MAX, DB_STATEMENT_TIMEOUT_*, etc.) and WebSocket settings (WS_IDLE_TIMEOUT_MS, WS_THROTTLE_MS, WS_BROADCAST_TTL_MS) are environment-configurable.
+    - **Rule Parser Per-Direction Fallback:** Uses structured getArchetypePredicate() for reliable fallback when rule parsing fails for one direction; includes confidence scoring.
+    - **Memory Leak Prevention:** TTL-based cleanup for WebSocket broadcast tracking maps.
 - **Autonomous Infrastructure:** Designed for zero-manual-intervention operations including Memory Sentinel, Credential Lifecycle Management, Risk Engine Self-Test, Proof-of-Use Integration Tracking, and a Perplexity Deep Research Engine for autonomous strategy generation.
 - **ML/RL Intelligence Infrastructure:**
     - **Machine Learning Alpha Models:** Feature engineering (32+ technical indicators), Gradient Boosting Classifier, ML Signal Source, Model Retraining Scheduler with drift detection.
