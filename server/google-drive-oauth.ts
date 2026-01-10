@@ -16,6 +16,7 @@ import { clearDashboardCache } from './backup-service';
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/drive.appdata',
+  'https://www.googleapis.com/auth/drive.readonly', // Required to discover legacy backups in Drive root
 ];
 
 const pendingOAuthStates = new Map<string, { userId: string; expiresAt: number }>();
