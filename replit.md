@@ -140,11 +140,10 @@ Estimated cost: $110-300/month for production with auto-scaling.
 - **Grok Feedback Loop** (`server/grok-feedback-collector.ts`): Performance feedback recording, winning/losing pattern extraction, auto-evolution from trade outcomes
 - **Scheduler Integration** (`server/scheduler.ts`): New workers - Promotion (30min), Governance Expiration (1hr), Risk Enforcement (5min)
 
-### 2026-01-10: Google Drive OAuth Table Migration
-- Created `user_google_drive_tokens` table for Google Drive OAuth token storage
-- Migration file: `migrations/0001_add_user_google_drive_tokens.sql`
-- **Production Deployment Note**: Run this migration on production database before enabling Google Drive backup:
-  ```sql
-  \i migrations/0001_add_user_google_drive_tokens.sql
-  ```
-  Or use `npm run db:push` against the production DATABASE_URL.
+### 2026-01-10: Google Drive Per-User OAuth Complete
+- **Per-User OAuth Architecture**: All backup operations now use user-specific OAuth tokens from `user_google_drive_tokens` table
+- **User-Scoped Functions**: `listBackupsForUser(userId)`, `deleteBackupForUser(userId, backupId)`, `downloadBackupForUser(userId, backupId)`, `uploadBackupForUser(userId, filename, data)`, `isGoogleDriveConnectedForUser(userId)`
+- **Backup Scheduler**: Loops through all users, checks individual connections, performs per-user retention cleanup with cache invalidation
+- **Routes Updated**: `/api/cloud-backup/list`, `/api/cloud-backup/:backupId` DELETE, `/api/cloud-backup/status` all pass userId
+- **Migration file**: `migrations/0001_add_user_google_drive_tokens.sql`
+- **Production Deployment Note**: Run `npm run db:push` against production DATABASE_URL before enabling Google Drive backup
