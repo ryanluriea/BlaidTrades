@@ -14,7 +14,7 @@ import { requireAuth, tradingRateLimit, adminRateLimit, twoFactorRateLimit, csrf
 import { sendSms, verifyAwsConfig, maskPhoneNumber } from "./providers/sms/awsSns";
 import { sendDiscord, verifyDiscordConfig, verifyDiscordConnection, VALID_CHANNELS, VALID_SEVERITIES } from "./providers/notify/discordWebhook";
 import { logActivityEvent, logDiscordNotification, logBotPromotion, logBotDemotion, logRunnerStarted, logRunnerRestarted, logJobTimeout } from "./activity-logger";
-import { activityEvents, strategyArchetypes, auditReports, backtestSessions, matrixRuns, matrixCells, botJobs, strategyCandidates, grokInjections } from "@shared/schema";
+import { activityEvents, strategyArchetypes, auditReports, backtestSessions, matrixRuns, matrixCells, botJobs, strategyCandidates, grokInjections, aiRequests } from "@shared/schema";
 import { pingRedis, isRedisConfigured } from "./redis";
 import { eq, desc, and, or, ilike, sql as drizzleSql, gte, lte, inArray } from "drizzle-orm";
 import * as schema from "@shared/schema";
@@ -13768,82 +13768,135 @@ export function registerRoutes(app: Express) {
       const strategyLabState = getStrategyLabState();
       const researchActivity = getResearchActivity();
       
-      // Get 24h stats from database with fallback for each query
-      const defaultStats = { rows: [{ total_requests: 0, successful: 0, last_request: null, total_tokens: 0 }] };
-      const defaultCount = { rows: [{ count: 0 }] };
-      const defaultActivity = { rows: [] };
+      // Get 24h stats from database using typed Drizzle queries with fallbacks
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      
+      interface ProviderStats { totalRequests: number; successful: number; lastRequest: Date | null; totalTokens: number; }
+      const defaultStats: ProviderStats = { totalRequests: 0, successful: 0, lastRequest: null, totalTokens: 0 };
+      
+      let grokStatsResult = defaultStats;
+      let perplexityStatsResult = defaultStats;
+      let grokCandidatesCount = 0;
+      let perplexityCandidatesCount = 0;
+      let recentGrokActivityResult: { id: string; eventType: string; title: string; details: string; timestamp: Date }[] = [];
+      let recentPerplexityActivityResult: { id: string; eventType: string; title: string; details: string; timestamp: Date }[] = [];
 
-      let grokStats = defaultStats;
-      let perplexityStats = defaultStats;
-      let grokCandidates = defaultCount;
-      let perplexityCandidates = defaultCount;
-      let recentGrokActivity = defaultActivity;
-      let recentPerplexityActivity = defaultActivity;
-
+      // Grok AI requests stats (typed query)
       try {
-        grokStats = await db.execute(sql`
-          SELECT 
-            COUNT(*) as total_requests,
-            SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
-            MAX(created_at) as last_request,
-            COALESCE(SUM(tokens_in + tokens_out), 0) as total_tokens
-          FROM ai_requests
-          WHERE provider IN ('xai', 'grok')
-          AND created_at > NOW() - INTERVAL '24 hours'
-        `);
+        const grokRequests = await db.select({
+          totalRequests: drizzleSql<number>`count(*)::int`,
+          successful: drizzleSql<number>`sum(case when ${aiRequests.success} then 1 else 0 end)::int`,
+          lastRequest: drizzleSql<Date>`max(${aiRequests.createdAt})`,
+          totalTokens: drizzleSql<number>`coalesce(sum(${aiRequests.tokensIn} + ${aiRequests.tokensOut}), 0)::int`,
+        }).from(aiRequests)
+          .where(and(
+            inArray(aiRequests.provider, ['xai', 'grok']),
+            gte(aiRequests.createdAt, twentyFourHoursAgo)
+          ));
+        if (grokRequests[0]) {
+          grokStatsResult = {
+            totalRequests: grokRequests[0].totalRequests || 0,
+            successful: grokRequests[0].successful || 0,
+            lastRequest: grokRequests[0].lastRequest || null,
+            totalTokens: grokRequests[0].totalTokens || 0,
+          };
+        }
       } catch (e) { console.log("[RESEARCH_MONITOR] grokStats query failed, using defaults"); }
       
+      // Perplexity AI requests stats (typed query)
       try {
-        perplexityStats = await db.execute(sql`
-          SELECT 
-            COUNT(*) as total_requests,
-            SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
-            MAX(created_at) as last_request,
-            COALESCE(SUM(tokens_in + tokens_out), 0) as total_tokens
-          FROM ai_requests
-          WHERE provider = 'perplexity'
-          AND created_at > NOW() - INTERVAL '24 hours'
-        `);
+        const perplexityRequests = await db.select({
+          totalRequests: drizzleSql<number>`count(*)::int`,
+          successful: drizzleSql<number>`sum(case when ${aiRequests.success} then 1 else 0 end)::int`,
+          lastRequest: drizzleSql<Date>`max(${aiRequests.createdAt})`,
+          totalTokens: drizzleSql<number>`coalesce(sum(${aiRequests.tokensIn} + ${aiRequests.tokensOut}), 0)::int`,
+        }).from(aiRequests)
+          .where(and(
+            eq(aiRequests.provider, 'perplexity'),
+            gte(aiRequests.createdAt, twentyFourHoursAgo)
+          ));
+        if (perplexityRequests[0]) {
+          perplexityStatsResult = {
+            totalRequests: perplexityRequests[0].totalRequests || 0,
+            successful: perplexityRequests[0].successful || 0,
+            lastRequest: perplexityRequests[0].lastRequest || null,
+            totalTokens: perplexityRequests[0].totalTokens || 0,
+          };
+        }
       } catch (e) { console.log("[RESEARCH_MONITOR] perplexityStats query failed, using defaults"); }
       
+      // Grok candidates count (typed query)
       try {
-        grokCandidates = await db.execute(sql`
-          SELECT COUNT(*) as count FROM strategy_candidates
-          WHERE ai_provider = 'GROK' AND created_at > NOW() - INTERVAL '24 hours'
-        `);
+        const grokCandidatesResult = await db.select({
+          count: drizzleSql<number>`count(*)::int`,
+        }).from(strategyCandidates)
+          .where(and(
+            eq(strategyCandidates.aiProvider, 'GROK'),
+            gte(strategyCandidates.createdAt, twentyFourHoursAgo)
+          ));
+        grokCandidatesCount = grokCandidatesResult[0]?.count || 0;
       } catch (e) { console.log("[RESEARCH_MONITOR] grokCandidates query failed, using defaults"); }
       
+      // Perplexity candidates count (typed query)
       try {
-        perplexityCandidates = await db.execute(sql`
-          SELECT COUNT(*) as count FROM strategy_candidates
-          WHERE ai_provider = 'PERPLEXITY' AND created_at > NOW() - INTERVAL '24 hours'
-        `);
+        const perplexityCandidatesResult = await db.select({
+          count: drizzleSql<number>`count(*)::int`,
+        }).from(strategyCandidates)
+          .where(and(
+            eq(strategyCandidates.aiProvider, 'PERPLEXITY'),
+            gte(strategyCandidates.createdAt, twentyFourHoursAgo)
+          ));
+        perplexityCandidatesCount = perplexityCandidatesResult[0]?.count || 0;
       } catch (e) { console.log("[RESEARCH_MONITOR] perplexityCandidates query failed, using defaults"); }
       
+      // Recent Grok activity (typed query)
       try {
-        recentGrokActivity = await db.execute(sql`
-          SELECT id, event_type, title, COALESCE(summary, '') as details, created_at
-          FROM activity_events
-          WHERE provider IN ('grok', 'xai') OR event_type LIKE '%GROK%'
-          ORDER BY created_at DESC
-          LIMIT 10
-        `);
+        const grokActivity = await db.select({
+          id: activityEvents.id,
+          eventType: activityEvents.eventType,
+          title: activityEvents.title,
+          summary: activityEvents.summary,
+          createdAt: activityEvents.createdAt,
+        }).from(activityEvents)
+          .where(or(
+            inArray(activityEvents.provider, ['grok', 'xai']),
+            drizzleSql`${activityEvents.eventType}::text LIKE '%GROK%'`
+          ))
+          .orderBy(desc(activityEvents.createdAt))
+          .limit(10);
+        recentGrokActivityResult = grokActivity.map(r => ({
+          id: r.id,
+          eventType: r.eventType,
+          title: r.title,
+          details: r.summary || '',
+          timestamp: r.createdAt!,
+        }));
       } catch (e) { console.log("[RESEARCH_MONITOR] recentGrokActivity query failed, using defaults"); }
       
+      // Recent Perplexity/Strategy Lab activity (typed query)
       try {
-        recentPerplexityActivity = await db.execute(sql`
-          SELECT id, event_type, title, COALESCE(summary, '') as details, created_at
-          FROM activity_events
-          WHERE provider = 'perplexity' OR event_type LIKE '%PERPLEXITY%' OR event_type LIKE '%STRATEGY_LAB%'
-          ORDER BY created_at DESC
-          LIMIT 10
-        `);
+        const perplexityActivity = await db.select({
+          id: activityEvents.id,
+          eventType: activityEvents.eventType,
+          title: activityEvents.title,
+          summary: activityEvents.summary,
+          createdAt: activityEvents.createdAt,
+        }).from(activityEvents)
+          .where(or(
+            eq(activityEvents.provider, 'perplexity'),
+            drizzleSql`${activityEvents.eventType}::text LIKE '%PERPLEXITY%'`,
+            drizzleSql`${activityEvents.eventType}::text LIKE '%STRATEGY_LAB%'`
+          ))
+          .orderBy(desc(activityEvents.createdAt))
+          .limit(10);
+        recentPerplexityActivityResult = perplexityActivity.map(r => ({
+          id: r.id,
+          eventType: r.eventType,
+          title: r.title,
+          details: r.summary || '',
+          timestamp: r.createdAt!,
+        }));
       } catch (e) { console.log("[RESEARCH_MONITOR] recentPerplexityActivity query failed, using defaults"); }
-      
-      const grokRow = grokStats.rows[0] as any;
-      const perplexityRow = perplexityStats.rows[0] as any;
-      const grokCandidateRow = grokCandidates.rows[0] as any;
-      const perplexityCandidateRow = perplexityCandidates.rows[0] as any;
       
       return res.json({
         success: true,
@@ -13855,18 +13908,18 @@ export function registerRoutes(app: Express) {
             lastCycleAt: grokState?.lastCycleAt || null,
             nextCycleIn: grokState?.nextCycleIn || null,
             stats24h: {
-              totalRequests: parseInt(grokRow?.total_requests || 0),
-              successful: parseInt(grokRow?.successful || 0),
-              lastRequest: grokRow?.last_request || null,
-              totalTokens: parseInt(grokRow?.total_tokens || 0),
-              strategiesGenerated: parseInt(grokCandidateRow?.count || 0),
+              totalRequests: grokStatsResult.totalRequests,
+              successful: grokStatsResult.successful,
+              lastRequest: grokStatsResult.lastRequest,
+              totalTokens: grokStatsResult.totalTokens,
+              strategiesGenerated: grokCandidatesCount,
             },
-            recentActivity: (recentGrokActivity.rows || []).map((r: any) => ({
+            recentActivity: recentGrokActivityResult.map(r => ({
               id: r.id,
-              type: r.event_type,
+              type: r.eventType,
               title: r.title,
               details: r.details,
-              timestamp: r.created_at,
+              timestamp: r.timestamp,
             })),
           },
           perplexity: {
@@ -13875,18 +13928,18 @@ export function registerRoutes(app: Express) {
             mode: researchActivity?.phase || "Idle",
             lastCycleAt: researchActivity?.startedAt || null,
             stats24h: {
-              totalRequests: parseInt(perplexityRow?.total_requests || 0),
-              successful: parseInt(perplexityRow?.successful || 0),
-              lastRequest: perplexityRow?.last_request || null,
-              totalTokens: parseInt(perplexityRow?.total_tokens || 0),
-              strategiesGenerated: parseInt(perplexityCandidateRow?.count || 0),
+              totalRequests: perplexityStatsResult.totalRequests,
+              successful: perplexityStatsResult.successful,
+              lastRequest: perplexityStatsResult.lastRequest,
+              totalTokens: perplexityStatsResult.totalTokens,
+              strategiesGenerated: perplexityCandidatesCount,
             },
-            recentActivity: (recentPerplexityActivity.rows || []).map((r: any) => ({
+            recentActivity: recentPerplexityActivityResult.map(r => ({
               id: r.id,
-              type: r.event_type,
+              type: r.eventType,
               title: r.title,
               details: r.details,
-              timestamp: r.created_at,
+              timestamp: r.timestamp,
             })),
           },
           orchestrator: {

@@ -1501,6 +1501,8 @@ export const activityEventTypeEnum = pgEnum("activity_event_type", [
   "LAB_FAILURE_DETECTED", "LAB_FEEDBACK_TRIGGERED",
   "LAB_RESEARCH_CYCLE", "LAB_RESEARCH_FAILED",
   "GROK_RESEARCH_COMPLETED", "GROK_CYCLE_COMPLETED",
+  "PERPLEXITY_CYCLE_COMPLETED",
+  "RESEARCH_ORCHESTRATOR_TOGGLE", "RESEARCH_ORCHESTRATOR_STARTED",
   "SYSTEM_AUDIT"
 ]);
 
@@ -2948,6 +2950,27 @@ export const insertConsistencySweepSchema = createInsertSchema(consistencySweeps
 
 export type ConsistencySweep = typeof consistencySweeps.$inferSelect;
 export type InsertConsistencySweep = z.infer<typeof insertConsistencySweepSchema>;
+
+// System Settings - Versioned configuration persistence (prevents dev/prod drift)
+export const systemSettings = pgTable("system_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  category: text("category").notNull(), // e.g., "strategy_lab", "research_orchestrator", "risk"
+  key: text("key").notNull(), // e.g., "min_confidence_threshold", "uniqueness_cutoff"
+  value: jsonb("value").notNull(), // JSON value for flexibility
+  description: text("description"), // Human-readable description
+  defaultValue: jsonb("default_value"), // Code default for reconciliation
+  version: integer("version").default(1), // Version for audit trail
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow(),
+  lastUpdatedBy: text("last_updated_by"), // "system" or user identifier
+});
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  lastUpdatedAt: true,
+});
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

@@ -373,17 +373,77 @@ async function attemptSchemaValidation(): Promise<{ valid: boolean; errors: stri
       'id', 'bot_id', 'generation_id', 'status', 'symbol', 'net_pnl',
       'total_trades', 'win_rate', 'profit_factor', 'sharpe_ratio',
       'max_drawdown', 'max_drawdown_pct', 'completed_at', 'created_at'
+    ],
+    activity_events: [
+      'id', 'created_at', 'user_id', 'bot_id', 'event_type', 'severity',
+      'stage', 'symbol', 'account_id', 'provider', 'trace_id', 'title', 
+      'summary', 'payload', 'dedupe_key'
+    ],
+    strategy_candidates: [
+      'id', 'strategy_name', 'archetype_name', 'hypothesis', 'rules_json', 'disposition',
+      'confidence_score', 'novelty_score', 'ai_provider', 'created_at'
+    ],
+    ai_requests: [
+      'id', 'provider', 'model', 'success', 'tokens_in', 'tokens_out',
+      'latency_ms', 'error_message', 'purpose', 'created_at'
+    ]
+  };
+  
+  // Define expected enum values for critical enums (prevents dev/prod drift)
+  const expectedEnums: Record<string, string[]> = {
+    activity_event_type: [
+      "TRADE_EXECUTED", "TRADE_EXITED", "ORDER_BLOCKED_RISK",
+      "PROMOTED", "DEMOTED", "GRADUATED",
+      "BACKTEST_STARTED", "BACKTEST_COMPLETED", "BACKTEST_FAILED",
+      "RUNNER_STARTED", "RUNNER_RESTARTED", "RUNNER_STOPPED",
+      "JOB_TIMEOUT", "KILL_TRIGGERED", "KILL_SWITCH",
+      "AUTONOMY_TIER_CHANGED", "AUTONOMY_GATE_BLOCKED",
+      "INTEGRATION_VERIFIED", "INTEGRATION_USAGE_PROOF",
+      "INTEGRATION_ERROR", "INTEGRATION_PROOF",
+      "NOTIFY_DISCORD_SENT", "NOTIFY_DISCORD_FAILED",
+      "SYSTEM_STATUS_CHANGED", "BOT_CREATED", "BOT_ARCHIVED", "BOT_AUTO_REVERTED",
+      "EVOLUTION_COMPLETED", "EVOLUTION_CONVERGED", "EVOLUTION_RESUMED", "STRATEGY_MUTATED",
+      "SOURCE_GOVERNOR_DECISION", "SOURCE_GOVERNOR_BLOCKED",
+      "ADAPTIVE_WEIGHTS_RESET", "SOURCE_STATE_RESET",
+      "WALK_FORWARD_COMPLETED", "STRESS_TEST_COMPLETED",
+      "SELF_HEALING_RECOVERY", "SELF_HEALING_DEMOTION", "SELF_HEALING_SKIPPED", "SELF_HEALING_FAILED",
+      "PAPER_TRADE_STALL", "PAPER_TRADE_ENTRY", "PAPER_TRADE_EXIT",
+      "BOT_STAGNANT", "BOT_NO_ACTIVITY",
+      "READY_FOR_LIVE",
+      "STRATEGY_LAB_RESEARCH", "STRATEGY_LAB_CYCLE", "STRATEGY_LAB_CANDIDATE_CREATED",
+      "LAB_FAILURE_DETECTED", "LAB_FEEDBACK_TRIGGERED",
+      "LAB_RESEARCH_CYCLE", "LAB_RESEARCH_FAILED",
+      "GROK_RESEARCH_COMPLETED", "GROK_CYCLE_COMPLETED",
+      "PERPLEXITY_CYCLE_COMPLETED",
+      "RESEARCH_ORCHESTRATOR_TOGGLE", "RESEARCH_ORCHESTRATOR_STARTED",
+      "SYSTEM_AUDIT", "RESEARCH_JOB_COMPLETED"
+    ],
+    candidate_disposition: [
+      "PENDING_REVIEW", "SENT_TO_LAB", "QUEUED", "REJECTED", "MERGED",
+      "EXPIRED", "RECYCLED", "QUEUED_FOR_QC", "READY"
     ]
   };
   
   try {
-    // Get all columns for each table
-    const result = await db.execute(sql`
-      SELECT table_name, column_name
-      FROM information_schema.columns
-      WHERE table_name IN ('paper_trades', 'account_attempts', 'bot_instances', 'bots', 'bot_generations', 'backtest_sessions')
-      ORDER BY table_name, ordinal_position
-    `) as { rows: { table_name: string; column_name: string }[] };
+    // Get all columns for each table - query each table separately to avoid SQL injection
+    const allColumns: { table_name: string; column_name: string }[] = [];
+    const tableNames = Object.keys(expectedSchema);
+    
+    for (const tableName of tableNames) {
+      try {
+        const tableResult = await db.execute(sql`
+          SELECT table_name, column_name
+          FROM information_schema.columns
+          WHERE table_name = ${tableName}
+          ORDER BY ordinal_position
+        `) as { rows: { table_name: string; column_name: string }[] };
+        allColumns.push(...tableResult.rows);
+      } catch (tableError) {
+        errors.push(`[SCHEMA_VALIDATION] Failed to query columns for table '${tableName}': ${tableError instanceof Error ? tableError.message : 'Unknown error'}`);
+      }
+    }
+    
+    const result = { rows: allColumns };
     
     // Build map of existing columns per table
     const existingColumns = new Map<string, Set<string>>();
@@ -409,8 +469,36 @@ async function attemptSchemaValidation(): Promise<{ valid: boolean; errors: stri
       }
     }
     
+    // Validate enum values exist in database
+    for (const [enumName, expectedValues] of Object.entries(expectedEnums)) {
+      try {
+        const enumResult = await db.execute(sql`
+          SELECT e.enumlabel
+          FROM pg_type t
+          JOIN pg_enum e ON t.oid = e.enumtypid
+          WHERE t.typname = ${enumName}
+          ORDER BY e.enumsortorder
+        `) as { rows: { enumlabel: string }[] };
+        
+        const existingValues = new Set(enumResult.rows.map(r => r.enumlabel));
+        
+        if (existingValues.size === 0) {
+          errors.push(`[SCHEMA_VALIDATION] Enum '${enumName}' does not exist in database`);
+          continue;
+        }
+        
+        for (const value of expectedValues) {
+          if (!existingValues.has(value)) {
+            errors.push(`[SCHEMA_VALIDATION] Enum '${enumName}' missing value '${value}'`);
+          }
+        }
+      } catch (enumError) {
+        errors.push(`[SCHEMA_VALIDATION] Failed to validate enum '${enumName}': ${enumError instanceof Error ? enumError.message : 'Unknown error'}`);
+      }
+    }
+    
     if (errors.length === 0) {
-      console.log('[SCHEMA_VALIDATION] All critical tables and columns validated successfully');
+      console.log('[SCHEMA_VALIDATION] All critical tables, columns, and enums validated successfully');
     } else {
       console.error('[SCHEMA_VALIDATION] Schema validation FAILED:');
       errors.forEach(e => console.error(`  ${e}`));

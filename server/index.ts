@@ -7,6 +7,7 @@ import { startScheduler, pauseHeavyWorkers, resumeHeavyWorkers } from "./schedul
 import { livePnLWebSocket } from "./websocket-server";
 import { researchMonitorWS } from "./research-monitor-ws";
 import { validateSchemaAtStartup, warmupDatabase, poolWeb } from "./db";
+import { reconcileConfigAtStartup } from "./config-reconciliation";
 import bcrypt from "bcryptjs";
 import { startMemorySentinel, loadSheddingMiddleware, getInstanceId, registerSchedulerCallbacks, registerCacheEvictionCallback } from "./ops/memorySentinel";
 import { trimCacheForMemoryPressure } from "./bar-cache";
@@ -290,6 +291,15 @@ if (isWorkerOnlyMode) {
             }
           }).catch(err => {
             log(`[STARTUP] Schema validation error: ${err.message}`);
+          });
+          
+          // Run config reconciliation (ensures persisted settings match code defaults)
+          reconcileConfigAtStartup().then(result => {
+            if (result.errors.length > 0) {
+              log(`[STARTUP] Config reconciliation had ${result.errors.length} error(s)`);
+            }
+          }).catch(err => {
+            log(`[STARTUP] Config reconciliation error: ${err.message}`);
           });
           
           // Backfill novelty scores for strategy candidates that are missing them
