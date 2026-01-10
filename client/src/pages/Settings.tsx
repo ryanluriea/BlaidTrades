@@ -511,11 +511,11 @@ function CloudBackupSection() {
       toast.success(`Restored ${restored?.bots || 0} bots, ${restored?.strategies || 0} strategies`);
       queryClient.invalidateQueries({ queryKey: ["/api/bots"] });
       queryClient.invalidateQueries({ queryKey: ["/api/strategy-candidates"] });
-      setRestoringId(null);
-      setConfirmRestoreBackup(null);
     },
     onError: (error: any) => {
       toast.error(`Restore failed: ${error.message}`);
+    },
+    onSettled: () => {
       setRestoringId(null);
       setConfirmRestoreBackup(null);
     },
@@ -530,10 +530,11 @@ function CloudBackupSection() {
     onSuccess: () => {
       toast.success("Backup deleted");
       queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/dashboard"] });
-      setConfirmDeleteBackup(null);
     },
     onError: (error: any) => {
       toast.error(`Delete failed: ${error.message}`);
+    },
+    onSettled: () => {
       setConfirmDeleteBackup(null);
     },
   });
