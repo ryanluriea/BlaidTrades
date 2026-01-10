@@ -7,6 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -219,6 +229,9 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [confirmRestoreBackup, setConfirmRestoreBackup] = useState<BackupMetadata | null>(null);
+  const [confirmDeleteBackup, setConfirmDeleteBackup] = useState<BackupMetadata | null>(null);
   
   // Reset to initialTab when dialog opens and refetch fresh data
   useEffect(() => {
@@ -439,12 +452,36 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
     },
     onSuccess: () => {
       toast({ title: "Backup Deleted" });
+      setConfirmDeleteBackup(null);
       queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/dashboard"] });
     },
     onError: (error) => {
       toast({ title: "Delete Failed", description: String(error), variant: "destructive" });
+      setConfirmDeleteBackup(null);
     },
   });
+
+  const handleDownloadBackup = async (backup: BackupMetadata) => {
+    try {
+      setDownloadingId(backup.id);
+      const res = await fetch(`/api/cloud-backup/download/${backup.id}`, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `blaidtrades_backup_${format(new Date(backup.createdTime), "yyyy-MM-dd_HHmm")}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Download Started", description: "Your backup file is downloading." });
+    } catch (error) {
+      toast({ title: "Download Failed", description: String(error), variant: "destructive" });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (settings: Partial<BackupSettings>) => {
@@ -894,6 +931,7 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <Cloud className="w-8 h-8 mb-2" />
                     <p>No backups yet</p>
+                    <p className="text-xs mt-1">Create your first backup to see it here</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -915,28 +953,63 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
                           )}
                         </div>
                         <div className="flex gap-1 ml-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => restoreBackupMutation.mutate(backup.id)}
-                            disabled={restoringId === backup.id}
-                            data-testid={`button-restore-${backup.id}`}
-                          >
-                            {restoringId === backup.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <CloudDownload className="w-3 h-3" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteBackupMutation.mutate(backup.id)}
-                            disabled={deleteBackupMutation.isPending}
-                            data-testid={`button-delete-${backup.id}`}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadBackup(backup)}
+                                disabled={downloadingId === backup.id}
+                                data-testid={`button-download-${backup.id}`}
+                              >
+                                {downloadingId === backup.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Download className="w-3 h-3" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              <p>Download backup file</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setConfirmRestoreBackup(backup)}
+                                disabled={restoringId === backup.id}
+                                data-testid={`button-restore-${backup.id}`}
+                              >
+                                {restoringId === backup.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <CloudDownload className="w-3 h-3" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              <p>Restore from this backup</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmDeleteBackup(backup)}
+                                disabled={deleteBackupMutation.isPending}
+                                className="text-muted-foreground hover:text-destructive"
+                                data-testid={`button-delete-${backup.id}`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              <p>Delete this backup</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       </div>
                     ))}
@@ -1028,6 +1101,79 @@ export function CloudBackupDialog({ open, onOpenChange, initialTab = "overview" 
           </Tabs>
         )}
       </DialogContent>
+
+      <AlertDialog open={!!confirmRestoreBackup} onOpenChange={(open) => !open && setConfirmRestoreBackup(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore Backup?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will restore your bots, strategies, and settings from the backup dated{" "}
+              <span className="font-medium">
+                {confirmRestoreBackup && format(new Date(confirmRestoreBackup.createdTime), "MMM d, yyyy h:mm a")}
+              </span>.
+              <br /><br />
+              Existing data will be merged with the backup. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-restore">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmRestoreBackup) {
+                  restoreBackupMutation.mutate(confirmRestoreBackup.id);
+                  setConfirmRestoreBackup(null);
+                }
+              }}
+              disabled={restoreBackupMutation.isPending}
+              data-testid="button-confirm-restore"
+            >
+              {restoreBackupMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <CloudDownload className="w-4 h-4 mr-2" />
+              )}
+              Restore Backup
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmDeleteBackup} onOpenChange={(open) => !open && setConfirmDeleteBackup(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Backup?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the backup dated{" "}
+              <span className="font-medium">
+                {confirmDeleteBackup && format(new Date(confirmDeleteBackup.createdTime), "MMM d, yyyy h:mm a")}
+              </span>{" "}
+              from your Google Drive.
+              <br /><br />
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmDeleteBackup) {
+                  deleteBackupMutation.mutate(confirmDeleteBackup.id);
+                }
+              }}
+              disabled={deleteBackupMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteBackupMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Delete Backup
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

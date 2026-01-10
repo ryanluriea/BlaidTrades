@@ -2492,6 +2492,30 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.get("/api/cloud-backup/download/:backupId", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+    
+    try {
+      const userId = req.session.userId;
+      const { backupId } = req.params;
+      const { downloadBackupForUser } = await import("./google-drive-client");
+      const data = await downloadBackupForUser(userId, backupId);
+      
+      if (!data) {
+        return res.status(404).json({ success: false, message: "Backup not found" });
+      }
+      
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Content-Disposition", `attachment; filename="blaidtrades_backup_${backupId}.json"`);
+      res.send(JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error("[BACKUP] Download error:", error);
+      res.status(500).json({ success: false, message: String(error) });
+    }
+  });
+
   // ============================================================================
   // STRATEGY PACK DOWNLOADS - Human-readable exports with rules and generations
   // ============================================================================
