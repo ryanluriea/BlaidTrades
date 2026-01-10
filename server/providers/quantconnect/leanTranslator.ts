@@ -429,7 +429,11 @@ function getSignalLogic(archetype: string, config: Record<string, any>): string 
         """Short entry - mean_reversion archetype"""
         if not self.IndicatorsReady():
             return False
-        return price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > ${rsiOverbought}`;
+        return price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > ${rsiOverbought}
+    
+    def should_exit(self, price):
+        """Exit signal - archetype uses stop/target only"""
+        return False`;
     
     case "breakout":
       return `
@@ -443,7 +447,11 @@ function getSignalLogic(archetype: string, config: Record<string, any>): string 
         """Short entry - breakout archetype"""
         if not self.IndicatorsReady():
             return False
-        return price < self.bb.LowerBand.Current.Value and self.adx.Current.Value > ${adxThreshold}`;
+        return price < self.bb.LowerBand.Current.Value and self.adx.Current.Value > ${adxThreshold}
+    
+    def should_exit(self, price):
+        """Exit signal - archetype uses stop/target only"""
+        return False`;
     
     case "trend_following":
       return `
@@ -457,7 +465,11 @@ function getSignalLogic(archetype: string, config: Record<string, any>): string 
         """Short entry - trend_following archetype"""
         if not self.IndicatorsReady():
             return False
-        return self.ema_fast.Current.Value < self.ema_slow.Current.Value and self.adx.Current.Value > ${adxThreshold}`;
+        return self.ema_fast.Current.Value < self.ema_slow.Current.Value and self.adx.Current.Value > ${adxThreshold}
+    
+    def should_exit(self, price):
+        """Exit signal - archetype uses stop/target only"""
+        return False`;
     
     case "scalping":
       return `
@@ -471,7 +483,11 @@ function getSignalLogic(archetype: string, config: Record<string, any>): string 
         """Short entry - scalping archetype"""
         if not self.IndicatorsReady():
             return False
-        return self.rsi.Current.Value > ${rsiOverbought}`;
+        return self.rsi.Current.Value > ${rsiOverbought}
+    
+    def should_exit(self, price):
+        """Exit signal - archetype uses stop/target only"""
+        return False`;
     
     case "gap_fade":
       return `
@@ -485,7 +501,11 @@ function getSignalLogic(archetype: string, config: Record<string, any>): string 
         """Short entry - gap_fade archetype"""
         if not self.IndicatorsReady():
             return False
-        return price > self.bb.UpperBand.Current.Value`;
+        return price > self.bb.UpperBand.Current.Value
+    
+    def should_exit(self, price):
+        """Exit signal - archetype uses stop/target only"""
+        return False`;
     
     default:
       // Default fallback: mean-reversion style
@@ -500,7 +520,11 @@ function getSignalLogic(archetype: string, config: Record<string, any>): string 
         """Short entry - default archetype"""
         if not self.IndicatorsReady():
             return False
-        return price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > ${rsiOverbought}`;
+        return price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > ${rsiOverbought}
+    
+    def should_exit(self, price):
+        """Exit signal - archetype uses stop/target only"""
+        return False`;
   }
 }
 
