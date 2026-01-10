@@ -1872,7 +1872,6 @@ export function StrategyLabView() {
                           }}
                         >
                           <StrategyCandidateTableRow
-                            key={`row-${candidate.id}-${tick}`}
                             candidate={candidate}
                             rowNumber={index + 1}
                             formatTimeAgo={formatTimeAgo}
@@ -2075,7 +2074,7 @@ export function StrategyLabView() {
                   <div className="mt-2 space-y-1.5 p-2 bg-muted/10 rounded-lg border border-border/30">
                     {sortedRejected.slice(0, 10).map((candidate, index) => (
                       <StrategyCandidateTableRow
-                        key={`rejected-${candidate.id}-${tick}`}
+                        key={`rejected-${candidate.id}`}
                         candidate={candidate}
                         rowNumber={index + 1}
                         formatTimeAgo={formatTimeAgo}

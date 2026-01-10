@@ -60,11 +60,13 @@ interface QCProofPopupProps {
   canRerun?: boolean;
 }
 
+// QC returns percentages directly (e.g., maxDrawdown=1.6 means 1.6%, winRate=55 means 55%)
+// These thresholds must match backend resultNormalizer.ts QC_GATE_THRESHOLDS
 const QC_RUBRIC = {
-  MIN_TRADES: 30,
+  MIN_TRADES: 15,  // Matches backend - lowered for conservative strategies
   MIN_DAYS: 60,
   MIN_PROFIT_FACTOR: 1.10,
-  MAX_DRAWDOWN_PCT: 0.25,
+  MAX_DRAWDOWN_PCT: 25, // 25% as percentage (matches QC format)
 };
 
 function getStatusConfig(status: string | null, badgeState: string | null) {
@@ -348,10 +350,10 @@ export function QCProofPopup({
                   />
                   <MetricBox
                     label="Max Drawdown"
-                    value={`${(qcMetrics.maxDrawdown * 100).toFixed(1)}%`}
+                    value={`${qcMetrics.maxDrawdown.toFixed(1)}%`}
                     isGood={qcMetrics.maxDrawdown <= QC_RUBRIC.MAX_DRAWDOWN_PCT}
                     isBad={qcMetrics.maxDrawdown > QC_RUBRIC.MAX_DRAWDOWN_PCT}
-                    threshold={`Max: ${(QC_RUBRIC.MAX_DRAWDOWN_PCT * 100).toFixed(0)}%`}
+                    threshold={`Max: ${QC_RUBRIC.MAX_DRAWDOWN_PCT}%`}
                   />
                   <MetricBox
                     label="Profit Factor"
