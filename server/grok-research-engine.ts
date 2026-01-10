@@ -17,13 +17,73 @@ import { getRecentGrokFeedback, buildFeedbackContextForGrok } from "./grok-feedb
 import { logIntegrationRequest } from "./request-logger";
 import { researchMonitorWS } from "./research-monitor-ws";
 
-const GROK_MODEL = "grok-4.1-fast";
+const GROK_MODEL = "grok-4-1-fast";
 const GROK_API_URL = "https://api.x.ai/v1/chat/completions";
 
 const LLM_PRICING = {
-  "grok-4.1-fast": { input: 2.00, output: 8.00 },
+  "grok-4-1-fast": { input: 0.20, output: 0.50 },
+  "grok-4-1-fast-reasoning": { input: 0.20, output: 0.50 },
+  "grok-3-beta": { input: 2.00, output: 8.00 },
   "grok-4": { input: 3.00, output: 15.00 },
 };
+
+const MAX_RETRY_ATTEMPTS = 3;
+const INITIAL_RETRY_DELAY_MS = 1000;
+
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  traceId: string,
+  maxAttempts = MAX_RETRY_ATTEMPTS
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.ok) {
+        if (attempt > 1) {
+          console.log(`[GROK_RESEARCH] trace_id=${traceId} RETRY_SUCCESS attempt=${attempt}`);
+          researchMonitorWS.logSystem("grok", `API recovered after ${attempt} attempts`, "Self-healing successful");
+        }
+        return response;
+      }
+      
+      if (response.status === 429) {
+        const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+        console.log(`[GROK_RESEARCH] trace_id=${traceId} RATE_LIMITED attempt=${attempt} retrying_in=${delay}ms`);
+        researchMonitorWS.logSystem("grok", `Rate limited, retrying in ${delay/1000}s (attempt ${attempt}/${maxAttempts})`, "Auto-retry active");
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      if (response.status >= 500 && response.status < 600) {
+        const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+        console.log(`[GROK_RESEARCH] trace_id=${traceId} SERVER_ERROR=${response.status} attempt=${attempt} retrying_in=${delay}ms`);
+        researchMonitorWS.logSystem("grok", `Server error ${response.status}, retrying in ${delay/1000}s`, "Auto-retry active");
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      throw new Error(`Grok API error: ${response.status} ${response.statusText}`);
+      
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      
+      if (attempt < maxAttempts && !lastError.message.includes("404") && !lastError.message.includes("401")) {
+        const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+        console.log(`[GROK_RESEARCH] trace_id=${traceId} FETCH_ERROR="${lastError.message}" attempt=${attempt} retrying_in=${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      throw lastError;
+    }
+  }
+  
+  throw lastError || new Error("Max retries exceeded");
+}
 
 function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
   const pricing = LLM_PRICING[model as keyof typeof LLM_PRICING] || { input: 2.0, output: 8.0 };
@@ -381,7 +441,16 @@ function parseGrokResponse(content: string): ResearchCandidate[] {
   }
 }
 
-async function checkBudgetLimit(userId: string): Promise<{ allowed: boolean; reason?: string }> {
+interface BudgetCheckResult {
+  allowed: boolean;
+  reason?: string;
+  actionRequired?: string;
+  actionType?: "INCREASE_BUDGET" | "RESUME_MANUALLY" | "CHECK_API_KEY" | "WAIT_FOR_RESET";
+  currentSpend?: number;
+  limit?: number;
+}
+
+async function checkBudgetLimit(userId: string): Promise<BudgetCheckResult> {
   try {
     const budget = await db.query.llmBudgets.findFirst({
       where: and(
@@ -391,19 +460,83 @@ async function checkBudgetLimit(userId: string): Promise<{ allowed: boolean; rea
     });
     
     if (!budget) return { allowed: true };
-    if (!budget.isEnabled || budget.isPaused) {
-      return { allowed: false, reason: "xAI/Grok is disabled or paused" };
+    
+    const currentSpend = budget.currentMonthSpendUsd ?? 0;
+    const limit = budget.monthlyLimitUsd ?? 10;
+    
+    if (!budget.isEnabled) {
+      return { 
+        allowed: false, 
+        reason: "Grok research is disabled",
+        actionRequired: "Enable Grok in Settings > AI Providers to resume autonomous research",
+        actionType: "RESUME_MANUALLY",
+        currentSpend,
+        limit,
+      };
     }
+    
+    if (budget.isPaused) {
+      return { 
+        allowed: false, 
+        reason: "Grok research is manually paused",
+        actionRequired: "Unpause Grok in Settings > AI Providers to resume research",
+        actionType: "RESUME_MANUALLY",
+        currentSpend,
+        limit,
+      };
+    }
+    
     if (budget.isAutoThrottled) {
-      return { allowed: false, reason: "xAI/Grok budget exceeded for this month" };
+      const now = new Date();
+      const budgetMonth = budget.budgetMonthStart;
+      
+      if (budgetMonth) {
+        const monthStart = new Date(budgetMonth);
+        const nextMonth = new Date(monthStart);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        
+        if (now >= nextMonth) {
+          await db.update(llmBudgets)
+            .set({ 
+              isAutoThrottled: false,
+              currentMonthSpendUsd: 0,
+              budgetMonthStart: now,
+              updatedAt: now,
+            })
+            .where(eq(llmBudgets.id, budget.id));
+          
+          console.log(`[GROK_BUDGET] Auto-reset: new month detected, unthrottling userId=${userId}`);
+          researchMonitorWS.logSystem("grok", "Monthly budget reset - research resuming automatically", "Self-healing: budget cycle reset");
+          return { allowed: true, currentSpend: 0, limit };
+        }
+      }
+      
+      return { 
+        allowed: false, 
+        reason: `Grok monthly budget exceeded ($${currentSpend.toFixed(2)} / $${limit.toFixed(2)})`,
+        actionRequired: `Increase your Grok budget limit in Settings > AI Providers, or wait until next month for auto-reset`,
+        actionType: "INCREASE_BUDGET",
+        currentSpend,
+        limit,
+      };
     }
-    if ((budget.currentMonthSpendUsd ?? 0) >= (budget.monthlyLimitUsd ?? 10)) {
+    
+    if (currentSpend >= limit) {
       await db.update(llmBudgets)
         .set({ isAutoThrottled: true })
         .where(eq(llmBudgets.id, budget.id));
-      return { allowed: false, reason: "xAI/Grok monthly budget exceeded" };
+      
+      return { 
+        allowed: false, 
+        reason: `Grok monthly budget limit reached ($${currentSpend.toFixed(2)} / $${limit.toFixed(2)})`,
+        actionRequired: `Increase your Grok budget limit in Settings, or wait until next month`,
+        actionType: "INCREASE_BUDGET",
+        currentSpend,
+        limit,
+      };
     }
-    return { allowed: true };
+    
+    return { allowed: true, currentSpend, limit };
   } catch (error) {
     console.error("[GROK_BUDGET_CHECK] Error:", error);
     return { allowed: true };
@@ -488,7 +621,15 @@ export async function runGrokResearch(
     const budgetCheck = await checkBudgetLimit(userId);
     if (!budgetCheck.allowed) {
       console.log(`[GROK_RESEARCH] trace_id=${traceId} skipped: ${budgetCheck.reason}`);
-      researchMonitorWS.logValidation("grok", "Budget Check", "FAIL", budgetCheck.reason);
+      
+      researchMonitorWS.logActionRequired("grok", budgetCheck.reason || "Budget limit reached", {
+        actionRequired: budgetCheck.actionRequired,
+        actionType: budgetCheck.actionType,
+        currentSpend: budgetCheck.currentSpend,
+        limit: budgetCheck.limit,
+        traceId,
+      });
+      
       researchMonitorWS.endPhase("grok", `${depth} Research`, traceId, `Blocked: ${budgetCheck.reason}`);
       return {
         success: false,
@@ -497,7 +638,13 @@ export async function runGrokResearch(
         traceId,
       };
     }
-    researchMonitorWS.logValidation("grok", "Budget Check", "PASS", "Within monthly limit");
+    
+    const spendPercent = budgetCheck.limit && budgetCheck.limit > 0 
+      ? Math.round(((budgetCheck.currentSpend || 0) / budgetCheck.limit) * 100) 
+      : 0;
+    researchMonitorWS.logValidation("grok", "Budget Check", "PASS", 
+      `$${(budgetCheck.currentSpend || 0).toFixed(2)} / $${(budgetCheck.limit || 10).toFixed(2)} (${spendPercent}% used)`
+    );
   }
   
   const prompt = buildGrokResearchPrompt(context);
@@ -542,25 +689,25 @@ export async function runGrokResearch(
       maxTokens: 4000,
     });
     
-    const response = await fetch(GROK_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+    const response = await fetchWithRetry(
+      GROK_API_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: GROK_MODEL,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+          max_tokens: 4000,
+        }),
       },
-      body: JSON.stringify({
-        model: GROK_MODEL,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        max_tokens: 4000,
-      }),
-    });
+      traceId
+    );
     
     const apiLatency = Date.now() - startTime;
-    
-    if (!response.ok) {
-      throw new Error(`Grok API error: ${response.status} ${response.statusText}`);
-    }
     
     const data = await response.json() as any;
     const content = data.choices?.[0]?.message?.content || "";
@@ -689,8 +836,24 @@ export async function runGrokResearch(
     console.error(`[GROK_RESEARCH] trace_id=${traceId} FAILED: ${errorMsg}`);
     trackProviderFailure("xai", errorMsg);
     
-    researchMonitorWS.logError("grok", `Research failed: ${errorMsg}`, { traceId });
-    researchMonitorWS.endPhase("grok", `${depth} Research`, traceId, `Failed: ${errorMsg}`);
+    const errorCategory = categorizeApiError(errorMsg);
+    
+    if (errorCategory.requiresUserAction) {
+      researchMonitorWS.logActionRequired("grok", errorCategory.userMessage, {
+        actionRequired: errorCategory.actionRequired,
+        actionType: errorCategory.actionType,
+        traceId,
+        originalError: errorMsg,
+        canAutoRecover: errorCategory.canAutoRecover,
+      });
+    } else {
+      researchMonitorWS.logError("grok", `Research failed: ${errorMsg}`, { 
+        traceId,
+        willRetry: errorCategory.canAutoRecover,
+      });
+    }
+    
+    researchMonitorWS.endPhase("grok", `${depth} Research`, traceId, `Failed: ${errorCategory.userMessage}`);
     
     await logIntegrationRequest({
       source: "AI",
@@ -706,10 +869,80 @@ export async function runGrokResearch(
     return {
       success: false,
       candidates: [],
-      error: errorMsg,
+      error: errorCategory.userMessage,
       traceId,
     };
   }
+}
+
+function categorizeApiError(errorMsg: string): {
+  userMessage: string;
+  actionRequired?: string;
+  actionType?: "INCREASE_BUDGET" | "RESUME_MANUALLY" | "CHECK_API_KEY" | "WAIT_FOR_RESET";
+  requiresUserAction: boolean;
+  canAutoRecover: boolean;
+} {
+  const lowerError = errorMsg.toLowerCase();
+  
+  if (lowerError.includes("401") || lowerError.includes("unauthorized") || lowerError.includes("invalid api key")) {
+    return {
+      userMessage: "Grok API authentication failed",
+      actionRequired: "Check that your XAI_API_KEY secret is valid and has not expired. Get a new key from console.x.ai",
+      actionType: "CHECK_API_KEY",
+      requiresUserAction: true,
+      canAutoRecover: false,
+    };
+  }
+  
+  if (lowerError.includes("402") || lowerError.includes("payment required") || lowerError.includes("insufficient") || lowerError.includes("credits")) {
+    return {
+      userMessage: "Grok API requires payment or credits",
+      actionRequired: "Add credits to your xAI account at console.x.ai/billing",
+      actionType: "INCREASE_BUDGET",
+      requiresUserAction: true,
+      canAutoRecover: false,
+    };
+  }
+  
+  if (lowerError.includes("404") || lowerError.includes("not found")) {
+    return {
+      userMessage: "Grok API endpoint or model not found",
+      actionRequired: "The model may have been deprecated. Check console.x.ai for available models",
+      actionType: "CHECK_API_KEY",
+      requiresUserAction: true,
+      canAutoRecover: false,
+    };
+  }
+  
+  if (lowerError.includes("429") || lowerError.includes("rate limit")) {
+    return {
+      userMessage: "Grok API rate limited - will auto-retry",
+      requiresUserAction: false,
+      canAutoRecover: true,
+    };
+  }
+  
+  if (lowerError.includes("500") || lowerError.includes("502") || lowerError.includes("503") || lowerError.includes("504")) {
+    return {
+      userMessage: "Grok API temporary server error - will auto-retry",
+      requiresUserAction: false,
+      canAutoRecover: true,
+    };
+  }
+  
+  if (lowerError.includes("timeout") || lowerError.includes("econnreset") || lowerError.includes("network")) {
+    return {
+      userMessage: "Network error connecting to Grok - will auto-retry",
+      requiresUserAction: false,
+      canAutoRecover: true,
+    };
+  }
+  
+  return {
+    userMessage: errorMsg,
+    requiresUserAction: false,
+    canAutoRecover: false,
+  };
 }
 
 export async function processGrokResearchCycle(

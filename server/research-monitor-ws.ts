@@ -30,7 +30,8 @@ export type ResearchEventType =
   | "phase"            // Research phase transition
   | "scoring"          // Confidence scoring event
   | "rejection"        // Candidate rejected with reason
-  | "api_call";        // Raw API call details
+  | "api_call"         // Raw API call details
+  | "action_required"; // User action needed (self-healing failed)
 
 export type ResearchSource = "perplexity" | "grok" | "openai" | "anthropic" | "groq" | "gemini" | "system";
 
@@ -448,13 +449,44 @@ class ResearchMonitorWebSocketServer {
     });
   }
 
-  logSystem(message: string, metadata?: Record<string, any>): void {
+  logSystem(source: ResearchSource | string, message: string, details?: string): void {
     this.broadcast({
       eventType: "system",
-      source: "system",
+      source: (source as ResearchSource) || "system",
       title: message,
-      metadata,
+      details,
     });
+  }
+  
+  logActionRequired(
+    source: ResearchSource, 
+    issue: string, 
+    metadata?: {
+      actionRequired?: string;
+      actionType?: "INCREASE_BUDGET" | "RESUME_MANUALLY" | "CHECK_API_KEY" | "WAIT_FOR_RESET";
+      currentSpend?: number;
+      limit?: number;
+      traceId?: string;
+      [key: string]: any;
+    }
+  ): void {
+    const actionMessage = metadata?.actionRequired 
+      ? `${issue} — ${metadata.actionRequired}`
+      : issue;
+      
+    this.broadcast({
+      eventType: "action_required",
+      source,
+      title: `⚠️ Action Required: ${issue}`,
+      details: actionMessage,
+      metadata: {
+        ...metadata,
+        requiresUserAction: true,
+        canSelfHeal: false,
+      },
+    });
+    
+    console.log(`[RESEARCH_MONITOR] ACTION_REQUIRED source=${source} issue="${issue}" action="${metadata?.actionRequired || 'none specified'}"`);
   }
 
   // ============================================================

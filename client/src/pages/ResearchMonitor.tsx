@@ -18,7 +18,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 
 type ResearchEventType = 
   | "search" | "source" | "idea" | "candidate" | "error" | "system" | "analysis"
-  | "reasoning" | "validation" | "cost" | "phase" | "scoring" | "rejection" | "api_call";
+  | "reasoning" | "validation" | "cost" | "phase" | "scoring" | "rejection" | "api_call"
+  | "action_required";
 
 type ResearchSource = "perplexity" | "grok" | "openai" | "anthropic" | "groq" | "gemini" | "system";
 
@@ -664,34 +665,71 @@ export default function ResearchMonitor() {
                     </div>
                   ) : (
                     [...events].reverse().map(event => (
-                      <div 
-                        key={event.id}
-                        className="px-3 py-2 flex items-start gap-3"
-                        data-testid={`activity-event-${event.id}`}
-                      >
-                        <div className={cn(
-                          "w-1.5 h-1.5 rounded-full mt-2 shrink-0",
-                          event.type === "candidate" && "bg-emerald-400",
-                          event.type === "source" && "bg-cyan-400",
-                          event.type === "error" && "bg-red-400",
-                          event.type === "phase" && "bg-blue-400",
-                          !["candidate", "source", "error", "phase"].includes(event.type) && "bg-muted-foreground"
-                        )} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs truncate">{event.title}</span>
-                            <Badge variant="outline" className={cn("text-[9px] h-4 px-1", SOURCE_COLORS[event.source])}>
-                              {event.source}
-                            </Badge>
+                      event.type === "action_required" ? (
+                        <div 
+                          key={event.id}
+                          className="mx-2 my-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30"
+                          data-testid={`action-required-${event.id}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-amber-300">Action Required</span>
+                                <Badge variant="outline" className={cn("text-[9px] h-4 px-1", SOURCE_COLORS[event.source])}>
+                                  {event.source}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-foreground/80">{event.title.replace(/^⚠️ Action Required: /, "")}</p>
+                              {event.metadata?.actionRequired && (
+                                <p className="text-xs text-amber-200/80 mt-1.5 bg-amber-500/10 px-2 py-1.5 rounded">
+                                  {event.metadata.actionRequired}
+                                </p>
+                              )}
+                              {event.metadata?.actionType === "INCREASE_BUDGET" && event.metadata?.currentSpend !== undefined && (
+                                <div className="flex items-center gap-2 mt-2">
+                                  <DollarSign className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-[10px] text-muted-foreground">
+                                    Current: ${event.metadata.currentSpend?.toFixed(2)} / ${event.metadata.limit?.toFixed(2) || "10.00"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                              {safeFormat(event.timestamp, "h:mm:ss")}
+                            </span>
                           </div>
-                          {event.details && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{event.details}</p>
-                          )}
                         </div>
-                        <span className="text-[10px] text-muted-foreground font-mono shrink-0">
-                          {safeFormat(event.timestamp, "h:mm:ss")}
-                        </span>
-                      </div>
+                      ) : (
+                        <div 
+                          key={event.id}
+                          className="px-3 py-2 flex items-start gap-3"
+                          data-testid={`activity-event-${event.id}`}
+                        >
+                          <div className={cn(
+                            "w-1.5 h-1.5 rounded-full mt-2 shrink-0",
+                            event.type === "candidate" && "bg-emerald-400",
+                            event.type === "source" && "bg-cyan-400",
+                            event.type === "error" && "bg-red-400",
+                            event.type === "phase" && "bg-blue-400",
+                            !["candidate", "source", "error", "phase"].includes(event.type) && "bg-muted-foreground"
+                          )} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs truncate">{event.title}</span>
+                              <Badge variant="outline" className={cn("text-[9px] h-4 px-1", SOURCE_COLORS[event.source])}>
+                                {event.source}
+                              </Badge>
+                            </div>
+                            {event.details && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{event.details}</p>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                            {safeFormat(event.timestamp, "h:mm:ss")}
+                          </span>
+                        </div>
+                      )
                     ))
                   )}
                 </div>
