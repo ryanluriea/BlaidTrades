@@ -702,8 +702,8 @@ let strategyLabState: StrategyLabState = {
   adaptiveIntervalMs: ADAPTIVE_INTERVALS.BASE_INTERVAL_MS,
   adaptiveReason: "Initial balanced mode",
   lastStateChange: new Date(),
-  requireManualApproval: true,
-  autoPromoteThreshold: 85,
+  requireManualApproval: false,
+  autoPromoteThreshold: 65,
   autoPromoteTier: "B",
   perplexityModel: "BALANCED",
   searchRecency: "MONTH",
@@ -1199,6 +1199,60 @@ export async function promoteSentToLabCandidates(): Promise<AutoPromoteResult> {
   } catch (error: any) {
     console.error(`[SENT_TO_LAB_WORKER] trace_id=${traceId} fatal error:`, error);
     return result;
+  }
+}
+
+/**
+ * ONE-TIME MIGRATION: Promote qualifying PENDING_REVIEW candidates to SENT_TO_LAB
+ * This handles candidates that were created when requireManualApproval was true
+ * but now meet the auto-promote criteria with the updated threshold.
+ */
+export async function migrateQualifyingCandidatesToSentToLab(): Promise<{ promoted: number; total: number }> {
+  const traceId = crypto.randomUUID().slice(0, 8);
+  const threshold = strategyLabState.autoPromoteThreshold;
+  
+  try {
+    // Find PENDING_REVIEW candidates that meet the promotion threshold
+    const qualifyingCandidates = await db.select()
+      .from(strategyCandidates)
+      .where(
+        and(
+          eq(strategyCandidates.disposition, "PENDING_REVIEW"),
+          sql`${strategyCandidates.confidenceScore} >= ${threshold}`,
+          sql`${strategyCandidates.noveltyScore} >= 40`
+        )
+      )
+      .limit(50); // Process in batches
+    
+    if (qualifyingCandidates.length === 0) {
+      console.log(`[CANDIDATE_MIGRATION] trace_id=${traceId} no qualifying PENDING_REVIEW candidates found`);
+      return { promoted: 0, total: 0 };
+    }
+    
+    console.log(`[CANDIDATE_MIGRATION] trace_id=${traceId} found ${qualifyingCandidates.length} qualifying PENDING_REVIEW candidates (threshold=${threshold})`);
+    
+    let promoted = 0;
+    for (const candidate of qualifyingCandidates) {
+      try {
+        await db.update(strategyCandidates)
+          .set({ 
+            disposition: "SENT_TO_LAB", 
+            updatedAt: new Date() 
+          })
+          .where(eq(strategyCandidates.id, candidate.id));
+        promoted++;
+        console.log(`[CANDIDATE_MIGRATION] trace_id=${traceId} promoted "${candidate.strategyName}" to SENT_TO_LAB (confidence=${candidate.confidenceScore}, novelty=${candidate.noveltyScore})`);
+      } catch (err: any) {
+        console.error(`[CANDIDATE_MIGRATION] trace_id=${traceId} failed to promote "${candidate.strategyName}":`, err.message);
+      }
+    }
+    
+    console.log(`[CANDIDATE_MIGRATION] trace_id=${traceId} completed: promoted ${promoted}/${qualifyingCandidates.length} candidates`);
+    return { promoted, total: qualifyingCandidates.length };
+    
+  } catch (error: any) {
+    console.error(`[CANDIDATE_MIGRATION] trace_id=${traceId} fatal error:`, error);
+    return { promoted: 0, total: 0 };
   }
 }
 

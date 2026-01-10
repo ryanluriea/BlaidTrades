@@ -13768,56 +13768,77 @@ export function registerRoutes(app: Express) {
       const strategyLabState = getStrategyLabState();
       const researchActivity = getResearchActivity();
       
-      // Get 24h stats from database
-      const grokStats = await db.execute(sql`
-        SELECT 
-          COUNT(*) as total_requests,
-          SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
-          MAX(created_at) as last_request,
-          SUM(tokens_in + tokens_out) as total_tokens
-        FROM ai_requests
-        WHERE provider IN ('xai', 'grok')
-        AND created_at > NOW() - INTERVAL '24 hours'
-      `);
+      // Get 24h stats from database with fallback for each query
+      const defaultStats = { rows: [{ total_requests: 0, successful: 0, last_request: null, total_tokens: 0 }] };
+      const defaultCount = { rows: [{ count: 0 }] };
+      const defaultActivity = { rows: [] };
+
+      let grokStats = defaultStats;
+      let perplexityStats = defaultStats;
+      let grokCandidates = defaultCount;
+      let perplexityCandidates = defaultCount;
+      let recentGrokActivity = defaultActivity;
+      let recentPerplexityActivity = defaultActivity;
+
+      try {
+        grokStats = await db.execute(sql`
+          SELECT 
+            COUNT(*) as total_requests,
+            SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
+            MAX(created_at) as last_request,
+            COALESCE(SUM(tokens_in + tokens_out), 0) as total_tokens
+          FROM ai_requests
+          WHERE provider IN ('xai', 'grok')
+          AND created_at > NOW() - INTERVAL '24 hours'
+        `);
+      } catch (e) { console.log("[RESEARCH_MONITOR] grokStats query failed, using defaults"); }
       
-      const perplexityStats = await db.execute(sql`
-        SELECT 
-          COUNT(*) as total_requests,
-          SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
-          MAX(created_at) as last_request,
-          SUM(tokens_in + tokens_out) as total_tokens
-        FROM ai_requests
-        WHERE provider = 'perplexity'
-        AND created_at > NOW() - INTERVAL '24 hours'
-      `);
+      try {
+        perplexityStats = await db.execute(sql`
+          SELECT 
+            COUNT(*) as total_requests,
+            SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
+            MAX(created_at) as last_request,
+            COALESCE(SUM(tokens_in + tokens_out), 0) as total_tokens
+          FROM ai_requests
+          WHERE provider = 'perplexity'
+          AND created_at > NOW() - INTERVAL '24 hours'
+        `);
+      } catch (e) { console.log("[RESEARCH_MONITOR] perplexityStats query failed, using defaults"); }
       
-      // Get strategy candidates by provider (last 24h)
-      const grokCandidates = await db.execute(sql`
-        SELECT COUNT(*) as count FROM strategy_candidates
-        WHERE provider = 'grok' AND created_at > NOW() - INTERVAL '24 hours'
-      `);
+      try {
+        grokCandidates = await db.execute(sql`
+          SELECT COUNT(*) as count FROM strategy_candidates
+          WHERE ai_provider = 'GROK' AND created_at > NOW() - INTERVAL '24 hours'
+        `);
+      } catch (e) { console.log("[RESEARCH_MONITOR] grokCandidates query failed, using defaults"); }
       
-      const perplexityCandidates = await db.execute(sql`
-        SELECT COUNT(*) as count FROM strategy_candidates
-        WHERE provider = 'perplexity' AND created_at > NOW() - INTERVAL '24 hours'
-      `);
+      try {
+        perplexityCandidates = await db.execute(sql`
+          SELECT COUNT(*) as count FROM strategy_candidates
+          WHERE ai_provider = 'PERPLEXITY' AND created_at > NOW() - INTERVAL '24 hours'
+        `);
+      } catch (e) { console.log("[RESEARCH_MONITOR] perplexityCandidates query failed, using defaults"); }
       
-      // Get recent activity logs from research_events
-      const recentGrokActivity = await db.execute(sql`
-        SELECT id, event_type, title, details, created_at
-        FROM research_events
-        WHERE source = 'grok'
-        ORDER BY created_at DESC
-        LIMIT 10
-      `);
+      try {
+        recentGrokActivity = await db.execute(sql`
+          SELECT id, event_type, title, COALESCE(summary, '') as details, created_at
+          FROM activity_events
+          WHERE provider IN ('grok', 'xai') OR event_type LIKE '%GROK%'
+          ORDER BY created_at DESC
+          LIMIT 10
+        `);
+      } catch (e) { console.log("[RESEARCH_MONITOR] recentGrokActivity query failed, using defaults"); }
       
-      const recentPerplexityActivity = await db.execute(sql`
-        SELECT id, event_type, title, details, created_at
-        FROM research_events
-        WHERE source = 'perplexity'
-        ORDER BY created_at DESC
-        LIMIT 10
-      `);
+      try {
+        recentPerplexityActivity = await db.execute(sql`
+          SELECT id, event_type, title, COALESCE(summary, '') as details, created_at
+          FROM activity_events
+          WHERE provider = 'perplexity' OR event_type LIKE '%PERPLEXITY%' OR event_type LIKE '%STRATEGY_LAB%'
+          ORDER BY created_at DESC
+          LIMIT 10
+        `);
+      } catch (e) { console.log("[RESEARCH_MONITOR] recentPerplexityActivity query failed, using defaults"); }
       
       const grokRow = grokStats.rows[0] as any;
       const perplexityRow = perplexityStats.rows[0] as any;

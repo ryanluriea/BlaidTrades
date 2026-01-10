@@ -294,7 +294,7 @@ if (isWorkerOnlyMode) {
           
           // Backfill novelty scores for strategy candidates that are missing them
           // This ensures uniqueness badges display actual values instead of N/A
-          import('./strategy-lab-engine').then(async ({ backfillNoveltyScores }) => {
+          import('./strategy-lab-engine').then(async ({ backfillNoveltyScores, migrateQualifyingCandidatesToSentToLab }) => {
             try {
               const result = await backfillNoveltyScores();
               if (result.updated > 0) {
@@ -302,6 +302,17 @@ if (isWorkerOnlyMode) {
               }
             } catch (err) {
               log(`[STARTUP] Novelty backfill error: ${err instanceof Error ? err.message : 'unknown'}`);
+            }
+            
+            // Migrate qualifying PENDING_REVIEW candidates to SENT_TO_LAB
+            // This handles backlog from when threshold was too high (95 -> 65)
+            try {
+              const migrationResult = await migrateQualifyingCandidatesToSentToLab();
+              if (migrationResult.promoted > 0) {
+                log(`[STARTUP] Candidate migration: ${migrationResult.promoted}/${migrationResult.total} promoted to SENT_TO_LAB`);
+              }
+            } catch (err) {
+              log(`[STARTUP] Candidate migration error: ${err instanceof Error ? err.message : 'unknown'}`);
             }
           }).catch(err => {
             log(`[STARTUP] Failed to import strategy-lab-engine: ${err.message}`);
