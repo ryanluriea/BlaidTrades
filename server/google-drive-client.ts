@@ -359,26 +359,58 @@ export async function listBackupsForUser(userId: string): Promise<BackupMetadata
     const folderId = await ensureBackupFolderForUser(userId);
     console.log(`[GOOGLE_DRIVE] listBackupsForUser: Found folder ${folderId} (${Date.now() - startTime}ms)`);
 
-    const query = `'${folderId}' in parents and mimeType='application/json' and trashed=false`;
+    // Search for backups in the dedicated folder
+    const folderQuery = `'${folderId}' in parents and mimeType='application/json' and trashed=false`;
     
-    const response = await withRetry(
-      () => drive.files.list({
-        q: query,
-        fields: 'files(id, name, createdTime, size, description)',
-        orderBy: 'createdTime desc',
-        pageSize: 50,
-      }),
-      `listBackupsForUser(${userId.substring(0, 8)})`
-    );
+    // Also search for legacy backups in root (created before folder system)
+    // These have the blaidtrades_backup prefix and are NOT in the backup folder
+    const legacyQuery = `name contains 'blaidtrades_backup' and mimeType='application/json' and trashed=false and not '${folderId}' in parents`;
+    
+    // Execute both queries in parallel for speed
+    const [folderResponse, legacyResponse] = await Promise.all([
+      withRetry(
+        () => drive.files.list({
+          q: folderQuery,
+          fields: 'files(id, name, createdTime, size, description)',
+          orderBy: 'createdTime desc',
+          pageSize: 50,
+        }),
+        `listBackupsForUser-folder(${userId.substring(0, 8)})`
+      ),
+      withRetry(
+        () => drive.files.list({
+          q: legacyQuery,
+          fields: 'files(id, name, createdTime, size, description)',
+          orderBy: 'createdTime desc',
+          pageSize: 50,
+        }),
+        `listBackupsForUser-legacy(${userId.substring(0, 8)})`
+      ),
+    ]);
 
-    const files = response.data.files || [];
-    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Found ${files.length} backup files (${Date.now() - startTime}ms)`);
+    const folderFiles = folderResponse.data.files || [];
+    const legacyFiles = legacyResponse.data.files || [];
     
-    if (files.length > 0) {
-      console.log(`[GOOGLE_DRIVE] listBackupsForUser: First file = ${files[0].name}`);
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Found ${folderFiles.length} in folder, ${legacyFiles.length} legacy (${Date.now() - startTime}ms)`);
+    
+    // Merge and deduplicate by ID, then sort by createdTime desc
+    const allFilesMap = new Map<string, typeof folderFiles[0]>();
+    for (const file of [...folderFiles, ...legacyFiles]) {
+      if (file.id && !allFilesMap.has(file.id)) {
+        allFilesMap.set(file.id, file);
+      }
+    }
+    
+    const allFiles = Array.from(allFilesMap.values())
+      .sort((a, b) => new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime());
+    
+    console.log(`[GOOGLE_DRIVE] listBackupsForUser: Total ${allFiles.length} backup files (${Date.now() - startTime}ms)`);
+    
+    if (allFiles.length > 0) {
+      console.log(`[GOOGLE_DRIVE] listBackupsForUser: First file = ${allFiles[0].name}`);
     }
 
-    return files.map(file => ({
+    return allFiles.map(file => ({
       id: file.id!,
       name: file.name!,
       createdTime: file.createdTime!,
