@@ -411,17 +411,19 @@ function ProviderActivityPanel({
   activity,
   colorClass,
   icon: Icon,
-  onToggle,
   onTrigger,
   isLoading,
+  isQueryLoading,
+  isQueryError,
 }: { 
   provider: "Grok" | "Perplexity";
   activity: ProviderActivity | undefined;
   colorClass: string;
   icon: typeof Brain;
-  onToggle?: (enabled: boolean) => void;
   onTrigger?: () => void;
   isLoading?: boolean;
+  isQueryLoading?: boolean;
+  isQueryError?: boolean;
 }) {
   const formatTime = (timestamp: string | null) => {
     if (!timestamp) return "Never";
@@ -433,6 +435,34 @@ function ProviderActivityPanel({
       return "Never";
     }
   };
+
+  // Only show loading spinner if loading AND no cached data exists
+  const showLoadingSpinner = isQueryLoading && !activity;
+  // Show error banner but keep cached data visible
+  const showErrorBanner = isQueryError && !isQueryLoading;
+
+  if (showLoadingSpinner) {
+    return (
+      <Card className="flex-1" data-testid={`panel-${provider.toLowerCase()}-activity`}>
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-2">
+            <div className={cn("p-1.5 rounded", colorClass)}>
+              <Icon className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm">{provider}</CardTitle>
+              <CardDescription className="text-[10px]">Loading...</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="flex-1" data-testid={`panel-${provider.toLowerCase()}-activity`}>
@@ -480,6 +510,14 @@ function ProviderActivityPanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Error banner - inline, preserves cached data */}
+        {showErrorBanner && (
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-red-500/10 border border-red-500/20 text-[10px]" data-testid={`error-${provider.toLowerCase()}`}>
+            <AlertCircle className="h-3 w-3 text-red-400 shrink-0" />
+            <span className="text-red-400">Connection error - showing cached data</span>
+          </div>
+        )}
+        
         {/* 24h Stats */}
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-muted/30 rounded p-2">
@@ -640,7 +678,7 @@ export default function ResearchMonitor() {
   });
 
   // Provider activity query for Grok & Perplexity panels
-  const { data: providerActivity } = useQuery<ProviderActivityResponse>({
+  const { data: providerActivity, isLoading: providerActivityLoading, isError: providerActivityError } = useQuery<ProviderActivityResponse>({
     queryKey: ["/api/research-monitor/provider-activity"],
     refetchInterval: 5000,
   });
@@ -1097,6 +1135,34 @@ export default function ResearchMonitor() {
     },
   });
 
+  // Provider-specific trigger mutations
+  const triggerGrokMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/grok-research/trigger");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/grok-research/state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/research-monitor/provider-activity"] });
+    },
+  });
+
+  const triggerPerplexityMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/strategy-lab/trigger-research");
+      return res.json();
+    },
+    onSuccess: () => {
+      setResearchPhases([
+        { name: "Scouting", status: "active" },
+        { name: "Evidence", status: "pending" },
+        { name: "Candidates", status: "pending" },
+      ]);
+      queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/research-monitor/provider-activity"] });
+    },
+  });
+
   const toggleResearchMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
       const [labRes, grokRes] = await Promise.all([
@@ -1378,16 +1444,20 @@ export default function ResearchMonitor() {
               activity={providerActivity?.data?.grok}
               colorClass="bg-purple-500/20 text-purple-400"
               icon={Brain}
-              onTrigger={() => triggerResearchMutation.mutate()}
-              isLoading={triggerResearchMutation.isPending}
+              onTrigger={() => triggerGrokMutation.mutate()}
+              isLoading={triggerGrokMutation.isPending}
+              isQueryLoading={providerActivityLoading}
+              isQueryError={providerActivityError}
             />
             <ProviderActivityPanel
               provider="Perplexity"
               activity={providerActivity?.data?.perplexity}
               colorClass="bg-blue-500/20 text-blue-400"
               icon={Globe}
-              onTrigger={() => triggerResearchMutation.mutate()}
-              isLoading={triggerResearchMutation.isPending}
+              onTrigger={() => triggerPerplexityMutation.mutate()}
+              isLoading={triggerPerplexityMutation.isPending}
+              isQueryLoading={providerActivityLoading}
+              isQueryError={providerActivityError}
             />
           </div>
         </div>
