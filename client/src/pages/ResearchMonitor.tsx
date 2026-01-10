@@ -447,6 +447,58 @@ export default function ResearchMonitor() {
     refetchInterval: 3000,
   });
 
+  const { data: persistedCosts } = useQuery<{ 
+    success: boolean; 
+    data: { 
+      totalCostUsdThisMonth: number; 
+      breakdown: Array<{ category: string; provider: string; event_count: string; total_cost_usd: string }>;
+    } 
+  }>({
+    queryKey: ["/api/costs/summary"],
+    staleTime: 60000,
+  });
+
+  const [persistedCostsLoaded, setPersistedCostsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (persistedCosts?.data && !persistedCostsLoaded) {
+      const monthlyTotal = persistedCosts.data.totalCostUsdThisMonth || 0;
+      const breakdown = persistedCosts.data.breakdown || [];
+      
+      setStats(prev => ({
+        ...prev,
+        totalCost: prev.totalCost + monthlyTotal,
+      }));
+      
+      const persistedProviderCosts: Record<string, { cost: number; tokens: number; calls: number }> = {};
+      breakdown.forEach(row => {
+        if (row.category === "llm" && row.provider) {
+          persistedProviderCosts[row.provider] = {
+            cost: parseFloat(row.total_cost_usd) || 0,
+            tokens: 0,
+            calls: parseInt(row.event_count) || 0,
+          };
+        }
+      });
+      
+      setProviderCosts(prev => {
+        const merged = { ...persistedProviderCosts };
+        Object.entries(prev).forEach(([key, val]) => {
+          if (merged[key]) {
+            merged[key].cost += val.cost;
+            merged[key].tokens += val.tokens;
+            merged[key].calls += val.calls;
+          } else {
+            merged[key] = val;
+          }
+        });
+        return merged;
+      });
+      
+      setPersistedCostsLoaded(true);
+    }
+  }, [persistedCosts, persistedCostsLoaded]);
+
   const isAnyResearchActive = useMemo(() => {
     const strategyLabActive = strategyLabState?.data?.researchActivity?.isActive === true;
     const grokActive = grokResearchState?.data?.isActive === true;

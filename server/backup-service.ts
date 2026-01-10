@@ -27,6 +27,7 @@ import {
   evolutionTournaments,
   tournamentEntries,
   liveEligibilityTracking,
+  botCostEvents,
 } from "@shared/schema";
 import { eq, and, inArray, or, sql } from "drizzle-orm";
 import { 
@@ -140,6 +141,18 @@ export interface BackupData {
     consecutivePasses: number;
     lastTournamentId: string | null;
     promotedToLiveAt: string | null;
+  }>;
+  costEvents: Array<{
+    id: string;
+    botId: string;
+    provider: string;
+    category: string;
+    eventType: string;
+    costUsd: number;
+    inputTokens: number | null;
+    outputTokens: number | null;
+    traceId: string | null;
+    createdAt: string;
   }>;
 }
 
@@ -355,6 +368,17 @@ export async function createBackup(userId: string, options?: { force?: boolean }
     }
     console.log(`[BACKUP_SERVICE] Step 11 complete: ${userLiveEligibility.length} eligibility records found`);
 
+    console.log(`[BACKUP_SERVICE] Step 12: Fetching cost events`);
+    updateBackupProgress({ phase: 'preparing', currentItem: 'Loading cost events...' });
+    let userCostEvents: typeof botCostEvents.$inferSelect[] = [];
+    if (botIds.length > 0) {
+      userCostEvents = await db.select().from(botCostEvents)
+        .where(inArray(botCostEvents.botId, botIds))
+        .orderBy(sql`${botCostEvents.createdAt} DESC NULLS LAST`)
+        .limit(5000);
+    }
+    console.log(`[BACKUP_SERVICE] Step 12 complete: ${userCostEvents.length} cost events found`);
+
     const backupData: BackupData = {
       version: '1.0.0',
       createdAt: new Date().toISOString(),
@@ -458,6 +482,18 @@ export async function createBackup(userId: string, options?: { force?: boolean }
         consecutivePasses: le.candidatePassStreak || 0,
         lastTournamentId: le.lastTournamentId,
         promotedToLiveAt: le.promotedToLiveAt?.toISOString() || null,
+      })),
+      costEvents: userCostEvents.map(ce => ({
+        id: ce.id,
+        botId: ce.botId,
+        provider: ce.provider,
+        category: ce.category,
+        eventType: ce.eventType,
+        costUsd: ce.costUsd,
+        inputTokens: ce.inputTokens,
+        outputTokens: ce.outputTokens,
+        traceId: ce.traceId,
+        createdAt: ce.createdAt?.toISOString() || new Date().toISOString(),
       })),
     };
 
@@ -686,11 +722,39 @@ export async function restoreBackup(
       }
     }
 
+    let costEventsRestored = 0;
+    if (data.costEvents && data.costEvents.length > 0) {
+      for (const ce of data.costEvents) {
+        try {
+          const existing = await db.select().from(botCostEvents).where(eq(botCostEvents.id, ce.id));
+          
+          if (existing.length === 0) {
+            await db.insert(botCostEvents).values({
+              id: ce.id,
+              botId: ce.botId,
+              userId,
+              provider: ce.provider,
+              category: ce.category as any,
+              eventType: ce.eventType,
+              costUsd: ce.costUsd,
+              inputTokens: ce.inputTokens,
+              outputTokens: ce.outputTokens,
+              traceId: ce.traceId,
+              createdAt: ce.createdAt ? new Date(ce.createdAt) : new Date(),
+            } as any);
+            costEventsRestored++;
+          }
+        } catch (insertError) {
+          console.warn(`[BACKUP_SERVICE] Skipping cost event ${ce.id}: ${insertError}`);
+        }
+      }
+    }
+
     await logActivityEvent({
       eventType: 'CLOUD_BACKUP' as any,
       severity: 'INFO',
       title: 'Backup Restored',
-      summary: `Restored ${botsRestored} bots, ${strategiesRestored} strategies, ${accountsRestored} accounts, ${backtestsRestored} backtests`,
+      summary: `Restored ${botsRestored} bots, ${strategiesRestored} strategies, ${accountsRestored} accounts, ${backtestsRestored} backtests, ${costEventsRestored} cost events`,
       payload: { 
         backupId,
         botsRestored,

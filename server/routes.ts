@@ -14302,10 +14302,11 @@ export function registerRoutes(app: Express) {
       const state = getStrategyLabState();
       console.log(`[STRATEGY_LAB] State updated: isPlaying=${state.isPlaying} depth=${state.currentDepth} manualApproval=${state.requireManualApproval} triggeredResearch=${triggeredResearch}`);
       
-      // Persist settings to database if user_id provided
-      if (user_id) {
+      // Persist settings to database - use session userId as fallback
+      const persistUserId = user_id || req.session?.userId;
+      if (persistUserId) {
         try {
-          const existingSettings = await storage.getAppSettings(user_id);
+          const existingSettings = await storage.getAppSettings(persistUserId);
           const existingLabs = (existingSettings?.labs as Record<string, unknown>) || {};
           const updatedLabs = {
             ...existingLabs,
@@ -14336,8 +14337,8 @@ export function registerRoutes(app: Express) {
             trialsMinWinRate: state.trialsMinWinRate,
             trialsMaxDrawdown: state.trialsMaxDrawdown,
           };
-          await storage.upsertAppSettings(user_id, { labs: updatedLabs });
-          console.log(`[STRATEGY_LAB] Settings persisted to database for user=${user_id}`);
+          await storage.upsertAppSettings(persistUserId, { labs: updatedLabs });
+          console.log(`[STRATEGY_LAB] Settings persisted to database for user=${persistUserId}`);
         } catch (persistError) {
           console.error(`[STRATEGY_LAB] Failed to persist settings:`, persistError);
         }
