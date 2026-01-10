@@ -283,8 +283,10 @@ function getIndicatorCode(archetype: string, config: Record<string, any>, resolu
         self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`;
     
     default:
+      // Default must include RSI since default signalLogic uses RSI for mean-reversion
       return `
         self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
+        self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
         self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`;
   }
 }
@@ -297,77 +299,88 @@ function getSignalLogic(archetype: string, config: Record<string, any>): string 
   switch (archetype) {
     case "mean_reversion":
       return `
-    def should_enter_long(self):
-        if not self.bb.IsReady or not self.rsi.IsReady:
+    def should_enter_long(self, price):
+        """Long entry - mean_reversion archetype"""
+        if not self.IndicatorsReady():
             return False
-        price = self.Securities[self.symbol].Price
         return price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < ${rsiOversold}
     
-    def should_enter_short(self):
-        if not self.bb.IsReady or not self.rsi.IsReady:
+    def should_enter_short(self, price):
+        """Short entry - mean_reversion archetype"""
+        if not self.IndicatorsReady():
             return False
-        price = self.Securities[self.symbol].Price
         return price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > ${rsiOverbought}`;
     
     case "breakout":
       return `
-    def should_enter_long(self):
-        if not self.bb.IsReady or not self.adx.IsReady:
+    def should_enter_long(self, price):
+        """Long entry - breakout archetype"""
+        if not self.IndicatorsReady():
             return False
-        price = self.Securities[self.symbol].Price
         return price > self.bb.UpperBand.Current.Value and self.adx.Current.Value > ${adxThreshold}
     
-    def should_enter_short(self):
-        if not self.bb.IsReady or not self.adx.IsReady:
+    def should_enter_short(self, price):
+        """Short entry - breakout archetype"""
+        if not self.IndicatorsReady():
             return False
-        price = self.Securities[self.symbol].Price
         return price < self.bb.LowerBand.Current.Value and self.adx.Current.Value > ${adxThreshold}`;
     
     case "trend_following":
       return `
-    def should_enter_long(self):
-        if not self.ema_fast.IsReady or not self.adx.IsReady:
+    def should_enter_long(self, price):
+        """Long entry - trend_following archetype"""
+        if not self.IndicatorsReady():
             return False
         return self.ema_fast.Current.Value > self.ema_slow.Current.Value and self.adx.Current.Value > ${adxThreshold}
     
-    def should_enter_short(self):
-        if not self.ema_fast.IsReady or not self.adx.IsReady:
+    def should_enter_short(self, price):
+        """Short entry - trend_following archetype"""
+        if not self.IndicatorsReady():
             return False
         return self.ema_fast.Current.Value < self.ema_slow.Current.Value and self.adx.Current.Value > ${adxThreshold}`;
     
     case "scalping":
       return `
-    def should_enter_long(self):
-        if not self.rsi.IsReady:
+    def should_enter_long(self, price):
+        """Long entry - scalping archetype"""
+        if not self.IndicatorsReady():
             return False
         return self.rsi.Current.Value < ${rsiOversold}
     
-    def should_enter_short(self):
-        if not self.rsi.IsReady:
+    def should_enter_short(self, price):
+        """Short entry - scalping archetype"""
+        if not self.IndicatorsReady():
             return False
         return self.rsi.Current.Value > ${rsiOverbought}`;
     
     case "gap_fade":
       return `
-    def should_enter_long(self):
-        if not self.bb.IsReady:
+    def should_enter_long(self, price):
+        """Long entry - gap_fade archetype"""
+        if not self.IndicatorsReady():
             return False
-        price = self.Securities[self.symbol].Price
         return price < self.bb.LowerBand.Current.Value
     
-    def should_enter_short(self):
-        if not self.bb.IsReady:
+    def should_enter_short(self, price):
+        """Short entry - gap_fade archetype"""
+        if not self.IndicatorsReady():
             return False
-        price = self.Securities[self.symbol].Price
         return price > self.bb.UpperBand.Current.Value`;
     
     default:
+      // Default fallback: mean-reversion style
       return `
-    def should_enter_long(self):
-        return False
+    def should_enter_long(self, price):
+        """Long entry - default archetype"""
+        if not self.IndicatorsReady():
+            return False
+        return price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < ${rsiOversold}
     
-    def should_enter_short(self):
-        return False`;
+    def should_enter_short(self, price):
+        """Short entry - default archetype"""
+        if not self.IndicatorsReady():
+            return False
+        return price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > ${rsiOverbought}`;
   }
 }
 
@@ -400,30 +413,34 @@ export function translateToLEAN(input: StrategyTranslationInput): TranslationRes
       parsedRules = parseRulesToPython(input.rulesJson);
       console.log(`[LEAN_TRANSLATOR] Using RULE PARSER for ${input.botName}: indicators=${parsedRules.requiredIndicators.join(',')}`);
       
-      // Generate signal logic from parsed rules
-      signalLogic = `
-    def should_enter_long(self):
-        if not self.indicators_ready():
+      // Check if parser yielded valid conditions (not just "False")
+      const hasValidLong = !parsedRules.longEntry.startsWith('False');
+      const hasValidShort = !parsedRules.shortEntry.startsWith('False');
+      
+      if (hasValidLong || hasValidShort) {
+        // Use parsed rules - at least one direction has valid conditions
+        console.log(`[LEAN_TRANSLATOR] Parsed rules valid: long=${hasValidLong} short=${hasValidShort}`);
+        signalLogic = `
+    def should_enter_long(self, price):
+        """Long entry signal - parsed from rules_json"""
+        if not self.IndicatorsReady():
             return False
-        price = self.Securities[self.mapped_contract].Price if self.mapped_contract else 0
-        # Parsed from rules_json entry conditions
+        # Parsed from rules_json entry conditions: ${JSON.stringify(input.rulesJson?.entry?.slice(0, 2))}
         return ${parsedRules.longEntry}
     
-    def should_enter_short(self):
-        if not self.indicators_ready():
+    def should_enter_short(self, price):
+        """Short entry signal - parsed from rules_json"""
+        if not self.IndicatorsReady():
             return False
-        price = self.Securities[self.mapped_contract].Price if self.mapped_contract else 0
         # Parsed from rules_json entry conditions
-        return ${parsedRules.shortEntry}
-    
-    def should_exit_position(self):
-        if not self.indicators_ready():
-            return False
-        price = self.Securities[self.mapped_contract].Price if self.mapped_contract else 0
-        # Parsed from rules_json exit conditions
-        return ${parsedRules.exitLogic}`;
+        return ${parsedRules.shortEntry}`;
+      } else {
+        // Parser yielded no valid conditions - fallback to archetype
+        console.log(`[LEAN_TRANSLATOR] Parser yielded empty conditions for ${input.botName}, falling back to archetype=${input.archetype}`);
+        signalLogic = getSignalLogic(input.archetype, input.strategyConfig);
+      }
     } else {
-      // Fallback to archetype-based signals
+      // No rulesJson - use archetype-based signals
       console.log(`[LEAN_TRANSLATOR] Using ARCHETYPE FALLBACK for ${input.botName}: archetype=${input.archetype}`);
       signalLogic = getSignalLogic(input.archetype, input.strategyConfig);
     }
@@ -781,43 +798,10 @@ class ${input.botName.replace(/[^a-zA-Z0-9]/g, "")}Algorithm(QCAlgorithm):
         elif self.archetype == "gap_fade":
             return self.bb.IsReady
         else:
-            return self.bb.IsReady
+            return self.bb.IsReady and self.rsi.IsReady
     
-    def should_enter_long(self, price):
-        """Long entry signal based on archetype strategy"""
-        if not self.IndicatorsReady():
-            return False
-        
-        if self.archetype == "mean_reversion":
-            return price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < self.rsi_oversold
-        elif self.archetype == "breakout":
-            return price > self.bb.UpperBand.Current.Value and self.adx.Current.Value > self.adx_threshold
-        elif self.archetype == "trend_following":
-            return self.ema_fast.Current.Value > self.ema_slow.Current.Value and self.adx.Current.Value > self.adx_threshold
-        elif self.archetype == "scalping":
-            return self.rsi.Current.Value < self.rsi_oversold
-        elif self.archetype == "gap_fade":
-            return price < self.bb.LowerBand.Current.Value
-        else:
-            return price < self.bb.LowerBand.Current.Value
-    
-    def should_enter_short(self, price):
-        """Short entry signal based on archetype strategy"""
-        if not self.IndicatorsReady():
-            return False
-        
-        if self.archetype == "mean_reversion":
-            return price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > self.rsi_overbought
-        elif self.archetype == "breakout":
-            return price < self.bb.LowerBand.Current.Value and self.adx.Current.Value > self.adx_threshold
-        elif self.archetype == "trend_following":
-            return self.ema_fast.Current.Value < self.ema_slow.Current.Value and self.adx.Current.Value > self.adx_threshold
-        elif self.archetype == "scalping":
-            return self.rsi.Current.Value > self.rsi_overbought
-        elif self.archetype == "gap_fade":
-            return price > self.bb.UpperBand.Current.Value
-        else:
-            return price > self.bb.UpperBand.Current.Value
+    # SIGNAL METHODS - dynamically generated from strategy rules or archetype
+${signalLogic}
     
     def OnSecuritiesChanged(self, changes):
         """Handle contract additions/removals for proper indicator binding"""

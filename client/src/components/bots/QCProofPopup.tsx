@@ -211,8 +211,6 @@ export function QCProofPopup({
       <DialogContent 
         className="max-w-sm p-0 gap-0 overflow-hidden" 
         data-testid="dialog-qc-proof"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className={cn("p-4 border-b", statusConfig.bgColor)}>
           <DialogTitle className="flex items-center gap-2 text-base">
