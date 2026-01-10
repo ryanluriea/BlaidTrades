@@ -4,7 +4,7 @@ import {
   AlertCircle, Zap, Rocket, Loader2, DollarSign, Activity, Radio, Microscope,
   CheckCircle2, XCircle, Clock, ChevronRight, TrendingUp, Shield, Lightbulb,
   ExternalLink, BarChart2, Layers, ArrowRight, BookOpen, MessageSquare, ArrowDownCircle,
-  Download, GitBranch, History, Users
+  Download, GitBranch, History, Users, MoreVertical
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -43,6 +43,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { format, isValid, formatDistanceToNow } from "date-fns";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -1026,51 +1033,38 @@ export default function ResearchMonitor() {
                   </TooltipContent>
                 </Tooltip>
                 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="icon" 
-                      variant={autoScroll ? "secondary" : "ghost"} 
-                      onClick={() => setAutoScroll(!autoScroll)} 
-                      data-testid="button-autoscroll"
-                      className="h-7 w-7"
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" data-testid="button-more-options">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem 
+                      onClick={() => setAutoScroll(!autoScroll)}
+                      data-testid="menu-autoscroll"
                     >
-                      <ArrowDownCircle className={cn("h-3.5 w-3.5", autoScroll && "text-primary")} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">{autoScroll ? "Auto-scroll: ON" : "Auto-scroll: OFF"}</p>
-                  </TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" onClick={clearEvents} data-testid="button-clear" className="h-7 w-7">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">Clear all events</p>
-                  </TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={exportReport} 
-                      data-testid="button-export"
+                      <ArrowDownCircle className={cn("h-4 w-4 mr-2", autoScroll && "text-primary")} />
+                      Auto-scroll {autoScroll ? "ON" : "OFF"}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={clearEvents}
+                      data-testid="menu-clear"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear Events
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={exportReport}
                       disabled={candidates.length === 0}
-                      className="h-7 w-7"
+                      data-testid="menu-export"
                     >
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">{candidates.length === 0 ? "No data to export" : "Download research report"}</p>
-                  </TooltipContent>
-                </Tooltip>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Report
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
