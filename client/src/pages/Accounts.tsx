@@ -124,12 +124,12 @@ export default function Accounts() {
   return (
     <AppLayout title="Accounts">
       <div className="space-y-4">
-        {/* Header Row - Stage Routing + Actions on same line */}
+        {/* Header Bar - Matches Bots page styling */}
         <Collapsible open={showRouting} onOpenChange={setShowRouting}>
-          <div className="flex items-center justify-between gap-4">
+          <div className="sticky top-0 z-50 flex items-center justify-between gap-4 px-4 lg:px-6 py-2 -mx-4 lg:-mx-6 bg-card border-b border-border/30">
             {/* Stage Routing Trigger */}
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="justify-start gap-1.5 h-8 text-xs text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="sm" className="justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground" data-testid="button-stage-routing-toggle">
                 <Settings className="w-3.5 h-3.5" />
                 Stage Routing Defaults
                 {!showRouting && (
@@ -162,21 +162,21 @@ export default function Accounts() {
                 onValueChange={(v) => v && setViewMode(v as "cards" | "table")}
                 className="border border-border rounded-md"
               >
-                <ToggleGroupItem value="cards" size="sm" className="h-8 px-2">
+                <ToggleGroupItem value="cards" size="sm" data-testid="toggle-view-cards">
                   <LayoutGrid className="w-4 h-4" />
                 </ToggleGroupItem>
-                <ToggleGroupItem value="table" size="sm" className="h-8 px-2">
+                <ToggleGroupItem value="table" size="sm" data-testid="toggle-view-table">
                   <LayoutList className="w-4 h-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
-              <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+              <Button size="sm" onClick={() => setCreateDialogOpen(true)} data-testid="button-add-account">
                 <Plus className="w-4 h-4 mr-1.5" />
                 Add Account
               </Button>
             </div>
           </div>
           
-          <CollapsibleContent className="pt-2">
+          <CollapsibleContent className="pt-3 px-4 lg:px-6 -mx-4 lg:-mx-6 bg-muted/30 border-b border-border/30 pb-3">
             <StageRoutingPanel
               defaultAccounts={stageDefaults}
               onDefaultChange={handleStageDefaultChange}
