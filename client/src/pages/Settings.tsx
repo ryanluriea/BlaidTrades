@@ -1527,11 +1527,26 @@ export default function Settings() {
     window.history.replaceState({}, "", cleanUrl.toString());
     
     if (googleDriveConnected === "true") {
-      // Invalidate cloud backup queries to fetch fresh connected status
-      queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/status"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cloud-backup/dashboard"] });
+      // Use async IIFE to await refetch before showing success feedback
+      (async () => {
+        try {
+          // refetchQueries forces immediate data fetch and returns when complete
+          await Promise.all([
+            queryClient.refetchQueries({ 
+              queryKey: ["/api/cloud-backup/status"],
+              type: 'all'
+            }),
+            queryClient.refetchQueries({ 
+              queryKey: ["/api/cloud-backup/dashboard"],
+              type: 'all'
+            }),
+          ]);
+          console.log("[OAUTH_CALLBACK] Cloud backup queries refetched after Google Drive connection");
+        } catch (err) {
+          console.error("[OAUTH_CALLBACK] Failed to refetch cloud backup status:", err);
+        }
+      })();
       
-      // Show success toast
       toast.success("Google Drive Connected", {
         description: "Your account is now linked. You can backup and restore your data.",
       });

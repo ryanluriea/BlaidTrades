@@ -118,3 +118,14 @@ render.yaml                      # Render Blueprint - auto-detected
 infrastructure/render/README.md  # Deployment guide
 ```
 Estimated cost: $110-300/month for production with auto-scaling.
+
+## Recent Changes
+
+### 2026-01-10: Google Drive OAuth Table Migration
+- Created `user_google_drive_tokens` table for Google Drive OAuth token storage
+- Migration file: `migrations/0001_add_user_google_drive_tokens.sql`
+- **Production Deployment Note**: Run this migration on production database before enabling Google Drive backup:
+  ```sql
+  \i migrations/0001_add_user_google_drive_tokens.sql
+  ```
+  Or use `npm run db:push` against the production DATABASE_URL.
