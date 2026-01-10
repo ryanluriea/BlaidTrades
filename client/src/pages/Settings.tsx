@@ -1510,6 +1510,18 @@ export default function Settings() {
     return tabParam && validTabs.includes(tabParam) ? tabParam : "profile";
   });
 
+  // Sync tab changes to URL for bookmarkable/shareable links
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    const url = new URL(window.location.href);
+    if (newTab === "profile") {
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.set("tab", newTab);
+    }
+    window.history.replaceState({}, "", url.toString());
+  };
+
   // Handle OAuth callback URL parameters (Google Drive connection success/error)
   // Runs once on mount, captures initial URL state before any cleanup
   useEffect(() => {
@@ -1686,7 +1698,7 @@ export default function Settings() {
   return (
     <AppLayout title="Settings">
       <div className="space-y-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList className="h-auto p-1 bg-muted/50 border border-border rounded-md flex flex-wrap gap-1">
             <TabsTrigger 
               value="profile" 
