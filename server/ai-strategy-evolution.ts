@@ -1819,7 +1819,7 @@ function extractCleanJSON(rawContent: string): string | null {
   if (depth > 0 && depth <= 10) {
     console.warn(`[STRATEGY_LAB] JSON truncated (depth=${depth}), attempting repair...`);
     
-    // Track what needs to be closed by re-scanning
+    // Track what needs to be closed by re-scanning with proper string/escape tracking
     let repairContent = content;
     const bracketStack: string[] = [];
     let repairInString = false;
@@ -1828,21 +1828,25 @@ function extractCleanJSON(rawContent: string): string | null {
     for (let i = 0; i < repairContent.length; i++) {
       const char = repairContent[i];
       
+      // Handle escape sequences - escape flag applies to the NEXT character
       if (repairEscaped) {
         repairEscaped = false;
         continue;
       }
       
+      // Backslash starts an escape sequence only inside strings
       if (char === '\\' && repairInString) {
         repairEscaped = true;
         continue;
       }
       
+      // Toggle string state on unescaped quotes
       if (char === '"') {
         repairInString = !repairInString;
         continue;
       }
       
+      // Only track brackets when OUTSIDE of strings (handles URLs with {/} in them)
       if (!repairInString) {
         if (char === '{') bracketStack.push('}');
         else if (char === '[') bracketStack.push(']');
@@ -1850,25 +1854,104 @@ function extractCleanJSON(rawContent: string): string | null {
       }
     }
     
-    // If we ended inside a string, close it first
+    // Log repair diagnostics
+    console.log(`[STRATEGY_LAB] Repair state: inString=${repairInString} escaped=${repairEscaped} unclosedBrackets=${bracketStack.length}`);
+    
+    // Strategy: Try multiple repair approaches
+    const repairAttempts: { description: string; content: string }[] = [];
+    
+    // APPROACH 1: Close unterminated string and add null value if needed for keys
+    let approach1 = repairContent;
     if (repairInString) {
-      repairContent += '"';
+      approach1 += '"';
+      // If next closer is }, we might have closed a key without value - add null
+      if (bracketStack.length > 0 && bracketStack[bracketStack.length - 1] === '}') {
+        approach1 += ': null';
+      }
+    }
+    // Remove trailing comma or colon
+    let a1LastChar = approach1.trim().slice(-1);
+    if (a1LastChar === ',' || a1LastChar === ':') {
+      approach1 = approach1.trimEnd().slice(0, -1);
+    }
+    // Close brackets
+    for (let i = bracketStack.length - 1; i >= 0; i--) {
+      approach1 += bracketStack[i];
+    }
+    repairAttempts.push({ description: 'close_string_with_null', content: approach1 });
+    
+    // APPROACH 2: Truncate to last complete element (find last }, ] or complete value)
+    // Find the last valid JSON boundary before truncation
+    let lastValidIdx = -1;
+    let scanInString = false;
+    let scanEscaped = false;
+    for (let i = 0; i < repairContent.length; i++) {
+      const c = repairContent[i];
+      if (scanEscaped) { scanEscaped = false; continue; }
+      if (c === '\\' && scanInString) { scanEscaped = true; continue; }
+      if (c === '"') { scanInString = !scanInString; continue; }
+      if (!scanInString) {
+        // Track positions after complete elements
+        if (c === '}' || c === ']' || c === ',') {
+          lastValidIdx = i;
+        }
+      }
     }
     
-    // Close any open brackets in reverse order
-    while (bracketStack.length > 0) {
-      const closer = bracketStack.pop();
-      repairContent += closer;
+    if (lastValidIdx > repairContent.length / 2) {
+      let approach2 = repairContent.slice(0, lastValidIdx + 1);
+      // Recompute brackets for truncated content
+      const stack2: string[] = [];
+      let s2InString = false;
+      let s2Escaped = false;
+      for (let i = 0; i < approach2.length; i++) {
+        const c = approach2[i];
+        if (s2Escaped) { s2Escaped = false; continue; }
+        if (c === '\\' && s2InString) { s2Escaped = true; continue; }
+        if (c === '"') { s2InString = !s2InString; continue; }
+        if (!s2InString) {
+          if (c === '{') stack2.push('}');
+          else if (c === '[') stack2.push(']');
+          else if (c === '}' || c === ']') stack2.pop();
+        }
+      }
+      // Remove trailing comma
+      let a2LastChar = approach2.trim().slice(-1);
+      if (a2LastChar === ',') {
+        approach2 = approach2.trimEnd().slice(0, -1);
+      }
+      // Close remaining brackets
+      for (let i = stack2.length - 1; i >= 0; i--) {
+        approach2 += stack2[i];
+      }
+      repairAttempts.push({ description: 'truncate_to_last_valid', content: approach2 });
     }
     
-    // Verify the repair worked by parsing
-    try {
-      JSON.parse(repairContent);
-      console.log(`[STRATEGY_LAB] JSON repair SUCCESS - appended ${repairContent.length - content.length} closing chars`);
-      return repairContent;
-    } catch (repairErr) {
-      console.error(`[STRATEGY_LAB] JSON repair FAILED: ${repairErr instanceof Error ? repairErr.message : 'unknown'}`);
+    // APPROACH 3: Just close brackets (no string close - in case string wasn't actually open)
+    let approach3 = repairContent;
+    let a3LastChar = approach3.trim().slice(-1);
+    if (a3LastChar === ',' || a3LastChar === ':') {
+      approach3 = approach3.trimEnd().slice(0, -1);
     }
+    for (let i = bracketStack.length - 1; i >= 0; i--) {
+      approach3 += bracketStack[i];
+    }
+    repairAttempts.push({ description: 'close_brackets_only', content: approach3 });
+    
+    // Try each approach until one works
+    for (const attempt of repairAttempts) {
+      try {
+        JSON.parse(attempt.content);
+        console.log(`[STRATEGY_LAB] JSON repair SUCCESS (${attempt.description}) - result ${attempt.content.length} chars`);
+        return attempt.content;
+      } catch (e) {
+        // Continue to next approach
+      }
+    }
+    
+    // All approaches failed
+    console.error(`[STRATEGY_LAB] JSON repair FAILED: All ${repairAttempts.length} approaches failed`);
+    console.error(`[STRATEGY_LAB] Repair attempt last 100 chars: ${repairAttempts[0]?.content.slice(-100) || 'none'}`);
   }
   
   // DEBUG: Log why extraction failed

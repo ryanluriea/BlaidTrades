@@ -657,7 +657,8 @@ export const candidateSourceEnum = pgEnum("candidate_source", [
   "LAB_FEEDBACK",
   "REGIME_SHIFT",
   "MANUAL",
-  "EXTERNAL_AI"
+  "EXTERNAL_AI",
+  "GROK_RESEARCH"
 ]);
 
 export const sourceTierEnum = pgEnum("source_tier", [
