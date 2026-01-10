@@ -121,6 +121,25 @@ Estimated cost: $110-300/month for production with auto-scaling.
 
 ## Recent Changes
 
+### 2026-01-10: Autonomous Trading Infrastructure Complete
+**Major autonomous systems implementation across 18 phases:**
+
+**Phase 1-3: Core Infrastructure**
+- **Promotion Engine** (`server/promotion-engine.ts`): Automated metric-based gates for LAB→PAPER→SHADOW→CANARY→LIVE transitions with automatic demotion on performance degradation
+- **Governance Approval** (`server/governance-approval.ts`): Maker-checker dual approval workflow for CANARY→LIVE with 24h expiration
+- **Risk Enforcement** (`server/risk-enforcement.ts`): VaR limits, drawdown gates (WARNING at 10%, SOFT_BLOCK at 15%, HARD_BLOCK at 20%), daily loss limits, blown account recovery
+
+**Phase 4: Execution Bridges**
+- **Ironbeam Execution** (`server/ironbeam-live-client.ts`): Added submitOrder, getOrderStatus, cancelOrder, getPositions with stage gating (simulation for PAPER/SHADOW, real for CANARY/LIVE)
+- **TWAP/VWAP Algorithms** (`server/execution-algorithms.ts`): Smart order execution with time/volume weighting, slippage tracking, active execution management
+
+**Phase 5: Signal Generation**
+- **AI Signal Cascade** (`server/ai-signal-cascade.ts`): 6 LLM providers (Groq→OpenAI→Anthropic→Gemini→xAI→OpenRouter) with health tracking, automatic failover, signal aggregation
+
+**Phase 6: Learning Systems**
+- **Grok Feedback Loop** (`server/grok-feedback-collector.ts`): Performance feedback recording, winning/losing pattern extraction, auto-evolution from trade outcomes
+- **Scheduler Integration** (`server/scheduler.ts`): New workers - Promotion (30min), Governance Expiration (1hr), Risk Enforcement (5min)
+
 ### 2026-01-10: Google Drive OAuth Table Migration
 - Created `user_google_drive_tokens` table for Google Drive OAuth token storage
 - Migration file: `migrations/0001_add_user_google_drive_tokens.sql`
