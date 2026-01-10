@@ -291,6 +291,42 @@ function getIndicatorCode(archetype: string, config: Record<string, any>, resolu
   }
 }
 
+/**
+ * Get just the Python predicate expression for a specific direction
+ * Used for per-direction fallbacks when rule parser fails for one direction
+ */
+function getArchetypePredicate(archetype: string, direction: 'long' | 'short', config: Record<string, any>): string {
+  const rsiOversold = config.rsiOversold || 30;
+  const rsiOverbought = config.rsiOverbought || 70;
+  const adxThreshold = config.adxThreshold || 25;
+  
+  const predicates: Record<string, { long: string; short: string }> = {
+    mean_reversion: {
+      long: `price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < ${rsiOversold}`,
+      short: `price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > ${rsiOverbought}`,
+    },
+    breakout: {
+      long: `price > self.bb.UpperBand.Current.Value and self.adx.Current.Value > ${adxThreshold}`,
+      short: `price < self.bb.LowerBand.Current.Value and self.adx.Current.Value > ${adxThreshold}`,
+    },
+    trend_following: {
+      long: `self.ema_fast.Current.Value > self.ema_slow.Current.Value and self.adx.Current.Value > ${adxThreshold}`,
+      short: `self.ema_fast.Current.Value < self.ema_slow.Current.Value and self.adx.Current.Value > ${adxThreshold}`,
+    },
+    scalping: {
+      long: `self.rsi.Current.Value < ${rsiOversold}`,
+      short: `self.rsi.Current.Value > ${rsiOverbought}`,
+    },
+    gap_fade: {
+      long: `price < self.bb.LowerBand.Current.Value`,
+      short: `price > self.bb.UpperBand.Current.Value`,
+    },
+  };
+  
+  const archetypePredicates = predicates[archetype] || predicates.mean_reversion;
+  return archetypePredicates[direction];
+}
+
 function getSignalLogic(archetype: string, config: Record<string, any>): string {
   const rsiOversold = config.rsiOversold || 30;
   const rsiOverbought = config.rsiOverbought || 70;
@@ -417,31 +453,29 @@ export function translateToLEAN(input: StrategyTranslationInput): TranslationRes
       const hasValidLong = !parsedRules.longEntry.startsWith('False');
       const hasValidShort = !parsedRules.shortEntry.startsWith('False');
       
-      // Get archetype-based fallback logic for per-direction fallbacks
-      const archetypeFallback = getSignalLogic(input.archetype, input.strategyConfig);
-      const archetypeLongMatch = archetypeFallback.match(/def should_enter_long\(self, price\):[\s\S]*?return (.*?)$/m);
-      const archetypeShortMatch = archetypeFallback.match(/def should_enter_short\(self, price\):[\s\S]*?return (.*?)$/m);
-      
-      // Per-direction fallback: if one direction parses but not the other, use archetype for the missing direction
+      // Per-direction fallback: if one direction parses but not the other, use archetype predicate for the missing direction
+      // Uses structured getArchetypePredicate instead of fragile regex extraction
       const longLogic = hasValidLong 
         ? parsedRules.longEntry 
-        : (archetypeLongMatch?.[1] || 'price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < 30');
+        : getArchetypePredicate(input.archetype, 'long', input.strategyConfig);
       const shortLogic = hasValidShort 
         ? parsedRules.shortEntry 
-        : (archetypeShortMatch?.[1] || 'price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > 70');
+        : getArchetypePredicate(input.archetype, 'short', input.strategyConfig);
       
-      console.log(`[LEAN_TRANSLATOR] Per-direction: long=${hasValidLong ? 'PARSED' : 'FALLBACK'} short=${hasValidShort ? 'PARSED' : 'FALLBACK'}`);
+      // Calculate confidence: 100% if both parsed, 50% if one fell back
+      const confidencePct = hasValidLong && hasValidShort ? 100 : (hasValidLong || hasValidShort ? 50 : 0);
+      console.log(`[LEAN_TRANSLATOR] Per-direction: long=${hasValidLong ? 'PARSED' : 'FALLBACK'} short=${hasValidShort ? 'PARSED' : 'FALLBACK'} confidence=${confidencePct}%`);
       
       signalLogic = `
     def should_enter_long(self, price):
-        """Long entry signal - ${hasValidLong ? 'parsed from rules_json' : 'archetype fallback'}"""
+        """Long entry signal - ${hasValidLong ? 'parsed from rules_json' : `archetype fallback (${input.archetype})`}"""
         if not self.IndicatorsReady():
             return False
         # ${hasValidLong ? `Parsed: ${JSON.stringify(input.rulesJson?.entry?.slice(0, 2))}` : `Fallback: archetype=${input.archetype}`}
         return ${longLogic}
     
     def should_enter_short(self, price):
-        """Short entry signal - ${hasValidShort ? 'parsed from rules_json' : 'archetype fallback'}"""
+        """Short entry signal - ${hasValidShort ? 'parsed from rules_json' : `archetype fallback (${input.archetype})`}"""
         if not self.IndicatorsReady():
             return False
         # ${hasValidShort ? 'Parsed from rules_json' : `Fallback: archetype=${input.archetype}`}
