@@ -102,3 +102,21 @@ The platform implements institutional-grade "fail-closed" data integrity pattern
 - Backtest executor: Classifies errors and halts on CRITICAL
 - Matrix worker: Records batch metrics for variance detection
 - Discord alerts: Sent when variance or fallback thresholds breached
+
+## Testing Infrastructure
+
+**Unit Tests (server/tests/unit/):**
+- `ast-rule-parser.test.ts`: 26 tests covering tokenizer, indicator registry, institutional parse, provenance tracking, and edge cases
+- `qc-optimization.test.ts`: 31 tests covering grid generation, deterministic hashing, result ranking, parameter sensitivity, walk-forward analysis, and verification gates
+- `qc-monitoring.test.ts`: 13 tests covering parse method recording, verification gate outcomes, walk-forward results, and optimization metrics
+
+**Running Tests:**
+```bash
+cd server/tests && npx vitest run --config vitest.config.ts
+```
+
+**Key Test Coverage:**
+- Indicator Registry: 18 indicators (rsi, macd, bb, ema, sma, adx, atr, vwap, stoch, cci, mfi, roc, williams, keltner, donchian, ichimoku, psar, supertrend)
+- QC Optimization: Grid search up to 50 combinations, walk-forward analysis with 60% robustness threshold
+- Verification Gates: MIN_TRADES (≥30), SHARPE_THRESHOLD (>0), MAX_DRAWDOWN (<25%), WIN_RATE (≥45%), PROFIT_FACTOR (≥1.2)
+- Monitoring: Parse method distribution, confidence averaging, verification pass rates, recent verification history (100-record cap)

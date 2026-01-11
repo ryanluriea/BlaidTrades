@@ -9,9 +9,11 @@
  * - Comprehensive indicator registry
  * - Provenance tracking with SHA-256 hash chain
  * - Confidence scoring for parse quality
+ * - Integrated monitoring for institutional compliance
  */
 
 import { parseRulesInstitutional, generateProvenance, INDICATOR_REGISTRY, type ProvenanceRecord } from './ruleParser';
+import { recordParseMethod, type ParseMethod } from '../../qc-monitoring';
 
 export interface StrategyRules {
   entry?: string[];
@@ -1364,6 +1366,17 @@ ${signalLogic}
         self.Debug(f"EQUITY: start=100000 final={final_equity:.0f} hwm={self.portfolio_high_water_mark:.0f}")
         self.Debug(f"DRAWDOWN: final={final_dd:.1f}% halted={self.trading_halted}")
 `;
+
+    // INSTITUTIONAL MONITORING: Record parse method metrics
+    const indicatorCount = institutionalParse?.requiredIndicators.length || 
+                           parsedRules?.requiredIndicators.length || 0;
+    recordParseMethod({
+      method: parseMethod,
+      confidence: parseConfidence,
+      indicatorCount,
+      parseTimeMs: 0, // Would need to add timing if needed
+      provenance: provenance || undefined,
+    });
 
     return {
       success: true,

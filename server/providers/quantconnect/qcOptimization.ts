@@ -134,10 +134,19 @@ export function rankOptimizationResults(
   results: OptimizationResult[],
   primaryMetric: 'sharpe' | 'profit_factor' | 'win_rate' | 'sortino' | 'calmar'
 ): OptimizationResult[] {
+  const metricKeyMap: Record<string, keyof OptimizationResult['metrics']> = {
+    sharpe: 'sharpe',
+    profit_factor: 'profitFactor',
+    win_rate: 'winRate',
+    sortino: 'sortino',
+    calmar: 'calmar',
+  };
+  const metricKey = metricKeyMap[primaryMetric] || 'sharpe';
+  
   return results
     .sort((a, b) => {
-      const aValue = a.metrics[primaryMetric === 'profit_factor' ? 'profitFactor' : primaryMetric] || 0;
-      const bValue = b.metrics[primaryMetric === 'profit_factor' ? 'profitFactor' : primaryMetric] || 0;
+      const aValue = a.metrics[metricKey] || 0;
+      const bValue = b.metrics[metricKey] || 0;
       return bValue - aValue;
     })
     .map((result, index) => ({ ...result, rank: index + 1 }));

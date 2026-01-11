@@ -48,6 +48,12 @@ import {
   getEligibleBots,
 } from "./tournament-engine";
 import { getTournamentSchedulerMetrics } from "./scheduler";
+import { 
+  getMonitoringMetrics, 
+  getRecentVerifications, 
+  getParseMethodDistribution,
+  logMonitoringSummary,
+} from "./qc-monitoring";
 
 function isValidUuid(str: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -553,6 +559,39 @@ export function registerRoutes(app: Express) {
       res.json({ success: true, cancelled });
     } catch (err) {
       res.status(500).json({ error: "Failed to cancel load test" });
+    }
+  });
+
+  // =====================================================
+  // QC INSTITUTIONAL MONITORING
+  // =====================================================
+  
+  app.get("/api/observability/qc-monitoring", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const metrics = getMonitoringMetrics();
+      const distribution = getParseMethodDistribution();
+      const recentVerifications = getRecentVerifications(20);
+      
+      res.json({
+        success: true,
+        data: {
+          metrics,
+          parseMethodDistribution: distribution,
+          recentVerifications,
+        },
+      });
+    } catch (err) {
+      console.error("[QC_MONITORING] Error getting metrics:", err);
+      res.status(500).json({ error: "Failed to get QC monitoring metrics" });
+    }
+  });
+
+  app.post("/api/observability/qc-monitoring/log-summary", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      logMonitoringSummary();
+      res.json({ success: true, message: "Summary logged to console" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to log monitoring summary" });
     }
   });
 
