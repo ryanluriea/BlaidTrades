@@ -5069,17 +5069,39 @@ export function registerRoutes(app: Express) {
     try {
       const botId = req.params.id;
       const updates = req.body;
-      
-      // INSTITUTIONAL: Enforce timeframe immutability per generation
-      // Timeframe is stored ONLY in strategyConfig.timeframe (no separate column on bots table)
-      // With MERGE semantics in storage for object payloads, only explicit changes trigger the guard
-      // Non-object payloads (null/primitives) would wipe strategyConfig entirely, always blocked if locked
+      const traceId = `bot_update_${Date.now()}`;
       
       // Get current bot first (needed for all validation)
       const currentBot = await storage.getBot(botId);
       if (!currentBot) {
         return res.status(404).json({ error: "Bot not found" });
       }
+      
+      // SEV-0 FAIL-FAST: Validate risk config if being updated
+      if ('riskConfig' in updates && updates.riskConfig) {
+        const riskValidation = validateRiskConfig({
+          riskConfig: updates.riskConfig as RiskConfig,
+          maxContractsPerTrade: updates.riskConfig?.maxContractsPerTrade,
+          maxContractsPerSymbol: updates.riskConfig?.maxContractsPerSymbol,
+          stage: currentBot.stage || "TRIALS",
+          traceId,
+        });
+        
+        const sev0Errors = riskValidation.errors.filter(e => e.severity === "SEV-0");
+        if (sev0Errors.length > 0) {
+          console.error(`[BOT_UPDATE] trace_id=${traceId} bot_id=${botId} RISK_VALIDATION_FAILED errors=${formatValidationErrors(riskValidation)}`);
+          return res.status(400).json({
+            error: "Risk config validation failed",
+            details: formatValidationErrors(riskValidation),
+            errors: sev0Errors,
+          });
+        }
+      }
+      
+      // INSTITUTIONAL: Enforce timeframe immutability per generation
+      // Timeframe is stored ONLY in strategyConfig.timeframe (no separate column on bots table)
+      // With MERGE semantics in storage for object payloads, only explicit changes trigger the guard
+      // Non-object payloads (null/primitives) would wipe strategyConfig entirely, always blocked if locked
       
       // Helper to check if generation is locked (has completed backtests)
       async function isGenerationLocked(generationId: string): Promise<{ locked: boolean; genNum: number | string }> {

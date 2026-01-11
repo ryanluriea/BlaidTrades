@@ -20,7 +20,7 @@ import {
   getStrategyLabTriggerDescription,
 } from "./regime-detector";
 import { queueBaselineBacktest } from "./backtest-executor";
-import { validateArchetype, formatValidationErrors } from "./fail-fast-validators";
+import { validateArchetype, validateSymbol, validateSessionMode, formatValidationErrors, recordFallback } from "./fail-fast-validators";
 import { inferArchetypeFromName, type StrategyArchetype } from "@shared/strategy-types";
 
 const MIN_CONFIDENCE_FOR_LAB = 65;
@@ -1287,9 +1287,49 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
     return { success: true, botId: existingBot.id };
   }
   
+  // INSTITUTIONAL FAIL-CLOSED: Validate before creating bot
+  const archetypeValidation = validateArchetype({
+    archetypeName: candidate.archetypeName,
+    strategyName: candidate.strategyName,
+    traceId,
+  });
+  
+  if (!archetypeValidation.valid) {
+    console.error(`[STRATEGY_LAB_AUTO_PROMOTE] trace_id=${traceId} ARCHETYPE_VALIDATION_FAILED: ${formatValidationErrors(archetypeValidation)}`);
+    recordFallback("archetype", traceId);
+    // Still proceed but use inferred archetype if available
+  }
+  
+  const validArchetype = archetypeValidation.inferredArchetype || candidate.archetypeName || "unknown";
+  
+  const rawSymbol = candidate.instrumentUniverse?.[0] || "MES";
+  const symbolValidation = validateSymbol(rawSymbol);
+  
+  if (!symbolValidation.valid) {
+    console.error(`[STRATEGY_LAB_AUTO_PROMOTE] trace_id=${traceId} SYMBOL_VALIDATION_FAILED: ${rawSymbol}`);
+    return { success: false, error: `Invalid symbol: ${rawSymbol}` };
+  }
+  
+  const symbol = symbolValidation.normalizedSymbol || rawSymbol;
+  
+  const sessionModeValidation = validateSessionMode({
+    sessionMode: candidate.sessionModePreference,
+    stage: "TRIALS",
+    traceId,
+  });
+  
+  if (!sessionModeValidation.valid) {
+    console.error(`[STRATEGY_LAB_AUTO_PROMOTE] trace_id=${traceId} SESSION_MODE_VALIDATION_FAILED: ${candidate.sessionModePreference}`);
+    return { success: false, error: `Invalid session mode: ${candidate.sessionModePreference}` };
+  }
+  
+  if (sessionModeValidation.warnings.length > 0) {
+    recordFallback("sessionMode", traceId);
+  }
+  
   const strategyConfig = {
     archetypeId: candidate.archetypeId || null,
-    archetypeName: candidate.archetypeName || "unknown",
+    archetypeName: validArchetype,
     rules: candidate.rulesJson || {},
     explainers: candidate.explainersJson || null,
     expectedBehavior: candidate.expectedBehaviorJson || {},
@@ -1299,8 +1339,6 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
     candidateId,
     confidenceScore: candidate.confidenceScore ?? 0,
   };
-
-  const symbol = candidate.instrumentUniverse?.[0] || "MES";
   
   const newBot = await storage.createBot({
     userId: DEFAULT_USER_ID,

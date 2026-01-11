@@ -50,6 +50,7 @@ import { startScheduledDriftDetection, stopScheduledDriftDetection } from "./dri
 import { runPromotionWorker } from "./promotion-engine";
 import { expireStaleRequests } from "./governance-approval";
 import { runRiskEnforcementCheck } from "./risk-enforcement";
+import { recordBatchMetrics, recordFallback, getFallbackMetrics } from "./fail-fast-validators";
 
 // Reconciliation interval - runs every 30 minutes to detect and fix stuck candidates
 let reconciliationInterval: NodeJS.Timeout | null = null;
@@ -1452,6 +1453,33 @@ async function processMatrixRun(matrixRunId: string, botId: string, traceId: str
       failedCells: failedCount,
       currentTimeframe: null,
     }).where(eq(matrixRuns.id, matrixRunId));
+    
+    // INSTITUTIONAL: Record batch metrics for variance detection
+    // Fetch all completed cells to check for anomalies (all identical = bug indicator)
+    try {
+      const completedCells = await db.select({
+        sharpeRatio: matrixCells.sharpeRatio,
+        profitFactor: matrixCells.profitFactor,
+        winRate: matrixCells.winRate,
+      })
+        .from(matrixCells)
+        .where(and(
+          eq(matrixCells.matrixRunId, matrixRunId),
+          eq(matrixCells.status, "completed")
+        ));
+      
+      if (completedCells.length >= 3) {
+        const sharpeValues = completedCells.map(c => Number(c.sharpeRatio) || 0);
+        const pfValues = completedCells.map(c => Number(c.profitFactor) || 0);
+        const wrValues = completedCells.map(c => Number(c.winRate) || 0);
+        
+        recordBatchMetrics(`matrix_${matrixRunId}`, "sharpe", sharpeValues);
+        recordBatchMetrics(`matrix_${matrixRunId}`, "profitFactor", pfValues);
+        recordBatchMetrics(`matrix_${matrixRunId}`, "winRate", wrValues);
+      }
+    } catch (metricsError) {
+      console.warn(`[MATRIX_WORKER] trace_id=${traceId} variance_check_error:`, metricsError);
+    }
     
     // INSTITUTIONAL: Promote matrix results to bot table for UI display
     await promoteMatrixToBot(botId, matrixRunId, traceId);

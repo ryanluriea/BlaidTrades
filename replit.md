@@ -66,3 +66,39 @@ The platform employs a modular monolith architecture, utilizing a React frontend
 -   **Broker APIs:** Live trading execution (Ironbeam, Tradovate).
 -   **Redis:** Optional cache for performance enhancements.
 -   **Google Drive API:** Used for cloud backup and restore functionality.
+
+## Fail-Fast Validators (Institutional Data Integrity)
+
+The platform implements institutional-grade "fail-closed" data integrity patterns. Invalid data halts operations rather than continuing with silent defaults.
+
+**Environment Variables:**
+- `MAX_CONTRACTS_TRIALS`: Max contracts per trade for TRIALS stage (default: 10)
+- `MAX_CONTRACTS_PAPER`: Max contracts per trade for PAPER stage (default: 20)
+- `MAX_CONTRACTS_SHADOW`: Max contracts per trade for SHADOW stage (default: 30)
+- `MAX_CONTRACTS_CANARY`: Max contracts per trade for CANARY stage (default: 50)
+- `MAX_CONTRACTS_LIVE`: Max contracts per trade for LIVE stage (default: 100)
+- `VARIANCE_ALERT_THRESHOLD`: Variance threshold for batch metric alerts (default: 0.001)
+- `FALLBACK_ALERT_THRESHOLD`: Fallback rate threshold for alerting (default: 0.05 = 5%)
+
+**Validation Severity Levels:**
+- SEV-0: Critical - blocks bot/candidate creation entirely
+- SEV-1: High - blocks promotion but allows creation
+- SEV-2: Warning - logged but doesn't block operations
+
+**Key Validators (server/fail-fast-validators.ts):**
+- `validateRiskConfig`: Ensures stopLoss, takeProfit, maxPositionSize present
+- `validatePromotionMetrics`: Blocks promotions with NULL Sharpe/drawdown/winRate
+- `validateArchetype`: Requires valid archetype or inference from name
+- `validateSessionMode`: Blocks invalid modes, warns on implicit defaults
+- `validateSymbol`: Enforces supported symbols with normalization
+- `validateTimeframe`: Validates 1m/5m/15m/30m/1h/4h/1d timeframes
+- `classifyBacktestError`: Categorizes errors as CRITICAL/RECOVERABLE/WARNING
+- `recordBatchMetrics`: Detects near-zero variance (all identical = bug)
+- `recordFallback`: Tracks and alerts on high fallback rates
+
+**Wiring Points:**
+- Bot creation/update: Routes validate risk config before persistence
+- Strategy Lab: Validates archetype/symbol/sessionMode before promotion
+- Backtest executor: Classifies errors and halts on CRITICAL
+- Matrix worker: Records batch metrics for variance detection
+- Discord alerts: Sent when variance or fallback thresholds breached

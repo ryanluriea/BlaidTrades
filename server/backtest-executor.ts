@@ -5,6 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import * as crypto from "crypto";
 import { logActivityEvent } from "./activity-logger";
 import Decimal from "decimal.js";
+import { classifyBacktestError, recordBatchMetrics } from "./fail-fast-validators";
 
 Decimal.config({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 import {
@@ -951,25 +952,48 @@ export async function executeBacktest(
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error(`[BACKTEST_EXECUTOR] trace_id=${traceId} session_id=${sessionId} error=`, error);
+    
+    // INSTITUTIONAL FAIL-CLOSED: Classify backtest errors for proper handling
+    const classification = classifyBacktestError(errorMessage);
+    const classificationInfo = {
+      code: classification.code,
+      severity: classification.severity,
+      shouldHalt: classification.shouldHalt,
+    };
+    
+    console.error(`[BACKTEST_EXECUTOR] trace_id=${traceId} session_id=${sessionId} error_class=${classification.code} severity=${classification.severity} halt=${classification.shouldHalt} error=`, error);
 
     await db.update(backtestSessions)
       .set({
         status: "failed",
         completedAt: new Date(),
         errorMessage,
-      })
+        // Store classification for downstream analysis
+        errorClassification: classificationInfo,
+      } as any)
       .where(eq(backtestSessions.id, sessionId));
 
     await logActivityEvent({
       botId: config.botId,
       eventType: "BACKTEST_FAILED",
-      severity: "ERROR",
-      title: `Backtest failed for ${bot.name}`,
+      severity: classification.severity === "CRITICAL" ? "CRITICAL" : "ERROR",
+      title: `Backtest failed for ${bot.name}: ${classification.code}`,
       summary: errorMessage,
-      payload: { sessionId, error: errorMessage, suggestedFix: "Check bot configuration and data availability" },
+      payload: { 
+        sessionId, 
+        error: errorMessage, 
+        classification: classificationInfo,
+        suggestedFix: classification.shouldHalt 
+          ? "Critical error - investigate before retrying" 
+          : "Check bot configuration and data availability" 
+      },
       traceId,
     });
+
+    // For critical errors, log the halt (don't throw - we already marked session as failed)
+    if (classification.shouldHalt) {
+      console.error(`[BACKTEST_EXECUTOR] trace_id=${traceId} CRITICAL_HALT code=${classification.code} - ${classification.message}`);
+    }
 
     return { success: false, error: errorMessage };
   }

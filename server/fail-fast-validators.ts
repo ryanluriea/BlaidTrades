@@ -9,6 +9,27 @@
 
 import { inferArchetypeFromName, type StrategyArchetype } from "@shared/strategy-types";
 
+// ============ ALERTING INFRASTRUCTURE ============
+
+/**
+ * Send a fail-fast alert to Discord and console
+ * Non-blocking - failures logged but don't break the validation flow
+ */
+async function sendFailFastAlert(alertType: "VARIANCE" | "FALLBACK" | "CRITICAL", title: string, details: string): Promise<void> {
+  try {
+    // Dynamic import to avoid circular dependencies
+    const { sendDiscord } = await import("./providers/notify/discordWebhook");
+    
+    await sendDiscord({
+      channel: "system_health",
+      message: `[FAIL-FAST ${alertType}] ${title}\n\n${details}`,
+      severity: alertType === "CRITICAL" ? "ERROR" : "WARNING",
+    });
+  } catch (err) {
+    console.error(`[FAIL_FAST_ALERT] Failed to send Discord alert: ${err}`);
+  }
+}
+
 // ============ CONFIGURATION HELPERS ============
 
 /**
@@ -720,14 +741,22 @@ const fallbackMetrics: FallbackMetrics = {
 // Threshold for alerting (5% fallback rate)
 const FALLBACK_ALERT_THRESHOLD = parseFloat(process.env.FALLBACK_ALERT_THRESHOLD || "0.05");
 
-export function recordFallback(type: keyof Omit<FallbackMetrics, "totalValidations">) {
+export function recordFallback(type: keyof Omit<FallbackMetrics, "totalValidations">, traceId?: string) {
   fallbackMetrics[type]++;
   fallbackMetrics.totalValidations++;
   
   // Check if we should alert
   const rate = fallbackMetrics[type] / fallbackMetrics.totalValidations;
   if (rate > FALLBACK_ALERT_THRESHOLD && fallbackMetrics.totalValidations >= 20) {
-    console.warn(`[FALLBACK_ALERT] ${type} fallback rate ${(rate * 100).toFixed(1)}% exceeds threshold ${(FALLBACK_ALERT_THRESHOLD * 100).toFixed(1)}%`);
+    const message = `[FALLBACK_ALERT] ${type} fallback rate ${(rate * 100).toFixed(1)}% exceeds threshold ${(FALLBACK_ALERT_THRESHOLD * 100).toFixed(1)}%`;
+    console.warn(message);
+    
+    // Send Discord alert asynchronously (non-blocking)
+    sendFailFastAlert(
+      "FALLBACK",
+      `High Fallback Rate: ${type}`,
+      `Type: ${type}\nCurrent Rate: ${(rate * 100).toFixed(1)}%\nThreshold: ${(FALLBACK_ALERT_THRESHOLD * 100).toFixed(1)}%\nTotal Fallbacks: ${fallbackMetrics[type]}\nTotal Validations: ${fallbackMetrics.totalValidations}\nTrace ID: ${traceId || 'N/A'}\n\nHigh fallback rates indicate data quality issues or misconfiguration.`
+    ).catch(() => {});
   }
 }
 
@@ -785,6 +814,14 @@ export function recordBatchMetrics(batchId: string, metricName: string, values: 
   if (variance < VARIANCE_ALERT_THRESHOLD && values.length >= 5) {
     const message = `[VARIANCE_ALERT] batch=${batchId} metric=${metricName} variance=${variance.toExponential(2)} - all ${values.length} values nearly identical (${values[0].toFixed(4)}). This may indicate a bug.`;
     console.warn(message);
+    
+    // Send Discord alert asynchronously (non-blocking)
+    sendFailFastAlert(
+      "VARIANCE",
+      `Near-Zero Variance Detected: ${metricName}`,
+      `Batch: ${batchId}\nMetric: ${metricName}\nVariance: ${variance.toExponential(2)}\nValues: ${values.length} samples, all ≈ ${values[0].toFixed(4)}\n\nThis may indicate a calculation bug where all backtest results are identical.`
+    ).catch(() => {});
+    
     return { variance, alert: true, message };
   }
   
