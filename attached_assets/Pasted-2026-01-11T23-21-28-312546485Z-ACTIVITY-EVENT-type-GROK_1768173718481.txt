@@ -1,0 +1,50 @@
+2026-01-11T23:21:28.312546485Z [ACTIVITY_EVENT] type=GROK_RESEARCH_COMPLETED severity=INFO title="Grok Research (CONTRARIAN_SCAN)" trace_id=c2f62559-8247-4e85-a130-0ab42ebd1905
+2026-01-11T23:21:28.321414809Z [GROK_RESEARCH] trace_id=c2f62559-8247-4e85-a130-0ab42ebd1905 SUCCESS depth=CONTRARIAN_SCAN candidates=3 cost=$0.000843
+2026-01-11T23:21:28.334810149Z [ACTIVITY_EVENT] Failed to log event type=RESEARCH_JOB_COMPLETED: DrizzleQueryError: Failed query: insert into "activity_events" ("id", "created_at", "user_id", "bot_id", "event_type", "severity", "stage", "symbol", "account_id", "provider", "trace_id", "title", "summary", "payload", "dedupe_key") values (default, default, default, default, $1, $2, default, default, default, $3, default, $4, $5, $6, default) returning "id"
+2026-01-11T23:21:28.334832179Z params: RESEARCH_JOB_COMPLETED,INFO,research-orchestrator,CONTRARIAN_SCAN research completed,3 new candidates, 0 duplicates filtered,{"mode":"CONTRARIAN_SCAN","jobId":"dfcc96a2-ab5d-4236-a351-a4b0a0dbfde4","candidatesCreated":3,"costUsd":0.0008433,"duplicatesFiltered":0}
+2026-01-11T23:21:28.33485044Z     at NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:41:15)
+2026-01-11T23:21:28.33485354Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-11T23:21:28.33485669Z     at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:117:22
+2026-01-11T23:21:28.33485891Z     at async logActivityEvent (file:///opt/render/project/src/dist/index.js:16935:22)
+2026-01-11T23:21:28.33486162Z     at async executeJob (file:///opt/render/project/src/dist/index.js:43797:5) {
+2026-01-11T23:21:28.33486442Z   query: 'insert into "activity_events" ("id", "created_at", "user_id", "bot_id", "event_type", "severity", "stage", "symbol", "account_id", "provider", "trace_id", "title", "summary", "payload", "dedupe_key") values (default, default, default, default, $1, $2, default, default, default, $3, default, $4, $5, $6, default) returning "id"',
+2026-01-11T23:21:28.3348667Z   params: [
+2026-01-11T23:21:28.33486951Z     'RESEARCH_JOB_COMPLETED',
+2026-01-11T23:21:28.33487174Z     'INFO',
+2026-01-11T23:21:28.33487386Z     'research-orchestrator',
+2026-01-11T23:21:28.33487658Z     'CONTRARIAN_SCAN research completed',
+2026-01-11T23:21:28.334878751Z     '3 new candidates, 0 duplicates filtered',
+2026-01-11T23:21:28.334881601Z     '{"mode":"CONTRARIAN_SCAN","jobId":"dfcc96a2-ab5d-4236-a351-a4b0a0dbfde4","candidatesCreated":3,"costUsd":0.0008433,"duplicatesFiltered":0}'
+2026-01-11T23:21:28.334883771Z   ],
+2026-01-11T23:21:28.334886051Z   cause: error: invalid input value for enum activity_event_type: "RESEARCH_JOB_COMPLETED"
+2026-01-11T23:21:28.334888221Z       at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2026-01-11T23:21:28.334890371Z       at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-11T23:21:28.334892511Z       at async targetPool.query (file:///opt/render/project/src/dist/index.js:3158:22)
+2026-01-11T23:21:28.334894621Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:124:18
+2026-01-11T23:21:28.334897231Z       at async NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:39:16)
+2026-01-11T23:21:28.334899441Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:117:22
+2026-01-11T23:21:28.334901551Z       at async logActivityEvent (file:///opt/render/project/src/dist/index.js:16935:22)
+2026-01-11T23:21:28.334903641Z       at async executeJob (file:///opt/render/project/src/dist/index.js:43797:5) {
+2026-01-11T23:21:28.334905781Z     length: 161,
+2026-01-11T23:21:28.334908971Z     severity: 'ERROR',
+2026-01-11T23:21:28.334911152Z     code: '22P02',
+2026-01-11T23:21:28.334913232Z     detail: undefined,
+2026-01-11T23:21:28.334915321Z     hint: undefined,
+2026-01-11T23:21:28.334917392Z     position: undefined,
+2026-01-11T23:21:28.334919532Z     internalPosition: undefined,
+2026-01-11T23:21:28.334921672Z     internalQuery: undefined,
+2026-01-11T23:21:28.334924692Z     where: "unnamed portal parameter $1 = '...'",
+2026-01-11T23:21:28.334926822Z     schema: undefined,
+2026-01-11T23:21:28.334928922Z     table: undefined,
+2026-01-11T23:21:28.334931022Z     column: undefined,
+2026-01-11T23:21:28.334933162Z     dataType: undefined,
+2026-01-11T23:21:28.334938342Z     constraint: undefined,
+2026-01-11T23:21:28.334940512Z     file: 'enum.c',
+2026-01-11T23:21:28.334942612Z     line: '129',
+2026-01-11T23:21:28.334950433Z     routine: 'enum_in'
+2026-01-11T23:21:28.334952713Z   }
+2026-01-11T23:21:28.334954913Z }
+2026-01-11T23:21:32.594294058Z [IRONBEAM_LIVE] trace_id=6a1624b7 unknown_msg_type keys=p
+2026-01-11T23:21:35.235339352Z [BACKTEST_WORKER] trace_id=ce50fc76-6f77-4e33-94c4-1073c72239fe circuit_breaker_open skipping
+2026-01-11T23:21:35.281495504Z [IRONBEAM_LIVE] trace_id=6a1624b7 message_count=63 raw_data_preview={"p":{"ping":"ping"}}
+2026-01-11T23:21:35.281519315Z [IRONBEAM_LIVE] trace_id=6a1624b7 unknown_msg_type keys=p
