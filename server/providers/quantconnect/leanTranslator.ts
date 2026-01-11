@@ -3,7 +3,15 @@
  * Converts BlaidAgent strategy configurations to QuantConnect LEAN Python algorithms
  * 
  * INSTITUTIONAL APPROACH: Parse actual rules_json instead of relying on archetypes
+ * 
+ * V2.0 - Institutional Grade:
+ * - AST-based rule parsing (replaces regex heuristics)
+ * - Comprehensive indicator registry
+ * - Provenance tracking with SHA-256 hash chain
+ * - Confidence scoring for parse quality
  */
+
+import { parseRulesInstitutional, generateProvenance, INDICATOR_REGISTRY, type ProvenanceRecord } from './ruleParser';
 
 export interface StrategyRules {
   entry?: string[];
@@ -223,6 +231,9 @@ export interface TranslationResult {
   success: boolean;
   pythonCode?: string;
   error?: string;
+  provenance?: ProvenanceRecord;
+  confidence?: number;
+  parseMethod?: 'AST_PARSER' | 'HEURISTIC' | 'ARCHETYPE_FALLBACK';
 }
 
 const SYMBOL_MAPPING: Record<string, { qcFutureFamily: string; tickSize: number; multiplier: number }> = {
@@ -548,60 +559,117 @@ export function translateToLEAN(input: StrategyTranslationInput): TranslationRes
     const maxPositionSize = input.riskConfig.maxPositionSize || 1;
     const maxDailyTrades = 5; // Prevent runaway trading - max 5 trades per day
     
-    // INSTITUTIONAL APPROACH: If rulesJson is provided, parse it directly
+    // INSTITUTIONAL APPROACH V2.0: Use AST-based parser with provenance tracking
     // This gives us the ACTUAL strategy logic instead of generic archetypes
     let signalLogic: string;
     let parsedRules: ReturnType<typeof parseRulesToPython> | null = null;
+    let institutionalParse: ReturnType<typeof parseRulesInstitutional> | null = null;
+    let parseMethod: 'AST_PARSER' | 'HEURISTIC' | 'ARCHETYPE_FALLBACK' = 'ARCHETYPE_FALLBACK';
+    let provenance: ProvenanceRecord | null = null;
+    let parseConfidence = 0;
     
     if (input.rulesJson && input.rulesJson.entry && input.rulesJson.entry.length > 0) {
-      parsedRules = parseRulesToPython(input.rulesJson);
-      console.log(`[LEAN_TRANSLATOR] Using RULE PARSER for ${input.botName}: indicators=${parsedRules.requiredIndicators.join(',')}`);
-      
-      // Check if parser yielded valid conditions (not just "False")
-      const hasValidLong = !parsedRules.longEntry.startsWith('False');
-      const hasValidShort = !parsedRules.shortEntry.startsWith('False');
-      
-      // Per-direction fallback: if one direction parses but not the other, use archetype predicate for the missing direction
-      // Uses structured getArchetypePredicate instead of fragile regex extraction
-      const longLogic = hasValidLong 
-        ? parsedRules.longEntry 
-        : getArchetypePredicate(input.archetype, 'long', input.strategyConfig);
-      const shortLogic = hasValidShort 
-        ? parsedRules.shortEntry 
-        : getArchetypePredicate(input.archetype, 'short', input.strategyConfig);
-      
-      // Calculate confidence: 100% if both parsed, 50% if one fell back
-      const confidencePct = hasValidLong && hasValidShort ? 100 : (hasValidLong || hasValidShort ? 50 : 0);
-      console.log(`[LEAN_TRANSLATOR] Per-direction: long=${hasValidLong ? 'PARSED' : 'FALLBACK'} short=${hasValidShort ? 'PARSED' : 'FALLBACK'} confidence=${confidencePct}%`);
-      
-      // Check if there's a valid exit condition from parsed rules
-      const hasValidExit = parsedRules.exitLogic && !parsedRules.exitLogic.startsWith('False');
-      const exitLogic = hasValidExit ? parsedRules.exitLogic : 'False';
-      
-      signalLogic = `
+      // TRY AST PARSER FIRST (institutional grade)
+      try {
+        institutionalParse = parseRulesInstitutional(
+          input.rulesJson,
+          input.strategyConfig,
+          timeframeInfo.resolution
+        );
+        
+        if (institutionalParse.confidence >= 50 && !institutionalParse.parseDetails.fallbackUsed) {
+          parseMethod = 'AST_PARSER';
+          parseConfidence = institutionalParse.confidence;
+          provenance = institutionalParse.provenance;
+          
+          console.log(`[LEAN_TRANSLATOR] AST_PARSER for ${input.botName}: confidence=${parseConfidence}% indicators=${institutionalParse.requiredIndicators.join(',')} provenance=${provenance.inputHash.slice(0,8)}`);
+          
+          const hasValidLong = !institutionalParse.longEntry.startsWith('False');
+          const hasValidShort = !institutionalParse.shortEntry.startsWith('False');
+          const hasValidExit = !institutionalParse.exitLogic.startsWith('False');
+          
+          const longLogic = hasValidLong 
+            ? institutionalParse.longEntry 
+            : getArchetypePredicate(input.archetype, 'long', input.strategyConfig);
+          const shortLogic = hasValidShort 
+            ? institutionalParse.shortEntry 
+            : getArchetypePredicate(input.archetype, 'short', input.strategyConfig);
+          const exitLogic = hasValidExit ? institutionalParse.exitLogic : 'False';
+          
+          signalLogic = `
     def should_enter_long(self, price):
-        """Long entry signal - ${hasValidLong ? 'parsed from rules_json' : `archetype fallback (${input.archetype})`}"""
+        """Long entry signal - AST parsed (confidence=${parseConfidence}%)"""
+        if not self.IndicatorsReady():
+            return False
+        # Provenance: ${provenance.inputHash.slice(0,16)}
+        return ${longLogic}
+    
+    def should_enter_short(self, price):
+        """Short entry signal - AST parsed (confidence=${parseConfidence}%)"""
+        if not self.IndicatorsReady():
+            return False
+        return ${shortLogic}
+    
+    def should_exit(self, price):
+        """Exit signal - ${hasValidExit ? 'AST parsed' : 'uses stop/target only'}"""
+        if not self.IndicatorsReady():
+            return False
+        return ${exitLogic}`;
+        } else {
+          throw new Error('AST parser confidence too low, falling back to heuristic');
+        }
+      } catch (astError: any) {
+        // FALLBACK TO HEURISTIC PARSER
+        console.log(`[LEAN_TRANSLATOR] AST parser fallback for ${input.botName}: ${astError.message}`);
+        parseMethod = 'HEURISTIC';
+        
+        parsedRules = parseRulesToPython(input.rulesJson);
+        console.log(`[LEAN_TRANSLATOR] Using HEURISTIC PARSER for ${input.botName}: indicators=${parsedRules.requiredIndicators.join(',')}`);
+        
+        const hasValidLong = !parsedRules.longEntry.startsWith('False');
+        const hasValidShort = !parsedRules.shortEntry.startsWith('False');
+        
+        const longLogic = hasValidLong 
+          ? parsedRules.longEntry 
+          : getArchetypePredicate(input.archetype, 'long', input.strategyConfig);
+        const shortLogic = hasValidShort 
+          ? parsedRules.shortEntry 
+          : getArchetypePredicate(input.archetype, 'short', input.strategyConfig);
+        
+        parseConfidence = hasValidLong && hasValidShort ? 100 : (hasValidLong || hasValidShort ? 50 : 0);
+        console.log(`[LEAN_TRANSLATOR] Heuristic: long=${hasValidLong ? 'PARSED' : 'FALLBACK'} short=${hasValidShort ? 'PARSED' : 'FALLBACK'} confidence=${parseConfidence}%`);
+        
+        const hasValidExit = parsedRules.exitLogic && !parsedRules.exitLogic.startsWith('False');
+        const exitLogic = hasValidExit ? parsedRules.exitLogic : 'False';
+        
+        // Generate provenance for heuristic parse
+        const allRules = [...(input.rulesJson.entry || []), ...(input.rulesJson.exit || [])];
+        provenance = generateProvenance(allRules, `${longLogic}\n${shortLogic}`, parsedRules.requiredIndicators, parseConfidence);
+        
+        signalLogic = `
+    def should_enter_long(self, price):
+        """Long entry signal - ${hasValidLong ? 'heuristic parsed' : `archetype fallback (${input.archetype})`}"""
         if not self.IndicatorsReady():
             return False
         # ${hasValidLong ? `Parsed: ${JSON.stringify(input.rulesJson?.entry?.slice(0, 2))}` : `Fallback: archetype=${input.archetype}`}
         return ${longLogic}
     
     def should_enter_short(self, price):
-        """Short entry signal - ${hasValidShort ? 'parsed from rules_json' : `archetype fallback (${input.archetype})`}"""
+        """Short entry signal - ${hasValidShort ? 'heuristic parsed' : `archetype fallback (${input.archetype})`}"""
         if not self.IndicatorsReady():
             return False
-        # ${hasValidShort ? 'Parsed from rules_json' : `Fallback: archetype=${input.archetype}`}
         return ${shortLogic}
     
     def should_exit(self, price):
-        """Exit signal - ${hasValidExit ? 'parsed from rules_json exit conditions' : 'uses stop/target only'}"""
+        """Exit signal - ${hasValidExit ? 'heuristic parsed exit conditions' : 'uses stop/target only'}"""
         if not self.IndicatorsReady():
             return False
-        # Parsed exit conditions from rules_json (in addition to stop/target)
         return ${exitLogic}`;
+      }
     } else {
       // No rulesJson - use archetype-based signals
       console.log(`[LEAN_TRANSLATOR] Using ARCHETYPE FALLBACK for ${input.botName}: archetype=${input.archetype}`);
+      parseMethod = 'ARCHETYPE_FALLBACK';
       signalLogic = getSignalLogic(input.archetype, input.strategyConfig);
     }
     
@@ -1300,6 +1368,9 @@ ${signalLogic}
     return {
       success: true,
       pythonCode,
+      provenance: provenance || undefined,
+      confidence: parseConfidence,
+      parseMethod,
     };
   } catch (error) {
     return {

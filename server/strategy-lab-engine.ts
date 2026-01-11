@@ -1010,8 +1010,13 @@ export function initializeStrategyLabFromSettings(settings: StrategyLabSettingsI
   }
   
   // Load Trials auto-promotion settings
+  // INSTITUTIONAL DEFAULT: Auto-promotion is TRUE by default (industry standard)
+  // Only CANARY→LIVE requires manual approval gates; earlier stages auto-promote
   if (typeof settings.trialsAutoPromoteEnabled === "boolean") {
     strategyLabState.trialsAutoPromoteEnabled = settings.trialsAutoPromoteEnabled;
+  } else {
+    // Defensive fallback: if setting is null/undefined, default to TRUE
+    strategyLabState.trialsAutoPromoteEnabled = true;
   }
   if (typeof settings.trialsMinTrades === "number") {
     strategyLabState.trialsMinTrades = Math.max(10, Math.min(500, settings.trialsMinTrades));
