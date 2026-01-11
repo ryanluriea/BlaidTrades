@@ -1332,6 +1332,10 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
     recordFallback("sessionMode", traceId);
   }
   
+  // Use normalized session mode from validator (handles RTH → RTH_US, etc.)
+  const normalizedSessionMode = sessionModeValidation.normalizedMode || "FULL_24x5";
+  console.log(`[STRATEGY_LAB_AUTO_PROMOTE] trace_id=${traceId} session_mode_normalized: "${candidate.sessionModePreference}" → "${normalizedSessionMode}"`);
+  
   // Extract risk config from candidate rules or use institutional defaults
   const rulesJson = candidate.rulesJson as Record<string, any> || {};
   const defaultRiskConfig = {
@@ -1388,7 +1392,7 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
       source: "AUTO_PROMOTE",
       traceId,
     },
-    sessionModePreference: candidate.sessionModePreference as any || "FULL_24x5",
+    sessionMode: normalizedSessionMode as any,
     sourceCandidateId: candidate.id,
     createdByAi: candidate.createdByAi || null,
     aiProvider: candidate.aiProvider || null,
