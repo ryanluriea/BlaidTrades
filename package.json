@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:migrate-enums": "tsx scripts/migrate-enums.ts"
+    "db:migrate-enums": "tsx scripts/migrate-enums.ts",
+    "db:seed-users": "tsx scripts/seed-system-users.ts",
+    "db:predeploy": "npm run db:push && npm run db:migrate-enums && npm run db:seed-users"
   },
   "dependencies": {
     "@vitejs/plugin-react-swc": "^3.11.0",
