@@ -15026,11 +15026,22 @@ export function registerRoutes(app: Express) {
       
       console.log(`[STRATEGY_LAB_PROMOTE] trace_id=${traceId} QC_GATE: verified, proceeding with bot creation (target_stage=${effectiveStage})`);
 
-      // Determine user ID - use provided user_id or default system user
+      // Determine user ID - priority order:
+      // 1. Explicit user_id from request body (API calls)
+      // 2. Authenticated session user (web UI users) 
+      // 3. BlaidAgent system user (autonomous operations only)
       let userId = user_id;
+      if (!userId && req.session?.userId) {
+        userId = req.session.userId;
+        console.log(`[STRATEGY_LAB_PROMOTE] trace_id=${traceId} using session userId=${userId.substring(0, 8)}...`);
+      }
       if (!userId) {
+        // Fallback to BlaidAgent for truly autonomous (non-user) promotions
         const systemUsers = await db.select().from(schema.users).where(eq(schema.users.username, "BlaidAgent")).limit(1);
         userId = systemUsers.length > 0 ? systemUsers[0].id : null;
+        if (userId) {
+          console.log(`[STRATEGY_LAB_PROMOTE] trace_id=${traceId} AUTONOMOUS: using BlaidAgent userId`);
+        }
       }
       if (!userId) {
         return res.status(400).json({ success: false, error: "No user_id provided and no system user found" });
