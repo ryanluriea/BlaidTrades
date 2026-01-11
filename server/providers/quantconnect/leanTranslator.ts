@@ -349,53 +349,200 @@ function getIndicatorCode(archetype: string, config: Record<string, any>, resolu
   const emaPeriod = config.emaPeriod || 21;
   const atrPeriod = config.atrPeriod || 14;
   
-  switch (archetype) {
-    case "mean_reversion":
-      return `
+  // CRITICAL: Normalize archetype to match predicates
+  const normalizedArchetype = normalizeArchetype(archetype);
+  
+  // Comprehensive indicator sets for each archetype
+  const indicatorSets: Record<string, string> = {
+    mean_reversion: `
         self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
         self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
-        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`;
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
     
-    case "breakout":
-      return `
+    breakout: `
         self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
         self.adx = self.ADX(self.symbol, ${adxPeriod}, ${resolution})
-        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`;
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
     
-    case "trend_following":
-      return `
+    trend_following: `
         self.ema_fast = self.EMA(self.symbol, ${emaPeriod}, ${resolution})
         self.ema_slow = self.EMA(self.symbol, ${emaPeriod * 2}, ${resolution})
         self.adx = self.ADX(self.symbol, ${adxPeriod}, ${resolution})
-        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`;
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
     
-    case "scalping":
-      return `
+    scalping: `
         self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
-        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`;
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
     
-    case "gap_fade":
-      return `
+    gap_fade: `
         self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
-        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`;
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
     
-    default:
-      // Default must include RSI since default signalLogic uses RSI for mean-reversion
-      return `
+    // NEW: Volatility breakout needs BB with bandwidth + ADX
+    volatility_breakout: `
+        self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
+        self.adx = self.ADX(self.symbol, ${adxPeriod}, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: VWAP bounce needs VWAP + RSI
+    vwap_bounce: `
+        self.vwap = self.VWAP(self.symbol, ${resolution})
+        self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: Momentum needs EMA cross + RSI + ADX
+    momentum: `
+        self.ema_fast = self.EMA(self.symbol, ${emaPeriod}, ${resolution})
+        self.ema_slow = self.EMA(self.symbol, ${emaPeriod * 2}, ${resolution})
+        self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
+        self.adx = self.ADX(self.symbol, ${adxPeriod}, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: Range trading needs BB + RSI
+    range: `
         self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
         self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
-        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`;
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: Session transition needs EMA + ATR
+    session_transition: `
+        self.ema_fast = self.EMA(self.symbol, ${emaPeriod}, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: Breakout retest needs BB + RSI
+    breakout_retest: `
+        self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
+        self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: Microstructure needs RSI + ATR
+    microstructure: `
+        self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: ORB breakout needs BB + ADX
+    orb_breakout: `
+        self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
+        self.adx = self.ADX(self.symbol, ${adxPeriod}, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: Exhaustion fade needs RSI + BB
+    exhaustion_fade: `
+        self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
+        self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: Momentum surge needs full indicator set
+    momentum_surge: `
+        self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
+        self.adx = self.ADX(self.symbol, ${adxPeriod}, ${resolution})
+        self.ema_fast = self.EMA(self.symbol, ${emaPeriod}, ${resolution})
+        self.ema_slow = self.EMA(self.symbol, ${emaPeriod * 2}, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+    
+    // NEW: Range scalper needs BB + RSI
+    range_scalper: `
+        self.bb = self.BB(self.symbol, ${bbPeriod}, ${bbStd}, MovingAverageType.Simple, ${resolution})
+        self.rsi = self.RSI(self.symbol, ${rsiPeriod}, MovingAverageType.Wilders, ${resolution})
+        self.atr = self.ATR(self.symbol, ${atrPeriod}, MovingAverageType.Simple, ${resolution})`,
+  };
+  
+  const indicators = indicatorSets[normalizedArchetype];
+  if (!indicators) {
+    console.warn(`[INDICATOR_CODE] No indicator set for "${normalizedArchetype}" - using default (mean_reversion)`);
+    return indicatorSets.mean_reversion;
   }
+  
+  return indicators;
+}
+
+/**
+ * CANONICAL ARCHETYPE NORMALIZATION
+ * Maps all archetype variations to supported templates to prevent silent fallback
+ */
+function normalizeArchetype(archetype: string): string {
+  if (!archetype) return 'mean_reversion';
+  
+  const normalized = archetype.toLowerCase().trim();
+  
+  // Direct matches
+  const directMatches: Record<string, string> = {
+    'mean_reversion': 'mean_reversion',
+    'breakout': 'breakout',
+    'trend_following': 'trend_following',
+    'scalping': 'scalping',
+    'gap_fade': 'gap_fade',
+    'volatility_breakout': 'volatility_breakout',
+    'vwap_bounce': 'vwap_bounce',
+    'momentum': 'momentum',
+    'range': 'range',
+    'session_transition': 'session_transition',
+    'breakout_retest': 'breakout_retest',
+    'microstructure': 'microstructure',
+    'orb_breakout': 'orb_breakout',
+    'exhaustion_fade': 'exhaustion_fade',
+    'momentum_surge': 'momentum_surge',
+    'range_scalper': 'range_scalper',
+  };
+  
+  if (directMatches[normalized]) {
+    return directMatches[normalized];
+  }
+  
+  // Pattern-based matching for variations
+  if (normalized.includes('volatility') || normalized.includes('vol_break') || normalized.includes('compression')) {
+    return 'volatility_breakout';
+  }
+  if (normalized.includes('vwap')) {
+    return 'vwap_bounce';
+  }
+  if (normalized.includes('momentum') || normalized.includes('momo')) {
+    return 'momentum';
+  }
+  if (normalized.includes('mean') || normalized.includes('reversion') || normalized.includes('fade')) {
+    return 'mean_reversion';
+  }
+  if (normalized.includes('breakout') || normalized.includes('break')) {
+    return 'breakout';
+  }
+  if (normalized.includes('trend')) {
+    return 'trend_following';
+  }
+  if (normalized.includes('scalp')) {
+    return 'scalping';
+  }
+  if (normalized.includes('range')) {
+    return 'range';
+  }
+  if (normalized.includes('session')) {
+    return 'session_transition';
+  }
+  if (normalized.includes('orb') || normalized.includes('opening')) {
+    return 'orb_breakout';
+  }
+  if (normalized.includes('micro')) {
+    return 'microstructure';
+  }
+  
+  // Log unknown archetype for visibility
+  console.warn(`[ARCHETYPE_NORMALIZER] Unknown archetype "${archetype}" - defaulting to mean_reversion`);
+  return 'mean_reversion';
 }
 
 /**
  * Get just the Python predicate expression for a specific direction
  * Used for per-direction fallbacks when rule parser fails for one direction
+ * 
+ * CRITICAL: Each archetype MUST have unique entry logic to produce different QC results
  */
 function getArchetypePredicate(archetype: string, direction: 'long' | 'short', config: Record<string, any>): string {
   const rsiOversold = config.rsiOversold || 30;
   const rsiOverbought = config.rsiOverbought || 70;
   const adxThreshold = config.adxThreshold || 25;
+  const bbPeriod = config.bbPeriod || 20;
+  
+  // Normalize archetype to prevent fallback to generic template
+  const normalizedArchetype = normalizeArchetype(archetype);
   
   const predicates: Record<string, { long: string; short: string }> = {
     mean_reversion: {
@@ -418,9 +565,70 @@ function getArchetypePredicate(archetype: string, direction: 'long' | 'short', c
       long: `price < self.bb.LowerBand.Current.Value`,
       short: `price > self.bb.UpperBand.Current.Value`,
     },
+    // NEW: Volatility breakout - waits for compression then breakout with ADX confirmation
+    volatility_breakout: {
+      long: `self.bb.BandWidth.Current.Value < 0.02 and price > self.bb.UpperBand.Current.Value and self.adx.Current.Value > ${adxThreshold}`,
+      short: `self.bb.BandWidth.Current.Value < 0.02 and price < self.bb.LowerBand.Current.Value and self.adx.Current.Value > ${adxThreshold}`,
+    },
+    // NEW: VWAP bounce - price reverts to VWAP with RSI confirmation
+    vwap_bounce: {
+      long: `price < self.vwap.Current.Value * 0.998 and self.rsi.Current.Value < ${rsiOversold + 5}`,
+      short: `price > self.vwap.Current.Value * 1.002 and self.rsi.Current.Value > ${rsiOverbought - 5}`,
+    },
+    // NEW: Momentum - fast EMA cross with strong ADX
+    momentum: {
+      long: `self.ema_fast.Current.Value > self.ema_slow.Current.Value and self.rsi.Current.Value > 50 and self.adx.Current.Value > ${adxThreshold}`,
+      short: `self.ema_fast.Current.Value < self.ema_slow.Current.Value and self.rsi.Current.Value < 50 and self.adx.Current.Value > ${adxThreshold}`,
+    },
+    // NEW: Range - trade within BB bands
+    range: {
+      long: `price < self.bb.MiddleBand.Current.Value and self.rsi.Current.Value < 45`,
+      short: `price > self.bb.MiddleBand.Current.Value and self.rsi.Current.Value > 55`,
+    },
+    // NEW: Session transition - use ATR for volatility-based entries
+    session_transition: {
+      long: `price > self.ema_fast.Current.Value and self.atr.Current.Value > self.atr.Current.Value * 0.8`,
+      short: `price < self.ema_fast.Current.Value and self.atr.Current.Value > self.atr.Current.Value * 0.8`,
+    },
+    // NEW: Breakout retest - price retests breakout level
+    breakout_retest: {
+      long: `price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > 55`,
+      short: `price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < 45`,
+    },
+    // NEW: Microstructure - tight RSI bands for quick scalps
+    microstructure: {
+      long: `self.rsi.Current.Value < ${rsiOversold - 5} and self.atr.Current.Value < self.atr.Current.Value * 1.5`,
+      short: `self.rsi.Current.Value > ${rsiOverbought + 5} and self.atr.Current.Value < self.atr.Current.Value * 1.5`,
+    },
+    // NEW: ORB breakout - opening range breakout
+    orb_breakout: {
+      long: `price > self.bb.UpperBand.Current.Value and self.adx.Current.Value > 20`,
+      short: `price < self.bb.LowerBand.Current.Value and self.adx.Current.Value > 20`,
+    },
+    // NEW: Exhaustion fade - fade extreme moves
+    exhaustion_fade: {
+      long: `self.rsi.Current.Value < ${rsiOversold - 10} and price < self.bb.LowerBand.Current.Value`,
+      short: `self.rsi.Current.Value > ${rsiOverbought + 10} and price > self.bb.UpperBand.Current.Value`,
+    },
+    // NEW: Momentum surge - strong directional moves
+    momentum_surge: {
+      long: `self.rsi.Current.Value > 60 and self.adx.Current.Value > 30 and self.ema_fast.Current.Value > self.ema_slow.Current.Value`,
+      short: `self.rsi.Current.Value < 40 and self.adx.Current.Value > 30 and self.ema_fast.Current.Value < self.ema_slow.Current.Value`,
+    },
+    // NEW: Range scalper - quick trades within range
+    range_scalper: {
+      long: `price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < 35`,
+      short: `price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > 65`,
+    },
   };
   
-  const archetypePredicates = predicates[archetype] || predicates.mean_reversion;
+  const archetypePredicates = predicates[normalizedArchetype];
+  if (!archetypePredicates) {
+    console.error(`[ARCHETYPE_PREDICATE] CRITICAL: No predicate found for normalized archetype "${normalizedArchetype}" (original: "${archetype}")`);
+    // Return mean_reversion as absolute last resort, but this should never happen
+    return predicates.mean_reversion[direction];
+  }
+  
   return archetypePredicates[direction];
 }
 
@@ -429,116 +637,30 @@ function getSignalLogic(archetype: string, config: Record<string, any>): string 
   const rsiOverbought = config.rsiOverbought || 70;
   const adxThreshold = config.adxThreshold || 25;
   
-  switch (archetype) {
-    case "mean_reversion":
-      return `
+  // CRITICAL: Normalize archetype to ensure correct template is used
+  const normalizedArchetype = normalizeArchetype(archetype);
+  console.log(`[SIGNAL_LOGIC] archetype="${archetype}" -> normalized="${normalizedArchetype}"`);
+  
+  // Build signal logic using predicates for consistency
+  const longPredicate = getArchetypePredicate(normalizedArchetype, 'long', config);
+  const shortPredicate = getArchetypePredicate(normalizedArchetype, 'short', config);
+  
+  return `
     def should_enter_long(self, price):
-        """Long entry - mean_reversion archetype"""
+        """Long entry - ${normalizedArchetype} archetype"""
         if not self.IndicatorsReady():
             return False
-        return price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < ${rsiOversold}
+        return ${longPredicate}
     
     def should_enter_short(self, price):
-        """Short entry - mean_reversion archetype"""
+        """Short entry - ${normalizedArchetype} archetype"""
         if not self.IndicatorsReady():
             return False
-        return price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > ${rsiOverbought}
+        return ${shortPredicate}
     
     def should_exit(self, price):
         """Exit signal - archetype uses stop/target only"""
         return False`;
-    
-    case "breakout":
-      return `
-    def should_enter_long(self, price):
-        """Long entry - breakout archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return price > self.bb.UpperBand.Current.Value and self.adx.Current.Value > ${adxThreshold}
-    
-    def should_enter_short(self, price):
-        """Short entry - breakout archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return price < self.bb.LowerBand.Current.Value and self.adx.Current.Value > ${adxThreshold}
-    
-    def should_exit(self, price):
-        """Exit signal - archetype uses stop/target only"""
-        return False`;
-    
-    case "trend_following":
-      return `
-    def should_enter_long(self, price):
-        """Long entry - trend_following archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return self.ema_fast.Current.Value > self.ema_slow.Current.Value and self.adx.Current.Value > ${adxThreshold}
-    
-    def should_enter_short(self, price):
-        """Short entry - trend_following archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return self.ema_fast.Current.Value < self.ema_slow.Current.Value and self.adx.Current.Value > ${adxThreshold}
-    
-    def should_exit(self, price):
-        """Exit signal - archetype uses stop/target only"""
-        return False`;
-    
-    case "scalping":
-      return `
-    def should_enter_long(self, price):
-        """Long entry - scalping archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return self.rsi.Current.Value < ${rsiOversold}
-    
-    def should_enter_short(self, price):
-        """Short entry - scalping archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return self.rsi.Current.Value > ${rsiOverbought}
-    
-    def should_exit(self, price):
-        """Exit signal - archetype uses stop/target only"""
-        return False`;
-    
-    case "gap_fade":
-      return `
-    def should_enter_long(self, price):
-        """Long entry - gap_fade archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return price < self.bb.LowerBand.Current.Value
-    
-    def should_enter_short(self, price):
-        """Short entry - gap_fade archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return price > self.bb.UpperBand.Current.Value
-    
-    def should_exit(self, price):
-        """Exit signal - archetype uses stop/target only"""
-        return False`;
-    
-    default:
-      // Default fallback: mean-reversion style
-      return `
-    def should_enter_long(self, price):
-        """Long entry - default archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return price < self.bb.LowerBand.Current.Value and self.rsi.Current.Value < ${rsiOversold}
-    
-    def should_enter_short(self, price):
-        """Short entry - default archetype"""
-        if not self.IndicatorsReady():
-            return False
-        return price > self.bb.UpperBand.Current.Value and self.rsi.Current.Value > ${rsiOverbought}
-    
-    def should_exit(self, price):
-        """Exit signal - archetype uses stop/target only"""
-        return False`;
-  }
 }
 
 export function translateToLEAN(input: StrategyTranslationInput): TranslationResult {

@@ -33,6 +33,7 @@ The platform employs a modular monolith architecture, utilizing a React frontend
     - **Security Headers:** HSTS, CSP, X-Frame-Options, XSS protection, MIME sniffing prevention via middleware.
     - **Configurable Infrastructure:** All DB pool settings (DB_POOL_WEB_MAX, DB_POOL_WORKER_MAX, DB_STATEMENT_TIMEOUT_*, etc.) and WebSocket settings (WS_IDLE_TIMEOUT_MS, WS_THROTTLE_MS, WS_BROADCAST_TTL_MS) are environment-configurable.
     - **Rule Parser Per-Direction Fallback:** Uses structured getArchetypePredicate() for reliable fallback when rule parsing fails for one direction; includes confidence scoring.
+    - **Canonical Archetype Normalization (Jan 2026):** 16 supported archetypes with unique entry predicates to ensure different strategies produce different QC results: mean_reversion, breakout, trend_following, scalping, gap_fade, volatility_breakout, vwap_bounce, momentum, range, session_transition, breakout_retest, microstructure, orb_breakout, exhaustion_fade, momentum_surge, range_scalper. Normalizer handles case variations and aliases.
     - **Memory Leak Prevention:** TTL-based cleanup for WebSocket broadcast tracking maps.
     - **Idempotency Key System:** In-memory idempotency management (server/idempotency.ts) with TTL-based cleanup to prevent duplicate critical operations.
     - **Graceful Degradation:** Cache fallbacks with staleness warnings (server/graceful-degradation.ts) using configurable CACHE_STALE_WARNING_MS and CACHE_STALE_CRITICAL_MS thresholds.
