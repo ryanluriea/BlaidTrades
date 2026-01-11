@@ -5710,9 +5710,11 @@ async function runQCAutoTriggerWorker(): Promise<void> {
               gte(schema.strategyCandidates.confidenceScore, autoTriggerThreshold)
             )
           ),
-          // INDUSTRY STANDARD: Pick up PENDING_REVIEW (new) OR QUEUED_FOR_QC (evolved) candidates
+          // INDUSTRY STANDARD: Pick up PENDING_REVIEW (new), QUEUED (enriched), or QUEUED_FOR_QC (evolved) candidates
+          // CRITICAL FIX: Added QUEUED to unblock 76+ stranded candidates that passed enrichment
           or(
             eq(schema.strategyCandidates.disposition, "PENDING_REVIEW"),
+            eq(schema.strategyCandidates.disposition, "QUEUED"),
             eq(schema.strategyCandidates.disposition, "QUEUED_FOR_QC")
           ),
           isNotNull(schema.strategyCandidates.rulesJson)

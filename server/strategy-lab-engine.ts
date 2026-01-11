@@ -709,9 +709,9 @@ let strategyLabState: StrategyLabState = {
   searchRecency: "MONTH",
   customFocus: "",
   costEfficiencyMode: false,
-  // QC Verification defaults
-  qcDailyLimit: 10,
-  qcWeeklyLimit: 40,
+  // QC Verification defaults - increased for faster pipeline throughput
+  qcDailyLimit: 150,
+  qcWeeklyLimit: 500,
   qcAutoTriggerEnabled: true,
   qcAutoTriggerThreshold: 80,
   qcAutoTriggerTier: "AB",
@@ -827,10 +827,10 @@ export function setStrategyLabQCSettings(settings: {
   autoTriggerTier?: "A" | "B" | "AB";
 }): StrategyLabState {
   if (typeof settings.dailyLimit === "number") {
-    strategyLabState.qcDailyLimit = Math.max(1, Math.min(50, settings.dailyLimit));
+    strategyLabState.qcDailyLimit = Math.max(1, Math.min(150, settings.dailyLimit));
   }
   if (typeof settings.weeklyLimit === "number") {
-    strategyLabState.qcWeeklyLimit = Math.max(5, Math.min(200, settings.weeklyLimit));
+    strategyLabState.qcWeeklyLimit = Math.max(5, Math.min(500, settings.weeklyLimit));
   }
   if (typeof settings.autoTriggerEnabled === "boolean") {
     strategyLabState.qcAutoTriggerEnabled = settings.autoTriggerEnabled;
@@ -975,10 +975,10 @@ export function initializeStrategyLabFromSettings(settings: StrategyLabSettingsI
   // Load QC Verification settings
   const validQCTiers = ["A", "B", "AB"];
   if (typeof settings.qcDailyLimit === "number") {
-    strategyLabState.qcDailyLimit = Math.max(1, Math.min(50, settings.qcDailyLimit));
+    strategyLabState.qcDailyLimit = Math.max(1, Math.min(150, settings.qcDailyLimit));
   }
   if (typeof settings.qcWeeklyLimit === "number") {
-    strategyLabState.qcWeeklyLimit = Math.max(5, Math.min(200, settings.qcWeeklyLimit));
+    strategyLabState.qcWeeklyLimit = Math.max(5, Math.min(500, settings.qcWeeklyLimit));
   }
   if (typeof settings.qcAutoTriggerEnabled === "boolean") {
     strategyLabState.qcAutoTriggerEnabled = settings.qcAutoTriggerEnabled;
