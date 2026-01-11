@@ -307,12 +307,29 @@ export function setSystemPowerState(isOn: boolean) {
   console.log(`[SYSTEM_POWER] System ${isOn ? 'POWERED ON' : 'SHUTDOWN'} at ${systemPowerState.lastToggled}`);
 }
 
+// Build version info - captured at server startup
+const BUILD_TIME = new Date().toISOString();
+const BUILD_SHA = process.env.RENDER_GIT_COMMIT?.slice(0, 7) || process.env.REPL_ID?.slice(0, 7) || "dev";
+
 export function registerRoutes(app: Express) {
+  // Version endpoint for deployment verification
+  app.get("/api/version", (req: Request, res: Response) => {
+    res.json({
+      version: "1.0.0",
+      buildTime: BUILD_TIME,
+      buildSha: BUILD_SHA,
+      environment: process.env.NODE_ENV || "development",
+      instance: process.env.RENDER_INSTANCE_ID || process.env.REPL_ID || "local",
+    });
+  });
+
   app.get("/api/health", (req: Request, res: Response) => {
     const memUsage = process.memoryUsage();
     res.json({ 
       status: "ok", 
       timestamp: new Date().toISOString(),
+      buildTime: BUILD_TIME,
+      buildSha: BUILD_SHA,
       memory: {
         heapUsedMB: Math.round(memUsage.heapUsed / 1024 / 1024),
         heapTotalMB: Math.round(memUsage.heapTotal / 1024 / 1024),

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Plus, Play, Pause, Square, Microscope, Brain, Shield, Dna, CheckCircle2, XCircle, 
   AlertTriangle, Loader2, Globe, Lock, Zap, Clock, DollarSign, ChevronRight,
@@ -538,6 +539,7 @@ function ConfidenceRow({ label, value, weight }: { label: string; value: number;
 
 export function StrategyLabView() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -801,6 +803,7 @@ export function StrategyLabView() {
     promoteCandidateMutation.mutate({
       candidate_id: candidateId,
       session_id: c.sessionId,
+      user_id: user?.id,
     }, {
       onSettled: () => setSendingCandidateId(null),
     });

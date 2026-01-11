@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertBellButton } from "@/components/alerts/AlertBellButton";
 import { HeaderClockBadge } from "@/components/layout/HeaderClockBadge";
 import { UnifiedSystemsDropdown } from "@/components/layout/UnifiedSystemsDropdown";
@@ -37,9 +39,23 @@ const navItems = [
   { href: "/accounts", label: "Accounts", icon: Wallet },
 ];
 
+interface VersionInfo {
+  version: string;
+  buildTime: string;
+  buildSha: string;
+  environment: string;
+  instance: string;
+}
+
 export function AppLayout({ children, title, disableMainScroll, headerContent }: AppLayoutProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  const { data: versionInfo } = useQuery<VersionInfo>({
+    queryKey: ["/api/version"],
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
 
   return (
     <div className="h-screen overflow-hidden bg-background flex">
