@@ -19414,7 +19414,18 @@ export function registerRoutes(app: Express) {
       const providers = ["groq", "openai", "anthropic", "gemini", "xai", "openrouter", "perplexity"];
       const existingProviders = new Set((result.rows || []).map((r: any) => r.provider));
       
-      const budgets = result.rows || [];
+      // Convert database string values to numbers for proper aggregation
+      // Use nullish checks to preserve legitimate zero values
+      const budgets = (result.rows || []).map((r: any) => {
+        const parsedLimit = Number(r.monthly_limit_usd);
+        const parsedSpend = Number(r.current_month_spend_usd);
+        return {
+          ...r,
+          monthly_limit_usd: Number.isFinite(parsedLimit) ? parsedLimit : 10,
+          current_month_spend_usd: Number.isFinite(parsedSpend) ? parsedSpend : 0,
+        };
+      });
+      
       for (const provider of providers) {
         if (!existingProviders.has(provider)) {
           budgets.push({
