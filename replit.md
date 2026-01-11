@@ -41,7 +41,8 @@ The platform employs a modular monolith architecture, utilizing a React frontend
     - **Indicator Validation Layer:** Automatic verification that referenced indicators are properly instantiated in generated QuantConnect code, with auto-addition of missing indicators.
     - **Exit Conditions Pipeline:** Parsed exit conditions from rules_json are now wired into CheckExits() method, enabling signal-based exits alongside stop/target exits.
     - **Auto-Promotion Risk Defaults (Jan 2026):** TRIALS candidates automatically receive institutional risk defaults (stopLoss=16 ticks, takeProfit=80 ticks, maxContractsPerTrade=1, maxContractsPerSymbol=2) when converted to bots, ensuring fail-fast validators are satisfied.
-    - **Session Mode Enum Alignment:** Validator now uses RTH_US (matching schema) instead of RTH, preventing promotion failures due to enum mismatch.
+    - **Session Mode Alias Normalization (Jan 2026):** SESSION_MODE_ALIASES map in fail-fast-validators.ts normalizes common variations (RTH→RTH_US, 24x5→FULL_24x5, REGULAR→RTH_US, EXTENDED→EXT_US) to schema-valid enum values, preventing promotion failures from legacy candidates.
+    - **QC Metrics Fresh Fetch (Jan 2026):** QCProofPopup clears cached query data on open via useEffect + removeQueries pattern, ensuring users always see latest verification metrics rather than stale cached data.
 - **Autonomous Infrastructure:** Designed for zero-manual-intervention operations including Memory Sentinel, Credential Lifecycle Management, Risk Engine Self-Test, Proof-of-Use Integration Tracking, and a Perplexity Deep Research Engine for autonomous strategy generation.
 - **ML/RL Intelligence Infrastructure:**
     - **Machine Learning Alpha Models:** Feature engineering (32+ technical indicators), Gradient Boosting Classifier, ML Signal Source, Model Retraining Scheduler with drift detection.
