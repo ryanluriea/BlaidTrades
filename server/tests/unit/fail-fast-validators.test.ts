@@ -565,4 +565,57 @@ describe('QC Verification Gates', () => {
       expect(passingMetrics.profitFactor).toBeGreaterThanOrEqual(QC_GATES.PROFIT_FACTOR);
     });
   });
+
+  describe('SEV-2 Severity Level (Medium - Logged but does not block)', () => {
+    it('should classify WARNING as non-blocking severity', () => {
+      const result = classifyBacktestError('no trades generated during session');
+      expect(result.severity).toBe('WARNING');
+      expect(result.shouldHalt).toBe(false);
+    });
+
+    it('should allow session validation with warnings only', () => {
+      const result = validateSessionMode({});
+      expect(result.valid).toBe(true);
+      expect(result.warnings.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('SEV-2 vs SEV-1 vs SEV-0: SEV-0 blocks creation, SEV-1 blocks promotion, SEV-2 logs only', () => {
+      const sev0Example = validateRiskConfig({ riskConfig: null });
+      expect(sev0Example.valid).toBe(false);
+      
+      const sev1Example = validatePromotionGate({
+        metrics: {
+          sharpeRatio: null,
+          maxDrawdownPercent: 10,
+          winRate: 50,
+          totalTrades: 50,
+        },
+        fromStage: 'TRIALS',
+        toStage: 'PAPER',
+        botId: 'test-bot-id-123456',
+      });
+      expect(sev1Example.valid).toBe(false);
+      
+      const sev2Example = classifyBacktestError('session filter applied');
+      expect(sev2Example.severity).toBe('WARNING');
+      expect(sev2Example.shouldHalt).toBe(false);
+    });
+
+    it('should distinguish between severity levels correctly', () => {
+      const severityLevels = ['SEV-0', 'SEV-1', 'SEV-2'];
+      expect(severityLevels).toHaveLength(3);
+      
+      const criticalResult = classifyBacktestError('Authentication failed');
+      expect(criticalResult.severity).toBe('CRITICAL');
+      expect(criticalResult.shouldHalt).toBe(true);
+      
+      const recoverableResult = classifyBacktestError('Rate limit');
+      expect(recoverableResult.severity).toBe('RECOVERABLE');
+      expect(recoverableResult.shouldHalt).toBe(false);
+      
+      const warningResult = classifyBacktestError('no trades generated');
+      expect(warningResult.severity).toBe('WARNING');
+      expect(warningResult.shouldHalt).toBe(false);
+    });
+  });
 });

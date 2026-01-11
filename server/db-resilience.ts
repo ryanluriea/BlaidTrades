@@ -218,3 +218,21 @@ export function resetCircuitBreaker(): void {
   circuitBreaker.consecutiveSuccesses = 0;
   console.log("[DB_CIRCUIT_BREAKER] Manually reset");
 }
+
+export function _testIsRetryableError(error: unknown): boolean {
+  return isRetryableError(error);
+}
+
+export function _testRecordFailure(): void {
+  recordFailure();
+}
+
+export function _testRecordSuccess(): void {
+  recordSuccess();
+}
+
+export const CIRCUIT_BREAKER_CONFIG = {
+  THRESHOLD: CIRCUIT_BREAKER_THRESHOLD,
+  RESET_MS: CIRCUIT_BREAKER_RESET_MS,
+  HALF_OPEN_SUCCESSES: CIRCUIT_BREAKER_HALF_OPEN_SUCCESSES,
+};
