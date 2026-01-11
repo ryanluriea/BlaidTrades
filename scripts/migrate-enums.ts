@@ -47,7 +47,7 @@ const ENUM_DEFINITIONS: Record<string, string[]> = {
   risk_tier: ["conservative", "moderate", "aggressive"],
   signal_type: ["entry", "exit", "scale_in", "scale_out", "stop_adjustment"],
   session_mode: ["FULL_24x5", "RTH_US", "ETH", "CUSTOM"],
-  rules_profile: ["PRODUCTION", "LAB_RELAXED"],
+  rules_profile: ["PRODUCTION", "LAB_RELAXED", "TRIALS_RELAXED"],
   
   // AI Provider enum (line 38)
   ai_provider: ["PERPLEXITY", "GROK", "OPENAI", "ANTHROPIC", "GEMINI", "OPENROUTER", "OTHER"],

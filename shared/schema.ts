@@ -32,7 +32,7 @@ export const providerTypeEnum = pgEnum("provider_type", ["data", "broker"]);
 export const riskTierEnum = pgEnum("risk_tier", ["conservative", "moderate", "aggressive"]);
 export const signalTypeEnum = pgEnum("signal_type", ["entry", "exit", "scale_in", "scale_out", "stop_adjustment"]);
 export const sessionModeEnum = pgEnum("session_mode", ["FULL_24x5", "RTH_US", "ETH", "CUSTOM"]);
-export const rulesProfileEnum = pgEnum("rules_profile", ["PRODUCTION", "LAB_RELAXED"]);
+export const rulesProfileEnum = pgEnum("rules_profile", ["PRODUCTION", "LAB_RELAXED", "TRIALS_RELAXED"]);
 
 // AI Provenance Tracking Enum (Grok integration)
 export const aiProviderEnum = pgEnum("ai_provider", [
