@@ -574,3 +574,358 @@ export function formatValidationErrors(result: ValidationResult): string {
   
   return parts.join(" | ");
 }
+
+// ============ SESSION MODE VALIDATION (SEV-2) ============
+
+const VALID_SESSION_MODES = ["RTH", "ETH", "FULL_24x5", "CUSTOM"] as const;
+export type SessionMode = typeof VALID_SESSION_MODES[number];
+
+export interface SessionModeValidationInput {
+  sessionMode?: string | null;
+  sessionConfig?: {
+    startTime?: string;
+    endTime?: string;
+    timezone?: string;
+  } | null;
+  stage?: string;
+  traceId?: string;
+}
+
+/**
+ * Validate session mode configuration
+ * - Missing session mode: SEV-2 warning (defaults to FULL_24x5)
+ * - Invalid session mode: SEV-1 error (blocks creation)
+ * - Incomplete CUSTOM config: SEV-1 error (blocks creation)
+ */
+export function validateSessionMode(input: SessionModeValidationInput): ValidationResult & { normalizedMode?: SessionMode } {
+  const errors: ValidationError[] = [];
+  const warnings: ValidationWarning[] = [];
+  let normalizedMode: SessionMode | undefined;
+  
+  const { sessionMode, sessionConfig, stage, traceId } = input;
+  
+  if (!sessionMode) {
+    // SEV-2: Warn about implicit 24x5 default (doesn't block)
+    warnings.push({
+      code: "SESSION_MODE_IMPLICIT_DEFAULT",
+      field: "sessionMode",
+      message: `No session mode specified - defaulting to FULL_24x5. Consider setting explicit session mode for ${stage || 'this bot'}.`,
+      severity: "SEV-2",
+    });
+    normalizedMode = "FULL_24x5";
+  } else {
+    const upper = sessionMode.toUpperCase() as SessionMode;
+    if (VALID_SESSION_MODES.includes(upper)) {
+      normalizedMode = upper;
+    } else {
+      // SEV-1: Invalid session mode is a blocking error (fail-closed)
+      errors.push({
+        code: "SESSION_MODE_INVALID",
+        field: "sessionMode",
+        message: `Invalid session mode '${sessionMode}'. Valid modes: ${VALID_SESSION_MODES.join(", ")}`,
+        severity: "SEV-1",
+      });
+      // Do NOT fall back to FULL_24x5 - let it fail
+    }
+  }
+  
+  // Validate CUSTOM session config - SEV-1 if incomplete
+  if (normalizedMode === "CUSTOM") {
+    if (!sessionConfig || !sessionConfig.startTime || !sessionConfig.endTime) {
+      errors.push({
+        code: "CUSTOM_SESSION_INCOMPLETE",
+        field: "sessionConfig",
+        message: "CUSTOM session mode requires startTime and endTime in sessionConfig.",
+        severity: "SEV-1",
+      });
+    }
+  }
+  
+  if (traceId && (errors.length > 0 || warnings.length > 0)) {
+    const level = errors.length > 0 ? "error" : "log";
+    console[level](`[FAIL_FAST_VALIDATOR] trace_id=${traceId} SESSION_MODE_VALIDATION mode="${normalizedMode}" errors=${errors.length} warnings=${warnings.length}`);
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    normalizedMode,
+  };
+}
+
+// ============ TIMEFRAME VALIDATION ============
+
+const VALID_TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
+export type Timeframe = typeof VALID_TIMEFRAMES[number];
+
+export function validateTimeframe(timeframe?: string | null, traceId?: string): ValidationResult & { normalizedTimeframe?: Timeframe } {
+  const errors: ValidationError[] = [];
+  const warnings: ValidationWarning[] = [];
+  let normalizedTimeframe: Timeframe | undefined;
+  
+  if (!timeframe) {
+    warnings.push({
+      code: "TIMEFRAME_MISSING",
+      field: "timeframe",
+      message: "No timeframe specified - defaulting to 5m. Consider setting explicit timeframe.",
+      severity: "SEV-2",
+    });
+    normalizedTimeframe = "5m";
+  } else {
+    const lower = timeframe.toLowerCase() as Timeframe;
+    if (VALID_TIMEFRAMES.includes(lower)) {
+      normalizedTimeframe = lower;
+    } else {
+      errors.push({
+        code: "TIMEFRAME_INVALID",
+        field: "timeframe",
+        message: `Invalid timeframe '${timeframe}'. Valid timeframes: ${VALID_TIMEFRAMES.join(", ")}`,
+        severity: "SEV-1",
+      });
+    }
+  }
+  
+  if (traceId && errors.length > 0) {
+    console.error(`[FAIL_FAST_VALIDATOR] trace_id=${traceId} TIMEFRAME_VALIDATION_FAILED timeframe="${timeframe}"`);
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    normalizedTimeframe,
+  };
+}
+
+// ============ MONITORING: FALLBACK RATE TRACKING ============
+
+interface FallbackMetrics {
+  archetypeFallbacks: number;
+  configFallbacks: number;
+  sessionModeFallbacks: number;
+  timeframeFallbacks: number;
+  totalValidations: number;
+}
+
+// In-memory fallback counters (reset on server restart)
+const fallbackMetrics: FallbackMetrics = {
+  archetypeFallbacks: 0,
+  configFallbacks: 0,
+  sessionModeFallbacks: 0,
+  timeframeFallbacks: 0,
+  totalValidations: 0,
+};
+
+// Threshold for alerting (5% fallback rate)
+const FALLBACK_ALERT_THRESHOLD = parseFloat(process.env.FALLBACK_ALERT_THRESHOLD || "0.05");
+
+export function recordFallback(type: keyof Omit<FallbackMetrics, "totalValidations">) {
+  fallbackMetrics[type]++;
+  fallbackMetrics.totalValidations++;
+  
+  // Check if we should alert
+  const rate = fallbackMetrics[type] / fallbackMetrics.totalValidations;
+  if (rate > FALLBACK_ALERT_THRESHOLD && fallbackMetrics.totalValidations >= 20) {
+    console.warn(`[FALLBACK_ALERT] ${type} fallback rate ${(rate * 100).toFixed(1)}% exceeds threshold ${(FALLBACK_ALERT_THRESHOLD * 100).toFixed(1)}%`);
+  }
+}
+
+export function incrementValidationCount() {
+  fallbackMetrics.totalValidations++;
+}
+
+export function getFallbackMetrics(): FallbackMetrics & { rates: Record<string, number> } {
+  const total = fallbackMetrics.totalValidations || 1; // Avoid division by zero
+  return {
+    ...fallbackMetrics,
+    rates: {
+      archetype: fallbackMetrics.archetypeFallbacks / total,
+      config: fallbackMetrics.configFallbacks / total,
+      sessionMode: fallbackMetrics.sessionModeFallbacks / total,
+      timeframe: fallbackMetrics.timeframeFallbacks / total,
+    },
+  };
+}
+
+// ============ MONITORING: VARIANCE DETECTOR ============
+
+interface BatchMetrics {
+  values: number[];
+  timestamp: Date;
+}
+
+const batchMetricsHistory: Map<string, BatchMetrics[]> = new Map();
+const VARIANCE_ALERT_THRESHOLD = parseFloat(process.env.VARIANCE_ALERT_THRESHOLD || "0.001");
+const MAX_BATCH_HISTORY = 10;
+
+/**
+ * Record batch metrics and check for near-zero variance (bug indicator)
+ * If all values in a batch are identical, it likely indicates a bug
+ */
+export function recordBatchMetrics(batchId: string, metricName: string, values: number[]): { variance: number; alert: boolean; message?: string } {
+  if (values.length < 2) {
+    return { variance: 0, alert: false };
+  }
+  
+  // Calculate variance
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+  
+  // Store history
+  const key = `${batchId}:${metricName}`;
+  const history = batchMetricsHistory.get(key) || [];
+  history.push({ values, timestamp: new Date() });
+  if (history.length > MAX_BATCH_HISTORY) {
+    history.shift();
+  }
+  batchMetricsHistory.set(key, history);
+  
+  // Check for near-zero variance (all identical = likely bug)
+  if (variance < VARIANCE_ALERT_THRESHOLD && values.length >= 5) {
+    const message = `[VARIANCE_ALERT] batch=${batchId} metric=${metricName} variance=${variance.toExponential(2)} - all ${values.length} values nearly identical (${values[0].toFixed(4)}). This may indicate a bug.`;
+    console.warn(message);
+    return { variance, alert: true, message };
+  }
+  
+  return { variance, alert: false };
+}
+
+export function getVarianceAlertHistory(): Array<{ batchId: string; metricName: string; lastValues: number[]; timestamp: Date }> {
+  const alerts: Array<{ batchId: string; metricName: string; lastValues: number[]; timestamp: Date }> = [];
+  
+  for (const [key, history] of batchMetricsHistory.entries()) {
+    const [batchId, metricName] = key.split(":");
+    const latest = history[history.length - 1];
+    if (latest) {
+      const mean = latest.values.reduce((a, b) => a + b, 0) / latest.values.length;
+      const variance = latest.values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / latest.values.length;
+      if (variance < VARIANCE_ALERT_THRESHOLD && latest.values.length >= 5) {
+        alerts.push({ batchId, metricName, lastValues: latest.values, timestamp: latest.timestamp });
+      }
+    }
+  }
+  
+  return alerts;
+}
+
+// ============ BACKTEST CRITICAL ERROR CLASSIFICATION ============
+
+export type BacktestErrorSeverity = "CRITICAL" | "RECOVERABLE" | "WARNING";
+
+export interface BacktestErrorClassification {
+  code: string;
+  severity: BacktestErrorSeverity;
+  shouldHalt: boolean;
+  message: string;
+}
+
+/**
+ * Classify backtest errors as critical (halt) vs recoverable (continue with warning)
+ * FAIL-CLOSED: Critical errors halt the backtest entirely
+ */
+export function classifyBacktestError(error: Error | string, context?: { symbol?: string; traceId?: string }): BacktestErrorClassification {
+  const errorMessage = error instanceof Error ? error.message : error;
+  const errorLower = errorMessage.toLowerCase();
+  
+  // CRITICAL: Data integrity issues - halt immediately
+  if (errorLower.includes("no historical data") || errorLower.includes("empty bar data")) {
+    return {
+      code: "NO_DATA",
+      severity: "CRITICAL",
+      shouldHalt: true,
+      message: `No historical data available for ${context?.symbol || 'symbol'}. Cannot run backtest without data.`,
+    };
+  }
+  
+  if (errorLower.includes("bar validation failed") || errorLower.includes("invalid ohlc")) {
+    return {
+      code: "CORRUPT_DATA",
+      severity: "CRITICAL",
+      shouldHalt: true,
+      message: "Bar data failed validation. Data integrity compromised.",
+    };
+  }
+  
+  if (errorLower.includes("instrument not supported") || errorLower.includes("symbol not found")) {
+    return {
+      code: "INVALID_SYMBOL",
+      severity: "CRITICAL",
+      shouldHalt: true,
+      message: `Symbol ${context?.symbol || 'unknown'} is not supported.`,
+    };
+  }
+  
+  if (errorLower.includes("strategy rules") || errorLower.includes("archetype undeterminable")) {
+    return {
+      code: "INVALID_STRATEGY",
+      severity: "CRITICAL",
+      shouldHalt: true,
+      message: "Strategy configuration is invalid or incomplete.",
+    };
+  }
+  
+  if (errorLower.includes("division by zero") || errorLower.includes("nan") || errorLower.includes("infinity")) {
+    return {
+      code: "CALCULATION_ERROR",
+      severity: "CRITICAL",
+      shouldHalt: true,
+      message: "Calculation error detected. Results would be invalid.",
+    };
+  }
+  
+  // RECOVERABLE: Temporary issues that can be retried
+  if (errorLower.includes("timeout") || errorLower.includes("rate limit") || errorLower.includes("network")) {
+    return {
+      code: "TRANSIENT_ERROR",
+      severity: "RECOVERABLE",
+      shouldHalt: false,
+      message: "Temporary error occurred. Backtest can be retried.",
+    };
+  }
+  
+  if (errorLower.includes("cache miss") || errorLower.includes("cache expired")) {
+    return {
+      code: "CACHE_MISS",
+      severity: "RECOVERABLE",
+      shouldHalt: false,
+      message: "Cache miss - fetching fresh data.",
+    };
+  }
+  
+  // WARNING: Non-critical issues
+  if (errorLower.includes("session filter") || errorLower.includes("no trades generated")) {
+    return {
+      code: "NO_SIGNALS",
+      severity: "WARNING",
+      shouldHalt: false,
+      message: "No trading signals generated during backtest period.",
+    };
+  }
+  
+  // Default: Treat unknown errors as critical (fail-closed)
+  return {
+    code: "UNKNOWN_ERROR",
+    severity: "CRITICAL",
+    shouldHalt: true,
+    message: `Unknown error: ${errorMessage.slice(0, 200)}`,
+  };
+}
+
+/**
+ * Assert backtest can proceed - throws if critical error detected
+ */
+export function assertBacktestCanProceed(error: Error | string, context?: { symbol?: string; traceId?: string }): void {
+  const classification = classifyBacktestError(error, context);
+  
+  if (classification.shouldHalt) {
+    const traceInfo = context?.traceId ? ` trace_id=${context.traceId}` : "";
+    console.error(`[BACKTEST_HALT]${traceInfo} ${classification.code}: ${classification.message}`);
+    throw new Error(`[${classification.code}] ${classification.message}`);
+  }
+  
+  // Log recoverable errors as warnings
+  if (classification.severity === "RECOVERABLE" || classification.severity === "WARNING") {
+    console.warn(`[BACKTEST_WARNING] ${classification.code}: ${classification.message}`);
+  }
+}
