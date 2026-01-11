@@ -49,6 +49,7 @@ export function useStartRunner() {
       });
       
       queryClient.invalidateQueries({ queryKey: ['bots'] });
+      queryClient.invalidateQueries({ queryKey: ['bots-overview'] });
       queryClient.invalidateQueries({ queryKey: ['bot-runner-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['bot-instances'] });
       queryClient.invalidateQueries({ queryKey: ['bot-detail', variables.botId] });
@@ -90,6 +91,7 @@ export function useRestartRunner() {
       });
       
       queryClient.invalidateQueries({ queryKey: ['bots'] });
+      queryClient.invalidateQueries({ queryKey: ['bots-overview'] });
       queryClient.invalidateQueries({ queryKey: ['bot-runner-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['bot-instances'] });
       queryClient.invalidateQueries({ queryKey: ['bot-detail', variables.botId] });
@@ -133,6 +135,7 @@ export function useReconcileBot() {
       });
       
       queryClient.invalidateQueries({ queryKey: ['bots'] });
+      queryClient.invalidateQueries({ queryKey: ['bots-overview'] });
       queryClient.invalidateQueries({ queryKey: ['bot-runner-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['bot-detail', botId] });
     },

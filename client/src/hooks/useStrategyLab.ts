@@ -347,6 +347,9 @@ export function useExportCandidate() {
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["strategy-lab-session", variables.session_id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["bots"] });
+      queryClient.invalidateQueries({ queryKey: ["bots-overview"] });
       toast({ title: "Exported", description: data?.bot_id ? "Bot created from strategy" : "Strategy exported" });
     },
     onError: (error) => {
@@ -437,6 +440,7 @@ export function usePromoteCandidate() {
         queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/candidates"] });
         queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/overview"] });
         queryClient.invalidateQueries({ queryKey: ["bots"] });
+        queryClient.invalidateQueries({ queryKey: ["bots-overview"] });
         toast({ 
           title: "Strategy sent to LAB", 
           description: data?.botName 

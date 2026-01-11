@@ -88,6 +88,7 @@ export function useManualKill() {
       queryClient.invalidateQueries({ queryKey: ['bot_kill_state', botId] });
       queryClient.invalidateQueries({ queryKey: ['bot_kill_events', botId] });
       queryClient.invalidateQueries({ queryKey: ['bots'] });
+      queryClient.invalidateQueries({ queryKey: ['bots-overview'] });
     },
   });
 }
@@ -114,6 +115,7 @@ export function useManualResurrect() {
       queryClient.invalidateQueries({ queryKey: ['bot_kill_state', botId] });
       queryClient.invalidateQueries({ queryKey: ['bot_kill_events', botId] });
       queryClient.invalidateQueries({ queryKey: ['bots'] });
+      queryClient.invalidateQueries({ queryKey: ['bots-overview'] });
     },
   });
 }
