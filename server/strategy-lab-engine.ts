@@ -1368,10 +1368,6 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
     confidenceScore: candidate.confidenceScore ?? 0,
   };
   
-  // Safe max contracts defaults for TRIALS stage (conservative for testing)
-  const maxContractsPerTrade = 1;  // Single contract for TRIALS
-  const maxContractsPerSymbol = 2; // Max 2 concurrent contracts per symbol
-
   const newBot = await storage.createBot({
     userId: DEFAULT_USER_ID,
     name: candidate.strategyName,
@@ -1379,8 +1375,6 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
     symbol,
     strategyConfig,
     riskConfig: effectiveRiskConfig,
-    maxContractsPerTrade,
-    maxContractsPerSymbol,
     healthScore: 100,
     priorityScore: candidate.confidenceScore ?? 50,
     isCandidate: true,
