@@ -1332,6 +1332,24 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
     recordFallback("sessionMode", traceId);
   }
   
+  // Extract risk config from candidate rules or use institutional defaults
+  const rulesJson = candidate.rulesJson as Record<string, any> || {};
+  const defaultRiskConfig = {
+    stopLossTicks: 16,      // 4 points = $20 risk per MES contract
+    takeProfitTicks: 80,    // 20 points = $100 profit target
+    maxPositionSize: 1,     // Conservative single contract for TRIALS
+    maxDailyTrades: 5,      // Prevent overtrading
+    maxDailyLoss: 200,      // $200 daily loss limit
+    maxDrawdownPercent: 5,  // 5% max drawdown
+  };
+  
+  // Merge candidate's risk model with defaults (candidate values take precedence)
+  const effectiveRiskConfig = {
+    ...defaultRiskConfig,
+    ...(rulesJson.riskModel || {}),
+    ...(rulesJson.risk || {}),
+  };
+  
   const strategyConfig = {
     archetypeId: candidate.archetypeId || null,
     archetypeName: validArchetype,
@@ -1340,18 +1358,25 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
     expectedBehavior: candidate.expectedBehaviorJson || {},
     timeframes: candidate.timeframePreferences || ["5m"],
     instruments: candidate.instrumentUniverse || ["MES"],
+    riskModel: effectiveRiskConfig,
     source: "strategy_lab_auto_promote",
     candidateId,
     confidenceScore: candidate.confidenceScore ?? 0,
   };
   
+  // Safe max contracts defaults for TRIALS stage (conservative for testing)
+  const maxContractsPerTrade = 1;  // Single contract for TRIALS
+  const maxContractsPerSymbol = 2; // Max 2 concurrent contracts per symbol
+
   const newBot = await storage.createBot({
     userId: DEFAULT_USER_ID,
     name: candidate.strategyName,
     stage: "TRIALS",
     symbol,
     strategyConfig,
-    riskConfig: null,
+    riskConfig: effectiveRiskConfig,
+    maxContractsPerTrade,
+    maxContractsPerSymbol,
     healthScore: 100,
     priorityScore: candidate.confidenceScore ?? 50,
     isCandidate: true,
@@ -1375,6 +1400,39 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
   });
 
   console.log(`[STRATEGY_LAB_AUTO_PROMOTE] trace_id=${traceId} created bot_id=${newBot.id} name="${newBot.name}"`);
+
+  // INSTITUTIONAL: Create initial Generation 1 for proper lifecycle tracking
+  try {
+    const generationId = crypto.randomUUID();
+    const timeframe = candidate.timeframePreferences?.[0] || '5m';
+    
+    await storage.createBotGeneration({
+      id: generationId,
+      botId: newBot.id,
+      generationNumber: 1,
+      strategyConfig,
+      riskConfig: effectiveRiskConfig,
+      stage: 'TRIALS',
+      timeframe,
+      summaryTitle: 'Strategy Lab Auto-Promote',
+      mutationReasonCode: 'STRATEGY_LAB_PROMOTE',
+      mutationObjective: candidate.hypothesis,
+    });
+    
+    // Link bot to its first generation
+    await db.update(bots)
+      .set({ 
+        currentGenerationId: generationId, 
+        currentGeneration: 1,
+        generationUpdatedAt: new Date(),
+      })
+      .where(eq(bots.id, newBot.id));
+      
+    console.log(`[STRATEGY_LAB_AUTO_PROMOTE] trace_id=${traceId} bot_id=${newBot.id} generation_1_created gen_id=${generationId}`);
+  } catch (genError) {
+    console.error(`[STRATEGY_LAB_AUTO_PROMOTE] trace_id=${traceId} bot_id=${newBot.id} generation_error:`, genError);
+    // Don't fail promotion if generation creation fails - bot is already created
+  }
 
   await db.update(strategyCandidates)
     .set({ 

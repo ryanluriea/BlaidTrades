@@ -598,7 +598,7 @@ export function formatValidationErrors(result: ValidationResult): string {
 
 // ============ SESSION MODE VALIDATION (SEV-2) ============
 
-const VALID_SESSION_MODES = ["RTH", "ETH", "FULL_24x5", "CUSTOM"] as const;
+const VALID_SESSION_MODES = ["RTH_US", "ETH", "FULL_24x5", "CUSTOM"] as const;
 export type SessionMode = typeof VALID_SESSION_MODES[number];
 
 export interface SessionModeValidationInput {
