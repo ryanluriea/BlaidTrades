@@ -150,7 +150,8 @@ export function QCProofPopup({
     queryFn: () => fetchQCVerification(candidateId),
     enabled: open && !!candidateId,
     retry: false,
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnMount: "always",
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return false;

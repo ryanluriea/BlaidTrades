@@ -601,6 +601,17 @@ export function formatValidationErrors(result: ValidationResult): string {
 const VALID_SESSION_MODES = ["RTH_US", "ETH", "FULL_24x5", "CUSTOM"] as const;
 export type SessionMode = typeof VALID_SESSION_MODES[number];
 
+const SESSION_MODE_ALIASES: Record<string, SessionMode> = {
+  "RTH": "RTH_US",       // Common alias for Regular Trading Hours US
+  "RTH_US": "RTH_US",
+  "ETH": "ETH",          // Extended Trading Hours
+  "FULL_24X5": "FULL_24x5",
+  "FULL_24x5": "FULL_24x5",
+  "24X5": "FULL_24x5",
+  "24x5": "FULL_24x5",
+  "CUSTOM": "CUSTOM",
+};
+
 export interface SessionModeValidationInput {
   sessionMode?: string | null;
   sessionConfig?: {
@@ -635,9 +646,23 @@ export function validateSessionMode(input: SessionModeValidationInput): Validati
     });
     normalizedMode = "FULL_24x5";
   } else {
-    const upper = sessionMode.toUpperCase() as SessionMode;
-    if (VALID_SESSION_MODES.includes(upper)) {
-      normalizedMode = upper;
+    // Check aliases first (handles RTH -> RTH_US, etc.)
+    const upper = sessionMode.toUpperCase();
+    const aliasedMode = SESSION_MODE_ALIASES[upper] || SESSION_MODE_ALIASES[sessionMode];
+    
+    if (aliasedMode) {
+      normalizedMode = aliasedMode;
+      // Add a warning if we normalized an alias (for audit)
+      if (upper !== aliasedMode && sessionMode.toUpperCase() !== aliasedMode) {
+        warnings.push({
+          code: "SESSION_MODE_ALIASED",
+          field: "sessionMode",
+          message: `Session mode '${sessionMode}' normalized to '${aliasedMode}'.`,
+          severity: "SEV-2",
+        });
+      }
+    } else if (VALID_SESSION_MODES.includes(upper as SessionMode)) {
+      normalizedMode = upper as SessionMode;
     } else {
       // SEV-1: Invalid session mode is a blocking error (fail-closed)
       errors.push({
