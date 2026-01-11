@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:migrate-enums": "tsx scripts/migrate-enums.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react-swc": "^3.11.0",

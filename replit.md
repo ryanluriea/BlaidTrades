@@ -104,6 +104,25 @@ The platform implements institutional-grade "fail-closed" data integrity pattern
 - Matrix worker: Records batch metrics for variance detection
 - Discord alerts: Sent when variance or fallback thresholds breached
 
+## Database Migrations (Render Deployment)
+
+**Enum Migration Script (scripts/migrate-enums.ts):**
+Industry-standard pre-deploy migration that safely adds missing PostgreSQL enum values. Idempotent - safe to run multiple times.
+
+**Setup on Render:**
+1. Go to your Web Service → Settings → Build & Deploy
+2. Add Pre-Deploy Command: `npm run db:migrate-enums`
+3. This runs before each deployment, ensuring enum values are in sync
+
+**Local Testing:**
+```bash
+npm run db:migrate-enums
+```
+
+**When to Update:**
+- When adding new values to any pgEnum in `shared/schema.ts`, add them to `ENUM_DEFINITIONS` in `scripts/migrate-enums.ts`
+- The migration checks all enum types and adds only missing values
+
 ## Testing Infrastructure
 
 **Unit Tests (server/tests/unit/):**

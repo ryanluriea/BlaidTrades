@@ -1,0 +1,50 @@
+2026-01-11T19:01:31.537664298Z     '{"researchConfidence":30,"structuralSoundness":100,"historicalValidation":50,"regimeRobustness":60,"audit":{"calculatedAt":"2026-01-11T19:01:31.517Z","version":"2.0.0","weights":{"research":0.3,"structural":0.25,"historical":0.3,"regime":0.15},"components":{"research":{"score":30,"maxScore":100,"weight":0.3,"weightedContribution":9,"factors":[{"factor":"Citation Quality","points":0,"maxPoints":30,"reason":"No evidence sources provided"},{"factor":"Consensus Strength","points":0,"maxPoints":30,"reason":"No sources - cannot assess consensus"},{"factor":"Novelty Bonus","points":20,"maxPoints":20,"reason":"2 distinct innovations identified"},{"factor":"Regime Alignment","points":10,"maxPoints":20,"reason":"Hypothesis lacks regime-specific conditions"}],"formula":"min(100, citationQuality + consensusStrength + noveltyBonus + regimeAlignment)"},"structural":{"score":100,"maxScore":100,"weight":0.25,"weightedContribution":25,"factors":[{"factor":"Logical Completeness","points":30,"maxPoints":30,"reason":"Full rule set: entry, exit, risk, invalidation defined"},{"factor":"Entry/Exit Symmetry","points":25,"maxPoints":25,"reason":"Both entry and exit rules defined"},{"factor":"Invalidation Clarity","points":25,"maxPoints":25,"reason":"Clear invalidation conditions specified"},{"factor":"Parameter Stability","points":20,"maxPoints":20,"reason":"Filter rules provide parameter constraints"}],"formula":"min(100, logicalCompleteness + entryExitSymmetry + invalidationClarity + parameterStability)"},"historical":{"score":50,"maxScore":100,"weight":0.3,"weightedContribution":15,"factors":[{"factor":"Lab Outcomes","points":15,"maxPoints":30,"reason":"No LAB failure context - baseline scoring"},{"factor":"Win Rate Stability","points":15,"maxPoints":25,"reason":"No historical win rate data"},{"factor":"Drawdown Profile","points":10,"maxPoints":20,"reason":"No drawdown history"},{"factor":"Sample Sufficiency","points":10,"maxPoints":30,"reason":"1 similar known strategies provide validation"}],"formula":"min(100, labOutcomes + winRateStability + drawdownProfile + sampleSufficiency)"},"regime":{"score":60,"maxScore":100,"weight":0.15,"weightedContribution":9,"factors":[{"factor":"Cross-Regime Performance","points":15,"maxPoints":40,"reason":"Detailed hypothesis but no regime or causal analysis"},{"factor":"Volatility Sensitivity","points":30,"maxPoints":30,"reason":"Strategy addresses volatility conditions"},{"factor":"Liquidity Sensitivity","points":15,"maxPoints":30,"reason":"No liquidity awareness in hypothesis"}],"formula":"min(100, crossRegimePerformance + volatilitySensitivity + liquiditySensitivity)"}},"totalFormula":"research*0.30 + structural*0.25 + historical*0.30 + regime*0.15 + backtestBonus","backtestValidation":{"hasBacktestData":true,"sharpeRatio":1.2,"maxDrawdown":15,"winRate":55,"validationBonus":5,"validationReason":"Backtest metrics: Sharpe=1.20, MaxDD=15.0%, WinRate=55.0%"}},"researchStrength":30,"structuralEdge":100,"regimeAlignment":60,"riskEfficiency":75,"historicalAnalogs":50,"executionFeasibility":100,"total":63}',
+2026-01-11T19:01:31.537671209Z     '{"whyThisExists":"Low vol lulls traders into oversized positions on minor pops/dips, leading to sharp counter-moves; s","howToFalsify":"Strategy fails if premise is invalid","expectedFailureModes":["Regime change","Crowded trade"],"whatToWatch":["Entry signals","Risk limits"]}',
+2026-01-11T19:01:31.537674109Z     'PENDING_REVIEW',
+2026-01-11T19:01:31.537677859Z     'GROK_RESEARCH',
+2026-01-11T19:01:31.537680019Z     '2172f2fa',
+2026-01-11T19:01:31.537682199Z     75,
+2026-01-11T19:01:31.537684299Z     'QUICK',
+2026-01-11T19:01:31.537686389Z     'grok-4-1-fast',
+2026-01-11T19:01:31.53768845Z     'GROK',
+2026-01-11T19:01:31.537691479Z     `[{"type":"X/Twitter","label":"Social Sentiment","detail":"Overnight 'moon' calls on futures despite flat action"},{"type":"Technical","label":"Pattern","detail":"Repeated 1m MACD bear div at overnight highs in low ATR"},{"type":"News","label":"Catalyst","detail":"Post-Fed dovish comments fueling complacency"}]`,
+2026-01-11T19:01:31.53769372Z     'ETH low vol hides positioning bloat from retail chasing overnight drifts, perfect for quick fades. Picked for contrarian ETH focus others ignore, backed by X overnight euphoria clashing with divergence signals. Lower confidence due to thinner liquidity but high winrate in tests.',
+2026-01-11T19:01:31.53770256Z     'CONTRARIAN_SCAN'
+2026-01-11T19:01:31.53770489Z   ],
+2026-01-11T19:01:31.53770708Z   cause: error: invalid input value for enum candidate_source: "GROK_RESEARCH"
+2026-01-11T19:01:31.537709251Z       at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2026-01-11T19:01:31.537711341Z       at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-11T19:01:31.537713481Z       at async targetPool.query (file:///opt/render/project/src/dist/index.js:3158:22)
+2026-01-11T19:01:31.537715581Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:124:18
+2026-01-11T19:01:31.537722021Z       at async NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:39:16)
+2026-01-11T19:01:31.537724291Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:117:22
+2026-01-11T19:01:31.537726421Z       at async processGrokResearchCycle (file:///opt/render/project/src/dist/index.js:16370:27)
+2026-01-11T19:01:31.537728521Z       at async Timeout._onTimeout (file:///opt/render/project/src/dist/index.js:40766:24) {
+2026-01-11T19:01:31.537730602Z     length: 150,
+2026-01-11T19:01:31.537732732Z     severity: 'ERROR',
+2026-01-11T19:01:31.537734822Z     code: '22P02',
+2026-01-11T19:01:31.537736892Z     detail: undefined,
+2026-01-11T19:01:31.537738922Z     hint: undefined,
+2026-01-11T19:01:31.537741022Z     position: undefined,
+2026-01-11T19:01:31.537743192Z     internalPosition: undefined,
+2026-01-11T19:01:31.537745273Z     internalQuery: undefined,
+2026-01-11T19:01:31.537747943Z     where: "unnamed portal parameter $15 = '...'",
+2026-01-11T19:01:31.537750083Z     schema: undefined,
+2026-01-11T19:01:31.537752133Z     table: undefined,
+2026-01-11T19:01:31.537754193Z     column: undefined,
+2026-01-11T19:01:31.537756423Z     dataType: undefined,
+2026-01-11T19:01:31.537758483Z     constraint: undefined,
+2026-01-11T19:01:31.537760633Z     file: 'enum.c',
+2026-01-11T19:01:31.537762694Z     line: '129',
+2026-01-11T19:01:31.537764803Z     routine: 'enum_in'
+2026-01-11T19:01:31.537766964Z   }
+2026-01-11T19:01:31.537769114Z }
+2026-01-11T19:01:31.538164265Z [SCHEDULER] trace_id=2c99692a Grok startup cycle: 0 candidates created
+2026-01-11T19:01:31.547276139Z [ACTIVITY_EVENT] type=GROK_CYCLE_COMPLETED severity=INFO title="Grok Research Cycle Complete" trace_id=4d3a1e5a-9bae-41f9-97e0-7fca5742c63e
+2026-01-11T19:01:31.747604256Z [QC_WORKER] trace_id=9606e556 starting_cycle
+2026-01-11T19:01:31.754355101Z [QC_WORKER] trace_id=9606e556 queued_jobs=0 running=0/2
+2026-01-11T19:01:31.771162732Z [PAPER_RUNNER_SERVICE] trace_id=8af9c316 MARKET_CLOSED reason=WEEKEND_SUNDAY_PRE_OPEN nextOpen=Today 6:00 PM ET shouldLiquidate=true
+2026-01-11T19:01:33.721891668Z [STRATEGY_LAB_ACTIVITY] phase=IDLE provider=none msg="Waiting for next research cycle"
+2026-01-11T19:01:35.674773712Z [AUTONOMY_LOOP] trace_id=d68750c9-2af3-49f7-91d5-1fc08a105a1e starting evaluation cycle
+2026-01-11T19:01:35.68933027Z [AUTONOMY_LOOP] trace_id=d68750c9-2af3-49f7-91d5-1fc08a105a1e market_data_proof: databento_ok_24h=386 verified=true
+2026-01-11T19:01:35.694673069Z [AUTONOMY_LOOP] trace_id=d68750c9-2af3-49f7-91d5-1fc08a105a1e completed bots=0 promotions=0 demotions=0 scores=0 backtests_queued=0
