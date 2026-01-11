@@ -1197,6 +1197,16 @@ export async function promoteSentToLabCandidates(): Promise<AutoPromoteResult> {
       } catch (promoteError: any) {
         result.skippedReasons.push({ id: candidate.id, reason: promoteError.message });
         console.error(`[SENT_TO_LAB_WORKER] trace_id=${traceId} ERROR: "${candidate.strategyName}" - ${promoteError.message}`);
+        // Log full error for debugging - captures complete PostgreSQL error details
+        console.error(`[SENT_TO_LAB_WORKER] trace_id=${traceId} FULL_ERROR:`, JSON.stringify({
+          message: promoteError.message,
+          code: promoteError.code,
+          detail: promoteError.detail,
+          constraint: promoteError.constraint,
+          column: promoteError.column,
+          table: promoteError.table,
+          stack: promoteError.stack?.split('\n').slice(0, 5).join('\n')
+        }, null, 2));
       }
     }
     
