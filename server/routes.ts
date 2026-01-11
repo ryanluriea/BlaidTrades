@@ -374,6 +374,62 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // DIAGNOSTIC: Check database state for debugging production issues
+  app.get("/api/_debug/data-check", async (req: Request, res: Response) => {
+    try {
+      const userId = req.query.user_id as string;
+      
+      // Count total bots (all users)
+      const totalBotsResult = await db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE archived_at IS NULL`);
+      const totalBots = Number((totalBotsResult.rows[0] as any)?.count || 0);
+      
+      // Count bots for specific user
+      let userBots = 0;
+      if (userId) {
+        const userBotsResult = await db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE user_id = ${userId} AND archived_at IS NULL`);
+        userBots = Number((userBotsResult.rows[0] as any)?.count || 0);
+      }
+      
+      // Count llm_budgets
+      const budgetsResult = await db.execute(sql`SELECT provider, monthly_limit_usd, current_month_spend_usd FROM llm_budgets LIMIT 10`);
+      const budgetsSample = (budgetsResult.rows || []).map((r: any) => ({
+        provider: r.provider,
+        limit: r.monthly_limit_usd,
+        spend: r.current_month_spend_usd,
+        limitType: typeof r.monthly_limit_usd,
+        spendType: typeof r.current_month_spend_usd,
+      }));
+      
+      // Count users
+      const usersResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
+      const totalUsers = Number((usersResult.rows[0] as any)?.count || 0);
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        database: {
+          totalBots,
+          userBots,
+          userIdProvided: !!userId,
+          userIdPrefix: userId ? userId.substring(0, 8) : null,
+          totalUsers,
+          budgetsSample,
+        },
+        env: {
+          hasDbUrl: !!process.env.DATABASE_URL,
+          dbUrlPrefix: process.env.DATABASE_URL?.substring(0, 30) + '...',
+          nodeEnv: process.env.NODE_ENV,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ 
+        success: false, 
+        error: err.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   app.get("/api/degraded-status", async (_req: Request, res: Response) => {
     try {
       const { isCircuitOpen, isDatabaseWarmedUp, STATEMENT_TIMEOUT_MS, CONNECTION_TIMEOUT_MS } = await import("./db");
