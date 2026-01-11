@@ -749,6 +749,12 @@ export async function restoreBackup(
     if (data.costEvents && data.costEvents.length > 0) {
       for (const ce of data.costEvents) {
         try {
+          // Skip cost events without bot_id (production has NOT NULL constraint)
+          if (!ce.botId) {
+            console.log(`[BACKUP_SERVICE] Skipping cost event ${ce.id}: no bot_id`);
+            continue;
+          }
+          
           const existing = await db.select().from(botCostEvents).where(eq(botCostEvents.id, ce.id));
           
           if (existing.length === 0) {

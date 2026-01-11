@@ -569,8 +569,16 @@ async function logCostEvent(
   depth: GrokResearchDepth
 ): Promise<void> {
   try {
+    // Skip cost event logging for system-level costs without a bot_id
+    // This prevents NOT NULL constraint violations in production
+    // Budget tracking via llm_budgets table still works independently
+    if (!botId) {
+      console.log(`[GROK_COST_TRACKING] trace_id=${traceId} Skipping cost event (no bot_id) cost=$${costUsd.toFixed(4)}`);
+      return;
+    }
+    
     await db.insert(botCostEvents).values({
-      botId: botId || null, // Allow null for system-level research costs
+      botId,
       userId,
       category: "llm",
       provider: "xai",
