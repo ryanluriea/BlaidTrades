@@ -168,6 +168,8 @@ export interface IStorage {
   getGovernanceApprovalsByBot(botId: string, limit?: number): Promise<schema.GovernanceApproval[]>;
   getPendingGovernanceApprovals(userId?: string): Promise<schema.GovernanceApproval[]>;
   updateGovernanceApproval(id: string, updates: Partial<schema.GovernanceApproval>): Promise<schema.GovernanceApproval | undefined>;
+  
+  ensureSystemUser(): Promise<{ id: string; email: string; username: string }>;
 }
 
 export interface JobStateTransition {
@@ -2817,6 +2819,74 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.governanceApprovals.id, id))
       .returning();
     return result;
+  }
+
+  private systemUserCache: { id: string; email: string; username: string } | null = null;
+
+  async ensureSystemUser(): Promise<{ id: string; email: string; username: string }> {
+    if (this.systemUserCache) {
+      return this.systemUserCache;
+    }
+
+    const SYSTEM_USER_ID = "489c9350-10da-4fb9-8f6b-aeffc9412a46";
+    const SYSTEM_USER_EMAIL = "blaidtrades@gmail.com";
+    const SYSTEM_USER_USERNAME = "BlaidAgent";
+
+    const existing = await db.select({ id: schema.users.id, email: schema.users.email, username: schema.users.username })
+      .from(schema.users)
+      .where(eq(schema.users.id, SYSTEM_USER_ID))
+      .limit(1);
+
+    if (existing.length > 0 && existing[0].email && existing[0].username) {
+      this.systemUserCache = { id: existing[0].id, email: existing[0].email, username: existing[0].username };
+      return this.systemUserCache;
+    }
+
+    const existingByEmail = await db.select({ id: schema.users.id, email: schema.users.email, username: schema.users.username })
+      .from(schema.users)
+      .where(eq(schema.users.email, SYSTEM_USER_EMAIL))
+      .limit(1);
+
+    if (existingByEmail.length > 0 && existingByEmail[0].email && existingByEmail[0].username) {
+      console.warn(`[SYSTEM_USER] Found by email with different ID: ${existingByEmail[0].id}`);
+      this.systemUserCache = { id: existingByEmail[0].id, email: existingByEmail[0].email, username: existingByEmail[0].username };
+      return this.systemUserCache;
+    }
+
+    console.log(`[SYSTEM_USER] Creating system user (ID=${SYSTEM_USER_ID})`);
+    const bcrypt = await import("bcryptjs");
+    const crypto = await import("crypto");
+    const randomPassword = crypto.randomBytes(32).toString("hex");
+    const hashedPassword = await bcrypt.hash(randomPassword, 12);
+
+    const [newUser] = await db.insert(schema.users)
+      .values({
+        id: SYSTEM_USER_ID,
+        email: SYSTEM_USER_EMAIL,
+        username: SYSTEM_USER_USERNAME,
+        passwordHash: hashedPassword,
+        role: "admin",
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (newUser) {
+      this.systemUserCache = { id: newUser.id, email: newUser.email, username: newUser.username || SYSTEM_USER_USERNAME };
+      console.log(`[SYSTEM_USER] Created: ${this.systemUserCache.email}`);
+      return this.systemUserCache;
+    }
+
+    const retryFetch = await db.select({ id: schema.users.id, email: schema.users.email, username: schema.users.username })
+      .from(schema.users)
+      .where(eq(schema.users.id, SYSTEM_USER_ID))
+      .limit(1);
+
+    if (retryFetch.length > 0 && retryFetch[0].email && retryFetch[0].username) {
+      this.systemUserCache = { id: retryFetch[0].id, email: retryFetch[0].email, username: retryFetch[0].username };
+      return this.systemUserCache;
+    }
+
+    throw new Error(`[SYSTEM_USER] Failed to ensure system user exists - critical infrastructure failure`);
   }
 }
 
