@@ -8428,11 +8428,11 @@ async function initializeWorkers(): Promise<void> {
 
   // AUTONOMOUS: Run Grok research on startup if enabled
   setTimeout(async () => {
-    const GROK_DEFAULT_USER = "489c9350-10da-4fb9-8f6b-aeffc9412a46";
     try {
+      const grokSystemUser = await storage.ensureSystemUser();
       if (grokResearchEnabled) {
         console.log(`[SCHEDULER] trace_id=${startupTraceId} Running Grok research startup cycle...`);
-        const result = await processGrokResearchCycle(grokResearchDepth, GROK_DEFAULT_USER);
+        const result = await processGrokResearchCycle(grokResearchDepth, grokSystemUser.id);
         if (result.success) {
           console.log(`[SCHEDULER] trace_id=${startupTraceId} Grok startup cycle: ${result.candidatesCreated} candidates created`);
         } else {

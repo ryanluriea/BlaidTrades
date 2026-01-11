@@ -25,7 +25,6 @@ import { inferArchetypeFromName, type StrategyArchetype } from "@shared/strategy
 
 const MIN_CONFIDENCE_FOR_LAB = 65;
 const MIN_CONFIDENCE_FOR_QUEUE = 40;
-const DEFAULT_USER_ID = "489c9350-10da-4fb9-8f6b-aeffc9412a46";
 const SYMBOLS_TO_MONITOR = ["MES", "MNQ"];
 
 /**
@@ -1287,9 +1286,10 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
   
   // DUPLICATE GUARD: Check if bot with same NORMALIZED name already exists
   const candidateSlug = normalizeNameToSlug(candidate.strategyName);
+  const systemUser = await storage.ensureSystemUser();
   const userBots = await db.select({ id: bots.id, name: bots.name })
     .from(bots)
-    .where(eq(bots.userId, DEFAULT_USER_ID));
+    .where(eq(bots.userId, systemUser.id));
   
   const existingBot = userBots.find(b => normalizeNameToSlug(b.name) === candidateSlug);
   
@@ -1379,7 +1379,7 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
   };
   
   const newBot = await storage.createBot({
-    userId: DEFAULT_USER_ID,
+    userId: systemUser.id,
     name: candidate.strategyName,
     stage: "TRIALS",
     symbol,
@@ -1605,9 +1605,12 @@ export async function runStrategyLabResearchCycle(
     message: "Researching market patterns with Perplexity AI...",
   });
   
+  // Get system user for research attribution
+  const researchSystemUser = await storage.ensureSystemUser();
+  
   let researchResult: Awaited<ReturnType<typeof runPerplexityResearch>>;
   try {
-    researchResult = await runPerplexityResearch(context, DEFAULT_USER_ID);
+    researchResult = await runPerplexityResearch(context, researchSystemUser.id);
   } catch (error: any) {
     const errorMessage = error?.message || String(error);
     console.error(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} research threw exception: ${errorMessage}`);
@@ -2011,9 +2014,9 @@ async function createLabBotFromCandidate(
   validatedArchetype?: string | null
 ): Promise<{ botId: string; botName: string } | null> {
   try {
-    // Get system user
-    const systemUsers = await db.select().from(users).where(eq(users.username, "BlaidAgent")).limit(1);
-    const userId = systemUsers.length > 0 ? systemUsers[0].id : DEFAULT_USER_ID;
+    // Get system user via resilient ensure pattern
+    const systemUser = await storage.ensureSystemUser();
+    const userId = systemUser.id;
     
     // DUPLICATE GUARD 1: Check if candidate already has a bot linked
     const existingCandidate = await db.select({ createdBotId: strategyCandidates.createdBotId })
