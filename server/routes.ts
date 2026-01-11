@@ -4068,6 +4068,9 @@ export function registerRoutes(app: Express) {
       const startTime = Date.now();
       const bots = await storage.getBotsOverview(userId);
       
+      // DIAGNOSTIC: Log bot count for debugging production issues
+      console.log(`[bots-overview] userId=${userId.substring(0, 8)}... returned ${bots.length} bots`);
+      
       // Fetch bot instances filtered by bot IDs (security: only this user's bots)
       const botIds = bots.map(b => b.id);
       const accounts = await storage.getAccounts(userId);
@@ -19415,10 +19418,17 @@ export function registerRoutes(app: Express) {
       const existingProviders = new Set((result.rows || []).map((r: any) => r.provider));
       
       // Convert database string values to numbers for proper aggregation
+      // Strip currency symbols ($, commas) before parsing - production DB may store "$52.52" format
       // Use nullish checks to preserve legitimate zero values
+      const stripCurrency = (val: any): number => {
+        if (val === null || val === undefined) return NaN;
+        const cleaned = String(val).replace(/[^0-9.-]/g, '');
+        return Number(cleaned);
+      };
+      
       const budgets = (result.rows || []).map((r: any) => {
-        const parsedLimit = Number(r.monthly_limit_usd);
-        const parsedSpend = Number(r.current_month_spend_usd);
+        const parsedLimit = stripCurrency(r.monthly_limit_usd);
+        const parsedSpend = stripCurrency(r.current_month_spend_usd);
         return {
           ...r,
           monthly_limit_usd: Number.isFinite(parsedLimit) ? parsedLimit : 10,
