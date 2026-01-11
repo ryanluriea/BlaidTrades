@@ -1,0 +1,50 @@
+2026-01-11T22:48:18.567687374Z   query: 'insert into "grok_injections" ("id", "candidate_id", "bot_id", "user_id", "strategy_name", "archetype_name", "ai_provider", "research_depth", "source", "disposition", "confidence_score", "novelty_score", "hypothesis", "rules_hash", "injected_at", "bot_created_at", "promoted_at", "promoted_to_stage", "failed_at", "failure_reason", "parent_injection_id", "evolution_generation", "mutation_details", "created_at", "updated_at") values (default, $1, default, $2, $3, $4, default, $5, $6, $7, $8, $9, $10, $11, default, default, default, default, default, default, default, $12, default, default, default)',
+2026-01-11T22:48:18.567691334Z   params: [
+2026-01-11T22:48:18.567696014Z     '29fd379f-6c54-4310-b31f-9bcaadb28086',
+2026-01-11T22:48:18.567699584Z     '489c9350-10da-4fb9-8f6b-aeffc9412a46',
+2026-01-11T22:48:18.567703904Z     'Zenith Complacency Scalp',
+2026-01-11T22:48:18.567706244Z     'SCALPING',
+2026-01-11T22:48:18.567709024Z     'CONTRARIAN_SCAN',
+2026-01-11T22:48:18.567711304Z     'GROK_AUTONOMOUS',
+2026-01-11T22:48:18.567713454Z     'PENDING_REVIEW',
+2026-01-11T22:48:18.567715744Z     63,
+2026-01-11T22:48:18.567718034Z     75,
+2026-01-11T22:48:18.567720324Z     'Extreme low vol breeds sentiment complacency with everyone long, ignoring micro-overextensions. Scalp contrarian fades on sentiment spikes for quick reversals in range-bound chop.',
+2026-01-11T22:48:18.567722504Z     '00a2f66e',
+2026-01-11T22:48:18.567724644Z     0
+2026-01-11T22:48:18.567726904Z   ],
+2026-01-11T22:48:18.567729854Z   cause: error: insert or update on table "grok_injections" violates foreign key constraint "grok_injections_user_id_users_id_fk"
+2026-01-11T22:48:18.567732714Z       at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2026-01-11T22:48:18.567735034Z       at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-11T22:48:18.567737284Z       at async targetPool.query (file:///opt/render/project/src/dist/index.js:3158:22)
+2026-01-11T22:48:18.567739974Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:113:20
+2026-01-11T22:48:18.567750454Z       at async NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:39:16)
+2026-01-11T22:48:18.567752804Z       at async processGrokResearchCycle (file:///opt/render/project/src/dist/index.js:16478:11)
+2026-01-11T22:48:18.567754994Z       at async Timeout._onTimeout (file:///opt/render/project/src/dist/index.js:40845:24) {
+2026-01-11T22:48:18.567757184Z     length: 331,
+2026-01-11T22:48:18.567759354Z     severity: 'ERROR',
+2026-01-11T22:48:18.567761544Z     code: '23503',
+2026-01-11T22:48:18.567764104Z     detail: 'Key (user_id)=(489c9350-10da-4fb9-8f6b-aeffc9412a46) is not present in table "users".',
+2026-01-11T22:48:18.567766304Z     hint: undefined,
+2026-01-11T22:48:18.567768534Z     position: undefined,
+2026-01-11T22:48:18.567770724Z     internalPosition: undefined,
+2026-01-11T22:48:18.567772844Z     internalQuery: undefined,
+2026-01-11T22:48:18.567774974Z     where: undefined,
+2026-01-11T22:48:18.567777115Z     schema: 'public',
+2026-01-11T22:48:18.567779264Z     table: 'grok_injections',
+2026-01-11T22:48:18.567781415Z     column: undefined,
+2026-01-11T22:48:18.567783564Z     dataType: undefined,
+2026-01-11T22:48:18.567786244Z     constraint: 'grok_injections_user_id_users_id_fk',
+2026-01-11T22:48:18.567788435Z     file: 'ri_triggers.c',
+2026-01-11T22:48:18.567790584Z     line: '2772',
+2026-01-11T22:48:18.567792844Z     routine: 'ri_ReportViolation'
+2026-01-11T22:48:18.567795055Z   }
+2026-01-11T22:48:18.567797365Z }
+2026-01-11T22:48:18.56828058Z [SCHEDULER] trace_id=962b07b7 Grok startup cycle: 3 candidates created
+2026-01-11T22:48:18.575752105Z [ACTIVITY_EVENT] type=GROK_CYCLE_COMPLETED severity=INFO title="Grok Research Cycle Complete" trace_id=0bb952aa-3fa6-4ca5-a451-b722408cb9bd
+2026-01-11T22:48:18.940611946Z [QC_WORKER] trace_id=f17db305 starting_cycle
+2026-01-11T22:48:18.941527805Z [PAPER_RUNNER_SERVICE] trace_id=5f6bcc9b MARKET_CLOSED reason=WEEKEND_SUNDAY_PRE_OPEN nextOpen=Today 6:00 PM ET shouldLiquidate=true
+2026-01-11T22:48:18.953827869Z [QC_WORKER] trace_id=f17db305 queued_jobs=0 running=0/2
+2026-01-11T22:48:22.947059264Z [AUTONOMY_LOOP] trace_id=972ae50e-6a94-4d11-9a4f-ace871013608 starting evaluation cycle
+2026-01-11T22:48:22.960847363Z [AUTONOMY_LOOP] trace_id=972ae50e-6a94-4d11-9a4f-ace871013608 market_data_proof: databento_ok_24h=388 verified=true
+2026-01-11T22:48:22.965093546Z [AUTONOMY_LOOP] trace_id=972ae50e-6a94-4d11-9a4f-ace871013608 completed bots=0 promotions=0 demotions=0 scores=0 backtests_queued=0
