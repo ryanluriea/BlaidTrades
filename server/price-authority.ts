@@ -469,6 +469,72 @@ class PriceAuthorityImpl {
     
     return mark;
   }
+  
+  /**
+   * SEV-0 FAIL-CLOSED: Get mark with strict freshness requirement
+   * THROWS if mark is stale or unavailable - use for critical trading operations
+   * 
+   * Use this for:
+   * - Live order execution decisions
+   * - Real-time position sizing
+   * - Stop-loss/take-profit triggers
+   * - Any operation where stale price = financial risk
+   */
+  async getMarkFailClosed(
+    symbol: string,
+    options: {
+      timeframe?: string;
+      maxStaleMs?: number;
+      traceId?: string;
+      botId?: string;
+    } = {}
+  ): Promise<{ price: number; timestamp: Date; source: PriceSource }> {
+    const { timeframe = "1m", maxStaleMs = 30_000, traceId = this.traceId, botId } = options;
+    
+    const mark = await this.getMark(symbol, timeframe);
+    
+    // FAIL-CLOSED: Reject UNAVAILABLE marks
+    if (mark.status === "UNAVAILABLE" || mark.price === null) {
+      const error = `[PRICE_AUTHORITY] FAIL_CLOSED trace_id=${traceId} symbol=${symbol} NO_FRESH_MARK available - cannot proceed with trading operation`;
+      console.error(error);
+      throw new Error(error);
+    }
+    
+    // FAIL-CLOSED: Reject marks that exceed custom staleness threshold
+    if (mark.ageMs > maxStaleMs) {
+      const error = `[PRICE_AUTHORITY] FAIL_CLOSED trace_id=${traceId} symbol=${symbol} STALE_MARK age=${Math.round(mark.ageMs / 1000)}s exceeds threshold ${Math.round(maxStaleMs / 1000)}s`;
+      console.error(error);
+      throw new Error(error);
+    }
+    
+    // FAIL-CLOSED: Reject STALE status (industry-defined staleness)
+    if (mark.status === "STALE") {
+      const error = `[PRICE_AUTHORITY] FAIL_CLOSED trace_id=${traceId} symbol=${symbol} INDUSTRY_STALE source=${mark.source} age=${Math.round(mark.ageMs / 1000)}s`;
+      console.error(error);
+      throw new Error(error);
+    }
+    
+    console.log(`[PRICE_AUTHORITY] FRESH_MARK trace_id=${traceId} symbol=${symbol} price=${mark.price} source=${mark.source} age=${Math.round(mark.ageMs / 1000)}s`);
+    
+    return {
+      price: mark.price,
+      timestamp: mark.timestamp!,
+      source: mark.source,
+    };
+  }
+  
+  /**
+   * Check if fresh mark is available without throwing
+   * Use for preflight checks before entering critical sections
+   */
+  isFreshMarkAvailable(symbol: string): boolean {
+    const quote = liveDataService.getLastQuote(symbol);
+    if (quote && quote.lastPrice > 0) {
+      const ageMs = Date.now() - quote.timestamp.getTime();
+      return ageMs <= QUOTE_STALE_THRESHOLD_MS;
+    }
+    return false;
+  }
 }
 
 export const priceAuthority = new PriceAuthorityImpl();

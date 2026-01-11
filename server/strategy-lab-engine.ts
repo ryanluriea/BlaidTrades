@@ -20,6 +20,8 @@ import {
   getStrategyLabTriggerDescription,
 } from "./regime-detector";
 import { queueBaselineBacktest } from "./backtest-executor";
+import { validateArchetype, formatValidationErrors } from "./fail-fast-validators";
+import { inferArchetypeFromName, type StrategyArchetype } from "@shared/strategy-types";
 
 const MIN_CONFIDENCE_FOR_LAB = 65;
 const MIN_CONFIDENCE_FOR_QUEUE = 40;
@@ -1750,9 +1752,33 @@ async function processCandidate(
   
   const lineageChain = sourceLabBotId ? [sourceLabBotId] : [];
   
+  // SEV-1 FAIL-FAST: Validate archetype before persisting candidate
+  // This prevents the bug where 263/268 candidates had no archetype and defaulted incorrectly
+  const archetypeValidation = validateArchetype({
+    archetypeName: candidate.archetypeName,
+    strategyName: candidate.strategyName,
+    rulesJson: candidate.rules,
+    traceId,
+  });
+  
+  // Use validated/inferred archetype or fail closed
+  let validatedArchetype: string | null = null;
+  if (archetypeValidation.valid && archetypeValidation.inferredArchetype) {
+    validatedArchetype = archetypeValidation.inferredArchetype;
+  } else {
+    // FAIL-CLOSED: Log error and reject candidate without valid archetype
+    console.error(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} ARCHETYPE_VALIDATION_FAILED strategy="${candidate.strategyName}" errors=${formatValidationErrors(archetypeValidation)}`);
+    
+    return {
+      disposition: "REJECTED",
+      candidateId: undefined,
+      reason: `ARCHETYPE_REQUIRED: ${formatValidationErrors(archetypeValidation)}`,
+    };
+  }
+  
   const insertResult = await db.insert(strategyCandidates).values({
     strategyName: candidate.strategyName,
-    archetypeName: candidate.archetypeName || null,
+    archetypeName: validatedArchetype,
     hypothesis: candidate.hypothesis,
     rulesJson: candidate.rules,
     confidenceScore,
@@ -1792,7 +1818,7 @@ async function processCandidate(
       
       const noveltyData: NoveltyComparisonData = {
         id: candidateId,
-        archetype_name: candidate.archetypeName || null,
+        archetype_name: validatedArchetype,  // Use validated archetype, not raw candidate value
         hypothesis: candidate.hypothesis,
         rules_json: candidate.rules,
       };
@@ -1818,7 +1844,7 @@ async function processCandidate(
       await db.insert(grokInjections).values({
         candidateId,
         strategyName: candidate.strategyName,
-        archetypeName: candidate.archetypeName || "UNKNOWN",
+        archetypeName: validatedArchetype || "UNKNOWN",  // Use validated archetype for injection tracking
         aiProvider: "PERPLEXITY", // Strategy Lab uses Perplexity for research
         researchDepth: regimeTrigger !== "NONE" ? "BURST_RESEARCH" : "SCHEDULED_RESEARCH",
         source: sourceLabBotId ? "LAB_FEEDBACK" : "PERPLEXITY_SCHEDULED",
@@ -1841,8 +1867,9 @@ async function processCandidate(
   }
   
   // If auto-promoted to SENT_TO_LAB, actually create the LAB bot
+  // Pass validated archetype to ensure consistency across all downstream processes
   if (candidateId && disposition === "SENT_TO_LAB") {
-    const botResult = await createLabBotFromCandidate(candidateId, candidate, traceId);
+    const botResult = await createLabBotFromCandidate(candidateId, candidate, traceId, validatedArchetype);
     if (botResult) {
       console.log(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} candidate ${candidate.strategyName} auto-promoted to LAB bot ${botResult.botId}`);
     } else {
@@ -1871,7 +1898,8 @@ async function processCandidate(
 async function createLabBotFromCandidate(
   candidateId: string,
   candidate: ResearchCandidate,
-  traceId: string
+  traceId: string,
+  validatedArchetype?: string | null
 ): Promise<{ botId: string; botName: string } | null> {
   try {
     // Get system user
@@ -1957,7 +1985,7 @@ async function createLabBotFromCandidate(
         hypothesis: candidate.hypothesis,
         confidenceBreakdown,
         regimeTrigger: candidate.triggeredByRegime,
-        archetypeName: candidate.archetypeName,
+        archetypeName: validatedArchetype || candidate.archetypeName,  // Use validated archetype first
         source: "AUTONOMOUS_RESEARCH",
       },
       sessionMode: (candidate.sessionModePreference as any) || "FULL_24x5",
@@ -1984,12 +2012,14 @@ async function createLabBotFromCandidate(
       .where(eq(strategyCandidates.id, candidateId));
 
     // Create baseline backtest job
-    // Resolve archetype with fallback chain: candidate.archetypeName → infer from bot name → "SCALPING"
-    const resolvedArchetype = candidate.archetypeName?.toUpperCase().replace(/\s+/g, '_') || 
+    // Use validated archetype which has already been checked upstream
+    // Only fallback to inference if validated archetype is missing (shouldn't happen with SEV-1 validation)
+    const resolvedArchetype = validatedArchetype?.toUpperCase().replace(/\s+/g, '_') ||
+      candidate.archetypeName?.toUpperCase().replace(/\s+/g, '_') || 
       inferArchetypeFromBotNameLocal(newBot.name) || 
       "SCALPING"; // Fail-safe default (canonical format)
       
-    console.log(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} archetype_resolution: candidate="${candidate.archetypeName}" bot_name="${newBot.name}" resolved="${resolvedArchetype}"`);
+    console.log(`[STRATEGY_LAB_ENGINE] trace_id=${traceId} archetype_resolution: validated="${validatedArchetype}" candidate="${candidate.archetypeName}" resolved="${resolvedArchetype}"`);
     
     try {
       await db.insert(botJobs).values({

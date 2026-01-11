@@ -247,3 +247,124 @@ export function getGracefulDegradationStats(): {
 
 // Periodic cleanup every 30 minutes
 setInterval(() => cleanupExpiredCaches(), 1800000);
+
+// ============ FAIL-CLOSED MODE FOR CRITICAL OPERATIONS ============
+
+/**
+ * SEV-0: StaleDataError - thrown when data is too stale for critical operations
+ * Use this in trading contexts where stale data could cause financial loss
+ */
+export class StaleDataError extends Error {
+  readonly staleMs: number;
+  readonly key: string;
+  readonly threshold: string;
+  
+  constructor(key: string, staleMs: number, threshold: string) {
+    super(`Data for '${key}' is ${Math.round(staleMs / 1000)}s stale - exceeds ${threshold} threshold for critical operation`);
+    this.name = "StaleDataError";
+    this.staleMs = staleMs;
+    this.key = key;
+    this.threshold = threshold;
+  }
+}
+
+/**
+ * SEV-0 FAIL-CLOSED: Fetch data with strict freshness requirement
+ * Unlike withGracefulDegradation, this THROWS on stale/missing data
+ * 
+ * Use this for:
+ * - Live trading P&L calculations
+ * - Position sizing based on current price
+ * - Order execution decisions
+ * - Any operation where stale data = financial risk
+ */
+export async function withFailClosed<T>(
+  key: string,
+  primaryFetch: () => Promise<T>,
+  options: {
+    maxStaleMs?: number;
+    logPrefix?: string;
+    traceId?: string;
+  } = {}
+): Promise<T> {
+  const { maxStaleMs = 30_000, logPrefix = '[FAIL_CLOSED]', traceId = 'unknown' } = options;
+  
+  try {
+    const freshData = await primaryFetch();
+    
+    // Update cache for monitoring
+    setCache(key, freshData, maxStaleMs);
+    
+    return freshData;
+  } catch (primaryError) {
+    const errorMsg = primaryError instanceof Error ? primaryError.message : 'Unknown error';
+    
+    // Check if we have a cache that's within acceptable staleness
+    const cached = getCache<T>(key);
+    if (cached) {
+      const staleMs = Date.now() - cached.cachedAt;
+      
+      if (staleMs <= maxStaleMs) {
+        // Within acceptable staleness - return with warning
+        console.warn(`${logPrefix} trace_id=${traceId} key=${key} PRIMARY_FAILED using cached data (${Math.round(staleMs / 1000)}s old)`);
+        return cached.value;
+      }
+      
+      // Data is too stale - FAIL CLOSED
+      console.error(`${logPrefix} trace_id=${traceId} key=${key} FAIL_CLOSED stale_ms=${staleMs} threshold_ms=${maxStaleMs}`);
+      throw new StaleDataError(key, staleMs, `${maxStaleMs}ms`);
+    }
+    
+    // No cache available - FAIL CLOSED
+    console.error(`${logPrefix} trace_id=${traceId} key=${key} FAIL_CLOSED no_cache primary_error="${errorMsg}"`);
+    throw new Error(`${logPrefix} No data available for '${key}': ${errorMsg}`);
+  }
+}
+
+/**
+ * SEV-0: Validate that cached data meets freshness requirements
+ * Returns true if data is fresh enough, false otherwise
+ * Use before making trading decisions based on cached data
+ */
+export function validateDataFreshness(key: string, maxStaleMs: number): {
+  valid: boolean;
+  staleMs?: number;
+  error?: string;
+} {
+  const cached = getCache(key);
+  
+  if (!cached) {
+    return {
+      valid: false,
+      error: `No cached data for '${key}'`,
+    };
+  }
+  
+  const staleMs = Date.now() - cached.cachedAt;
+  
+  if (staleMs > maxStaleMs) {
+    return {
+      valid: false,
+      staleMs,
+      error: `Data for '${key}' is ${Math.round(staleMs / 1000)}s stale (max: ${Math.round(maxStaleMs / 1000)}s)`,
+    };
+  }
+  
+  return {
+    valid: true,
+    staleMs,
+  };
+}
+
+/**
+ * SEV-0: Assert data freshness - throws if stale
+ * Use as a guard at the start of critical functions
+ */
+export function assertDataFresh(key: string, maxStaleMs: number, traceId?: string): void {
+  const result = validateDataFreshness(key, maxStaleMs);
+  
+  if (!result.valid) {
+    console.error(`[ASSERT_DATA_FRESH] trace_id=${traceId || 'unknown'} key=${key} FAILED: ${result.error}`);
+    throw new StaleDataError(key, result.staleMs || 0, `${maxStaleMs}ms`);
+  }
+}

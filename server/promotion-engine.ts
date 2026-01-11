@@ -13,6 +13,7 @@ import type { Bot, InsertBotStageChange } from "@shared/schema";
 import { eq, desc, and, gte, isNull } from "drizzle-orm";
 import { logActivityEvent, logBotPromotion, logBotDemotion } from "./activity-logger";
 import { storage } from "./storage";
+import { validatePromotionGate, formatValidationErrors } from "./fail-fast-validators";
 
 // Valid stage progression (TRIALS is internally called LAB in task requirements)
 export const BOT_STAGES = ["TRIALS", "PAPER", "SHADOW", "CANARY", "LIVE"] as const;
@@ -125,6 +126,7 @@ export interface BotMetrics {
   maxDrawdown: number;
   daysActive: number;
   consecutiveLosingDays: number;
+  expectancy?: number | null;  // Can be null for legacy bots without expectancy tracking
   hasApproval: boolean;
 }
 
@@ -169,6 +171,7 @@ async function getBotMetrics(bot: Bot): Promise<BotMetrics> {
   let backtestTrades = 0;
   let backtestSharpe = 0;
   let backtestMaxDD = 0;
+  let backtestExpectancy: number | null = null;
   
   try {
     const [latestBacktest] = await db
@@ -187,6 +190,22 @@ async function getBotMetrics(bot: Bot): Promise<BotMetrics> {
       backtestTrades = results.totalTrades ?? results.total_trades ?? 0;
       backtestSharpe = results.sharpe ?? results.sharpeRatio ?? 0;
       backtestMaxDD = Math.abs(results.maxDrawdownPct ?? results.max_drawdown_pct ?? 0);
+      backtestExpectancy = results.expectancy ?? (latestBacktest as any).expectancy ?? null;
+      
+      // Calculate expectancy if not stored: (winRate * avgWin) - ((1 - winRate) * avgLoss)
+      // NOTE: winRate in results is in decimal form (0.0 to 1.0), NOT percentage
+      if (backtestExpectancy === null && results.avgWin != null && results.avgLoss != null) {
+        const avgWin = results.avgWin ?? results.avg_win ?? 0;
+        const avgLoss = Math.abs(results.avgLoss ?? results.avg_loss ?? 0);
+        // Normalize winRate to decimal (0.0-1.0) if stored as percentage
+        let wr = results.winRate ?? results.win_rate ?? 0;
+        if (wr > 1) {
+          wr = wr / 100; // Convert from percentage to decimal
+        }
+        if (avgWin > 0 || avgLoss > 0) {
+          backtestExpectancy = (wr * avgWin) - ((1 - wr) * avgLoss);
+        }
+      }
     }
   } catch (err) {
     console.warn(`[PROMOTION_ENGINE] Failed to fetch backtest for bot ${bot.id}:`, err);
@@ -217,6 +236,11 @@ async function getBotMetrics(bot: Bot): Promise<BotMetrics> {
   // For now, default to 0 (can be enhanced with actual trade log queries)
   const consecutiveLosingDays = 0;
   
+  // Compute expectancy from live or backtest data
+  const expectancy = useLiveMetrics
+    ? ((bot as any).liveExpectancy ?? backtestExpectancy)
+    : backtestExpectancy;
+  
   return {
     confidenceScore,
     uniquenessScore,
@@ -227,6 +251,7 @@ async function getBotMetrics(bot: Bot): Promise<BotMetrics> {
     maxDrawdown,
     daysActive,
     consecutiveLosingDays,
+    expectancy,
     hasApproval: bot.promotionMode === "MANUAL_APPROVED",
   };
 }
@@ -281,6 +306,36 @@ export async function evaluateBotForPromotion(botId: string): Promise<PromotionE
   const metrics = await getBotMetrics(bot);
   const gateKey = `${currentStage}_TO_${targetStage}`;
   const gates = PROMOTION_GATES[gateKey];
+  
+  // SEV-0 HARD STOP: Validate ALL critical metrics are non-null before any promotion
+  // This is a circuit breaker - any NULL metric blocks the entire promotion
+  const traceId = `promo_${botId.slice(0, 8)}_${Date.now()}`;
+  const gateValidation = validatePromotionGate({
+    metrics: {
+      sharpeRatio: metrics.sharpeRatio,
+      maxDrawdownPercent: metrics.maxDrawdown,
+      winRate: metrics.winRate,
+      totalTrades: metrics.totalTrades,
+      profitFactor: metrics.profitFactor,
+      expectancy: metrics.expectancy,
+    },
+    fromStage: currentStage,
+    toStage: targetStage,
+    botId,
+    traceId,
+  });
+  
+  if (!gateValidation.valid) {
+    // Circuit breaker: Block promotion with NULL metrics
+    const errorMessages = gateValidation.errors.map(e => `[${e.severity}] ${e.message}`);
+    console.error(`[PROMOTION_ENGINE] HARD_STOP trace_id=${traceId} bot=${botId.slice(0, 8)} ${currentStage}→${targetStage} NULL_METRICS_BLOCKED`);
+    return {
+      eligible: false,
+      targetStage,
+      blockers: errorMessages,
+      metrics,
+    };
+  }
   
   if (!gates) {
     return {

@@ -4,6 +4,7 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { insertBotSchema, insertAccountSchema, insertAlertSchema, insertUserSchema, insertBotJobSchema } from "@shared/schema";
 import crypto from "crypto";
+import { validateBotCreation, validateRiskConfig, formatValidationErrors, type RiskConfig } from "./fail-fast-validators";
 import { execSync } from "child_process";
 import { checkRequiredIntegrations, INTEGRATION_REGISTRY, isIntegrationConfigured, getAllIntegrationsStatus } from "./integration-registry";
 import { resolveLiveStackStatus } from "./live-stack-resolver";
@@ -4987,6 +4988,37 @@ export function registerRoutes(app: Express) {
       if (!parsed.success) {
         return res.status(400).json({ error: "Invalid bot data", details: parsed.error });
       }
+      
+      // SEV-0 FAIL-FAST: Validate risk config and archetype before creation
+      const traceId = `bot_create_${Date.now()}`;
+      const botData = parsed.data;
+      const validation = validateBotCreation({
+        name: botData.name,
+        symbol: botData.symbol,
+        archetypeName: (botData.strategyConfig as Record<string, unknown>)?.archetype as string,
+        riskConfig: botData.riskConfig as RiskConfig,
+        strategyConfig: botData.strategyConfig as Record<string, unknown>,
+        stage: botData.stage || "TRIALS",
+        traceId,
+      });
+      
+      // For TRIALS stage, only require SEV-0 errors (allow warnings and SEV-1/2 for lab bots)
+      const sev0Errors = validation.errors.filter(e => e.severity === "SEV-0");
+      if (sev0Errors.length > 0) {
+        console.error(`[BOT_CREATE] trace_id=${traceId} VALIDATION_FAILED errors=${formatValidationErrors(validation)}`);
+        return res.status(400).json({ 
+          error: "Bot validation failed", 
+          details: formatValidationErrors(validation),
+          errors: sev0Errors,
+          warnings: validation.warnings,
+        });
+      }
+      
+      // Log warnings but proceed
+      if (validation.warnings.length > 0) {
+        console.warn(`[BOT_CREATE] trace_id=${traceId} VALIDATION_WARNINGS: ${validation.warnings.map(w => w.message).join("; ")}`);
+      }
+      
       const bot = await storage.createBot(parsed.data);
       
       // INSTITUTIONAL: Auto-create initial Generation 1 record for proper lifecycle tracking
