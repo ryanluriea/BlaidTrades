@@ -374,8 +374,8 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  // DIAGNOSTIC: Check database state for debugging production issues
-  app.get("/api/_debug/data-check", async (req: Request, res: Response) => {
+  // DIAGNOSTIC: Check database state for debugging production issues (auth required)
+  app.get("/api/_debug/data-check", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.query.user_id as string;
       
@@ -417,7 +417,6 @@ export function registerRoutes(app: Express) {
         },
         env: {
           hasDbUrl: !!process.env.DATABASE_URL,
-          dbUrlPrefix: process.env.DATABASE_URL?.substring(0, 30) + '...',
           nodeEnv: process.env.NODE_ENV,
         },
       });
