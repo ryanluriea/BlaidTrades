@@ -14,6 +14,7 @@ import { trimCacheForMemoryPressure } from "./bar-cache";
 import { execSync } from "child_process";
 import { requestInstrumentationMiddleware } from "./middleware/request-instrumentation";
 import { securityHeaders } from "./security-middleware";
+import { storage } from "./storage";
 
 // Check for worker-only mode (for AWS ECS worker tier)
 const isWorkerOnlyMode = process.argv.includes("--worker-only") || process.env.WORKER_MODE === "true";
@@ -110,6 +111,15 @@ if (isWorkerOnlyMode) {
     
     log(`[STARTUP] Database ready - starting scheduler workers`);
     
+    // CRITICAL: Ensure system user exists for autonomous operations
+    try {
+      const systemUser = await storage.ensureSystemUser();
+      log(`[STARTUP] System user verified: ${systemUser.email} (id=${systemUser.id})`);
+    } catch (err) {
+      log(`[STARTUP] FATAL: Failed to ensure system user - workers cannot start: ${err instanceof Error ? err.message : 'unknown'}`);
+      process.exit(1);
+    }
+    
     // Register DB query metrics recorder for production monitoring (worker mode)
     // Must happen BEFORE scheduler starts to capture all queries
     try {
@@ -165,6 +175,17 @@ if (isWorkerOnlyMode) {
       
       // Bootstrap admin account on first deploy (when users table is empty)
       await bootstrapAdminAccount();
+      
+      // CRITICAL: Ensure system user exists for autonomous operations
+      // This is the runtime fallback in case pre-deploy seeding failed
+      // FAIL-CLOSED: Exit if system user cannot be ensured to prevent degraded operation
+      try {
+        const systemUser = await storage.ensureSystemUser();
+        log(`[STARTUP] System user verified: ${systemUser.email} (id=${systemUser.id})`);
+      } catch (err) {
+        log(`[STARTUP] FATAL: Failed to ensure system user - cannot start in degraded mode: ${err instanceof Error ? err.message : 'unknown'}`);
+        process.exit(1);
+      }
     } else {
       log(`[STARTUP] WARNING: Database warmup failed - sessions will use MemoryStore (not persistent)`);
     }
