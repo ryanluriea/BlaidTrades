@@ -1,0 +1,50 @@
+2026-01-11T22:37:25.360852637Z [INTEGRATION_VERIFY] trace_id=integ-verify-a36c084f provider=news_api FAILED: HTTP 429
+2026-01-11T22:37:25.453737042Z [INTEGRATION_USAGE] trace_id=7a205d80-4f23-4e41-ad56-2023d40d9ea3 provider=marketaux operation=verify status=ERROR latency_ms=91
+2026-01-11T22:37:25.453780103Z [INTEGRATION_VERIFY] trace_id=integ-verify-a36c084f provider=marketaux FAILED: HTTP 402
+2026-01-11T22:37:25.455702782Z [INTEGRATION_VERIFY] trace_id=integ-verify-a36c084f provider=discord FAILED: DISCORD_WEBHOOK_URL not set
+2026-01-11T22:37:25.455705542Z [INTEGRATION_USAGE] trace_id=4ae75591-0cd8-4554-bedd-5a7c87ec29c7 provider=discord operation=verify status=ERROR latency_ms=0
+2026-01-11T22:37:25.455722842Z [INTEGRATION_VERIFY] trace_id=integ-verify-a36c084f Complete: 21 OK, 3 FAILED
+2026-01-11T22:37:25.457879094Z [ACTIVITY_EVENT] type=INTEGRATION_VERIFIED severity=WARN title="Integration verification: 3 issues detected" trace_id=integ-verify-a36c084f
+2026-01-11T22:37:25.709266347Z [INTEGRATION_USAGE] trace_id=272d4812-ad67-46d5-aecf-0c953b124508 provider=fred operation=verify status=OK latency_ms=5491
+2026-01-11T22:37:25.764488693Z [INTEGRATION_USAGE] trace_id=361a9cc9-c220-40a2-aea4-7ec7575a8f0b provider=unusual_whales operation=verify status=OK latency_ms=53
+2026-01-11T22:37:25.793097081Z [INTEGRATION_USAGE] trace_id=9b543593-43ea-41d4-bec9-4f78e2394c55 provider=news_api operation=verify status=ERROR latency_ms=27
+2026-01-11T22:37:25.793141182Z [INTEGRATION_VERIFY] trace_id=integ-verify-19f028f7 provider=news_api FAILED: HTTP 429
+2026-01-11T22:37:25.835320727Z [INTEGRATION_USAGE] trace_id=b6b58ba8-6b05-496a-b97f-a3b2a6439fa8 provider=marketaux operation=verify status=ERROR latency_ms=40
+2026-01-11T22:37:25.835323727Z [INTEGRATION_VERIFY] trace_id=integ-verify-19f028f7 provider=marketaux FAILED: HTTP 402
+2026-01-11T22:37:25.837708411Z [INTEGRATION_USAGE] trace_id=6f21d45f-c585-4a8d-b2ce-4b3289be95fb provider=discord operation=verify status=ERROR latency_ms=0
+2026-01-11T22:37:25.837728111Z [INTEGRATION_VERIFY] trace_id=integ-verify-19f028f7 Complete: 21 OK, 3 FAILED
+2026-01-11T22:37:25.837746711Z [INTEGRATION_VERIFY] trace_id=integ-verify-19f028f7 provider=discord FAILED: DISCORD_WEBHOOK_URL not set
+2026-01-11T22:37:25.839303537Z [ACTIVITY_EVENT] type=INTEGRATION_VERIFIED severity=WARN title="Integration verification: 3 issues detected" trace_id=integ-verify-19f028f7
+2026-01-11T22:37:26.045251032Z [BLOWN_ACCOUNT_SWEEP] trace_id=blown-sweep-ea08e818 Starting blown account detection sweep...
+2026-01-11T22:37:26.047285722Z [BLOWN_ACCOUNT_SWEEP] trace_id=blown-sweep-ea08e818 No missed blown accounts found
+2026-01-11T22:37:26.571372452Z [ECONOMIC_CALENDAR] trace_id=f27d50c1-4276-488f-9ed2-c198834b9cf8 success events=3082 range=2026-01-04..2026-02-10
+2026-01-11T22:37:27.947482825Z [IRONBEAM_LIVE] trace_id=463f5ac6 message_count=3 raw_data_preview={"p":{"ping":"ping"}}
+2026-01-11T22:37:27.947507556Z [IRONBEAM_LIVE] trace_id=463f5ac6 unknown_msg_type keys=p
+2026-01-11T22:37:28.04523888Z [SCHEDULER] trace_id=recon-startup-b41334e5 Running candidate reconciliation on startup...
+2026-01-11T22:37:28.045531713Z [RECONCILIATION] trace_id=recon-mkabe0dp Starting candidate reconciliation (dryRun=true)...
+2026-01-11T22:37:28.048309611Z [RECONCILIATION] trace_id=recon-mkabe0dp Complete: stuck=0 autoRepaired=0 manualReview=0 errors=0
+2026-01-11T22:37:28.048331071Z [SCHEDULER] trace_id=recon-startup-b41334e5 No stuck candidates found
+2026-01-11T22:37:28.048481293Z [INVARIANT_CHECK] trace_id=invariant-mkabe0ds Running state invariant checks...
+2026-01-11T22:37:28.051112299Z [INVARIANT_CHECK] trace_id=invariant-mkabe0ds VIOLATIONS: 3 SENT_TO_LAB candidates without created bot after 1 hour
+2026-01-11T22:37:28.051122299Z [SCHEDULER] trace_id=recon-startup-b41334e5 State invariant violations: 3 SENT_TO_LAB candidates without created bot after 1 hour
+2026-01-11T22:37:28.053506963Z [ACTIVITY_EVENT] type=SELF_HEALING_RECOVERY severity=WARN title="State invariant violations detected" trace_id=recon-startup-b41334e5
+2026-01-11T22:37:31.044724438Z [SCHEDULER] trace_id=aeaea318 Running Strategy Lab startup research cycle...
+2026-01-11T22:37:31.045203212Z [STRATEGY_LAB_ENGINE] trace_id=4e08d0c2-b2dc-4674-8b3b-3528cc40c1e9 starting research cycle force=true trigger=SCHEDULED
+2026-01-11T22:37:31.045321844Z [STRATEGY_LAB_ACTIVITY] phase=INITIALIZING provider=none msg="Starting research cycle..."
+2026-01-11T22:37:31.045411584Z [STRATEGY_LAB_ACTIVITY] phase=RESEARCHING provider=perplexity msg="Researching market patterns with Perplexity AI..."
+2026-01-11T22:37:31.04593185Z [STRATEGY_LAB] cascade_order=perplexity→anthropic→openai available=perplexity,anthropic,openai,groq,gemini
+2026-01-11T22:37:31.048239793Z [STRATEGY_LAB] trace_id=e49a0f9c-3ae9-4f17-bb59-fd2d33154422 provider=perplexity starting research
+2026-01-11T22:37:36.064993902Z [SCHEDULER] trace_id=aeaea318 Starting cloud backup scheduler...
+2026-01-11T22:37:36.065344076Z [BACKUP_SCHEDULER] Started with daily frequency, next backup at 2026-01-12T22:37:36.065Z
+2026-01-11T22:37:41.044536197Z [SCHEDULER] trace_id=aeaea318 Running Grok research startup cycle...
+2026-01-11T22:37:41.045138973Z [REGIME_DETECTOR] trace_id=9e45739e-3a31-43be-997c-f3499e3047fc detecting regime for MES from 2025-12-12T22:37:41.044Z to 2026-01-11T22:37:41.044Z
+2026-01-11T22:37:41.045390155Z [BAR_CACHE] trace_id=9e45739e-3a31-43be-997c-f3499e3047fc symbol=MES cache_hit bars=11099 age_min=0
+2026-01-11T22:37:41.056716609Z [REGIME_DETECTOR] trace_id=9e45739e-3a31-43be-997c-f3499e3047fc detected regime=LOW_VOLATILITY confidence=1.00
+2026-01-11T22:37:41.061108564Z [GROK_RESEARCH] trace_id=658bfb42-2f14-4418-8075-94ee9e7cc943 depth=CONTRARIAN_SCAN starting research
+2026-01-11T22:37:42.005113294Z [PAPER_RUNNER_SERVICE] trace_id=d11c8341 MARKET_CLOSED reason=WEEKEND_SUNDAY_PRE_OPEN nextOpen=Today 6:00 PM ET shouldLiquidate=true
+2026-01-11T22:37:42.948177594Z [IRONBEAM_LIVE] trace_id=463f5ac6 message_count=4 raw_data_preview={"p":{"ping":"ping"}}
+2026-01-11T22:37:42.948278305Z [IRONBEAM_LIVE] trace_id=463f5ac6 unknown_msg_type keys=p
+2026-01-11T22:37:46.040359774Z [QC_AUTO_TRIGGER] trace_id=e48468c3 starting_cycle
+2026-01-11T22:37:46.043227503Z [QC_AUTO_TRIGGER] trace_id=e48468c3 budget_exhausted daily=10/10
+2026-01-11T22:37:46.044394015Z [SCHEDULER] trace_id=aeaea318 Running FOLLOWUP integration verification (30s)...
+2026-01-11T22:37:46.044413515Z [INTEGRATION_VERIFY] trace_id=integ-verify-ec31b069 Starting autonomous integration verification...
