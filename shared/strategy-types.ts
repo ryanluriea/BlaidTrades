@@ -316,6 +316,63 @@ export function tryNormalizeArchetype(input: string): StrategyArchetype | null {
   }
 }
 
+/**
+ * Infer archetype from strategy/bot name using canonical normalization
+ * Names follow patterns like: "{SYMBOL} {Strategy Type}" (e.g., "MES Gap Fade", "MNQ VWAP Bounce")
+ * or just "{Strategy Type}" (e.g., "Vol Comp Breakout", "Complacency Spike Fade")
+ * 
+ * Uses the canonical normalizeArchetype function which handles:
+ * - All aliases and variant patterns
+ * - Instrument prefix stripping (MES, MNQ, ES, NQ, etc.)
+ * - Compound word handling and partial matching
+ * 
+ * FAIL-CLOSED: Returns null if archetype cannot be determined.
+ * The caller must decide whether to fail or use a fallback.
+ */
+export function inferArchetypeFromName(strategyName: string, traceId?: string): StrategyArchetype | null {
+  if (!strategyName) {
+    if (traceId) {
+      console.warn(`[STRATEGY_INFERENCE] trace_id=${traceId} FAILED: empty strategy name`);
+    }
+    return null;
+  }
+  
+  // Try canonical normalization on the full name
+  // normalizeArchetype already strips instrument prefixes and handles aliases
+  try {
+    const archetype = normalizeArchetype(strategyName);
+    if (traceId && archetype) {
+      console.log(`[STRATEGY_INFERENCE] trace_id=${traceId} strategy_name="${strategyName}" inferred_archetype="${archetype}"`);
+    }
+    return archetype;
+  } catch {
+    // normalizeArchetype throws on unknown - this is expected for some names
+  }
+  
+  // Try extracting just the strategy part after the symbol
+  // Names are typically "{SYMBOL} {Strategy}" like "MES Gap Fade"
+  const parts = strategyName.split(' ');
+  if (parts.length >= 2) {
+    // Skip first part (symbol) and try the rest
+    const strategyPart = parts.slice(1).join(' ');
+    try {
+      const archetype = normalizeArchetype(strategyPart);
+      if (traceId && archetype) {
+        console.log(`[STRATEGY_INFERENCE] trace_id=${traceId} strategy_name="${strategyName}" strategy_part="${strategyPart}" inferred_archetype="${archetype}"`);
+      }
+      return archetype;
+    } catch {
+      // Still couldn't normalize - continue to fallback
+    }
+  }
+  
+  // FAIL-CLOSED: Log warning and return null (no silent fallback)
+  if (traceId) {
+    console.warn(`[STRATEGY_INFERENCE] trace_id=${traceId} FAILED: could not infer archetype from strategy_name="${strategyName}"`);
+  }
+  return null;
+}
+
 // ============ EXHAUSTIVENESS HELPER ============
 // TypeScript compile-time check for unhandled cases
 

@@ -33,7 +33,7 @@ import { generateEvolutionSuggestions, applyEvolutionSuggestions } from "./ai-st
 import { getLatestWalkForwardForBot } from "./walk-forward-executor";
 import { hasPassedStressTests } from "./stress-test-executor";
 import { paperRunnerService } from "./paper-runner-service";
-import { assertArchetypeMappingsValid } from "@shared/strategy-types";
+import { assertArchetypeMappingsValid, inferArchetypeFromName } from "@shared/strategy-types";
 import { assertFactoryMappingsValid } from "./strategy-rules";
 import { processBlownAccountRecovery } from "./blown-account-recovery";
 import { verifyIntegration } from "./integration-usage";
@@ -5922,8 +5922,25 @@ async function runQCVerificationWorker(): Promise<void> {
       
       // DIAGNOSTIC: Log rulesJson structure for debugging QC config mismatch
       const extractedSymbol = rulesJson.symbol || "MES";
-      const extractedArchetype = rulesJson.archetype || "mean_reversion";
       const extractedTimeframe = rulesJson.timeframe || "5m";
+      
+      // CRITICAL FIX: Infer archetype from strategy name when not explicitly set
+      // This prevents all strategies defaulting to "mean_reversion" and producing identical QC results
+      // Uses shared inferArchetypeFromName utility for parity with backtest-executor
+      let extractedArchetype = rulesJson.archetype;
+      if (!extractedArchetype && candidate.strategyName) {
+        extractedArchetype = inferArchetypeFromName(candidate.strategyName, traceId);
+        
+        if (extractedArchetype) {
+          console.log(`[QC_WORKER] trace_id=${traceId} ARCHETYPE_INFERRED: "${candidate.strategyName}" → "${extractedArchetype}"`);
+        } else {
+          console.log(`[QC_WORKER] trace_id=${traceId} ARCHETYPE_INFERENCE_FAILED: "${candidate.strategyName}" - using breakout fallback`);
+          extractedArchetype = "breakout"; // Default to breakout (more general than mean_reversion)
+        }
+      } else if (!extractedArchetype) {
+        extractedArchetype = "breakout";
+        console.log(`[QC_WORKER] trace_id=${traceId} NO_STRATEGY_NAME: using breakout fallback`);
+      }
       const entryRules = rulesJson.entry || [];
       const exitRules = rulesJson.exit || [];
       
