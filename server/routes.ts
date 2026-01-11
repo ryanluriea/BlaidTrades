@@ -15029,10 +15029,29 @@ export function registerRoutes(app: Express) {
 
       // Build strategy config from candidate rules
       const rulesJson = candidate.rulesJson as any || {};
+      
+      // INSTITUTIONAL: Default risk config for Strategy Lab bots
+      // Ensures bots have valid risk parameters even if candidate rules are incomplete
+      const defaultRiskConfig = {
+        stopLossTicks: 16,      // 4 points = $20 risk per MES contract
+        takeProfitTicks: 80,    // 20 points = $100 profit target
+        maxPositionSize: 1,     // Conservative single contract
+        maxDailyTrades: 5,      // Prevent overtrading
+        maxDailyLoss: 200,      // $200 daily loss limit
+        maxDrawdownPercent: 5,  // 5% max drawdown
+      };
+      
+      // Merge candidate's risk model with defaults (candidate values take precedence)
+      const effectiveRiskConfig = {
+        ...defaultRiskConfig,
+        ...(rulesJson.riskModel || {}),
+        ...(rulesJson.risk || {}),
+      };
+      
       const strategyConfig = {
         entryRules: rulesJson.entry || rulesJson.entryRules || [],
         exitRules: rulesJson.exit || rulesJson.exitRules || [],
-        riskModel: rulesJson.riskModel || {},
+        riskModel: effectiveRiskConfig,
         hypothesis: candidate.hypothesis,
         timeframes: candidate.timeframePreferences || ["5m"],
         instruments: candidate.instrumentUniverse || ["MES"],
@@ -15067,7 +15086,7 @@ export function registerRoutes(app: Express) {
         stage: effectiveStage,
         archetypeId: candidate.archetypeId,
         strategyConfig,
-        riskConfig: rulesJson.riskModel || {},
+        riskConfig: effectiveRiskConfig,
         healthScore: 100,
         priorityScore: candidate.confidenceScore || 0,
         isCandidate: true,
@@ -15100,7 +15119,7 @@ export function registerRoutes(app: Express) {
           botId: newBot.id,
           generationNumber: 1,
           strategyConfig,
-          riskConfig: rulesJson.riskModel || {},
+          riskConfig: effectiveRiskConfig,
           stage: effectiveStage,
           timeframe,
           summaryTitle: 'Strategy Lab Initial',

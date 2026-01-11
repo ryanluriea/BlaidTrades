@@ -6197,8 +6197,9 @@ async function runQCVerificationWorker(): Promise<void> {
             qcWinRate >= fastTrackMinWinRate &&
             qcDrawdown <= fastTrackMaxDrawdown;
           
-          // TRIALS AUTO-PROMOTE CHECK: If enabled, create TRIALS bot on standard QC pass
-          const trialsAutoPromoteEnabled = labState.trialsAutoPromoteEnabled ?? false;
+          // TRIALS AUTO-PROMOTE CHECK: Default to TRUE (industry standard for autonomous systems)
+          // QC-passed candidates should auto-promote; manual gates are for CANARY→LIVE only
+          const trialsAutoPromoteEnabled = labState.trialsAutoPromoteEnabled ?? true;
           
           // Determine target stage based on thresholds
           let targetStage: "PAPER" | "TRIALS" | null = null;
