@@ -113,7 +113,7 @@ export default function Bots() {
   const [stageFilter, setStageFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [symbolFilter, setSymbolFilter] = useState("all");
-  const [timeFilter, setTimeFilter] = useState("today");
+  const [timeFilter, setTimeFilter] = useState("all");
   const [showArchived, setShowArchived] = useState(false);
   
   // Sort state - default to stage priority
@@ -228,8 +228,11 @@ export default function Bots() {
     
     return overview.bots
       .filter((bot) => {
-        // Stage filter
-        if (stageFilter && bot.stage !== stageFilter) return false;
+        // Stage filter (normalize both filter and bot.stage to uppercase; treat null, "ALL", or invalid as no filter)
+        const normalizedFilter = stageFilter?.toUpperCase();
+        const normalizedBotStage = (bot.stage || "TRIALS").toUpperCase(); // Default missing stage to TRIALS
+        const isValidStage = normalizedFilter && normalizedFilter !== "ALL" && STAGE_PRIORITY[normalizedFilter] !== undefined;
+        if (isValidStage && normalizedBotStage !== normalizedFilter) return false;
         
         // Status filter
         if (statusFilter !== "all" && bot.status !== statusFilter) return false;
@@ -388,7 +391,10 @@ export default function Bots() {
     return metrics;
   }, [overview?.bots, overview?.perBot]);
 
-  const hasActiveFilters = stageFilter !== null || statusFilter !== "all" || symbolFilter !== "all" || timeFilter !== "all";
+  // Determine if there are active filters (normalize stage to check validity)
+  const normalizedStageForCheck = stageFilter?.toUpperCase();
+  const hasValidStageFilter = normalizedStageForCheck && normalizedStageForCheck !== "ALL" && STAGE_PRIORITY[normalizedStageForCheck] !== undefined;
+  const hasActiveFilters = hasValidStageFilter || statusFilter !== "all" || symbolFilter !== "all" || timeFilter !== "all";
 
   const resetFilters = () => {
     setStageFilter(null);

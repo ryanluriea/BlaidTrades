@@ -388,7 +388,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
   });
 
   const budgets = budgetsData?.data || [];
-  const totalSpend = budgets.reduce((sum, b) => sum + (b.current_month_spend_usd || 0), 0);
+  const totalSpend = budgets.reduce((sum, b) => sum + Number(b.current_month_spend_usd || 0), 0);
 
   const toggleMutation = useMutation({
     mutationFn: async ({ provider, enabled }: { provider: string; enabled: boolean }) => {
@@ -850,8 +850,8 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                         model: "Unknown"
                       };
                       const isEnabled = budget.is_enabled && !budget.is_paused;
-                      const spend = budget.current_month_spend_usd || 0;
-                      const limit = budget.monthly_limit_usd || 10;
+                      const spend = Number(budget.current_month_spend_usd || 0);
+                      const limit = Number(budget.monthly_limit_usd || 10);
                       const pct = Math.min((spend / limit) * 100, 100);
 
                       return (
