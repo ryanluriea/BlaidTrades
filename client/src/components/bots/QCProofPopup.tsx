@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -145,13 +145,12 @@ export function QCProofPopup({
   const queryClient = useQueryClient();
   const [copiedTraceId, setCopiedTraceId] = useState(false);
 
-  const { data: verification, isLoading, error, isFetching } = useQuery<QCVerificationResult | null>({
+  const { data: verification, isLoading, error, isFetching, refetch } = useQuery<QCVerificationResult | null>({
     queryKey: ["/api/strategy-lab/candidates", candidateId, "qc-verification"],
     queryFn: () => fetchQCVerification(candidateId),
     enabled: open && !!candidateId,
     retry: false,
     staleTime: 0,
-    refetchOnMount: "always",
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return false;
@@ -159,6 +158,15 @@ export function QCProofPopup({
       return false;
     },
   });
+
+  useEffect(() => {
+    if (open && candidateId) {
+      queryClient.removeQueries({ 
+        queryKey: ["/api/strategy-lab/candidates", candidateId, "qc-verification"],
+        exact: true 
+      });
+    }
+  }, [open, candidateId, queryClient]);
 
   const rerunMutation = useMutation({
     mutationFn: async () => {
