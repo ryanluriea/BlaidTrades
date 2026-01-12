@@ -30,6 +30,35 @@ function generateSecureRandomPassword(): string {
 }
 
 /**
+ * Reset user password if RESET_USER_PASSWORD env var is set
+ * This enables production password reset during deploy
+ */
+async function resetPasswordIfRequested(pool: pg.Pool, userId: string): Promise<void> {
+  const newPassword = process.env.RESET_USER_PASSWORD;
+  if (!newPassword) {
+    return;
+  }
+  
+  console.log(`[SEED_USERS] RESET_USER_PASSWORD env var detected - resetting password...`);
+  
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const result = await pool.query(
+      `UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2`,
+      [hashedPassword, userId]
+    );
+    
+    if (result.rowCount && result.rowCount > 0) {
+      console.log(`[SEED_USERS] Password reset successful for user ${userId}`);
+    } else {
+      console.log(`[SEED_USERS] No user found with ID ${userId} to reset password`);
+    }
+  } catch (error) {
+    console.error(`[SEED_USERS] Password reset failed:`, error instanceof Error ? error.message : 'unknown');
+  }
+}
+
+/**
  * Migrate orphaned FK references to DEFAULT_USER_ID
  * 
  * TARGETED MIGRATION: First discovers legacy user IDs from the data itself,
@@ -191,6 +220,9 @@ async function seedSystemUsers() {
       // DON'T return early - we still need to migrate any orphaned FK references!
       console.log(`[SEED_USERS] Checking for orphaned FK references to migrate...`);
       await migrateOrphanedFKReferences(pool, DEFAULT_USER_ID);
+      
+      // Reset password if requested (for production access)
+      await resetPasswordIfRequested(pool, DEFAULT_USER_ID);
       return;
     }
 
@@ -319,6 +351,9 @@ async function seedSystemUsers() {
         console.log(`[SEED_USERS] SUCCESS: User ${SYSTEM_USER_EMAIL} now has ID ${DEFAULT_USER_ID}`);
         console.log(`[SEED_USERS] All bots and data are now accessible`);
         
+        // Reset password after migration if requested
+        await resetPasswordIfRequested(pool, DEFAULT_USER_ID);
+        
       } catch (migrationError: any) {
         await client.query('ROLLBACK');
         console.error(`[SEED_USERS] Migration failed, rolled back:`, migrationError.message);
@@ -355,6 +390,9 @@ async function seedSystemUsers() {
     // Also migrate any orphaned FK references that might exist
     console.log(`[SEED_USERS] Checking for orphaned FK references after user creation...`);
     await migrateOrphanedFKReferences(pool, DEFAULT_USER_ID);
+
+    // Reset password if RESET_USER_PASSWORD env var is set (for production access)
+    await resetPasswordIfRequested(pool, DEFAULT_USER_ID);
 
   } catch (error) {
     console.error("[SEED_USERS] Error seeding users:", error);

@@ -593,24 +593,35 @@ export async function ensureTickTablesExist(): Promise<void> {
         gap_size INTEGER NOT NULL,
         resolved BOOLEAN DEFAULT false,
         resolved_at TIMESTAMP,
+        resolution_method TEXT,
         detected_at TIMESTAMP DEFAULT NOW(),
-        created_at TIMESTAMP DEFAULT NOW()
+        trading_day TIMESTAMP NOT NULL DEFAULT NOW()
       );`
+    },
+    {
+      name: 'drop_tick_ingestion_metrics',
+      sql: `DROP TABLE IF EXISTS tick_ingestion_metrics;`
     },
     {
       name: 'tick_ingestion_metrics',
       sql: `CREATE TABLE IF NOT EXISTS tick_ingestion_metrics (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         symbol TEXT NOT NULL,
-        exchange TEXT NOT NULL DEFAULT 'XCME',
-        interval_start TIMESTAMP NOT NULL,
-        interval_end TIMESTAMP NOT NULL,
-        trade_ticks INTEGER DEFAULT 0,
-        quote_ticks INTEGER DEFAULT 0,
+        window_start TIMESTAMP NOT NULL,
+        window_end TIMESTAMP NOT NULL,
+        window_duration_ms INTEGER NOT NULL,
+        trade_tick_count INTEGER DEFAULT 0,
+        quote_tick_count INTEGER DEFAULT 0,
         order_book_snapshots INTEGER DEFAULT 0,
+        avg_latency_us REAL,
+        p50_latency_us REAL,
+        p90_latency_us REAL,
+        p99_latency_us REAL,
+        max_latency_us REAL,
         gaps_detected INTEGER DEFAULT 0,
-        avg_latency_ns BIGINT,
-        max_latency_ns BIGINT,
+        gaps_resolved INTEGER DEFAULT 0,
+        stale_tick_count INTEGER DEFAULT 0,
+        out_of_order_count INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );`
     }
@@ -621,7 +632,7 @@ export async function ensureTickTablesExist(): Promise<void> {
     { name: 'idx_quote_ticks_symbol_day', sql: 'CREATE INDEX IF NOT EXISTS idx_quote_ticks_symbol_day ON quote_ticks(symbol, trading_day);' },
     { name: 'idx_order_book_symbol_day', sql: 'CREATE INDEX IF NOT EXISTS idx_order_book_symbol_day ON order_book_snapshots(symbol, trading_day);' },
     { name: 'idx_tick_gaps_symbol', sql: 'CREATE INDEX IF NOT EXISTS idx_tick_gaps_symbol ON tick_sequence_gaps(symbol, detected_at);' },
-    { name: 'idx_tick_metrics_symbol', sql: 'CREATE INDEX IF NOT EXISTS idx_tick_metrics_symbol ON tick_ingestion_metrics(symbol, interval_start);' }
+    { name: 'idx_tick_metrics_symbol', sql: 'CREATE INDEX IF NOT EXISTS idx_tick_metrics_symbol ON tick_ingestion_metrics(symbol, window_start);' }
   ];
   
   let created = 0;

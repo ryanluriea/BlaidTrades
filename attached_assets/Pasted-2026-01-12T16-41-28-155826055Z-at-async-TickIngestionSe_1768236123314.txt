@@ -1,0 +1,50 @@
+2026-01-12T16:41:28.155826055Z     at async TickIngestionServiceImpl.persistMetrics (file:///opt/render/project/src/dist/index.js:19662:13)
+2026-01-12T16:41:28.155828185Z     at async Promise.all (index 4)
+2026-01-12T16:41:28.155830355Z     at async TickIngestionServiceImpl.flushBuffers (file:///opt/render/project/src/dist/index.js:19585:9) {
+2026-01-12T16:41:28.155832605Z   query: 'insert into "tick_ingestion_metrics" ("id", "symbol", "window_start", "window_end", "window_duration_ms", "trade_tick_count", "quote_tick_count", "order_book_snapshots", "avg_latency_us", "p50_latency_us", "p90_latency_us", "p99_latency_us", "max_latency_us", "gaps_detected", "gaps_resolved", "stale_tick_count", "out_of_order_count", "created_at") values (default, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, default)',
+2026-01-12T16:41:28.155834845Z   params: [
+2026-01-12T16:41:28.155837055Z     'MNQ',
+2026-01-12T16:41:28.155839175Z     '2026-01-12T16:41:23.134Z',
+2026-01-12T16:41:28.155841285Z     '2026-01-12T16:41:28.134Z',
+2026-01-12T16:41:28.155843375Z     5000,
+2026-01-12T16:41:28.155845465Z     38,
+2026-01-12T16:41:28.155847545Z     38,
+2026-01-12T16:41:28.155849665Z     43,
+2026-01-12T16:41:28.155851825Z     3.5874873944881034,
+2026-01-12T16:41:28.155854015Z     2.330000002984889,
+2026-01-12T16:41:28.155856175Z     8.410000009462237,
+2026-01-12T16:41:28.155858295Z     14.090999997279141,
+2026-01-12T16:41:28.155860335Z     15.330000001995359,
+2026-01-12T16:41:28.155862385Z     0,
+2026-01-12T16:41:28.155864495Z     0,
+2026-01-12T16:41:28.155866585Z     0,
+2026-01-12T16:41:28.155868635Z     0
+2026-01-12T16:41:28.155870745Z   ],
+2026-01-12T16:41:28.155872936Z   cause: error: column "window_start" of relation "tick_ingestion_metrics" does not exist
+2026-01-12T16:41:28.155875116Z       at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2026-01-12T16:41:28.155877885Z       at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-12T16:41:28.155881685Z       at async targetPool.query (file:///opt/render/project/src/dist/index.js:3311:22)
+2026-01-12T16:41:28.155885506Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:113:20
+2026-01-12T16:41:28.155898506Z       at async NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:39:16)
+2026-01-12T16:41:28.155902146Z       at async TickIngestionServiceImpl.persistMetrics (file:///opt/render/project/src/dist/index.js:19662:13)
+2026-01-12T16:41:28.155905946Z       at async Promise.all (index 4)
+2026-01-12T16:41:28.155909456Z       at async TickIngestionServiceImpl.flushBuffers (file:///opt/render/project/src/dist/index.js:19585:9) {
+2026-01-12T16:41:28.155911676Z     length: 147,
+2026-01-12T16:41:28.155913826Z     severity: 'ERROR',
+2026-01-12T16:41:28.155915896Z     code: '42703',
+2026-01-12T16:41:28.155917966Z     detail: undefined,
+2026-01-12T16:41:28.155920096Z     hint: undefined,
+2026-01-12T16:41:28.155922236Z     position: '55',
+2026-01-12T16:41:28.155924346Z     internalPosition: undefined,
+2026-01-12T16:41:28.155926486Z     internalQuery: undefined,
+2026-01-12T16:41:28.155930797Z     where: undefined,
+2026-01-12T16:41:28.155932977Z     schema: undefined,
+2026-01-12T16:41:28.155935066Z     table: undefined,
+2026-01-12T16:41:28.155937146Z     column: undefined,
+2026-01-12T16:41:28.155939186Z     dataType: undefined,
+2026-01-12T16:41:28.155941347Z     constraint: undefined,
+2026-01-12T16:41:28.155943457Z     file: 'parse_target.c',
+2026-01-12T16:41:28.155945557Z     line: '1068',
+2026-01-12T16:41:28.155947697Z     routine: 'checkInsertTargets'
+2026-01-12T16:41:28.155949847Z   }
+2026-01-12T16:41:28.155951987Z }
