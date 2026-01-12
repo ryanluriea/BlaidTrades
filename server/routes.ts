@@ -24361,6 +24361,103 @@ export function registerRoutes(app: Express) {
       res.status(500).json({ success: false, trace_id: traceId, error: error.message });
     }
   });
+
+  // =========== INTERNAL DIAGNOSTIC ENDPOINTS ===========
+  // These endpoints help diagnose production data issues
+  
+  // GET /api/internal/consolidation-status - Show user/bot ownership state
+  app.get("/api/internal/consolidation-status", async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID().slice(0, 8);
+    try {
+      // Get all users
+      const usersResult = await db.execute(sql`SELECT id, email, username FROM users`);
+      const users = usersResult.rows as { id: string; email: string; username: string }[];
+      
+      // Get bot ownership breakdown
+      const botOwnershipResult = await db.execute(sql`
+        SELECT user_id, COUNT(*) as bot_count 
+        FROM bots 
+        WHERE archived_at IS NULL 
+        GROUP BY user_id
+      `);
+      const botOwnership = botOwnershipResult.rows as { user_id: string; bot_count: string }[];
+      
+      // Get total bots
+      const totalBotsResult = await db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE archived_at IS NULL`);
+      const totalBots = parseInt((totalBotsResult.rows[0] as any)?.count || "0");
+      
+      // Get session user if logged in
+      const sessionUserId = (req.user as any)?.id || null;
+      const sessionUserEmail = (req.user as any)?.email || null;
+      
+      // Check if session user owns any bots
+      const sessionUserBots = botOwnership.find(b => b.user_id === sessionUserId);
+      
+      console.log(`[CONSOLIDATION_STATUS] trace_id=${traceId} users=${users.length} bots=${totalBots} session_user=${sessionUserId}`);
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        diagnosis: {
+          totalUsers: users.length,
+          totalBots,
+          sessionUser: {
+            id: sessionUserId,
+            email: sessionUserEmail,
+            botsOwned: sessionUserBots ? parseInt(sessionUserBots.bot_count) : 0,
+          },
+          users: users.map(u => ({
+            id: u.id,
+            email: u.email,
+            username: u.username,
+            botsOwned: parseInt(botOwnership.find(b => b.user_id === u.id)?.bot_count || "0"),
+          })),
+          botOwnership: botOwnership.map(b => ({
+            userId: b.user_id,
+            botCount: parseInt(b.bot_count),
+            isSessionUser: b.user_id === sessionUserId,
+          })),
+          problem: sessionUserBots ? null : "Session user owns 0 bots - this is why bots page is empty",
+        },
+      });
+    } catch (error: any) {
+      console.error(`[CONSOLIDATION_STATUS] trace_id=${traceId} error=${error.message}`);
+      res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
+
+  // POST /api/internal/run-consolidation - Manually trigger user consolidation
+  app.post("/api/internal/run-consolidation", async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID().slice(0, 8);
+    try {
+      console.log(`[RUN_CONSOLIDATION] trace_id=${traceId} Starting manual consolidation...`);
+      
+      const { ensureCanonicalUserConsolidation } = await import("./db");
+      await ensureCanonicalUserConsolidation();
+      
+      // Get updated state
+      const usersResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
+      const userCount = parseInt((usersResult.rows[0] as any)?.count || "0");
+      
+      const botsResult = await db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE archived_at IS NULL`);
+      const botCount = parseInt((botsResult.rows[0] as any)?.count || "0");
+      
+      console.log(`[RUN_CONSOLIDATION] trace_id=${traceId} Complete: ${userCount} users, ${botCount} bots`);
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        message: "Consolidation completed",
+        result: {
+          userCount,
+          botCount,
+        },
+      });
+    } catch (error: any) {
+      console.error(`[RUN_CONSOLIDATION] trace_id=${traceId} error=${error.message}`);
+      res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
 }
 
 // Helper to log integration usage events
