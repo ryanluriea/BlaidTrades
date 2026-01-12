@@ -57,6 +57,7 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
   - Fixed bot_instances DELETE timeout: Implemented batch deletion (LIMIT 50, MAX_BATCHES 10) to prevent FK check timeouts on large trade_logs table
 - **QC Badge Fix for Trials:** Added QC verification hydration to `/api/strategy-lab/candidates` endpoint using DISTINCT ON query for most recent verification per candidate. Frontend updated to use hydrated `qcVerification.badgeState` with fallback to fetched verifications.
 - **BigInt Serialization Fix:** Fixed tick ingestion to pass native `bigint` values (not strings) to Drizzle schema columns using `mode: "bigint"`. Added defensive typeof checks for sequenceId coercion.
+- **Tick Ingestion NULL Fix (Jan 12):** Fixed DrizzleQueryError in quote/trade tick insertion by explicitly setting `sequenceId` to `null` when not provided. Drizzle interprets missing properties as `DEFAULT`, which fails for nullable columns without defaults.
 - **Production User ID Fix (Jan 12):** Fixed `seed-system-users.ts` to use correct `password` column (not `password_hash`), removed non-existent `role` column, and added comprehensive FK migration using information_schema to discover ALL columns referencing users.id (user_id, requested_by, reviewed_by, validated_by, tested_by, signed_off_by, etc.). Updates existing user's ID to match canonical `DEFAULT_USER_ID` in a transaction with rollback. This resolves empty bots page and missing QC badges in production.
 
 ## External Dependencies
