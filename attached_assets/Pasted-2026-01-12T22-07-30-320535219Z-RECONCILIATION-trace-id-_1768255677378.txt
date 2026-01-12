@@ -1,0 +1,50 @@
+2026-01-12T22:07:30.320535219Z [RECONCILIATION] trace_id=recon-mkbprbwu Complete: stuck=9 autoRepaired=0 manualReview=9 errors=0
+2026-01-12T22:07:30.32055171Z [SCHEDULER] trace_id=recon-startup-f9c144ab Found 9 stuck candidates, auto-repairing...
+2026-01-12T22:07:30.320564151Z [RECONCILIATION] trace_id=recon-mkbprbww Starting candidate reconciliation (dryRun=false)...
+2026-01-12T22:07:30.322212786Z [RECONCILIATION] trace_id=recon-mkbprbww Complete: stuck=9 autoRepaired=0 manualReview=9 errors=0
+2026-01-12T22:07:30.322225667Z [SCHEDULER] trace_id=recon-startup-f9c144ab Reconciliation complete: repaired=0 manual_review=9
+2026-01-12T22:07:30.322422328Z [INVARIANT_CHECK] trace_id=invariant-mkbprbwy Running state invariant checks...
+2026-01-12T22:07:30.32608252Z [INVARIANT_CHECK] trace_id=invariant-mkbprbwy All checks PASSED
+2026-01-12T22:07:31.83101659Z [ECONOMIC_CALENDAR] trace_id=5baab005-d019-4d73-bdb8-4a06ade1bc7f success events=3166 range=2026-01-05..2026-02-11
+2026-01-12T22:07:33.433308729Z [SCHEDULER] trace_id=6f90c900 Strategy Lab is paused, skipping startup research
+2026-01-12T22:07:34.469011149Z [IRONBEAM_LIVE] trace_id=de5bf4b6 message_count=3 raw_data_preview={"p":{"ping":"ping"}}
+2026-01-12T22:07:34.469037351Z [IRONBEAM_LIVE] trace_id=de5bf4b6 unknown_msg_type keys=p
+2026-01-12T22:07:38.20568908Z [BACKTEST_WORKER] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 processing_jobs=1
+2026-01-12T22:07:38.211671245Z [BACKTEST_EXECUTOR] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 session_id=82554476-2fc7-4890-ad00-b23a2f33a378 bot_id=20c8ecf5-539e-4de8-8920-3a01c7d016aa starting
+2026-01-12T22:07:38.217654701Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Sentiment Surge Fade" trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0
+2026-01-12T22:07:38.217675973Z [BACKTEST_EXECUTOR] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 using REAL Databento data for MES via BAR_CACHE
+2026-01-12T22:07:38.217718685Z [BACKTEST_EXECUTOR] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 loading_5year_history symbol=MES days=1825 source=COLD_STORAGE
+2026-01-12T22:07:38.217877274Z [BACKTEST_EXECUTOR] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 cold_storage_empty falling_back_to_redis_cache
+2026-01-12T22:07:38.217903086Z [BAR_CACHE] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 symbol=MES cold_storage_empty
+2026-01-12T22:07:38.223405264Z [BARS_CACHE] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 instance=e1834c3c lock_acquired fetching_from_provider
+2026-01-12T22:07:38.2267942Z [INTEGRATION_USAGE] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-12T22:07:38.226811751Z [DATABENTO] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 CME_LICENSE_CAP: Requested end=2026-01-12T00:00:00.000Z capped to 2026-01-11T20:07:38.226Z (26h buffer for license-free window)
+2026-01-12T22:07:38.226815671Z [DATABENTO] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 fetching symbol=MES.c.0 start=2021-01-13T00:00:00.000Z end=2026-01-11T20:07:38.226Z schema=ohlcv-1m
+2026-01-12T22:07:38.388326959Z [DATABENTO] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 error status=402 body={"detail":{"case":"account_delinquent_invoice","message":"Unable to submit the request because there is an unpaid invoice.","status_code":402,"docs":"https://databento.com/docs/portal/billing","payload":null}}
+2026-01-12T22:07:38.390215438Z [ACTIVITY_EVENT] type=INTEGRATION_ERROR severity=ERROR title="Databento API Error" trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0
+2026-01-12T22:07:38.390352746Z [DATABENTO] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 fetch_error=Databento API error: 402 - {"detail":{"case":"account_delinquent_invoice","message":"Unable to submit the request because there is an unpaid invoice.","status_code":402,"docs":"https://databento.com/docs/portal/billing","payload":null}}
+2026-01-12T22:07:38.392863841Z [ACTIVITY_EVENT] type=INTEGRATION_ERROR severity=ERROR title="Databento Fetch Failed" trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0
+2026-01-12T22:07:38.401219994Z [BARS_CACHE] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 error=Databento API error: 402 - {"detail":{"case":"account_delinquent_invoice","message":"Unable to submit the request because there is an unpaid invoice.","status_code":402,"docs":"https://databento.com/docs/portal/billing","payload":null}}
+2026-01-12T22:07:38.404482893Z [INTEGRATION_USAGE] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-12T22:07:38.404547937Z [DATABENTO] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 CME_LICENSE_CAP: Requested end=2026-01-12T00:00:00.000Z capped to 2026-01-11T20:07:38.402Z (26h buffer for license-free window)
+2026-01-12T22:07:38.404552337Z [DATABENTO] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 fetching symbol=MES.c.0 start=2021-01-13T00:00:00.000Z end=2026-01-11T20:07:38.402Z schema=ohlcv-1m
+2026-01-12T22:07:38.434385242Z [SCHEDULER] trace_id=6f90c900 Starting cloud backup scheduler...
+2026-01-12T22:07:38.434788965Z [BACKUP_SCHEDULER] Started with daily frequency, next backup at 2026-01-13T22:07:38.434Z
+2026-01-12T22:07:38.525110907Z [DATABENTO] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 error status=402 body={"detail":{"case":"account_delinquent_invoice","message":"Unable to submit the request because there is an unpaid invoice.","status_code":402,"docs":"https://databento.com/docs/portal/billing","payload":null}}
+2026-01-12T22:07:38.527628133Z [ACTIVITY_EVENT] type=INTEGRATION_ERROR severity=ERROR title="Databento API Error" trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0
+2026-01-12T22:07:38.52774528Z [DATABENTO] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 fetch_error=Databento API error: 402 - {"detail":{"case":"account_delinquent_invoice","message":"Unable to submit the request because there is an unpaid invoice.","status_code":402,"docs":"https://databento.com/docs/portal/billing","payload":null}}
+2026-01-12T22:07:38.530084045Z [ACTIVITY_EVENT] type=INTEGRATION_ERROR severity=ERROR title="Databento Fetch Failed" trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0
+2026-01-12T22:07:38.532213138Z [BACKTEST_EXECUTOR] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 Databento fetch failed: Databento API error: 402 - {"detail":{"case":"account_delinquent_invoice","message":"Unable to submit the request because there is an unpaid invoice.","status_code":402,"docs":"https://databento.com/docs/portal/billing","payload":null}}
+2026-01-12T22:07:38.534370043Z [ACTIVITY_EVENT] type=INTEGRATION_ERROR severity=ERROR title="Backtest Blocked: No Real Data" trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0
+2026-01-12T22:07:38.534586225Z [BACKTEST_EXECUTOR] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 session_id=82554476-2fc7-4890-ad00-b23a2f33a378 error_class=CALCULATION_ERROR severity=CRITICAL halt=true error= Error: DATA_PROVENANCE_VIOLATION: Real market data unavailable and ALLOW_SIM_FALLBACK=false. Institutional fail-closed behavior active. Original error: Databento API error: 402 - {"detail":{"case":"account_delinquent_invoice","message":"Unable to submit the request because there is an unpaid invoice.","status_code":402,"docs":"https://databento.com/docs/portal/billing","payload":null}}
+2026-01-12T22:07:38.534591955Z     at fetchHistoricalBars (file:///opt/render/project/src/dist/index.js:11725:15)
+2026-01-12T22:07:38.534593945Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-12T22:07:38.534595745Z     at async executeBacktest (file:///opt/render/project/src/dist/index.js:10981:24)
+2026-01-12T22:07:38.534597656Z     at async runBacktestWorker (file:///opt/render/project/src/dist/index.js:37811:24)
+2026-01-12T22:07:38.534599286Z     at async selfHealingWrapper (file:///opt/render/project/src/dist/index.js:37016:5)
+2026-01-12T22:07:38.534600936Z     at async Timeout._onTimeout (file:///opt/render/project/src/dist/index.js:42803:7)
+2026-01-12T22:07:38.538865032Z [ACTIVITY_EVENT] type=BACKTEST_FAILED severity=CRITICAL title="Backtest failed for Sentiment Surge Fade: CALCULAT" trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0
+2026-01-12T22:07:38.538869763Z [BACKTEST_EXECUTOR] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 CRITICAL_HALT code=CALCULATION_ERROR - Calculation error detected. Results would be invalid.
+2026-01-12T22:07:38.539007641Z [BACKTEST_WORKER] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 job_id=2bf148f2-c271-47c2-8146-5e3ad46c7a91 error= DATA_PROVENANCE_VIOLATION: Real market data unavailable and ALLOW_SIM_FALLBACK=false. Institutional fail-closed behavior active. Original error: Databento API error: 402 - {"detail":{"case":"account_delinquent_invoice","message":"Unable to submit the request because there is an unpaid invoice.","status_code":402,"docs":"https://databento.com/docs/portal/billing","payload":null}}
+2026-01-12T22:07:38.544557312Z [BACKTEST_WORKER] trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0 circuit_breaker_opened failures=3
+2026-01-12T22:07:38.546767139Z [ACTIVITY_EVENT] type=AUTONOMY_GATE_BLOCKED severity=WARN title="Backtest circuit breaker opened" trace_id=e7c6ae44-64a1-4379-aa81-a707f4005ce0

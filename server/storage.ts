@@ -3,6 +3,24 @@ import { eq, desc, and, or, isNull, sql, gte, lte, lt, gt, count, avg, inArray }
 import * as schema from "@shared/schema";
 import { processBlownAccountRecovery } from "./blown-account-recovery";
 
+// UUID validation for SQL injection prevention
+function isValidUuid(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+/**
+ * PRODUCTION-SAFE: Build a raw UUID array for PostgreSQL ANY() queries
+ * Uses sql.raw() with validated UUIDs to avoid parameter limit issues on Neon PostgreSQL
+ */
+function buildUuidArrayRaw(ids: string[]): ReturnType<typeof sql.raw> {
+  const validatedIds = ids.filter(id => isValidUuid(id));
+  if (validatedIds.length === 0) {
+    return sql.raw("NULL");
+  }
+  return sql.raw(validatedIds.map(id => `'${id}'`).join(", "));
+}
+
 export interface IStorage {
   getUser(id: string): Promise<schema.User | undefined>;
   getUserByEmail(email: string): Promise<schema.User | undefined>;
@@ -2365,7 +2383,6 @@ export class DatabaseStorage implements IStorage {
       // Trades linked to BLOWN attempts are excluded (historical data for AI learning only)
       let aggregateQuery;
       if (botIds && botIds.length > 0) {
-        const botIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
         aggregateQuery = sql`
           SELECT 
             pt.bot_id,
@@ -2380,7 +2397,7 @@ export class DatabaseStorage implements IStorage {
                 THEN pt.pnl ELSE 0 END)) as gross_loss
           FROM paper_trades pt
           LEFT JOIN account_attempts aa ON pt.account_attempt_id = aa.id
-          WHERE pt.bot_id IN (${botIdParams})
+          WHERE pt.bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
             AND (pt.account_attempt_id IS NULL OR aa.status = 'ACTIVE')
           GROUP BY pt.bot_id
         `;

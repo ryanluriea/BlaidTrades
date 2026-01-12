@@ -62,12 +62,22 @@ function isValidUuid(str: string): boolean {
 }
 
 /**
- * PRODUCTION-SAFE: Build a parameterized UUID array for PostgreSQL ANY() queries
- * Uses ARRAY[...] syntax that works with Neon PostgreSQL (avoids parameter limit issues)
- * Pattern: WHERE column = ANY(ARRAY[${buildUuidArray(ids)}]::uuid[])
+ * PRODUCTION-SAFE: Build a raw UUID array for PostgreSQL ANY() queries
+ * Uses sql.raw() with validated UUIDs to avoid parameter limit issues on Neon PostgreSQL
+ * Pattern: WHERE column = ANY(ARRAY[${buildUuidArrayRaw(ids)}]::uuid[])
+ * 
+ * CRITICAL: This uses raw SQL literals (not parameters) because Neon has limits
+ * on the number of query parameters (~100-200). With 239+ bots, parameterized 
+ * queries like sql`${id}` create $1,$2,$3... placeholders that exceed this limit.
  */
-function buildUuidArray(ids: string[]) {
-  return sql.join(ids.map(id => sql`${id}`), sql`, `);
+function buildUuidArrayRaw(ids: string[]): ReturnType<typeof sql.raw> {
+  // Validate all UUIDs to prevent SQL injection
+  const validatedIds = ids.filter(id => isValidUuid(id));
+  if (validatedIds.length === 0) {
+    return sql.raw("NULL");
+  }
+  // Build raw SQL with quoted UUIDs as literals
+  return sql.raw(validatedIds.map(id => `'${id}'`).join(", "));
 }
 
 /**
@@ -4689,7 +4699,7 @@ export function registerRoutes(app: Express) {
       let flatInstances: any[] = [];
       if (botIds.length > 0) {
         const instanceResults = await db.execute(sql`
-          SELECT * FROM bot_instances WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
+          SELECT * FROM bot_instances WHERE bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
         `);
         flatInstances = instanceResults.rows as any[];
       }
@@ -4727,7 +4737,7 @@ export function registerRoutes(app: Express) {
             SELECT DISTINCT ON (bot_id) 
               bot_id, trend_direction, peak_generation, decline_from_peak_pct
             FROM generation_metrics_history
-            WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
+            WHERE bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
             ORDER BY bot_id, created_at DESC NULLS LAST, id DESC
           `);
           
@@ -4786,7 +4796,7 @@ export function registerRoutes(app: Express) {
                 mr.id, mr.bot_id, mr.status, mr.completed_at, mr.total_cells, mr.completed_cells
               FROM matrix_runs mr
               INNER JOIN bots b ON b.id = mr.bot_id
-              WHERE mr.bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
+              WHERE mr.bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
                 AND mr.status = 'COMPLETED'
                 -- INSTITUTIONAL: TRIALS stage must filter by current generation to prevent cumulative data display
                 -- PAPER+ stages show latest completed run regardless of generation (cumulative view)
@@ -4913,7 +4923,7 @@ export function registerRoutes(app: Express) {
               ) as progress,
               mr.current_timeframe
             FROM matrix_runs mr
-            WHERE mr.bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
+            WHERE mr.bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
             ORDER BY mr.bot_id, mr.created_at DESC NULLS LAST, mr.id DESC
           `);
           for (const row of mxResults.rows as any[]) {
@@ -4938,7 +4948,7 @@ export function registerRoutes(app: Express) {
           const alertResults = await db.execute(sql`
             SELECT entity_id as bot_id, COUNT(*) as count
             FROM alerts
-            WHERE entity_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
+            WHERE entity_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
               AND entity_type = 'BOT'
               AND status = 'OPEN'
             GROUP BY entity_id
@@ -4971,7 +4981,7 @@ export function registerRoutes(app: Express) {
                 SUM(output_tokens) as total_output_tokens,
                 COUNT(*) as event_count
               FROM bot_cost_events
-              WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
+              WHERE bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
                 AND category = 'llm'
               GROUP BY bot_id
             ),
@@ -4981,7 +4991,7 @@ export function registerRoutes(app: Express) {
                 provider as last_provider,
                 (metadata->>'model')::text as last_model
               FROM bot_cost_events
-              WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
+              WHERE bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
                 AND category = 'llm'
               ORDER BY bot_id, created_at DESC
             )
@@ -5018,7 +5028,7 @@ export function registerRoutes(app: Express) {
           const genResults = await db.execute(sql`
             SELECT bot_id, MAX(generation_number) as latest_gen
             FROM bot_generations
-            WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
+            WHERE bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
             GROUP BY bot_id
           `);
           for (const row of genResults.rows as any[]) {
