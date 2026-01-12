@@ -181,10 +181,10 @@ interface IntegrationStatus {
 async function getLatestJobsPerBot(botIds: string[]): Promise<Map<string, LatestJob>> {
   if (botIds.length === 0) return new Map();
   
-  // FIX: Build single UUID array parameter and cast once - safer for large IN lists
-  const botIdArray = sql`ARRAY[${sql.join(botIds.map(id => sql`${id}`), sql`, `)}]::uuid[]`;
+  // INDUSTRY-STANDARD: Single PostgreSQL array literal parameter
+  // Format: "{uuid1,uuid2,...}" passed as 1 param, cast to uuid[]
+  const uuidArrayLiteral = `{${botIds.join(',')}}`;
   
-  // Join with bot_generations to get generation_number for the active job
   const results = await db.execute(sql`
     SELECT DISTINCT ON (j.bot_id) 
       j.bot_id as "botId",
@@ -199,7 +199,7 @@ async function getLatestJobsPerBot(botIds: string[]): Promise<Map<string, Latest
     FROM bot_jobs j
     LEFT JOIN bots b ON j.bot_id = b.id
     LEFT JOIN bot_generations g ON b.current_generation_id = g.id
-    WHERE j.bot_id = ANY(${botIdArray})
+    WHERE j.bot_id = ANY(${uuidArrayLiteral}::uuid[])
     ORDER BY j.bot_id, j.created_at DESC NULLS LAST, j.id DESC
   `);
   
@@ -213,8 +213,8 @@ async function getLatestJobsPerBot(botIds: string[]): Promise<Map<string, Latest
 async function getLatestInstancesPerBot(botIds: string[]): Promise<Map<string, LatestInstance>> {
   if (botIds.length === 0) return new Map();
   
-  // FIX: Build single UUID array parameter and cast once - safer for large IN lists
-  const botIdArray = sql`ARRAY[${sql.join(botIds.map(id => sql`${id}`), sql`, `)}]::uuid[]`;
+  // INDUSTRY-STANDARD: Single PostgreSQL array literal parameter
+  const uuidArrayLiteral = `{${botIds.join(',')}}`;
   
   const results = await db.execute(sql`
     SELECT DISTINCT ON (bot_id)
@@ -226,7 +226,7 @@ async function getLatestInstancesPerBot(botIds: string[]): Promise<Map<string, L
       is_primary_runner as "isPrimaryRunner",
       job_type as "jobType"
     FROM bot_instances
-    WHERE bot_id = ANY(${botIdArray})
+    WHERE bot_id = ANY(${uuidArrayLiteral}::uuid[])
       AND job_type = 'RUNNER'
       AND is_primary_runner = true
     ORDER BY bot_id, updated_at DESC NULLS LAST, id DESC
@@ -242,12 +242,9 @@ async function getLatestInstancesPerBot(botIds: string[]): Promise<Map<string, L
 async function getLatestBacktestsPerBot(botIds: string[]): Promise<Map<string, LatestBacktest>> {
   if (botIds.length === 0) return new Map();
   
-  // FIX: Build single UUID array parameter and cast once - safer for large IN lists
-  const botIdArray = sql`ARRAY[${sql.join(botIds.map(id => sql`${id}`), sql`, `)}]::uuid[]`;
+  // INDUSTRY-STANDARD: Single PostgreSQL array literal parameter
+  const uuidArrayLiteral = `{${botIds.join(',')}}`;
   
-  // INSTITUTIONAL: Deterministic ordering with multiple tie-breakers
-  // ORDER BY bot_id, completed_at DESC NULLS LAST, id DESC
-  // This prevents UI flickering from timestamp collisions
   const results = await db.execute(sql`
     SELECT DISTINCT ON (bot_id)
       bot_id as "botId",
@@ -261,7 +258,7 @@ async function getLatestBacktestsPerBot(botIds: string[]): Promise<Map<string, L
       win_rate as "winRate",
       max_drawdown_pct as "maxDrawdownPct"
     FROM backtest_sessions
-    WHERE bot_id = ANY(${botIdArray})
+    WHERE bot_id = ANY(${uuidArrayLiteral}::uuid[])
       AND status = 'completed'
     ORDER BY bot_id, completed_at DESC NULLS LAST, id DESC
   `);
@@ -277,8 +274,8 @@ async function getLatestBacktestsPerBot(botIds: string[]): Promise<Map<string, L
 async function getRecentlyCompletedJobsPerBot(botIds: string[]): Promise<Map<string, RecentCompletedJob>> {
   if (botIds.length === 0) return new Map();
   
-  // FIX: Build single UUID array parameter and cast once - safer for large IN lists
-  const botIdArray = sql`ARRAY[${sql.join(botIds.map(id => sql`${id}`), sql`, `)}]::uuid[]`;
+  // INDUSTRY-STANDARD: Single PostgreSQL array literal parameter
+  const uuidArrayLiteral = `{${botIds.join(',')}}`;
   const recentCutoff = new Date(Date.now() - RECENT_JOB_WINDOW_MS);
   
   // Include COMPLETED and FAILED statuses - both should persist for visibility
@@ -294,7 +291,7 @@ async function getRecentlyCompletedJobsPerBot(botIds: string[]): Promise<Map<str
     FROM bot_jobs j
     LEFT JOIN bots b ON j.bot_id = b.id
     LEFT JOIN bot_generations g ON b.current_generation_id = g.id
-    WHERE j.bot_id = ANY(${botIdArray})
+    WHERE j.bot_id = ANY(${uuidArrayLiteral}::uuid[])
       AND j.status IN ('COMPLETED', 'FAILED')
       AND j.completed_at >= ${recentCutoff}
     ORDER BY j.bot_id, j.completed_at DESC NULLS LAST, j.id DESC
@@ -321,8 +318,8 @@ interface JobCounts {
 async function getActiveJobCountsPerBot(botIds: string[]): Promise<Map<string, JobCounts>> {
   if (botIds.length === 0) return new Map();
   
-  // FIX: Build single UUID array parameter and cast once - safer for large IN lists
-  const botIdArray = sql`ARRAY[${sql.join(botIds.map(id => sql`${id}`), sql`, `)}]::uuid[]`;
+  // INDUSTRY-STANDARD: Single PostgreSQL array literal parameter
+  const uuidArrayLiteral = `{${botIds.join(',')}}`;
   
   const results = await db.execute(sql`
     SELECT 
@@ -331,7 +328,7 @@ async function getActiveJobCountsPerBot(botIds: string[]): Promise<Map<string, J
       status,
       COUNT(*)::int as count
     FROM bot_jobs
-    WHERE bot_id = ANY(${botIdArray})
+    WHERE bot_id = ANY(${uuidArrayLiteral}::uuid[])
       AND status IN ('QUEUED', 'RUNNING', 'PENDING')
     GROUP BY bot_id, job_type, status
   `);
@@ -402,27 +399,27 @@ interface HistoryExists {
 async function getHistoryExistsPerBot(botIds: string[]): Promise<Map<string, HistoryExists>> {
   if (botIds.length === 0) return new Map();
   
-  // FIX: Build single UUID array parameter and cast once - safer for large IN lists
-  const botIdArray = sql`ARRAY[${sql.join(botIds.map(id => sql`${id}`), sql`, `)}]::uuid[]`;
+  // INDUSTRY-STANDARD: Single PostgreSQL array literal parameter
+  const uuidArrayLiteral = `{${botIds.join(',')}}`;
   
   // Run all three queries in parallel
   const [jobResults, backtestResults, instanceResults] = await Promise.all([
     db.execute(sql`
       SELECT bot_id as "botId", COUNT(*)::int > 0 as "hasAny"
       FROM bot_jobs 
-      WHERE bot_id = ANY(${botIdArray})
+      WHERE bot_id = ANY(${uuidArrayLiteral}::uuid[])
       GROUP BY bot_id
     `),
     db.execute(sql`
       SELECT bot_id as "botId", COUNT(*)::int > 0 as "hasAny"
       FROM backtest_sessions 
-      WHERE bot_id = ANY(${botIdArray})
+      WHERE bot_id = ANY(${uuidArrayLiteral}::uuid[])
       GROUP BY bot_id
     `),
     db.execute(sql`
       SELECT bot_id as "botId", COUNT(*)::int > 0 as "hasAny"
       FROM bot_instances 
-      WHERE bot_id = ANY(${botIdArray})
+      WHERE bot_id = ANY(${uuidArrayLiteral}::uuid[])
       GROUP BY bot_id
     `),
   ]);
