@@ -17,8 +17,8 @@ services:
     buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
     startCommand: node --experimental-specifier-resolution=node --enable-source-maps dist/index.js
     healthCheckPath: /api/health
-    # Auto-run database migrations after each deploy
-    preDeployCommand: npm run db:push
+    # Auto-run database migrations + enum sync + user FK migration after each deploy
+    preDeployCommand: npm run db:predeploy
     envVars:
       - key: NODE_ENV
         value: production

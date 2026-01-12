@@ -60,6 +60,7 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - **Tick Ingestion NULL Fix (Jan 12):** Fixed DrizzleQueryError in quote/trade tick insertion by explicitly setting `sequenceId` to `null` when not provided. Drizzle interprets missing properties as `DEFAULT`, which fails for nullable columns without defaults.
 - **Tick Ingestion Error Logging (Jan 12):** Enhanced error handling in flushTradeBuffer/flushQuoteBuffer/flushOrderBookBuffer to extract and log underlying PostgreSQL error code, constraint, and detail from DrizzleQueryError wrapper - enables proper diagnosis of production failures.
 - **Production User ID Fix (Jan 12):** Fixed `seed-system-users.ts` to use correct `password` column (not `password_hash`), removed non-existent `role` column, and added comprehensive FK migration using information_schema to discover ALL columns referencing users.id (user_id, requested_by, reviewed_by, validated_by, tested_by, signed_off_by, etc.). Updates existing user's ID to match canonical `DEFAULT_USER_ID` in a transaction with rollback. This resolves empty bots page and missing QC badges in production.
+- **Render Pre-Deploy Fix (Jan 12):** Changed render.yaml `preDeployCommand` from `npm run db:push` to `npm run db:predeploy` - this runs the full migration chain including the user FK migration script. Previous deployments were only syncing schema without running the seed script that fixes user ID references.
 
 ## External Dependencies
 -   **PostgreSQL:** Primary database.
