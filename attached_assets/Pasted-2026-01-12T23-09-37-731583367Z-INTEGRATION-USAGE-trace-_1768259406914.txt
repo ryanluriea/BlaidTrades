@@ -1,0 +1,50 @@
+2026-01-12T23:09:37.731583367Z [INTEGRATION_USAGE] trace_id=477c3b02-b425-4b2f-84a8-d3875d7088a4 provider=groq operation=verify status=OK latency_ms=119
+2026-01-12T23:09:37.79842359Z [INTEGRATION_USAGE] trace_id=60de6397-8a2b-42cb-8d20-623626d1fcbf provider=xai operation=verify status=OK latency_ms=51
+2026-01-12T23:09:37.884715101Z [SCHEDULER] trace_id=backfill-bd231778 Running generation backfill on startup...
+2026-01-12T23:09:37.902025579Z [BACKFILL_GENERATIONS] trace_id=backfill-bd231778 No bots need generation backfill
+2026-01-12T23:09:37.90252003Z [INTEGRATION_VERIFY] trace_id=integ-verify-f6bd0812 provider=news_api FAILED: HTTP 429
+2026-01-12T23:09:37.902550771Z [INTEGRATION_USAGE] trace_id=d235aeae-ec77-412a-97e1-3fb0c7b4f843 provider=news_api operation=verify status=ERROR latency_ms=180
+2026-01-12T23:09:38.203021024Z [INTEGRATION_USAGE] trace_id=036a23f1-d7a5-483f-b764-41d96c7b4210 provider=marketaux operation=verify status=OK latency_ms=214
+2026-01-12T23:09:38.231041103Z [INTEGRATION_VERIFY] trace_id=integ-verify-f6bd0812 provider=discord FAILED: DISCORD_WEBHOOK_URL not set
+2026-01-12T23:09:38.231090494Z [INTEGRATION_USAGE] trace_id=2d3e55a0-0a56-4634-928c-5bb86f659eae provider=discord operation=verify status=ERROR latency_ms=1
+2026-01-12T23:09:38.231173466Z [INTEGRATION_VERIFY] trace_id=integ-verify-f6bd0812 Complete: 22 OK, 2 FAILED
+2026-01-12T23:09:38.303804416Z [ACTIVITY_EVENT] type=INTEGRATION_VERIFIED severity=WARN title="Integration verification: 2 issues detected" trace_id=integ-verify-f6bd0812
+2026-01-12T23:09:39.213750373Z [INTEGRATION_USAGE] trace_id=c58c6cde-2352-488d-80de-325221891e40 provider=perplexity operation=verify status=OK latency_ms=1399
+2026-01-12T23:09:39.332717444Z [INTEGRATION_USAGE] trace_id=a091568f-c8af-406f-a42d-1989a37dca07 provider=openrouter operation=verify status=OK latency_ms=88
+2026-01-12T23:09:39.411872767Z [BACKTEST_WORKER] trace_id=cb07e532-0115-4571-99c4-a636ce248687 at_concurrency_limit=1
+2026-01-12T23:09:39.41329436Z [INTEGRATION_USAGE] trace_id=c248f022-413b-478f-bcb6-a34ebb9d6bc1 provider=finnhub operation=verify status=OK latency_ms=44
+2026-01-12T23:09:39.510688763Z [INTEGRATION_USAGE] trace_id=6c71fabb-d095-4518-bc08-1b925d5a97ad provider=alphavantage operation=verify status=OK latency_ms=80
+2026-01-12T23:09:39.602893423Z [INTEGRATION_USAGE] trace_id=5859da55-cef8-4f47-b9b3-71a9f403fd17 provider=fmp operation=verify status=OK latency_ms=55
+2026-01-12T23:09:39.685592559Z [BLOWN_ACCOUNT_SWEEP] trace_id=blown-sweep-aea1a7f0 Starting blown account detection sweep...
+2026-01-12T23:09:39.718227578Z [BLOWN_ACCOUNT_SWEEP] trace_id=blown-sweep-aea1a7f0 No missed blown accounts found
+2026-01-12T23:09:39.718247348Z [INTEGRATION_USAGE] trace_id=a87659ce-95c8-4924-a406-441aae9235ef provider=fred operation=verify status=OK latency_ms=84
+2026-01-12T23:09:39.807020718Z [INTEGRATION_USAGE] trace_id=96bedd7d-dd4d-48aa-8578-08875286e392 provider=unusual_whales operation=verify status=OK latency_ms=89
+2026-01-12T23:09:39.907856591Z [INTEGRATION_VERIFY] trace_id=integ-verify-34bd6902 provider=news_api FAILED: HTTP 429
+2026-01-12T23:09:39.907903852Z [INTEGRATION_USAGE] trace_id=f3cc7864-121a-49e5-adfa-8f20c74be3e1 provider=news_api operation=verify status=ERROR latency_ms=84
+2026-01-12T23:09:40.001669609Z [INTEGRATION_USAGE] trace_id=9f64e019-589d-490c-93fe-96492040642a provider=marketaux operation=verify status=OK latency_ms=78
+2026-01-12T23:09:40.025465389Z [INTEGRATION_USAGE] trace_id=9e268bc1-eeef-491a-a073-2fcb33c164ca provider=discord operation=verify status=ERROR latency_ms=0
+2026-01-12T23:09:40.025591382Z [INTEGRATION_VERIFY] trace_id=integ-verify-34bd6902 provider=discord FAILED: DISCORD_WEBHOOK_URL not set
+2026-01-12T23:09:40.025603072Z [INTEGRATION_VERIFY] trace_id=integ-verify-34bd6902 Complete: 22 OK, 2 FAILED
+2026-01-12T23:09:40.087171082Z [ACTIVITY_EVENT] type=INTEGRATION_VERIFIED severity=WARN title="Integration verification: 2 issues detected" trace_id=integ-verify-34bd6902
+2026-01-12T23:09:41.593035686Z [BARS_CACHE] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 instance=e875e398 cache_hit key=bars:v2:MES:5m:ALL:1610496000000:1768176000000 bars=350904 duration=11246ms
+2026-01-12T23:09:41.607032285Z [BACKTEST_EXECUTOR] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 resampling cached bars from 1m to 5m (factor=5)
+2026-01-12T23:09:41.779865903Z [SCHEDULER] trace_id=recon-startup-ca2ee264 Running candidate reconciliation on startup...
+2026-01-12T23:09:41.779885233Z [RECONCILIATION] trace_id=recon-mkbrzb4j Starting candidate reconciliation (dryRun=true)...
+2026-01-12T23:09:42.000471085Z [BACKTEST_EXECUTOR] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 REAL_DATA fetched_bars=70181 provider=databento latency=11602ms
+2026-01-12T23:09:42.19101047Z [RECONCILIATION] trace_id=recon-mkbrzb4j Complete: stuck=24 autoRepaired=0 manualReview=24 errors=0
+2026-01-12T23:09:42.191027531Z [SCHEDULER] trace_id=recon-startup-ca2ee264 Found 24 stuck candidates, auto-repairing...
+2026-01-12T23:09:42.191030061Z [RECONCILIATION] trace_id=recon-mkbrzbfy Starting candidate reconciliation (dryRun=false)...
+2026-01-12T23:09:42.219789738Z [STRATEGY_INFERENCE] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 bot_name="Phantom Gap Reclaim" inferred_archetype="gap_fade"
+2026-01-12T23:09:42.220138086Z [BACKTEST_EXECUTOR] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 bot_name="Phantom Gap Reclaim" inferred_archetype="gap_fade" using="gap_fade"
+2026-01-12T23:09:42.220507695Z [BACKTEST_EXECUTOR] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 archetype=gap_fade mapped_to=gap_fade
+2026-01-12T23:09:42.221047817Z [BACKTEST_EXECUTOR] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 TRIALS_SESSION_WIDENING original=09:30-11:00 widened=09:35-15:55
+2026-01-12T23:09:42.224315824Z [RECONCILIATION] trace_id=recon-mkbrzbfy Complete: stuck=24 autoRepaired=0 manualReview=24 errors=0
+2026-01-12T23:09:42.226354262Z [SCHEDULER] trace_id=recon-startup-ca2ee264 Reconciliation complete: repaired=0 manual_review=24
+2026-01-12T23:09:42.226730531Z [INVARIANT_CHECK] trace_id=invariant-mkbrzbgy Running state invariant checks...
+2026-01-12T23:09:42.261206962Z [BACKTEST_EXECUTOR] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 using_real_strategy version=1.0.0 rules=MES Gap Fade rules_hash=2a374c1494c8112d
+2026-01-12T23:09:42.289830036Z [BACKTEST_EXECUTOR] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-12T23:09:42.289851497Z [BACKTEST_EXECUTOR] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 SESSION_MODE=FULL_24x5 SESSION_BYPASS=true timezone=America/New_York
+2026-01-12T23:09:42.683112523Z [STRATEGY_EXECUTOR] bars=70181 valid_bars=70181 session_bars=70131 outside_session=0 no_trade_window=0 entry_signals=7281 trades=7281
+2026-01-12T23:09:42.685010128Z [BACKTEST_EXECUTOR] trace_id=cfc8b5bb-b463-4cf9-874a-1226facf1c38 REAL_EXECUTION trades=7281 pnl=-31124.69 win_rate=35.9%
+2026-01-12T23:09:42.68511522Z [TX:cfc8b5bb-b463-4cf9-874a-1226facf1c38] BACKTEST_TRADES:f16d4cfa START
+2026-01-12T23:09:42.708519031Z [INVARIANT_CHECK] trace_id=invariant-mkbrzbgy All checks PASSED
