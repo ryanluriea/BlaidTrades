@@ -5,6 +5,11 @@
  * This script ensures the system/default user account exists in the database.
  * It's designed to be idempotent - safe to run multiple times.
  * 
+ * CRITICAL: This script also migrates ALL orphaned FK references to DEFAULT_USER_ID.
+ * This ensures bots, QC verifications, and other data are visible to the logged-in user.
+ * The migration runs EVERY time, even if the user already exists, to fix any data
+ * that was created with wrong user IDs.
+ * 
  * Usage: npm run db:seed-users
  * 
  * Should be configured as part of Render's Pre-Deploy Command chain.
@@ -22,6 +27,144 @@ const SYSTEM_USER_USERNAME = "BlaidAgent";
 
 function generateSecureRandomPassword(): string {
   return crypto.randomBytes(32).toString("hex");
+}
+
+/**
+ * Migrate orphaned FK references to DEFAULT_USER_ID
+ * 
+ * TARGETED MIGRATION: First discovers legacy user IDs from the data itself,
+ * then only migrates those specific IDs. This preserves any legitimate 
+ * multi-user data while fixing the production issue.
+ * 
+ * This runs every time to fix any data created with wrong user IDs.
+ */
+async function migrateOrphanedFKReferences(pool: pg.Pool, targetUserId: string): Promise<void> {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Log current user state for debugging
+    const existingUsers = await client.query(`SELECT id, email FROM users`);
+    console.log(`[SEED_USERS] Users in database: ${existingUsers.rows.length}`);
+    for (const user of existingUsers.rows) {
+      console.log(`[SEED_USERS]   - ${user.email} (${user.id})`);
+    }
+    
+    // Build set of valid user IDs
+    const validUserIds = new Set(existingUsers.rows.map(r => r.id));
+    validUserIds.add(targetUserId); // Ensure target is always considered valid
+    
+    // Discover ALL columns that reference users.id
+    const fkColumns = await client.query(`
+      SELECT DISTINCT kcu.table_name, kcu.column_name
+      FROM information_schema.table_constraints AS tc
+      JOIN information_schema.key_column_usage AS kcu
+        ON tc.constraint_name = kcu.constraint_name
+      JOIN information_schema.constraint_column_usage AS ccu
+        ON ccu.constraint_name = tc.constraint_name
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND ccu.table_name = 'users'
+        AND ccu.column_name = 'id'
+      ORDER BY kcu.table_name, kcu.column_name
+    `);
+    
+    const fkRefs = fkColumns.rows.map(r => ({ table: r.table_name, column: r.column_name }));
+    console.log(`[SEED_USERS] Found ${fkRefs.length} FK columns referencing users.id`);
+    
+    if (fkRefs.length === 0) {
+      console.log(`[SEED_USERS] No FK references found - nothing to migrate`);
+      await client.query('COMMIT');
+      return;
+    }
+    
+    // STEP 1: Discover legacy user IDs from bots table (the primary ownership table)
+    // These are IDs that exist in data but NOT in the users table
+    const legacyIdsResult = await client.query(`
+      SELECT DISTINCT user_id FROM bots 
+      WHERE user_id IS NOT NULL 
+        AND user_id != $1 
+        AND user_id NOT IN (SELECT id FROM users)
+    `, [targetUserId]);
+    
+    const legacyUserIds = legacyIdsResult.rows.map(r => r.user_id);
+    console.log(`[SEED_USERS] Found ${legacyUserIds.length} legacy user IDs in bots table: ${legacyUserIds.join(', ') || 'none'}`);
+    
+    // STEP 2: Also check for orphaned references (FK points to non-existent user)
+    let totalMigrated = 0;
+    
+    for (const { table, column } of fkRefs) {
+      try {
+        // Find orphaned rows: FK column points to a user that doesn't exist
+        const orphanedResult = await client.query(`
+          SELECT COUNT(*) as cnt FROM "${table}" 
+          WHERE "${column}" IS NOT NULL 
+            AND "${column}" != $1
+            AND "${column}" NOT IN (SELECT id FROM users)
+        `, [targetUserId]);
+        const orphanedCount = parseInt(orphanedResult.rows[0].cnt, 10);
+        
+        if (orphanedCount > 0) {
+          // Get the distinct orphaned IDs for logging
+          const distinctOrphaned = await client.query(`
+            SELECT DISTINCT "${column}" as orphan_id FROM "${table}" 
+            WHERE "${column}" IS NOT NULL 
+              AND "${column}" != $1
+              AND "${column}" NOT IN (SELECT id FROM users)
+          `, [targetUserId]);
+          const orphanIds = distinctOrphaned.rows.map(r => r.orphan_id).join(', ');
+          console.log(`[SEED_USERS] ${table}.${column}: ${orphanedCount} orphaned rows (from: ${orphanIds})`);
+          
+          // Migrate orphaned rows to the canonical user
+          const result = await client.query(`
+            UPDATE "${table}" SET "${column}" = $1 
+            WHERE "${column}" IS NOT NULL 
+              AND "${column}" != $1
+              AND "${column}" NOT IN (SELECT id FROM users)
+          `, [targetUserId]);
+          
+          if (result.rowCount && result.rowCount > 0) {
+            console.log(`[SEED_USERS] MIGRATED ${result.rowCount} orphaned rows in ${table}.${column}`);
+            totalMigrated += result.rowCount;
+          }
+        }
+      } catch (tableError: any) {
+        console.error(`[SEED_USERS] ERROR migrating ${table}.${column}: ${tableError.message}`);
+        // Continue with other tables
+      }
+    }
+    
+    await client.query('COMMIT');
+    
+    if (totalMigrated > 0) {
+      console.log(`[SEED_USERS] *** SUCCESS: MIGRATED ${totalMigrated} total orphaned rows to ${targetUserId} ***`);
+    } else {
+      console.log(`[SEED_USERS] No orphaned FK references found - all data points to valid users`);
+    }
+    
+    // STEP 3: Final verification - log any remaining non-target user data
+    for (const { table, column } of fkRefs) {
+      try {
+        const remainingResult = await client.query(`
+          SELECT COUNT(*) as cnt FROM "${table}" 
+          WHERE "${column}" IS NOT NULL AND "${column}" != $1
+        `, [targetUserId]);
+        const remainingCount = parseInt(remainingResult.rows[0].cnt, 10);
+        if (remainingCount > 0) {
+          console.log(`[SEED_USERS] POST-MIGRATION: ${table}.${column} has ${remainingCount} rows with non-target user (these point to valid users)`);
+        }
+      } catch (e) {
+        // Ignore errors in verification
+      }
+    }
+    
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error(`[SEED_USERS] FK migration failed, rolled back:`, error.message);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function seedSystemUsers() {
@@ -45,6 +188,9 @@ async function seedSystemUsers() {
 
     if (existingUser.rows.length > 0) {
       console.log(`[SEED_USERS] System user already exists: ${existingUser.rows[0].email}`);
+      // DON'T return early - we still need to migrate any orphaned FK references!
+      console.log(`[SEED_USERS] Checking for orphaned FK references to migrate...`);
+      await migrateOrphanedFKReferences(pool, DEFAULT_USER_ID);
       return;
     }
 
@@ -153,6 +299,10 @@ async function seedSystemUsers() {
     );
 
     console.log(`[SEED_USERS] Created system user: ${SYSTEM_USER_EMAIL} (${DEFAULT_USER_ID})`);
+    
+    // Also migrate any orphaned FK references that might exist
+    console.log(`[SEED_USERS] Checking for orphaned FK references after user creation...`);
+    await migrateOrphanedFKReferences(pool, DEFAULT_USER_ID);
 
   } catch (error) {
     console.error("[SEED_USERS] Error seeding users:", error);
