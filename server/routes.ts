@@ -54,6 +54,7 @@ import {
   getParseMethodDistribution,
   logMonitoringSummary,
 } from "./qc-monitoring";
+import { getAllCircuitStats, resetCircuit, resetAllCircuits } from "./circuit-breaker";
 
 function isValidUuid(str: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -4254,6 +4255,97 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // ==========================================================================
+  // GET /api/admin/circuit-breakers
+  // View all circuit breaker states for operational monitoring
+  // ==========================================================================
+  app.get("/api/admin/circuit-breakers", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const stats = getAllCircuitStats();
+      res.json({
+        success: true,
+        data: stats,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("[ADMIN_CIRCUIT_BREAKERS] error=", error);
+      res.status(500).json({ error: "Failed to fetch circuit breaker stats" });
+    }
+  });
+
+  // ==========================================================================
+  // POST /api/admin/circuit-breakers/reset
+  // Reset a specific circuit breaker or all circuit breakers
+  // INDUSTRY STANDARD: Manual recovery control for operational incidents
+  // ==========================================================================
+  app.post("/api/admin/circuit-breakers/reset", requireAuth, csrfProtection, adminRateLimit, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID().slice(0, 8);
+    try {
+      const adminToken = req.headers["x-admin-token"];
+      const expectedToken = process.env.ADMIN_TOKEN;
+      if (!expectedToken || adminToken !== expectedToken) {
+        return res.status(401).json({ error_code: "UNAUTHORIZED", message: "Invalid admin token" });
+      }
+
+      const { circuitName, resetAll = false } = req.body;
+      
+      if (!resetAll && !circuitName) {
+        return res.status(400).json({ 
+          error_code: "INVALID_REQUEST", 
+          message: "Either circuitName or resetAll=true required" 
+        });
+      }
+      
+      if (resetAll) {
+        resetAllCircuits();
+        await logActivityEvent({
+          eventType: "SYSTEM_STATUS_CHANGED",
+          severity: "WARN",
+          title: "All Circuit Breakers Reset",
+          summary: `Admin manually reset all circuit breakers`,
+          payload: { action: "RESET_ALL_CIRCUITS" },
+          traceId,
+          stage: "SYSTEM",
+        });
+        console.log(`[ADMIN_CIRCUIT_RESET] trace_id=${traceId} RESET_ALL_CIRCUITS`);
+        
+        return res.json({
+          success: true,
+          traceId,
+          action: "RESET_ALL_CIRCUITS",
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      resetCircuit(circuitName);
+      await logActivityEvent({
+        eventType: "SYSTEM_STATUS_CHANGED",
+        severity: "INFO",
+        title: `Circuit Breaker Reset: ${circuitName}`,
+        summary: `Admin manually reset circuit breaker: ${circuitName}`,
+        payload: { action: "RESET_CIRCUIT", circuitName },
+        traceId,
+        stage: "SYSTEM",
+      });
+      console.log(`[ADMIN_CIRCUIT_RESET] trace_id=${traceId} RESET_CIRCUIT=${circuitName}`);
+      
+      res.json({
+        success: true,
+        traceId,
+        action: "RESET_CIRCUIT",
+        circuitName,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(`[ADMIN_CIRCUIT_RESET] trace_id=${traceId} error=`, error);
+      res.status(500).json({ 
+        error_code: "RESET_ERROR",
+        message: String(error),
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   app.post("/api/users", async (req: Request, res: Response) => {
     try {
       const parsed = insertUserSchema.safeParse(req.body);
@@ -4287,9 +4379,14 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/bots-overview", async (req: Request, res: Response) => {
     try {
-      const userId = req.query.user_id as string;
+      // INDUSTRY STANDARD: Use session-based auth with query param as fallback
+      // Priority: 1) req.user.id from session, 2) user_id query param
+      const sessionUserId = (req.user as any)?.id;
+      const queryUserId = req.query.user_id as string;
+      const userId = sessionUserId || queryUserId;
+      
       if (!userId) {
-        return res.status(400).json({ error: "user_id required" });
+        return res.status(401).json({ error: "Authentication required" });
       }
       const startTime = Date.now();
       const bots = await storage.getBotsOverview(userId);
@@ -4808,9 +4905,13 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/bots", async (req: Request, res: Response) => {
     try {
-      const userId = req.query.user_id as string;
+      // INDUSTRY STANDARD: Use session-based auth with query param as fallback
+      const sessionUserId = (req.user as any)?.id;
+      const queryUserId = req.query.user_id as string;
+      const userId = sessionUserId || queryUserId;
+      
       if (!userId) {
-        return res.status(400).json({ error: "user_id required" });
+        return res.status(401).json({ error: "Authentication required" });
       }
       const bots = await storage.getBots(userId);
       
@@ -21111,7 +21212,8 @@ export function registerRoutes(app: Express) {
     const traceId = crypto.randomUUID();
     const candidateId = req.query.candidateId as string | undefined;
     const status = req.query.status as string | undefined;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    // INSTITUTIONAL: Higher max limit (200) to ensure TRIALS candidates still show QC badges
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
     
     try {
       let query = db

@@ -49,9 +49,11 @@ export function useQCBudget() {
 }
 
 async function fetchQCVerifications(candidateId?: string): Promise<QCVerification[]> {
+  // INSTITUTIONAL: Request higher limit to ensure TRIALS candidates (promoted after QC) 
+  // are included even if many new verifications have run since their QC passed
   const url = candidateId 
     ? `/api/qc/verifications?candidateId=${candidateId}` 
-    : "/api/qc/verifications";
+    : "/api/qc/verifications?limit=200";
   const response = await fetch(url, { credentials: "include" });
   if (!response.ok) throw new Error("Failed to fetch QC verifications");
   const json = await response.json();
