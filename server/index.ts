@@ -6,7 +6,7 @@ import { createServer } from "http";
 import { startScheduler, pauseHeavyWorkers, resumeHeavyWorkers } from "./scheduler";
 import { livePnLWebSocket } from "./websocket-server";
 import { researchMonitorWS } from "./research-monitor-ws";
-import { validateSchemaAtStartup, warmupDatabase, poolWeb } from "./db";
+import { validateSchemaAtStartup, warmupDatabase, poolWeb, ensureTickTablesExist } from "./db";
 import { reconcileConfigAtStartup } from "./config-reconciliation";
 import bcrypt from "bcryptjs";
 import { startMemorySentinel, loadSheddingMiddleware, getInstanceId, registerSchedulerCallbacks, registerCacheEvictionCallback } from "./ops/memorySentinel";
@@ -186,6 +186,11 @@ if (isWorkerOnlyMode) {
         log(`[STARTUP] FATAL: Failed to ensure system user - cannot start in degraded mode: ${err instanceof Error ? err.message : 'unknown'}`);
         process.exit(1);
       }
+      
+      // INSTITUTIONAL: Ensure tick ingestion tables exist
+      // Creates trade_ticks, quote_ticks, order_book_snapshots if missing
+      // This runs on every startup to handle cases where db:push didn't create them
+      await ensureTickTablesExist();
     } else {
       log(`[STARTUP] WARNING: Database warmup failed - sessions will use MemoryStore (not persistent)`);
     }

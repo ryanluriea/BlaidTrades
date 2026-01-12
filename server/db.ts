@@ -508,3 +508,149 @@ async function attemptSchemaValidation(): Promise<{ valid: boolean; errors: stri
     return { valid: false, errors: [errorMsg] };
   }
 }
+
+/**
+ * STARTUP MIGRATION: Ensure tick ingestion tables exist
+ * Creates trade_ticks, quote_ticks, order_book_snapshots, tick_sequence_gaps, tick_ingestion_metrics
+ * Uses CREATE TABLE IF NOT EXISTS to be idempotent
+ */
+export async function ensureTickTablesExist(): Promise<void> {
+  console.log('[STARTUP_MIGRATION] Checking tick ingestion tables...');
+  
+  const tables = [
+    {
+      name: 'tick_type enum',
+      sql: `DO $$ BEGIN CREATE TYPE tick_type AS ENUM ('TRADE', 'QUOTE'); EXCEPTION WHEN duplicate_object THEN null; END $$;`
+    },
+    {
+      name: 'trade_ticks',
+      sql: `CREATE TABLE IF NOT EXISTS trade_ticks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        symbol TEXT NOT NULL,
+        exchange TEXT NOT NULL DEFAULT 'XCME',
+        timestamp_ns BIGINT NOT NULL,
+        received_at_ns BIGINT,
+        sequence_id BIGINT,
+        price REAL NOT NULL,
+        size INTEGER NOT NULL,
+        side TEXT,
+        trade_condition TEXT,
+        trading_day TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`
+    },
+    {
+      name: 'quote_ticks',
+      sql: `CREATE TABLE IF NOT EXISTS quote_ticks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        symbol TEXT NOT NULL,
+        exchange TEXT NOT NULL DEFAULT 'XCME',
+        timestamp_ns BIGINT NOT NULL,
+        received_at_ns BIGINT,
+        sequence_id BIGINT,
+        bid_price REAL NOT NULL,
+        bid_size INTEGER NOT NULL,
+        ask_price REAL NOT NULL,
+        ask_size INTEGER NOT NULL,
+        mid_price REAL,
+        spread_ticks REAL,
+        trading_day TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`
+    },
+    {
+      name: 'order_book_snapshots',
+      sql: `CREATE TABLE IF NOT EXISTS order_book_snapshots (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        symbol TEXT NOT NULL,
+        exchange TEXT NOT NULL DEFAULT 'XCME',
+        timestamp_ns BIGINT NOT NULL,
+        snapshot_interval TEXT NOT NULL DEFAULT '1s',
+        bids JSONB NOT NULL DEFAULT '[]',
+        asks JSONB NOT NULL DEFAULT '[]',
+        best_bid REAL NOT NULL,
+        best_ask REAL NOT NULL,
+        mid_price REAL NOT NULL,
+        spread_ticks REAL NOT NULL,
+        spread_bps REAL,
+        bid_depth_5 INTEGER,
+        ask_depth_5 INTEGER,
+        imbalance REAL,
+        liquidity_score REAL,
+        trading_day TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`
+    },
+    {
+      name: 'tick_sequence_gaps',
+      sql: `CREATE TABLE IF NOT EXISTS tick_sequence_gaps (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        symbol TEXT NOT NULL,
+        exchange TEXT NOT NULL DEFAULT 'XCME',
+        tick_type tick_type NOT NULL,
+        expected_sequence BIGINT NOT NULL,
+        received_sequence BIGINT NOT NULL,
+        gap_size INTEGER NOT NULL,
+        resolved BOOLEAN DEFAULT false,
+        resolved_at TIMESTAMP,
+        detected_at TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW()
+      );`
+    },
+    {
+      name: 'tick_ingestion_metrics',
+      sql: `CREATE TABLE IF NOT EXISTS tick_ingestion_metrics (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        symbol TEXT NOT NULL,
+        exchange TEXT NOT NULL DEFAULT 'XCME',
+        interval_start TIMESTAMP NOT NULL,
+        interval_end TIMESTAMP NOT NULL,
+        trade_ticks INTEGER DEFAULT 0,
+        quote_ticks INTEGER DEFAULT 0,
+        order_book_snapshots INTEGER DEFAULT 0,
+        gaps_detected INTEGER DEFAULT 0,
+        avg_latency_ns BIGINT,
+        max_latency_ns BIGINT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`
+    }
+  ];
+  
+  const indexes = [
+    { name: 'idx_trade_ticks_symbol_day', sql: 'CREATE INDEX IF NOT EXISTS idx_trade_ticks_symbol_day ON trade_ticks(symbol, trading_day);' },
+    { name: 'idx_quote_ticks_symbol_day', sql: 'CREATE INDEX IF NOT EXISTS idx_quote_ticks_symbol_day ON quote_ticks(symbol, trading_day);' },
+    { name: 'idx_order_book_symbol_day', sql: 'CREATE INDEX IF NOT EXISTS idx_order_book_symbol_day ON order_book_snapshots(symbol, trading_day);' },
+    { name: 'idx_tick_gaps_symbol', sql: 'CREATE INDEX IF NOT EXISTS idx_tick_gaps_symbol ON tick_sequence_gaps(symbol, detected_at);' },
+    { name: 'idx_tick_metrics_symbol', sql: 'CREATE INDEX IF NOT EXISTS idx_tick_metrics_symbol ON tick_ingestion_metrics(symbol, interval_start);' }
+  ];
+  
+  let created = 0;
+  let failed = 0;
+  
+  // Create tables individually to handle partial failures
+  for (const table of tables) {
+    try {
+      await poolWeb.query(table.sql);
+      created++;
+    } catch (error) {
+      console.error(`[STARTUP_MIGRATION] Failed to create ${table.name}: ${error instanceof Error ? error.message : 'unknown'}`);
+      failed++;
+    }
+  }
+  
+  // Create indexes individually
+  for (const index of indexes) {
+    try {
+      await poolWeb.query(index.sql);
+    } catch (error) {
+      // Indexes can fail if table doesn't exist - that's OK
+      console.debug(`[STARTUP_MIGRATION] Index ${index.name} skipped: ${error instanceof Error ? error.message : 'unknown'}`);
+    }
+  }
+  
+  if (failed === 0) {
+    console.log(`[STARTUP_MIGRATION] Tick ingestion tables verified/created successfully (${created} items)`);
+  } else {
+    console.log(`[STARTUP_MIGRATION] Tick tables partially created: ${created} succeeded, ${failed} failed`);
+  }
+}
