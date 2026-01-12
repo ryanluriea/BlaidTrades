@@ -1,0 +1,50 @@
+2026-01-12T22:42:28.751755183Z [BACKTEST_EXECUTOR] trace_id=59940d23-6e43-460b-8c2b-36100a9c9b65 REAL_EXECUTION trades=4381 pnl=-11712.44 win_rate=37.7%
+2026-01-12T22:42:28.751771673Z [TX:59940d23-6e43-460b-8c2b-36100a9c9b65] BACKTEST_TRADES:bec2a0da START
+2026-01-12T22:42:28.752579518Z [IRONBEAM_LIVE] trace_id=465f14ef STALE_DETECTED no_quote_for_ms=Infinity threshold=120000
+2026-01-12T22:42:28.752616959Z [LIVE_DATA_SERVICE] Stale data detected - Ironbeam will auto-reconnect
+2026-01-12T22:42:28.752673421Z [IRONBEAM_LIVE] trace_id=465f14ef forcing reconnection due to stale data
+2026-01-12T22:42:28.752803165Z [IRONBEAM_LIVE] trace_id=465f14ef reconnecting in 1000ms (attempt 1, failures=1)
+2026-01-12T22:42:28.783090305Z [IRONBEAM_LIVE] trace_id=465f14ef unknown_msg_type keys=p
+2026-01-12T22:42:28.808680105Z [IRONBEAM_LIVE] trace_id=465f14ef WebSocket closed
+2026-01-12T22:42:28.808702256Z [IRONBEAM_LIVE] trace_id=465f14ef reconnecting in 2000ms (attempt 2, failures=2)
+2026-01-12T22:42:28.808720417Z [LIVE_DATA_SERVICE] Ironbeam disconnected, falling back to cache
+2026-01-12T22:42:29.753320462Z [IRONBEAM_LIVE] trace_id=465f14ef auth attempt: username_len=8 password_len=5 apiKey_len=32 env=live
+2026-01-12T22:42:30.01188284Z [IRONBEAM_LIVE] trace_id=465f14ef authenticated successfully
+2026-01-12T22:42:30.014772167Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Ironbeam Live Authenticated" trace_id=465f14ef
+2026-01-12T22:42:30.016746507Z [INTEGRATION_USAGE] trace_id=465f14ef provider=ironbeam operation=broker_auth status=OK latency_ms=0
+2026-01-12T22:42:30.215687781Z [IRONBEAM_LIVE] trace_id=465f14ef stream created: eb745046-a01d-4ab9-96e4-75c610fe7cce
+2026-01-12T22:42:30.215723152Z [IRONBEAM_LIVE] front_month_calc: month=0 day=12 -> H26
+2026-01-12T22:42:30.215745793Z [IRONBEAM_LIVE] trace_id=465f14ef subscribing to: XCME:MES.H26, XCME:MNQ.H26, XCME:ES.H26, XCME:NQ.H26
+2026-01-12T22:42:30.215759963Z [IRONBEAM_LIVE] trace_id=465f14ef queued 4 symbols for subscription after connect
+2026-01-12T22:42:30.305288587Z [IRONBEAM_LIVE] trace_id=465f14ef WebSocket connected (failures reset)
+2026-01-12T22:42:30.30574272Z [IRONBEAM_LIVE] trace_id=465f14ef unknown_msg_type keys=b
+2026-01-12T22:42:30.305898955Z [IRONBEAM_LIVE] trace_id=465f14ef unknown_msg_type keys=p
+2026-01-12T22:42:30.308093051Z [INTEGRATION_USAGE] trace_id=465f14ef provider=ironbeam operation=broker_websocket_connect status=OK latency_ms=0
+2026-01-12T22:42:30.308119502Z [IRONBEAM_LIVE] front_month_calc: month=0 day=12 -> H26
+2026-01-12T22:42:30.308137092Z [IRONBEAM_LIVE] trace_id=465f14ef REST API failed, trying WebSocket subscription...
+2026-01-12T22:42:30.308177624Z [IRONBEAM_LIVE] trace_id=465f14ef all instruments have failed entitlements
+2026-01-12T22:42:30.308364639Z [IRONBEAM_LIVE] trace_id=465f14ef trying WebSocket subscription for: XCME:MES.H26, XCME:MNQ.H26, XCME:ES.H26, XCME:NQ.H26
+2026-01-12T22:42:30.30838521Z [IRONBEAM_LIVE] trace_id=465f14ef WS subscribe quotes: XCME:MES.H26
+2026-01-12T22:42:30.308542085Z [IRONBEAM_LIVE] trace_id=465f14ef WS subscribe trades: XCME:MES.H26
+2026-01-12T22:42:30.308557135Z [IRONBEAM_LIVE] trace_id=465f14ef WS subscribe quotes: XCME:MNQ.H26
+2026-01-12T22:42:30.308613797Z [IRONBEAM_LIVE] trace_id=465f14ef WS subscribe trades: XCME:MNQ.H26
+2026-01-12T22:42:30.308621637Z [IRONBEAM_LIVE] trace_id=465f14ef WS subscribe quotes: XCME:ES.H26
+2026-01-12T22:42:30.30873475Z [IRONBEAM_LIVE] trace_id=465f14ef WS subscribe trades: XCME:ES.H26
+2026-01-12T22:42:30.308804842Z [IRONBEAM_LIVE] trace_id=465f14ef WS subscribe quotes: XCME:NQ.H26
+2026-01-12T22:42:30.308889735Z [IRONBEAM_LIVE] trace_id=465f14ef WS subscribe trades: XCME:NQ.H26
+2026-01-12T22:42:30.308922196Z [IRONBEAM_LIVE] trace_id=465f14ef WS batch subscribe: 4 symbols
+2026-01-12T22:42:30.309001648Z [IRONBEAM_LIVE] trace_id=465f14ef WebSocket subscription messages sent
+2026-01-12T22:42:30.309005159Z [IRONBEAM_LIVE] trace_id=465f14ef WebSocket subscription sent, waiting for quotes...
+2026-01-12T22:42:30.309010809Z [LIVE_DATA_SERVICE] Ironbeam reconnected
+2026-01-12T22:42:30.77277472Z [BACKTEST_WORKER] trace_id=c313189f-10ba-4f95-b3db-5eb49432dc9a at_concurrency_limit=1
+2026-01-12T22:42:30.809061321Z [IRONBEAM_LIVE] trace_id=465f14ef auth attempt: username_len=8 password_len=5 apiKey_len=32 env=live
+2026-01-12T22:42:30.984315823Z [IRONBEAM_LIVE] trace_id=465f14ef authenticated successfully
+2026-01-12T22:42:30.987295403Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Ironbeam Live Authenticated" trace_id=465f14ef
+2026-01-12T22:42:30.989165619Z [INTEGRATION_USAGE] trace_id=465f14ef provider=ironbeam operation=broker_auth status=OK latency_ms=0
+2026-01-12T22:42:31.168388441Z [IRONBEAM_LIVE] trace_id=465f14ef all instruments have failed entitlements
+2026-01-12T22:42:31.168392731Z [IRONBEAM_LIVE] trace_id=465f14ef stream created: 17fa3cd8-3ca2-42e9-8458-8be38de536da
+2026-01-12T22:42:31.168457893Z [IRONBEAM_LIVE] trace_id=465f14ef quote subscription failed, retrying...
+2026-01-12T22:42:31.168471223Z [IRONBEAM_LIVE] front_month_calc: month=0 day=12 -> H26
+2026-01-12T22:42:31.168475814Z [IRONBEAM_LIVE] trace_id=465f14ef subscribing to: XCME:MES.H26, XCME:MNQ.H26, XCME:ES.H26, XCME:NQ.H26
+2026-01-12T22:42:31.168479063Z [IRONBEAM_LIVE] front_month_calc: month=0 day=12 -> H26
+2026-01-12T22:42:31.168493474Z [IRONBEAM_LIVE] trace_id=465f14ef STOPPING_RETRY: all 4 symbols have entitlement failures
