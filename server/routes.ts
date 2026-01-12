@@ -4641,9 +4641,8 @@ export function registerRoutes(app: Express) {
     }, REQUEST_TIMEOUT_MS);
     
     try {
-      // INDUSTRY STANDARD: Use session-based auth with query param as fallback
-      // Priority: 1) req.user.id from session, 2) user_id query param
-      const sessionUserId = (req.user as any)?.id;
+      // FIXED: Read user ID from session (where auth actually stores it)
+      const sessionUserId = req.session?.userId;
       const queryUserId = req.query.user_id as string;
       const userId = sessionUserId || queryUserId;
       

@@ -1,0 +1,50 @@
+2026-01-12T19:10:46.019156023Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=35892dfb-bc85-4651-bc15-aa03bd269250 insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.020323697Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=35892dfb-bc85-4651-bc15-aa03bd269250 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.02240548Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.02528138Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=20c8ecf5-539e-4de8-8920-3a01c7d016aa insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.026500675Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=20c8ecf5-539e-4de8-8920-3a01c7d016aa built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.028537937Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.032019419Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=f3761c28-6ce1-47c8-85e3-3272c9566e5b insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.033468719Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=f3761c28-6ce1-47c8-85e3-3272c9566e5b built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.035575153Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.038893162Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=c23446e3-ae13-4ecd-bc99-93c3e97165ff insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.040195639Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=c23446e3-ae13-4ecd-bc99-93c3e97165ff built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.04218815Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.045265474Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=27281e27-d9fd-497c-b38a-c889d99e09ae insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.046449898Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=27281e27-d9fd-497c-b38a-c889d99e09ae built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.048552042Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.051414671Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=2dd54d8b-cc04-4ed0-b7a3-5d9667914035 insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.052604686Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=2dd54d8b-cc04-4ed0-b7a3-5d9667914035 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.054862653Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.057997758Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=9e197dc4-0cb7-49ec-8c68-8936c17a7491 insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.059261784Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=9e197dc4-0cb7-49ec-8c68-8936c17a7491 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.061331677Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.064153935Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=347999d7-0e75-465c-92b0-292cec190939 insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.065420292Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=347999d7-0e75-465c-92b0-292cec190939 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.067645558Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.070767992Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=c4dfb078-7dc6-48df-b643-8acd3313b010 insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.071990977Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=c4dfb078-7dc6-48df-b643-8acd3313b010 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.074149252Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.077146624Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=2c17b821-5187-4d6d-b83e-b1d5a299a7b7 insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.07837406Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=2c17b821-5187-4d6d-b83e-b1d5a299a7b7 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.080746219Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.084094598Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=b127ee4b-8d4c-438c-a37b-b1fc9e3aae34 insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.085521918Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=b127ee4b-8d4c-438c-a37b-b1fc9e3aae34 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.087834436Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.091036242Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.092459302Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.094904562Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.0981808Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.099684122Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.101912968Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.105089053Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.106334589Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.108436523Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.111340973Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.112568128Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.114801495Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:46.117901699Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce insufficient_data sessions=0 using_defaults
+2026-01-12T19:10:46.119187135Z [ADAPTIVE_WEIGHTS] trace_id=9fa18328-5e2a-49b8-9b52-432e9ea5ab5a bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T19:10:46.121279609Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T19:10:47.253172483Z [IRONBEAM_LIVE] trace_id=6a2a89a4 message_count=1123 raw_data_preview={"q":[{"s":"XCME:MNQ.H26","l":25977.5,"sz":2,"ch":39.25,"op":25946.5,"hi":25997.25,"lo":25632.75,"ags":1,"td":1,"stt":25938.25,"stts":"20260109","sttst":1768156236446,"pstt":25687.5,"pstts":"20260108"
+2026-01-12T19:10:47.503463119Z [LIVE_DATA_SERVICE] Quote tick symbol=ES last=7016.25 bid=7016.25 ask=7016.5 mid=7016.38 quotes_total=1775
