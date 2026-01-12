@@ -134,17 +134,17 @@ class TickIngestionServiceImpl {
    */
   ingestTradeTick(tick: RawTradeTick): void {
     const startTime = performance.now();
-    const receivedAtNs = String(BigInt(Date.now()) * BigInt(1_000_000));
-    const timestampNs = String(BigInt(tick.timestamp.getTime()) * BigInt(1_000_000));
+    const receivedAtNs = BigInt(Date.now()) * BigInt(1_000_000);
+    const timestampNs = BigInt(tick.timestamp.getTime()) * BigInt(1_000_000);
     const tradingDay = new Date(tick.timestamp);
     tradingDay.setUTCHours(0, 0, 0, 0);
 
     const insertTick: InsertTradeTick = {
       symbol: tick.symbol,
       exchange: tick.exchange ?? "XCME",
-      timestampNs: timestampNs as any,
-      receivedAtNs: receivedAtNs as any,
-      ...(tick.sequenceId !== undefined && tick.sequenceId !== null ? { sequenceId: String(tick.sequenceId) as any } : {}),
+      timestampNs,
+      receivedAtNs,
+      ...(tick.sequenceId !== undefined && tick.sequenceId !== null ? { sequenceId: BigInt(tick.sequenceId) } : {}),
       price: tick.price,
       size: tick.size,
       side: tick.side ?? null,
@@ -169,8 +169,8 @@ class TickIngestionServiceImpl {
    */
   ingestQuoteTick(tick: RawQuoteTick): void {
     const startTime = performance.now();
-    const receivedAtNs = String(BigInt(Date.now()) * BigInt(1_000_000));
-    const timestampNs = String(BigInt(tick.timestamp.getTime()) * BigInt(1_000_000));
+    const receivedAtNs = BigInt(Date.now()) * BigInt(1_000_000);
+    const timestampNs = BigInt(tick.timestamp.getTime()) * BigInt(1_000_000);
     const tradingDay = new Date(tick.timestamp);
     tradingDay.setUTCHours(0, 0, 0, 0);
 
@@ -181,9 +181,9 @@ class TickIngestionServiceImpl {
     const insertTick: InsertQuoteTick = {
       symbol: tick.symbol,
       exchange: tick.exchange ?? "XCME",
-      timestampNs: timestampNs as any,
-      receivedAtNs: receivedAtNs as any,
-      ...(tick.sequenceId !== undefined && tick.sequenceId !== null ? { sequenceId: String(tick.sequenceId) as any } : {}),
+      timestampNs,
+      receivedAtNs,
+      ...(tick.sequenceId !== undefined && tick.sequenceId !== null ? { sequenceId: BigInt(tick.sequenceId) } : {}),
       bidPrice: tick.bidPrice,
       bidSize: tick.bidSize,
       askPrice: tick.askPrice,
@@ -212,7 +212,7 @@ class TickIngestionServiceImpl {
    */
   ingestOrderBookSnapshot(snapshot: RawOrderBookSnapshot): void {
     const startTime = performance.now();
-    const timestampNs = String(BigInt(snapshot.timestamp.getTime()) * BigInt(1_000_000));
+    const timestampNs = BigInt(snapshot.timestamp.getTime()) * BigInt(1_000_000);
     const tradingDay = new Date(snapshot.timestamp);
     tradingDay.setUTCHours(0, 0, 0, 0);
 
@@ -233,7 +233,7 @@ class TickIngestionServiceImpl {
     const insertSnapshot: InsertOrderBookSnapshot = {
       symbol: snapshot.symbol,
       exchange: snapshot.exchange ?? "XCME",
-      timestampNs: timestampNs as any,
+      timestampNs,
       snapshotInterval: "1s",
       bids: snapshot.bids.slice(0, 10),
       asks: snapshot.asks.slice(0, 10),
@@ -317,8 +317,8 @@ class TickIngestionServiceImpl {
         symbol,
         exchange: "XCME",
         tickType,
-        expectedSequence: String(expectedSeq) as any,
-        receivedSequence: String(currentSeq) as any,
+        expectedSequence: expectedSeq,
+        receivedSequence: currentSeq,
         gapSize,
         resolved: false,
         tradingDay,
