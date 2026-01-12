@@ -51,6 +51,13 @@ export function PowerButton() {
     refetchInterval: 5000,
   });
 
+  const defaultPowerState: SystemPowerState = {
+    isOn: false,
+    isThrottled: false,
+    autoFlattenBeforeClose: true,
+    flattenMinutesBeforeClose: 15,
+  };
+
   const togglePower = useMutation({
     mutationFn: async (newState: boolean) => {
       const response = await fetch("/api/system/power", {
@@ -62,9 +69,25 @@ export function PowerButton() {
       if (!response.ok) throw new Error("Failed to toggle power");
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/system/power"] });
+    onMutate: async (newState: boolean) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/system/power"] });
+      const previousState = queryClient.getQueryData<SystemPowerState>(["/api/system/power"]);
+      const currentState = previousState ?? defaultPowerState;
+      queryClient.setQueryData<SystemPowerState>(["/api/system/power"], {
+        ...currentState,
+        isOn: newState,
+      });
       setConfirmDialog(null);
+      return { previousState };
+    },
+    onError: (_err, _newState, context) => {
+      if (context?.previousState !== undefined) {
+        queryClient.setQueryData(["/api/system/power"], context.previousState);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/system/power"] });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/system/power"] });
     },
   });
 
@@ -79,7 +102,23 @@ export function PowerButton() {
       if (!response.ok) throw new Error("Failed to toggle auto-flatten");
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (enabled: boolean) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/system/power"] });
+      const previousState = queryClient.getQueryData<SystemPowerState>(["/api/system/power"]);
+      const currentState = previousState ?? defaultPowerState;
+      queryClient.setQueryData<SystemPowerState>(["/api/system/power"], {
+        ...currentState,
+        autoFlattenBeforeClose: enabled,
+      });
+      return { previousState };
+    },
+    onError: (_err, _enabled, context) => {
+      if (context?.previousState !== undefined) {
+        queryClient.setQueryData(["/api/system/power"], context.previousState);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/system/power"] });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/system/power"] });
     },
   });

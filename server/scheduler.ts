@@ -8124,6 +8124,15 @@ async function initializeWorkers(): Promise<void> {
     console.error("[SCHEDULER] Failed to load Strategy Lab settings:", settingsError);
   }
   
+  // INSTITUTIONAL: Load system power state from database
+  try {
+    const { initializeSystemPowerState } = await import("./routes");
+    await initializeSystemPowerState();
+    console.log("[SCHEDULER] System power state loaded from database");
+  } catch (powerStateError) {
+    console.error("[SCHEDULER] Failed to load system power state:", powerStateError);
+  }
+  
   // INSTITUTIONAL: Recover any jobs that were RUNNING when process died
   const recovered = await recoverInflightJobs();
   if (recovered > 0) {

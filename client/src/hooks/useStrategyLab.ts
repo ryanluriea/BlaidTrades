@@ -1373,6 +1373,16 @@ export function useToggleStrategyLabState() {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  const getDefaultState = () => ({
+    success: true,
+    data: {
+      isPlaying: false,
+      requireManualApproval: true,
+      lastResearchAt: null,
+      grokEnabled: false,
+    },
+  });
+
   return useMutation({
     mutationFn: async (update: boolean | StrategyLabStateUpdate) => {
       const baseBody = typeof update === "boolean" ? { isPlaying: update } : update;
@@ -1387,13 +1397,25 @@ export function useToggleStrategyLabState() {
       const json = await response.json();
       return json.data;
     },
-    onSuccess: (data, variables) => {
-      // Optimistically update the cache with the returned data to prevent stale refetch overwrites
-      // Server returns the full state object, so we replace the cached data entirely
-      // Use query key with user id to match the actual query
+    onMutate: async (update) => {
       const userId = user?.id;
+      await queryClient.cancelQueries({ queryKey: ["/api/strategy-lab/state", userId] });
+      const previousState = queryClient.getQueryData(["/api/strategy-lab/state", userId]);
+      
+      const updateObj = typeof update === "boolean" ? { isPlaying: update } : update;
+      const currentState = previousState as { success: boolean; data: Record<string, unknown> } | undefined;
+      const baseState = currentState ? JSON.parse(JSON.stringify(currentState)) : getDefaultState();
+      
+      queryClient.setQueryData(["/api/strategy-lab/state", userId], {
+        success: true,
+        data: { ...baseState.data, ...updateObj },
+      });
+      
+      return { previousState, userId };
+    },
+    onSuccess: (data, variables, context) => {
+      const userId = context?.userId || user?.id;
       queryClient.setQueryData(["/api/strategy-lab/state", userId], { success: true, data });
-      // Invalidate all strategy lab state queries (with any user id) to ensure consistency
       queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/state"] });
       queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/candidates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/overview"] });
@@ -1409,7 +1431,11 @@ export function useToggleStrategyLabState() {
         });
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      if (context?.previousState !== undefined && context?.userId) {
+        queryClient.setQueryData(["/api/strategy-lab/state", context.userId], context.previousState);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/state"] });
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });

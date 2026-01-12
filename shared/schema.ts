@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, bigint, boolean, timestamp, jsonb, real, uuid, pgEnum, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, bigint, boolean, timestamp, jsonb, real, uuid, pgEnum, uniqueIndex, varchar, unique } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -2966,7 +2966,9 @@ export const systemSettings = pgTable("system_settings", {
   version: integer("version").default(1), // Version for audit trail
   lastUpdatedAt: timestamp("last_updated_at").defaultNow(),
   lastUpdatedBy: text("last_updated_by"), // "system" or user identifier
-});
+}, (table) => ({
+  categoryKeyUnique: unique().on(table.category, table.key),
+}));
 
 export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
   id: true,

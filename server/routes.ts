@@ -289,7 +289,7 @@ async function getSystemAutonomyStatus(): Promise<{
   }
 }
 
-// Global system power state (in-memory for now, can persist to DB later)
+// Global system power state - now persisted to database
 let systemPowerState = {
   isOn: true,
   scheduledStart: null as string | null,
@@ -303,14 +303,129 @@ let systemPowerState = {
   flattenMinutesBeforeClose: 15,
 };
 
+let powerStateInitialized = false;
+
 export function getSystemPowerState() {
   return systemPowerState;
+}
+
+// Load power state from database on startup
+export async function initializeSystemPowerState(): Promise<void> {
+  if (powerStateInitialized) return;
+  
+  try {
+    const result = await db.execute(sql`
+      SELECT value FROM system_settings 
+      WHERE category = 'system' AND key = 'power_state'
+      LIMIT 1
+    `);
+    
+    if (result.rows.length > 0) {
+      const row = result.rows[0] as { value: Record<string, unknown> };
+      const saved = row.value;
+      
+      if (typeof saved.isOn === 'boolean') {
+        systemPowerState.isOn = saved.isOn;
+      }
+      if (typeof saved.autoFlattenBeforeClose === 'boolean') {
+        systemPowerState.autoFlattenBeforeClose = saved.autoFlattenBeforeClose;
+      }
+      if (typeof saved.flattenMinutesBeforeClose === 'number') {
+        systemPowerState.flattenMinutesBeforeClose = saved.flattenMinutesBeforeClose;
+      }
+      if (typeof saved.scheduledStart === 'string') {
+        systemPowerState.scheduledStart = saved.scheduledStart;
+      }
+      if (typeof saved.scheduledEnd === 'string') {
+        systemPowerState.scheduledEnd = saved.scheduledEnd;
+      }
+      if (typeof saved.dailyLossLimit === 'number') {
+        systemPowerState.dailyLossLimit = saved.dailyLossLimit;
+      }
+      if (typeof saved.throttleThreshold === 'number') {
+        systemPowerState.throttleThreshold = saved.throttleThreshold;
+      }
+      
+      console.log(`[SYSTEM_POWER] Loaded from DB: isOn=${systemPowerState.isOn} autoFlatten=${systemPowerState.autoFlattenBeforeClose}`);
+    } else {
+      console.log(`[SYSTEM_POWER] No saved state in DB, using defaults (isOn=true)`);
+    }
+    
+    powerStateInitialized = true;
+  } catch (error) {
+    console.error(`[SYSTEM_POWER] Failed to load from DB:`, error);
+    // Continue with defaults
+    powerStateInitialized = true;
+  }
+}
+
+// Persist power state to database
+async function persistSystemPowerState(): Promise<void> {
+  try {
+    const value = {
+      isOn: systemPowerState.isOn,
+      autoFlattenBeforeClose: systemPowerState.autoFlattenBeforeClose,
+      flattenMinutesBeforeClose: systemPowerState.flattenMinutesBeforeClose,
+      scheduledStart: systemPowerState.scheduledStart,
+      scheduledEnd: systemPowerState.scheduledEnd,
+      dailyLossLimit: systemPowerState.dailyLossLimit,
+      throttleThreshold: systemPowerState.throttleThreshold,
+      lastToggled: systemPowerState.lastToggled,
+    };
+    
+    await db.execute(sql`
+      INSERT INTO system_settings (category, key, value, description, last_updated_by)
+      VALUES ('system', 'power_state', ${JSON.stringify(value)}::jsonb, 'Global system power state (kill switch)', 'system')
+      ON CONFLICT (category, key) 
+      DO UPDATE SET value = ${JSON.stringify(value)}::jsonb, last_updated_at = NOW()
+    `);
+    
+    console.log(`[SYSTEM_POWER] Persisted to DB: isOn=${systemPowerState.isOn}`);
+  } catch (error) {
+    console.error(`[SYSTEM_POWER] Failed to persist to DB:`, error);
+  }
 }
 
 export function setSystemPowerState(isOn: boolean) {
   systemPowerState.isOn = isOn;
   systemPowerState.lastToggled = new Date().toISOString();
   console.log(`[SYSTEM_POWER] System ${isOn ? 'POWERED ON' : 'SHUTDOWN'} at ${systemPowerState.lastToggled}`);
+  
+  // Persist to database asynchronously (non-blocking)
+  persistSystemPowerState().catch(err => {
+    console.error(`[SYSTEM_POWER] Background persist failed:`, err);
+  });
+  
+  // CASCADE: When system is OFF, also pause all research systems
+  if (!isOn) {
+    setImmediate(async () => {
+      try {
+        // Pause Strategy Lab
+        const { setStrategyLabPlaying } = await import("./strategy-lab-engine");
+        setStrategyLabPlaying(false, "System shutdown - all research paused");
+        console.log(`[SYSTEM_POWER] Strategy Lab PAUSED (system shutdown)`);
+        
+        // Pause Grok Research
+        const { setGrokResearchEnabled } = await import("./scheduler");
+        setGrokResearchEnabled(false);
+        console.log(`[SYSTEM_POWER] Grok Research DISABLED (system shutdown)`);
+      } catch (cascadeError) {
+        console.error(`[SYSTEM_POWER] Failed to cascade pause to research systems:`, cascadeError);
+      }
+    });
+  }
+}
+
+// Also persist auto-flatten settings
+export function setSystemAutoFlatten(autoFlatten: boolean, minutes?: number) {
+  systemPowerState.autoFlattenBeforeClose = autoFlatten;
+  if (typeof minutes === 'number' && minutes > 0) {
+    systemPowerState.flattenMinutesBeforeClose = minutes;
+  }
+  
+  persistSystemPowerState().catch(err => {
+    console.error(`[SYSTEM_POWER] Background persist failed:`, err);
+  });
 }
 
 // Build version info - captured at server startup
@@ -651,11 +766,10 @@ export function registerRoutes(app: Express) {
       const { autoFlattenBeforeClose, flattenMinutesBeforeClose } = req.body;
       
       if (typeof autoFlattenBeforeClose === 'boolean') {
-        systemPowerState.autoFlattenBeforeClose = autoFlattenBeforeClose;
+        setSystemAutoFlatten(autoFlattenBeforeClose, flattenMinutesBeforeClose);
         console.log(`[SYSTEM_POWER] Auto-flatten ${autoFlattenBeforeClose ? 'ENABLED' : 'DISABLED'}`);
-      }
-      if (typeof flattenMinutesBeforeClose === 'number' && flattenMinutesBeforeClose > 0) {
-        systemPowerState.flattenMinutesBeforeClose = flattenMinutesBeforeClose;
+      } else if (typeof flattenMinutesBeforeClose === 'number' && flattenMinutesBeforeClose > 0) {
+        setSystemAutoFlatten(systemPowerState.autoFlattenBeforeClose, flattenMinutesBeforeClose);
         console.log(`[SYSTEM_POWER] Auto-flatten minutes set to ${flattenMinutesBeforeClose}`);
       }
       
