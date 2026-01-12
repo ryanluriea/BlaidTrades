@@ -10,7 +10,7 @@
  */
 
 import { EventEmitter } from "events";
-import { IronbeamLiveClient, LiveBar as IronbeamBar, IronbeamQuote, setIronbeamClient } from "./ironbeam-live-client";
+import { IronbeamLiveClient, LiveBar as IronbeamBar, IronbeamQuote, OrderBookSnapshot, setIronbeamClient } from "./ironbeam-live-client";
 import { getCachedBars } from "./bar-cache";
 import { logActivityEvent } from "./activity-logger";
 import { tickIngestionService } from "./tick-ingestion-service";
@@ -125,6 +125,11 @@ class LiveDataServiceImpl extends EventEmitter {
 
       this.ironbeamClient.on("quote", (quote: IronbeamQuote) => {
         this.handleIronbeamQuote(quote);
+      });
+
+      // Level 2 Order Book: Wire to tick ingestion for institutional audit trail
+      this.ironbeamClient.on("orderbook", (snapshot: OrderBookSnapshot) => {
+        this.handleOrderBookSnapshot(snapshot);
       });
 
       this.ironbeamClient.on("disconnected", () => {
@@ -296,6 +301,30 @@ class LiveDataServiceImpl extends EventEmitter {
       this.activeDataSource = "ironbeam";
       this.stopCacheFallback();
     }
+  }
+
+  /**
+   * Handle Level 2 order book snapshot from Ironbeam
+   * Converts to RawOrderBookSnapshot and feeds to tick ingestion service
+   */
+  private handleOrderBookSnapshot(snapshot: OrderBookSnapshot): void {
+    // Convert OrderBookLevel (with timestamp) to simpler format expected by tick ingestion
+    const rawSnapshot = {
+      symbol: snapshot.symbol,
+      exchange: "XCME" as const,
+      bids: snapshot.bids.map(level => ({
+        price: level.price,
+        size: level.size,
+      })),
+      asks: snapshot.asks.map(level => ({
+        price: level.price,
+        size: level.size,
+      })),
+      timestamp: snapshot.timestamp,
+    };
+
+    // Ingest for institutional audit trail and gap detection
+    tickIngestionService.ingestOrderBookSnapshot(rawSnapshot);
   }
 
   private notifyQuoteSubscribers(symbol: string, quote: LiveQuote): void {
