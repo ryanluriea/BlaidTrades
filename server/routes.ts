@@ -4641,13 +4641,16 @@ export function registerRoutes(app: Express) {
     }, REQUEST_TIMEOUT_MS);
     
     try {
-      // FIXED: Read user ID from session (where auth actually stores it)
+      // PRODUCTION DEBUG: Log session and query state for diagnostics
       const sessionUserId = req.session?.userId;
       const queryUserId = req.query.user_id as string;
       const userId = sessionUserId || queryUserId;
       
+      console.log(`[bots-overview] AUTH_DEBUG sessionUserId=${sessionUserId || 'NONE'} queryUserId=${queryUserId || 'NONE'} resolvedUserId=${userId || 'NONE'}`);
+      
       if (!userId) {
         clearTimeout(timeoutHandle);
+        console.log(`[bots-overview] AUTH_FAILED no userId available`);
         return res.status(401).json({ error: "Authentication required" });
       }
       
@@ -5200,7 +5203,11 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       clearTimeout(timeoutHandle);
       if (shouldAbort()) return;
-      console.error("Error fetching bots overview:", error);
+      // PRODUCTION DIAGNOSTICS: Full error details for Render logs
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+      console.error(`[bots-overview] SEV-1 ERROR message="${errorMessage}"`);
+      console.error(`[bots-overview] SEV-1 STACK ${errorStack}`);
       res.status(500).json({ error: "Failed to fetch bots overview" });
     }
   });
