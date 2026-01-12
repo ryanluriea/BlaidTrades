@@ -38,32 +38,57 @@ import ResearchMonitor from "@/pages/ResearchMonitor";
 
 const IDB_CACHE_KEY = 'blaidagent-query-cache-v2';
 
+let idbAvailable: boolean | null = null;
+let idbWarningLogged = false;
+
+async function checkIdbAvailability(): Promise<boolean> {
+  if (idbAvailable !== null) return idbAvailable;
+  try {
+    const testKey = '__idb_test__';
+    await set(testKey, 'test');
+    await del(testKey);
+    idbAvailable = true;
+  } catch {
+    idbAvailable = false;
+    if (!idbWarningLogged) {
+      console.info('[CACHE] IndexedDB unavailable, using localStorage fallback');
+      idbWarningLogged = true;
+    }
+  }
+  return idbAvailable;
+}
+
 const idbPersister = {
   persistClient: async (client: any) => {
-    try {
-      await set(IDB_CACHE_KEY, client);
-    } catch (e) {
-      console.warn('[CACHE] IndexedDB persist failed, using localStorage fallback');
+    const useIdb = await checkIdbAvailability();
+    if (useIdb) {
       try {
-        localStorage.setItem(IDB_CACHE_KEY, JSON.stringify(client));
+        await set(IDB_CACHE_KEY, client);
+        return;
       } catch {}
     }
+    try {
+      localStorage.setItem(IDB_CACHE_KEY, JSON.stringify(client));
+    } catch {}
   },
   restoreClient: async () => {
+    const useIdb = await checkIdbAvailability();
     try {
-      const cached = await get(IDB_CACHE_KEY);
-      if (cached) return cached;
+      if (useIdb) {
+        const cached = await get(IDB_CACHE_KEY);
+        if (cached) return cached;
+      }
       const lsData = localStorage.getItem(IDB_CACHE_KEY);
       if (lsData) return JSON.parse(lsData);
       return undefined;
-    } catch (e) {
-      console.warn('[CACHE] IndexedDB restore failed');
+    } catch {
       return undefined;
     }
   },
   removeClient: async () => {
     try {
-      await del(IDB_CACHE_KEY);
+      const useIdb = await checkIdbAvailability();
+      if (useIdb) await del(IDB_CACHE_KEY);
       localStorage.removeItem(IDB_CACHE_KEY);
     } catch {}
   },

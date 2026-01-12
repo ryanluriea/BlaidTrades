@@ -248,6 +248,14 @@ if (isWorkerOnlyMode) {
         log(`[STARTUP] Failed to initialize execution quality metrics: ${err.message}`);
       });
       
+      // INSTITUTIONAL: Initialize tick ingestion service for Level 2 order book & gap detection
+      import("./tick-ingestion-service").then(async ({ tickIngestionService }) => {
+        await tickIngestionService.start();
+        log(`[STARTUP] Tick ingestion service started - capturing L2 order book & tick data`);
+      }).catch(err => {
+        log(`[STARTUP] Failed to start tick ingestion service: ${err.message}`);
+      });
+      
       // Register DB query metrics recorder for production monitoring
       Promise.all([
         import("./db"),

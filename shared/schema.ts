@@ -1942,6 +1942,156 @@ export const botAccountPnl = pgTable("bot_account_pnl", {
 });
 
 // ============================================================================
+// INSTITUTIONAL TICK DATA & LEVEL 2 ORDER BOOK TABLES
+// ============================================================================
+
+// TICK TYPE ENUM - Trade vs Quote classification
+export const tickTypeEnum = pgEnum("tick_type", ["TRADE", "QUOTE"]);
+
+// TRADE TICKS - Individual trade executions (Time & Sales)
+export const tradeTicks = pgTable("trade_ticks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  symbol: text("symbol").notNull(),
+  exchange: text("exchange").notNull().default("XCME"),
+  
+  // Timing - nanosecond precision via bigint
+  timestampNs: bigint("timestamp_ns", { mode: "bigint" }).notNull(),
+  receivedAtNs: bigint("received_at_ns", { mode: "bigint" }),
+  
+  // Sequence for gap detection
+  sequenceId: bigint("sequence_id", { mode: "bigint" }),
+  
+  // Trade data
+  price: real("price").notNull(),
+  size: integer("size").notNull(),
+  side: text("side"), // "BUY" | "SELL" | null (unknown aggressor)
+  
+  // Trade conditions (exchange-specific flags)
+  tradeCondition: text("trade_condition"), // e.g., "REGULAR", "BLOCK", "SPREAD"
+  
+  // Partition key for time-series queries
+  tradingDay: timestamp("trading_day").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// QUOTE TICKS - Top-of-book bid/ask updates
+export const quoteTicks = pgTable("quote_ticks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  symbol: text("symbol").notNull(),
+  exchange: text("exchange").notNull().default("XCME"),
+  
+  // Timing - nanosecond precision
+  timestampNs: bigint("timestamp_ns", { mode: "bigint" }).notNull(),
+  receivedAtNs: bigint("received_at_ns", { mode: "bigint" }),
+  
+  // Sequence for gap detection
+  sequenceId: bigint("sequence_id", { mode: "bigint" }),
+  
+  // Quote data
+  bidPrice: real("bid_price").notNull(),
+  bidSize: integer("bid_size").notNull(),
+  askPrice: real("ask_price").notNull(),
+  askSize: integer("ask_size").notNull(),
+  
+  // Derived metrics
+  midPrice: real("mid_price"),
+  spreadTicks: real("spread_ticks"),
+  
+  // Partition key
+  tradingDay: timestamp("trading_day").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// LEVEL 2 ORDER BOOK SNAPSHOTS - Market depth at intervals
+export const orderBookSnapshots = pgTable("order_book_snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  symbol: text("symbol").notNull(),
+  exchange: text("exchange").notNull().default("XCME"),
+  
+  // Timing
+  timestampNs: bigint("timestamp_ns", { mode: "bigint" }).notNull(),
+  snapshotInterval: text("snapshot_interval").notNull().default("1s"), // 1s, 100ms, tick
+  
+  // Full depth as JSON arrays (up to 10 levels each side)
+  bids: jsonb("bids").notNull().default([]), // [{price, size, orders}]
+  asks: jsonb("asks").notNull().default([]), // [{price, size, orders}]
+  
+  // Aggregated metrics
+  bestBid: real("best_bid").notNull(),
+  bestAsk: real("best_ask").notNull(),
+  midPrice: real("mid_price").notNull(),
+  spreadTicks: real("spread_ticks").notNull(),
+  spreadBps: real("spread_bps"), // Spread in basis points
+  
+  // Liquidity metrics
+  bidDepth5: integer("bid_depth_5"), // Total size top 5 bid levels
+  askDepth5: integer("ask_depth_5"), // Total size top 5 ask levels
+  imbalance: real("imbalance"), // (bidDepth - askDepth) / (bidDepth + askDepth)
+  liquidityScore: real("liquidity_score"), // 0-100 composite score
+  
+  // Partition key
+  tradingDay: timestamp("trading_day").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// TICK SEQUENCE GAPS - Detected missing sequences for compliance
+export const tickSequenceGaps = pgTable("tick_sequence_gaps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  symbol: text("symbol").notNull(),
+  exchange: text("exchange").notNull().default("XCME"),
+  tickType: tickTypeEnum("tick_type").notNull(),
+  
+  // Gap details
+  expectedSequence: bigint("expected_sequence", { mode: "bigint" }).notNull(),
+  receivedSequence: bigint("received_sequence", { mode: "bigint" }).notNull(),
+  gapSize: integer("gap_size").notNull(),
+  
+  // Status
+  resolved: boolean("resolved").default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionMethod: text("resolution_method"), // REPLAYED, SKIPPED, TIMEOUT
+  
+  detectedAt: timestamp("detected_at").defaultNow(),
+  tradingDay: timestamp("trading_day").notNull(),
+});
+
+// TICK INGESTION METRICS - Throughput and latency monitoring
+export const tickIngestionMetrics = pgTable("tick_ingestion_metrics", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  symbol: text("symbol").notNull(),
+  
+  // Time window
+  windowStart: timestamp("window_start").notNull(),
+  windowEnd: timestamp("window_end").notNull(),
+  windowDurationMs: integer("window_duration_ms").notNull(),
+  
+  // Throughput
+  tradeTickCount: integer("trade_tick_count").default(0),
+  quoteTickCount: integer("quote_tick_count").default(0),
+  orderBookSnapshots: integer("order_book_snapshots").default(0),
+  
+  // Latency (microseconds)
+  avgLatencyUs: real("avg_latency_us"),
+  p50LatencyUs: real("p50_latency_us"),
+  p90LatencyUs: real("p90_latency_us"),
+  p99LatencyUs: real("p99_latency_us"),
+  maxLatencyUs: real("max_latency_us"),
+  
+  // Gap statistics
+  gapsDetected: integer("gaps_detected").default(0),
+  gapsResolved: integer("gaps_resolved").default(0),
+  
+  // Data quality
+  staleTickCount: integer("stale_tick_count").default(0),
+  outOfOrderCount: integer("out_of_order_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================================================
 // INSTITUTIONAL GOVERNANCE & COMPLIANCE TABLES
 // ============================================================================
 
@@ -2613,6 +2763,13 @@ export const insertPaperPositionSchema = createInsertSchema(paperPositions).omit
 export const insertPaperTradingSessionSchema = createInsertSchema(paperTradingSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBotAccountPnlSchema = createInsertSchema(botAccountPnl).omit({ id: true, createdAt: true, updatedAt: true });
 
+// Tick Data & Level 2 Order Book Schemas
+export const insertTradeTickSchema = createInsertSchema(tradeTicks).omit({ id: true, createdAt: true });
+export const insertQuoteTickSchema = createInsertSchema(quoteTicks).omit({ id: true, createdAt: true });
+export const insertOrderBookSnapshotSchema = createInsertSchema(orderBookSnapshots).omit({ id: true, createdAt: true });
+export const insertTickSequenceGapSchema = createInsertSchema(tickSequenceGaps).omit({ id: true, detectedAt: true });
+export const insertTickIngestionMetricsSchema = createInsertSchema(tickIngestionMetrics).omit({ id: true, createdAt: true });
+
 // Research Orchestrator - Full Spectrum concurrent mode
 export const researchJobStatusEnum = pgEnum("research_job_status", [
   "QUEUED",
@@ -3080,6 +3237,18 @@ export type PaperTradingSession = typeof paperTradingSessions.$inferSelect;
 export type InsertPaperTradingSession = z.infer<typeof insertPaperTradingSessionSchema>;
 export type BotAccountPnl = typeof botAccountPnl.$inferSelect;
 export type InsertBotAccountPnl = z.infer<typeof insertBotAccountPnlSchema>;
+
+// Tick Data & Level 2 Order Book Types
+export type TradeTick = typeof tradeTicks.$inferSelect;
+export type InsertTradeTick = z.infer<typeof insertTradeTickSchema>;
+export type QuoteTick = typeof quoteTicks.$inferSelect;
+export type InsertQuoteTick = z.infer<typeof insertQuoteTickSchema>;
+export type OrderBookSnapshot = typeof orderBookSnapshots.$inferSelect;
+export type InsertOrderBookSnapshot = z.infer<typeof insertOrderBookSnapshotSchema>;
+export type TickSequenceGap = typeof tickSequenceGaps.$inferSelect;
+export type InsertTickSequenceGap = z.infer<typeof insertTickSequenceGapSchema>;
+export type TickIngestionMetrics = typeof tickIngestionMetrics.$inferSelect;
+export type InsertTickIngestionMetrics = z.infer<typeof insertTickIngestionMetricsSchema>;
 
 export interface AccountWithBotsPnl extends Account {
   computedBalance: number;

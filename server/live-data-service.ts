@@ -13,6 +13,7 @@ import { EventEmitter } from "events";
 import { IronbeamLiveClient, LiveBar as IronbeamBar, IronbeamQuote, setIronbeamClient } from "./ironbeam-live-client";
 import { getCachedBars } from "./bar-cache";
 import { logActivityEvent } from "./activity-logger";
+import { tickIngestionService } from "./tick-ingestion-service";
 
 export interface LiveBar {
   time: Date;
@@ -252,6 +253,30 @@ class LiveDataServiceImpl extends EventEmitter {
     };
     
     this.lastQuotes.set(normalizedSymbol, liveQuote);
+    
+    // INSTITUTIONAL TICK DATA: Ingest quote tick for persistence and gap detection
+    if (quote.bidPrice > 0 && quote.askPrice > 0) {
+      tickIngestionService.ingestQuoteTick({
+        symbol: normalizedSymbol,
+        exchange: "XCME",
+        bidPrice: quote.bidPrice,
+        bidSize: 1, // Ironbeam L1 doesn't provide size, default to 1
+        askPrice: quote.askPrice,
+        askSize: 1,
+        timestamp: quote.timestamp,
+      });
+      
+      // Also capture trade tick from lastPrice/lastSize if available
+      if (quote.lastPrice > 0 && quote.lastSize > 0) {
+        tickIngestionService.ingestTradeTick({
+          symbol: normalizedSymbol,
+          exchange: "XCME",
+          price: quote.lastPrice,
+          size: quote.lastSize,
+          timestamp: quote.timestamp,
+        });
+      }
+    }
     
     // Log quote updates periodically (every 30s) to avoid log spam
     const now = Date.now();

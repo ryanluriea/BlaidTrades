@@ -858,6 +858,102 @@ export function registerRoutes(app: Express) {
   });
 
   // =====================================================
+  // TICK DATA & LEVEL 2 ORDER BOOK API
+  // =====================================================
+  
+  app.get("/api/observability/tick-data/stats", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { tickIngestionService } = await import("./tick-ingestion-service");
+      const stats = tickIngestionService.getStats();
+      
+      res.json({
+        success: true,
+        data: stats,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get tick data stats" });
+    }
+  });
+
+  app.get("/api/observability/tick-data/orderbook/:symbol", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const { tickIngestionService } = await import("./tick-ingestion-service");
+      const orderBook = tickIngestionService.getOrderBook(symbol.toUpperCase());
+      
+      if (!orderBook) {
+        return res.json({
+          success: true,
+          data: null,
+          message: "No order book data available for this symbol",
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: orderBook,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get order book" });
+    }
+  });
+
+  app.get("/api/observability/tick-data/gaps", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { symbol, resolved } = req.query;
+      const { and, eq, desc } = await import("drizzle-orm");
+      const { tickSequenceGaps } = await import("@shared/schema");
+      
+      const conditions = [];
+      if (symbol) conditions.push(eq(tickSequenceGaps.symbol, symbol as string));
+      if (resolved === "true") conditions.push(eq(tickSequenceGaps.resolved, true));
+      if (resolved === "false") conditions.push(eq(tickSequenceGaps.resolved, false));
+      
+      const gaps = await db
+        .select()
+        .from(tickSequenceGaps)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(tickSequenceGaps.detectedAt))
+        .limit(100);
+      
+      res.json({
+        success: true,
+        data: gaps,
+        count: gaps.length,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get sequence gaps" });
+    }
+  });
+
+  app.get("/api/observability/tick-data/metrics", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { symbol, hours = "1" } = req.query;
+      const { and, eq, gte, desc } = await import("drizzle-orm");
+      const { tickIngestionMetrics } = await import("@shared/schema");
+      
+      const hoursAgo = new Date(Date.now() - parseInt(hours as string) * 60 * 60 * 1000);
+      const conditions = [gte(tickIngestionMetrics.windowStart, hoursAgo)];
+      if (symbol) conditions.push(eq(tickIngestionMetrics.symbol, symbol as string));
+      
+      const metrics = await db
+        .select()
+        .from(tickIngestionMetrics)
+        .where(and(...conditions))
+        .orderBy(desc(tickIngestionMetrics.windowStart))
+        .limit(500);
+      
+      res.json({
+        success: true,
+        data: metrics,
+        count: metrics.length,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get ingestion metrics" });
+    }
+  });
+
+  // =====================================================
   // SYSTEM POWER CONTROL - Master On/Off Switch
   // =====================================================
   
