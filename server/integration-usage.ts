@@ -495,7 +495,14 @@ async function verifyMarketaux(): Promise<{ success: boolean; error?: string }> 
   if (!apiKey) return { success: false, error: 'MARKETAUX_API_KEY not set' };
   try {
     const response = await fetch(`https://api.marketaux.com/v1/news/all?api_token=${apiKey}&limit=1`);
-    return response.ok ? { success: true } : { success: false, error: `HTTP ${response.status}` };
+    if (response.ok) return { success: true };
+    if (response.status === 402) {
+      return { success: true, error: 'DEGRADED: API quota exceeded (402), using fallback providers' };
+    }
+    if (response.status === 429) {
+      return { success: true, error: 'DEGRADED: Rate limited (429), using fallback providers' };
+    }
+    return { success: false, error: `HTTP ${response.status}` };
   } catch (error: any) {
     return { success: false, error: error.message };
   }

@@ -39,7 +39,6 @@ import ResearchMonitor from "@/pages/ResearchMonitor";
 const IDB_CACHE_KEY = 'blaidagent-query-cache-v2';
 
 let idbAvailable: boolean | null = null;
-let idbWarningLogged = false;
 
 async function checkIdbAvailability(): Promise<boolean> {
   if (idbAvailable !== null) return idbAvailable;
@@ -50,10 +49,6 @@ async function checkIdbAvailability(): Promise<boolean> {
     idbAvailable = true;
   } catch {
     idbAvailable = false;
-    if (!idbWarningLogged) {
-      console.info('[CACHE] IndexedDB unavailable, using localStorage fallback');
-      idbWarningLogged = true;
-    }
   }
   return idbAvailable;
 }
@@ -65,7 +60,9 @@ const idbPersister = {
       try {
         await set(IDB_CACHE_KEY, client);
         return;
-      } catch {}
+      } catch {
+        idbAvailable = false;
+      }
     }
     try {
       localStorage.setItem(IDB_CACHE_KEY, JSON.stringify(client));
