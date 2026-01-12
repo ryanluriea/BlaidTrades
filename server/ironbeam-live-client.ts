@@ -37,7 +37,7 @@ function getFrontMonthCode(): string {
   // Quarterly month indices: 2 (Mar), 5 (Jun), 8 (Sep), 11 (Dec)
   const quarterlyMonths = [2, 5, 8, 11];
   
-  let contractMonth: number = 2; // Default to March
+  let contractMonth: number | null = null;
   let contractYear = currentYear;
   
   // Find the current or next quarterly expiration
@@ -57,12 +57,13 @@ function getFrontMonthCode(): string {
     }
   }
   
-  // Fallback to March of next year if nothing found
-  if (contractMonth === 2 && !quarterlyMonths.includes(currentMonth)) {
+  // Fallback to March of next year only if loop didn't find anything
+  if (contractMonth === null) {
+    contractMonth = 2; // March
     contractYear = currentYear + 1;
   }
   
-  const monthCode = MONTH_CODES[contractMonth!];
+  const monthCode = MONTH_CODES[contractMonth];
   const yearStr = String(contractYear % 100).padStart(2, '0');
   console.log(`[IRONBEAM_LIVE] front_month_calc: month=${currentMonth} day=${dayOfMonth} -> ${monthCode}${yearStr}`);
   return `${monthCode}${yearStr}`;

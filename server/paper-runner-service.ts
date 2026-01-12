@@ -18,6 +18,7 @@ import { getCacheEntry, isCacheReady } from "./bar-cache";
 import { livePnLWebSocket } from "./websocket-server";
 import { storage } from "./storage";
 import { priceAuthority } from "./price-authority";
+import { createHash } from "crypto";
 
 /**
  * CME Futures Market Hours & Holiday Calendar
@@ -2190,8 +2191,7 @@ class PaperRunnerServiceImpl {
     
     // CRYPTOGRAPHIC HASH: Use SHA-256 for collision-resistant entropy
     // SHA-256 produces 256 bits (64 hex chars), far more than UUID's 128 bits
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update(runner.botId).digest('hex');
+    const hash = createHash('sha256').update(runner.botId).digest('hex');
     
     // Extract 5 independent 32-bit (8-char) segments from the 64-char hash
     // Each 32-bit segment provides ~4.3 billion unique values
