@@ -392,8 +392,14 @@ class TickIngestionServiceImpl {
     try {
       await db.insert(tradeTicks).values(batch);
       latencyTracker.record("database_query", batch.length);
-    } catch (error) {
-      console.error("[TICK_INGESTION] Failed to flush trade ticks:", error);
+    } catch (error: any) {
+      // Extract underlying PostgreSQL error from DrizzleQueryError
+      const pgError = error?.cause || error;
+      const detail = pgError?.detail || pgError?.message || "unknown";
+      const code = pgError?.code || "N/A";
+      const constraint = pgError?.constraint || "N/A";
+      console.error(`[TICK_INGESTION] Failed to flush trade ticks: code=${code} constraint=${constraint} detail=${detail}`);
+      console.error("[TICK_INGESTION] Full error:", error);
       this.tradeBuffer = [...batch, ...this.tradeBuffer].slice(-this.BUFFER_SIZE * 2);
     }
   }
@@ -407,8 +413,14 @@ class TickIngestionServiceImpl {
     try {
       await db.insert(quoteTicks).values(batch);
       latencyTracker.record("database_query", batch.length);
-    } catch (error) {
-      console.error("[TICK_INGESTION] Failed to flush quote ticks:", error);
+    } catch (error: any) {
+      // Extract underlying PostgreSQL error from DrizzleQueryError
+      const pgError = error?.cause || error;
+      const detail = pgError?.detail || pgError?.message || "unknown";
+      const code = pgError?.code || "N/A";
+      const constraint = pgError?.constraint || "N/A";
+      console.error(`[TICK_INGESTION] Failed to flush quote ticks: code=${code} constraint=${constraint} detail=${detail}`);
+      console.error("[TICK_INGESTION] Full error:", error);
       this.quoteBuffer = [...batch, ...this.quoteBuffer].slice(-this.BUFFER_SIZE * 2);
     }
   }
@@ -421,8 +433,11 @@ class TickIngestionServiceImpl {
 
     try {
       await db.insert(orderBookSnapshots).values(batch);
-    } catch (error) {
-      console.error("[TICK_INGESTION] Failed to flush order book snapshots:", error);
+    } catch (error: any) {
+      const pgError = error?.cause || error;
+      const detail = pgError?.detail || pgError?.message || "unknown";
+      const code = pgError?.code || "N/A";
+      console.error(`[TICK_INGESTION] Failed to flush order book snapshots: code=${code} detail=${detail}`);
     }
   }
 
