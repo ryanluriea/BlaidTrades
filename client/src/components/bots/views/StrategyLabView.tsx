@@ -1312,19 +1312,76 @@ export function StrategyLabView() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {qcBudget && (
-                    <div className="pt-2 border-t border-border/50 flex items-center justify-between text-[10px]">
-                      <span className="text-muted-foreground">Daily/Weekly Budget</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono">{qcBudget.dailyUsed}/{qcBudget.dailyLimit}</span>
-                        <span className="text-muted-foreground">/</span>
-                        <span className="font-mono">{qcBudget.weeklyUsed}/{qcBudget.weeklyLimit}</span>
-                        <Badge variant="outline" className={cn("text-[8px]", qcBudget.canRun ? "text-emerald-400 border-emerald-500/40" : "text-amber-400 border-amber-500/40")}>
+                  <div className="pt-2 mt-2 border-t border-border/40 space-y-2">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1">
+                      <span>Budget Limits</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[200px]">
+                          <span className="text-xs">Control how many QuantConnect verifications can run per day and week. Higher limits allow more strategies to be tested but consume more QC compute credits.</span>
+                        </TooltipContent>
+                      </Tooltip>
+                      {qcBudget && (
+                        <Badge variant="outline" className={cn("text-[8px] ml-auto", qcBudget.canRun ? "text-emerald-400 border-emerald-500/40" : "text-amber-400 border-amber-500/40")}>
                           {qcBudget.canRun ? "OK" : "Limit"}
                         </Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-muted-foreground">Daily Limit</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-2.5 w-2.5 text-muted-foreground/60 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[180px]">
+                              <span className="text-[10px]">Max QC verifications per 24-hour period. Resets at midnight UTC.</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <Input
+                          type="number" min={1} max={100}
+                          value={qcDailyLimit}
+                          onChange={(e) => setQcDailyLimit(parseInt(e.target.value) || 10)}
+                          onBlur={(e) => handleColumnSettingsSave({ qcDailyLimit: parseInt(e.target.value) || 10 })}
+                          disabled={toggleState.isPending}
+                          className="h-7 text-xs font-mono"
+                          data-testid="input-qc-daily-limit"
+                        />
+                        {qcBudget && (
+                          <span className="text-[9px] text-muted-foreground/70">Used: {qcBudget.dailyUsed}</span>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-muted-foreground">Weekly Limit</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-2.5 w-2.5 text-muted-foreground/60 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[180px]">
+                              <span className="text-[10px]">Max QC verifications per 7-day rolling window. Helps prevent burst usage.</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <Input
+                          type="number" min={1} max={500}
+                          value={qcWeeklyLimit}
+                          onChange={(e) => setQcWeeklyLimit(parseInt(e.target.value) || 50)}
+                          onBlur={(e) => handleColumnSettingsSave({ qcWeeklyLimit: parseInt(e.target.value) || 50 })}
+                          disabled={toggleState.isPending}
+                          className="h-7 text-xs font-mono"
+                          data-testid="input-qc-weekly-limit"
+                        />
+                        {qcBudget && (
+                          <span className="text-[9px] text-muted-foreground/70">Used: {qcBudget.weeklyUsed}</span>
+                        )}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
