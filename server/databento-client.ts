@@ -117,10 +117,37 @@ export async function fetchDatabentoHistoricalBars(
   const needsResampling = ["5m", "15m"].includes(timeframe);
   const resampleFactor = timeframe === "5m" ? 5 : timeframe === "15m" ? 15 : 1;
 
-  // Cap end date to midnight UTC today (Databento historical data is EOD-1)
-  const todayMidnight = new Date();
-  todayMidnight.setUTCHours(0, 0, 0, 0);
-  const cappedEndDate = endDate > todayMidnight ? todayMidnight : endDate;
+  // Cap end date to stay within CME license-free historical data window
+  // CME data within the last 24 hours requires a separate live data license ($740/month)
+  // Industry standard: cap to 26 hours behind current time for safety margin
+  const licenseBufferHours = parseInt(process.env.DATABENTO_LICENSE_BUFFER_HOURS || "26", 10);
+  const licenseBufferMs = licenseBufferHours * 60 * 60 * 1000;
+  const maxHistoricalEnd = new Date(Date.now() - licenseBufferMs);
+  const cappedEndDate = endDate > maxHistoricalEnd ? maxHistoricalEnd : endDate;
+  const wasCapped = endDate > maxHistoricalEnd;
+  
+  // Guard: If start date is at or after the license boundary, we can't fetch any data
+  if (startDate >= maxHistoricalEnd) {
+    const errorMsg = `CME_LICENSE_BOUNDARY: Requested range (${startDate.toISOString()} to ${endDate.toISOString()}) falls within ${licenseBufferHours}h license window. Available data ends at ${maxHistoricalEnd.toISOString()}. Use cached data or Ironbeam live stream for recent bars.`;
+    console.error(`[DATABENTO] trace_id=${traceId} ${errorMsg}`);
+    
+    await logActivityEvent({
+      eventType: "INTEGRATION_ERROR",
+      severity: "WARN",
+      title: "Databento CME License Boundary",
+      summary: `Data request blocked: start date within ${licenseBufferHours}h license window`,
+      payload: { 
+        symbol: mappedSymbol,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        maxHistoricalEnd: maxHistoricalEnd.toISOString(),
+        licenseBufferHours,
+      },
+      traceId,
+    });
+    
+    throw new Error(errorMsg);
+  }
 
   // Build form data for Databento API (expects application/x-www-form-urlencoded)
   const formData = new URLSearchParams();
@@ -132,7 +159,10 @@ export async function fetchDatabentoHistoricalBars(
   formData.append("encoding", "json");
   formData.append("stype_in", "continuous");
 
-  console.log(`[DATABENTO] trace_id=${traceId} fetching symbol=${mappedSymbol} start=${startDate.toISOString()} end=${cappedEndDate.toISOString()} schema=${schema}${endDate > todayMidnight ? ' (capped to EOD)' : ''}`);
+  if (wasCapped) {
+    console.log(`[DATABENTO] trace_id=${traceId} CME_LICENSE_CAP: Requested end=${endDate.toISOString()} capped to ${cappedEndDate.toISOString()} (${licenseBufferHours}h buffer for license-free window)`);
+  }
+  console.log(`[DATABENTO] trace_id=${traceId} fetching symbol=${mappedSymbol} start=${startDate.toISOString()} end=${cappedEndDate.toISOString()} schema=${schema}`);
 
   const queryStart = Date.now();
 
