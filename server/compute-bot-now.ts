@@ -30,17 +30,18 @@ function isValidUuid(str: string): boolean {
  * Uses sql.raw() to embed the array directly in the query (not as a parameter)
  * This is safe because all UUIDs are validated first
  * 
- * The array literal format '{uuid1,uuid2,...}' is much smaller than
- * individual quoted strings 'uuid1', 'uuid2', ... (~50% size reduction)
+ * CRITICAL: UUIDs contain hyphens, so PostgreSQL requires double-quotes around
+ * each element in the array literal. Format: '{"uuid1","uuid2"}'::uuid[]
  */
 function buildUuidArraySql(ids: string[]): ReturnType<typeof sql.raw> {
   const validatedIds = ids.filter(id => isValidUuid(id));
   if (validatedIds.length === 0) {
     return sql.raw("'{}'::uuid[]");
   }
-  // Use array literal format: '{uuid1,uuid2,...}'::uuid[]
-  // This is ~50% smaller than ARRAY['uuid1','uuid2',...]::uuid[]
-  return sql.raw(`'{${validatedIds.join(',')}}'::uuid[]`);
+  // PostgreSQL array literal with double-quoted elements (required for hyphens)
+  // Format: '{"uuid1","uuid2",...}'::uuid[]
+  const quotedIds = validatedIds.map(id => `"${id}"`).join(',');
+  return sql.raw(`'{${quotedIds}}'::uuid[]`);
 }
 
 /**
