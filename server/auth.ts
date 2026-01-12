@@ -6,16 +6,59 @@ import crypto from "crypto";
 import { storage } from "./storage";
 import { insertUserSchema } from "@shared/schema";
 import connectPgSimple from "connect-pg-simple";
+import { RedisStore } from "connect-redis";
 import { poolWeb, isDatabaseWarmedUp } from "./db";
 import { authRateLimit, twoFactorRateLimit, csrfProtection } from "./security-middleware";
+import { getRedisClient, isRedisConfigured } from "./redis";
 
 const PgStore = connectPgSimple(session);
 const MemorySessionStore = MemoryStore(session);
 
+// Redis client for session store (initialized once)
+let redisSessionClient: Awaited<ReturnType<typeof getRedisClient>> = null;
+
 /**
- * SEV-1: Create adaptive session store that falls back to MemoryStore when DB is unavailable
- * This prevents the entire app from being blocked by database connection issues
+ * SEV-1: Create adaptive session store with priority:
+ * 1. Redis (shared across instances - ideal for Render/multi-instance deployments)
+ * 2. PostgreSQL (shared but higher latency)
+ * 3. MemoryStore (local only - last resort)
  */
+async function createSessionStoreAsync(): Promise<session.Store> {
+  // Priority 1: Try Redis (best for multi-instance deployments like Render)
+  if (isRedisConfigured()) {
+    try {
+      redisSessionClient = await getRedisClient();
+      if (redisSessionClient && redisSessionClient.isOpen) {
+        console.log("[AUTH] Using Redis session store (multi-instance safe)");
+        return new RedisStore({
+          client: redisSessionClient,
+          prefix: "sess:",
+          ttl: 7 * 24 * 60 * 60, // 7 days in seconds
+        });
+      }
+    } catch (err) {
+      console.warn("[AUTH] Redis session store failed, falling back:", err);
+    }
+  }
+
+  // Priority 2: Try PostgreSQL
+  if (isDatabaseWarmedUp()) {
+    console.log("[AUTH] Using PostgreSQL session store");
+    return new PgStore({
+      pool: poolWeb,
+      tableName: "session",
+      createTableIfMissing: true,
+    });
+  }
+  
+  // Priority 3: MemoryStore (last resort - sessions won't persist across instances)
+  console.warn("[AUTH] Using MemoryStore for sessions (sessions will not persist across restarts or instances)");
+  return new MemorySessionStore({
+    checkPeriod: 86400000, // prune expired entries every 24h
+  });
+}
+
+// Synchronous fallback for initial setup (will be replaced by async version)
 function createSessionStore(): session.Store {
   // Check if database is warmed up at startup
   if (!isDatabaseWarmedUp()) {
@@ -113,7 +156,7 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 
-export function setupAuth(app: Express) {
+export async function setupAuth(app: Express) {
   const sessionSecret = process.env.SESSION_SECRET;
   
   if (!sessionSecret) {
@@ -130,12 +173,15 @@ export function setupAuth(app: Express) {
   // Trust proxy for Replit's reverse proxy
   app.set("trust proxy", 1);
   
+  // Initialize session store asynchronously (Redis → PostgreSQL → MemoryStore)
+  const sessionStore = await createSessionStoreAsync();
+  
   app.use(
     session({
       secret: sessionSecret || "dev-only-insecure-secret-" + crypto.randomBytes(16).toString("hex"),
       resave: false,
       saveUninitialized: false,
-      store: createSessionStore(),
+      store: sessionStore,
       cookie: {
         secure: isProduction, // Enforce HTTPS in production
         httpOnly: true,

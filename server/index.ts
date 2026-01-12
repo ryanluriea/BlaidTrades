@@ -208,8 +208,8 @@ if (isWorkerOnlyMode) {
       log(`[STARTUP] WARNING: Database warmup failed after 3 attempts - sessions will use MemoryStore (not persistent)`);
     }
     
-    // Now setup auth with database ready (session store will use PostgreSQL if DB is ready)
-    setupAuth(app);
+    // Now setup auth with database ready (session store will use Redis → PostgreSQL → MemoryStore)
+    await setupAuth(app);
     registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
