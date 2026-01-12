@@ -8,7 +8,8 @@ export const accountProviderEnum = pgEnum("account_provider", ["INTERNAL", "IRON
 export const accountTypeEnum = pgEnum("account_type", ["SIM", "LIVE", "VIRTUAL"]);
 export const alertCategoryEnum = pgEnum("alert_category", [
   "PROMOTION_READY", "LIVE_PROMOTION_RECOMMENDED", "BOT_DEGRADED", "BOT_STALLED",
-  "DATA_HEALTH", "EXECUTION_RISK", "ACCOUNT_RISK_BREACH", "ARBITER_DECISION_ANOMALY"
+  "DATA_HEALTH", "EXECUTION_RISK", "ACCOUNT_RISK_BREACH", "ARBITER_DECISION_ANOMALY",
+  "INTEGRATION_FAILURE"
 ]);
 export const alertEntityTypeEnum = pgEnum("alert_entity_type", ["BOT", "ACCOUNT", "SYSTEM", "TRADE"]);
 export const alertSeverityEnum = pgEnum("alert_severity", ["INFO", "WARN", "CRITICAL"]);
