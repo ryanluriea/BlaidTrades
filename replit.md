@@ -53,6 +53,8 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
   - Removed deprecation warning spam for user_id query param fallback
   - Improved Redis connection reliability with 10s timeout and exponential backoff retry strategy
   - Updated IndexedDB persister with once-per-session debug logging to reduce browser console spam
+  - Fixed self-healing worker: Removed non-existent `resolved_by` column references from alerts UPDATE queries (replaced with `updated_at = NOW()`)
+  - Fixed bot_instances DELETE timeout: Implemented batch deletion (LIMIT 50, MAX_BATCHES 10) to prevent FK check timeouts on large trade_logs table
 - **QC Badge Fix for Trials:** Added QC verification hydration to `/api/strategy-lab/candidates` endpoint using DISTINCT ON query for most recent verification per candidate. Frontend updated to use hydrated `qcVerification.badgeState` with fallback to fetched verifications.
 - **BigInt Serialization Fix:** Converted BigInt timestamps/sequences to strings before PostgreSQL insert in tick ingestion service to prevent driver serialization errors in production.
 
