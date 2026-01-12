@@ -5204,11 +5204,12 @@ export function registerRoutes(app: Express) {
       clearTimeout(timeoutHandle);
       if (shouldAbort()) return;
       // PRODUCTION DIAGNOSTICS: Full error details for Render logs
+      // Use console.log for visibility since Render may filter console.error differently
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : 'No stack trace';
-      console.error(`[bots-overview] SEV-1 ERROR message="${errorMessage}"`);
-      console.error(`[bots-overview] SEV-1 STACK ${errorStack}`);
-      res.status(500).json({ error: "Failed to fetch bots overview" });
+      console.log(`[bots-overview] SEV-1 ERROR message="${errorMessage}"`);
+      console.log(`[bots-overview] SEV-1 STACK ${errorStack}`);
+      res.status(500).json({ error: "Failed to fetch bots overview", message: errorMessage });
     }
   });
 
