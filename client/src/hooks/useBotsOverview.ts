@@ -840,7 +840,7 @@ export function toEnriched(bot: BotOverview, perBot?: PerBotData): {
   accountTotalBlownCount: number;
   accountConsecutiveBlownCount: number;
 } {
-  const score = perBot?.healthScore.score ?? bot.bqs_latest ?? 100;
+  const score = perBot?.healthScore?.score ?? bot.bqs_latest ?? 100;
   const healthStatus: "OK" | "WARN" | "DEGRADED" =
     score >= 80 ? "OK" : score >= 50 ? "WARN" : "DEGRADED";
 
@@ -863,18 +863,18 @@ export function toEnriched(bot: BotOverview, perBot?: PerBotData): {
   
   return {
     botId: bot.id,
-    mode: perBot?.instanceStatus.mode ?? bot.mode,
+    mode: perBot?.instanceStatus?.mode ?? bot.mode,
     generationNumber: genCurrent,
     latestGeneration: genLatest,
     versionMajor: bot.version_major,
     versionMinor: bot.version_minor,
     latestVersionMajor: bot.version_major,
     latestVersionMinor: bot.version_minor,
-    accountName: perBot?.instanceStatus.accountName ?? null,
-    accountType: perBot?.instanceStatus.accountType ?? null,
-    accountId: perBot?.instanceStatus.accountId ?? null,
-    activityState: perBot?.instanceStatus.activityState ?? null,
-    lastHeartbeat: perBot?.instanceStatus.lastHeartbeatAt ?? null,
+    accountName: perBot?.instanceStatus?.accountName ?? null,
+    accountType: perBot?.instanceStatus?.accountType ?? null,
+    accountId: perBot?.instanceStatus?.accountId ?? null,
+    activityState: perBot?.instanceStatus?.activityState ?? null,
+    lastHeartbeat: perBot?.instanceStatus?.lastHeartbeatAt ?? null,
     healthScore: score,
     healthStatus,
     healthReason: null,
@@ -891,8 +891,8 @@ export function toEnriched(bot: BotOverview, perBot?: PerBotData): {
     latestWalkForwardCurrentTimeframe: bot.latest_walk_forward_current_timeframe ?? null,
     alertCount: bot.alert_count ?? 0,
     matrixAggregate: bot.matrix_aggregate ?? null,
-    accountTotalBlownCount: perBot?.instanceStatus.accountTotalBlownCount ?? 0,
-    accountConsecutiveBlownCount: perBot?.instanceStatus.accountConsecutiveBlownCount ?? 0,
+    accountTotalBlownCount: perBot?.instanceStatus?.accountTotalBlownCount ?? 0,
+    accountConsecutiveBlownCount: perBot?.instanceStatus?.accountConsecutiveBlownCount ?? 0,
   };
 }
 
@@ -906,17 +906,19 @@ export function toRunner(perBot?: PerBotData): {
   startedAt: string | null;
   status: string;
 } | null {
-  if (!perBot?.instanceStatus.id) return null;
+  if (!perBot?.instanceStatus?.id) return null;
 
+  // Safe to access after guard check, but use optional chaining for consistency
+  const inst = perBot.instanceStatus;
   return {
-    id: perBot.instanceStatus.id,
-    mode: perBot.instanceStatus.mode || "BACKTEST_ONLY",
-    activityState: perBot.instanceStatus.activityState || "IDLE",
-    accountId: perBot.instanceStatus.accountId,
-    accountName: perBot.instanceStatus.accountName,
-    lastHeartbeat: perBot.instanceStatus.lastHeartbeatAt,
-    startedAt: (perBot.instanceStatus as any).startedAt || null,
-    status: perBot.instanceStatus.status || "stopped",
+    id: inst?.id ?? "",
+    mode: inst?.mode || "BACKTEST_ONLY",
+    activityState: inst?.activityState || "IDLE",
+    accountId: inst?.accountId ?? null,
+    accountName: inst?.accountName ?? null,
+    lastHeartbeat: inst?.lastHeartbeatAt ?? null,
+    startedAt: (inst as any)?.startedAt || null,
+    status: inst?.status || "stopped",
   };
 }
 
@@ -950,17 +952,17 @@ export function toJobs(perBot?: PerBotData): {
   }
 
   return {
-    backtestsRunning: perBot.jobs.backtestRunning,
-    backtestsQueued: perBot.jobs.backtestQueued,
+    backtestsRunning: perBot.jobs?.backtestRunning ?? 0,
+    backtestsQueued: perBot.jobs?.backtestQueued ?? 0,
     evaluating: false,
     training: false,
-    evolvingRunning: perBot.jobs.evolveRunning,
-    evolvingQueued: perBot.jobs.evolveQueued,
-    improvingRunning: perBot.jobs.improveRunning ?? 0,
-    improvingQueued: perBot.jobs.improveQueued ?? 0,
-    backtestStartedAt: perBot.jobs.backtestStartedAt ?? null,
-    evolveStartedAt: perBot.jobs.evolveStartedAt ?? null,
-    improveStartedAt: perBot.jobs.improveStartedAt ?? null,
+    evolvingRunning: perBot.jobs?.evolveRunning ?? 0,
+    evolvingQueued: perBot.jobs?.evolveQueued ?? 0,
+    improvingRunning: perBot.jobs?.improveRunning ?? 0,
+    improvingQueued: perBot.jobs?.improveQueued ?? 0,
+    backtestStartedAt: perBot.jobs?.backtestStartedAt ?? null,
+    evolveStartedAt: perBot.jobs?.evolveStartedAt ?? null,
+    improveStartedAt: perBot.jobs?.improveStartedAt ?? null,
   };
 }
 
@@ -985,26 +987,28 @@ export function toImprovement(perBot?: PerBotData): {
   lastGateCheckAt: string | null;
   gateCheckCount: number | null;
 } | null {
-  if (!perBot?.improvementState.status) return null;
+  if (!perBot?.improvementState?.status) return null;
 
+  // Safe to access after guard check, but use optional chaining for consistency
+  const imp = perBot.improvementState;
   return {
     botId: "",
     userId: "",
-    status: perBot.improvementState.status as 'IDLE' | 'IMPROVING' | 'PAUSED' | 'GRADUATED_READY',
+    status: (imp?.status ?? 'IDLE') as 'IDLE' | 'IMPROVING' | 'PAUSED' | 'GRADUATED_READY',
     lastFailureCategory: null,
-    attemptsUsed: perBot.improvementState.attemptsUsed ?? 0,
+    attemptsUsed: imp?.attemptsUsed ?? 0,
     attemptsLimit: 100,
-    lastImprovementAt: perBot.improvementState.lastImprovementAt ?? null,
-    nextAction: perBot.improvementState.nextAction,
+    lastImprovementAt: imp?.lastImprovementAt ?? null,
+    nextAction: imp?.nextAction ?? null,
     notes: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    consecutiveFailures: perBot.improvementState.consecutiveFailures,
-    nextRetryAt: perBot.improvementState.nextRetryAt,
+    consecutiveFailures: imp?.consecutiveFailures ?? 0,
+    nextRetryAt: imp?.nextRetryAt ?? null,
     lastMutationsTried: [],
     bestSharpeAchieved: null,
     bestPfAchieved: null,
-    whyNotPromoted: perBot.improvementState.whyNotPromoted,
+    whyNotPromoted: imp?.whyNotPromoted ?? null,
     lastGateCheckAt: null,
     gateCheckCount: null,
   };
