@@ -259,7 +259,7 @@ function EditableQCLimitInput({
 }: { 
   label: string;
   initialValue: number; 
-  onSave: (value: number) => void;
+  onSave: (value: number, resetFn: () => void) => void;
   testId: string;
 }) {
   const [localValue, setLocalValue] = useState(String(initialValue));
@@ -283,7 +283,7 @@ function EditableQCLimitInput({
   const handleSave = () => {
     const numValue = parseInt(localValue, 10);
     if (!isNaN(numValue) && numValue >= 1 && isDirty) {
-      onSave(numValue);
+      onSave(numValue, resetToOriginal);
       setIsDirty(false);
     } else if (isDirty) {
       resetToOriginal();
@@ -555,10 +555,10 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
   });
 
   const qcLimitsMutation = useMutation({
-    mutationFn: async (limits: { qcDailyLimit?: number; qcWeeklyLimit?: number }) => {
+    mutationFn: async (params: { limits: { qcDailyLimit?: number; qcWeeklyLimit?: number }; resetFn: () => void }) => {
       const response = await fetch("/api/strategy-lab/state", {
         method: "PATCH",
-        body: JSON.stringify(limits),
+        body: JSON.stringify(params.limits),
         headers: { "Content-Type": "application/json" },
         credentials: "include",
       });
@@ -569,17 +569,18 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
       queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/state"] });
       toast.success("QC budget limits updated");
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables) => {
+      variables.resetFn();
       toast.error(error.message || "Failed to update QC limits");
     },
   });
 
-  const handleQCDailyLimitSave = (value: number) => {
-    qcLimitsMutation.mutate({ qcDailyLimit: value });
+  const handleQCDailyLimitSave = (value: number, resetFn: () => void) => {
+    qcLimitsMutation.mutate({ limits: { qcDailyLimit: value }, resetFn });
   };
 
-  const handleQCWeeklyLimitSave = (value: number) => {
-    qcLimitsMutation.mutate({ qcWeeklyLimit: value });
+  const handleQCWeeklyLimitSave = (value: number, resetFn: () => void) => {
+    qcLimitsMutation.mutate({ limits: { qcWeeklyLimit: value }, resetFn });
   };
 
   const handleQCToggle = (currentEnabled: boolean) => {
