@@ -434,6 +434,16 @@ export function useBotsOverview() {
         credentials: "include",
       });
 
+      // Handle 503 Service Unavailable (request timeout / database overload)
+      if (response.status === 503) {
+        const errorBody = await response.json().catch(() => ({}));
+        const retryAfterMs = errorBody.retryAfterMs ?? 5000;
+        console.warn(`[useBotsOverview] 503 degraded response, will retry in ${retryAfterMs}ms`);
+        // Return empty data with degraded flag instead of throwing
+        // React Query will automatically retry based on its retry settings
+        throw new Error(errorBody.error || "Server overloaded - retrying shortly");
+      }
+
       if (!response.ok) {
         throw new Error("Failed to fetch bots overview");
       }
@@ -537,6 +547,9 @@ export function useBotsOverview() {
     enabled: !!user?.id,
     gcTime: 5 * 60_000,
     refetchOnReconnect: true,
+    // Retry on 503 (server timeout) - 3 retries with exponential backoff
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 }
 

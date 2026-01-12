@@ -4378,6 +4378,26 @@ export function registerRoutes(app: Express) {
   });
 
   app.get("/api/bots-overview", async (req: Request, res: Response) => {
+    // PRODUCTION RESILIENCE: 25-second timeout to prevent request hanging
+    const REQUEST_TIMEOUT_MS = 25000;
+    const requestStart = Date.now();
+    let aborted = false;
+    
+    // Helper to safely check if we should abort (timeout fired or headers already sent)
+    const shouldAbort = () => aborted || res.headersSent;
+    
+    const timeoutHandle = setTimeout(() => {
+      if (!res.headersSent) {
+        aborted = true;
+        console.error(`[bots-overview] SEV-1 REQUEST_TIMEOUT after ${REQUEST_TIMEOUT_MS}ms`);
+        res.status(503).json({ 
+          error: "Request timeout - database queries took too long", 
+          degraded: true,
+          retryAfterMs: 5000 
+        });
+      }
+    }, REQUEST_TIMEOUT_MS);
+    
     try {
       // INDUSTRY STANDARD: Use session-based auth with query param as fallback
       // Priority: 1) req.user.id from session, 2) user_id query param
@@ -4391,32 +4411,54 @@ export function registerRoutes(app: Express) {
       }
       
       if (!userId) {
+        clearTimeout(timeoutHandle);
         return res.status(401).json({ error: "Authentication required" });
       }
-      const startTime = Date.now();
-      const bots = await storage.getBotsOverview(userId);
       
-      // DIAGNOSTIC: Log bot count for debugging production issues
-      console.log(`[bots-overview] userId=${userId.substring(0, 8)}... returned ${bots.length} bots`);
+      // PHASE 1: Fetch bots overview
+      const phase1Start = Date.now();
+      const bots = await storage.getBotsOverview(userId);
+      const phase1Ms = Date.now() - phase1Start;
+      
+      // DIAGNOSTIC: Log phase timings for production debugging
+      console.log(`[bots-overview] PHASE1_BOTS userId=${userId.substring(0, 8)}... count=${bots.length} elapsed=${phase1Ms}ms`);
+      if (shouldAbort()) return; // Early exit if timeout fired or headers already sent
       
       // Fetch bot instances filtered by bot IDs (security: only this user's bots)
       const botIds = bots.map(b => b.id);
+      
+      // PHASE 2: Fetch accounts (single query)
+      const phase2Start = Date.now();
       const accounts = await storage.getAccounts(userId);
+      const phase2Ms = Date.now() - phase2Start;
+      console.log(`[bots-overview] PHASE2_ACCOUNTS count=${accounts.length} elapsed=${phase2Ms}ms`);
+      if (shouldAbort()) return;
+      
       const accountMap = new Map(accounts.map(a => [a.id, a]));
       
-      // Fetch only instances for this user's bots to prevent cross-tenant leakage
-      const instances = botIds.length > 0 
-        ? await Promise.all(botIds.map(botId => storage.getBotInstances({ botId })))
-        : [];
-      const flatInstances = instances.flat();
+      // PHASE 3: Fetch bot instances - BATCHED QUERY (was N+1, now single query)
+      const phase3Start = Date.now();
+      let flatInstances: any[] = [];
+      if (botIds.length > 0) {
+        const instanceBotIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
+        const instanceResults = await db.execute(sql`
+          SELECT * FROM bot_instances WHERE bot_id IN (${instanceBotIdParams})
+        `);
+        flatInstances = instanceResults.rows as any[];
+      }
+      const phase3Ms = Date.now() - phase3Start;
+      console.log(`[bots-overview] PHASE3_INSTANCES count=${flatInstances.length} elapsed=${phase3Ms}ms`);
+      if (shouldAbort()) return;
       
-      // Build bot-to-account mapping from instances
+      // Build bot-to-account mapping from instances (raw SQL uses snake_case columns)
       const botAccountMap = new Map<string, { accountId: string; accountName: string; accountType: string; totalBlownCount: number; consecutiveBlownCount: number }>();
       for (const inst of flatInstances) {
-        if (inst.botId && inst.accountId && !botAccountMap.has(inst.botId)) {
-          const account = accountMap.get(inst.accountId);
+        const botId = inst.bot_id;
+        const accountId = inst.account_id;
+        if (botId && accountId && !botAccountMap.has(botId)) {
+          const account = accountMap.get(accountId);
           if (account) {
-            botAccountMap.set(inst.botId, {
+            botAccountMap.set(botId, {
               accountId: account.id,
               accountName: account.name,
               accountType: account.accountType || 'SIM',
@@ -4427,9 +4469,10 @@ export function registerRoutes(app: Express) {
         }
       }
       
-      const dbMs = Date.now() - startTime;
+      const dbMs = Date.now() - requestStart;
       
-      // Fetch trend data from generation_metrics_history (one per bot using efficient DISTINCT ON)
+      // PHASE 4: Fetch trend data from generation_metrics_history
+      const phase4Start = Date.now();
       const trendDataMap = new Map<string, { trend: string | null; peakGeneration: number | null; declineFromPeakPct: number | null }>();
       if (botIds.length > 0) {
         try {
@@ -4450,14 +4493,16 @@ export function registerRoutes(app: Express) {
               declineFromPeakPct: row.decline_from_peak_pct ?? null,
             });
           }
-          console.log(`[bots-overview] Trend data loaded for ${trendDataMap.size} bots`, 
-            Array.from(trendDataMap.entries()).slice(0, 2).map(([id, data]) => ({ id: id.substring(0, 8), trend: data.trend })));
         } catch (trendError) {
           console.warn('[bots-overview] Trend data fetch failed:', trendError);
         }
       }
+      const phase4Ms = Date.now() - phase4Start;
+      console.log(`[bots-overview] PHASE4_TREND count=${trendDataMap.size} elapsed=${phase4Ms}ms`);
+      if (shouldAbort()) return;
       
-      // Add botNow to overview (use defaults for fields not in overview)
+      // PHASE 5: Compute botNow for all bots
+      const phase5Start = Date.now();
       const botNowMap = await computeBotsNow(bots.map(b => ({
         id: b.id,
         stage: b.stage,
@@ -4479,8 +4524,11 @@ export function registerRoutes(app: Express) {
         generationUpdatedAt: (b as any).generation_updated_at ?? (b as any).generationUpdatedAt ?? null,
         generationReasonCode: (b as any).generation_reason_code ?? (b as any).generationReasonCode ?? null,
       })), userId);
+      const phase5Ms = Date.now() - phase5Start;
+      console.log(`[bots-overview] PHASE5_BOTNOW elapsed=${phase5Ms}ms`);
+      if (shouldAbort()) return;
       
-      // Batch fetch matrix aggregates for all bots (calculate from cells when pre-computed is NULL)
+      // PHASE 6: Batch fetch matrix aggregates for all bots (calculate from cells when pre-computed is NULL)
       // INSTITUTIONAL: Stage-specific generation scoping - TRIALS bots only show current generation matrix data
       const matrixAggregates = new Map<string, any>();
       if (botIds.length > 0) {
@@ -4590,8 +4638,11 @@ export function registerRoutes(app: Express) {
           console.warn('[bots-overview] Matrix aggregate fetch skipped:', err);
         }
       }
+      const phase6Ms = Date.now() - phase5Start - phase5Ms;
+      console.log(`[bots-overview] PHASE6_MATRIX count=${matrixAggregates.size} elapsed=${phase6Ms}ms`);
+      if (shouldAbort()) return;
 
-      // Batch fetch latest matrix run status per bot (for Activity Grid Matrix indicator)
+      // PHASE 7: Batch fetch latest matrix run status per bot (for Activity Grid Matrix indicator)
       const matrixRunStatus = new Map<string, { 
         status: string; 
         progress: number; 
@@ -4877,10 +4928,18 @@ export function registerRoutes(app: Express) {
         ? new Date(dataSourceStatus.lastUpdateTime).toISOString()
         : null;
       
+      // Clear timeout before sending response
+      clearTimeout(timeoutHandle);
+      if (shouldAbort()) return;
+      
+      const totalMs = Date.now() - requestStart;
+      console.log(`[bots-overview] COMPLETE bots=${bots.length} totalMs=${totalMs}`);
+      
       res.setHeader("x-db-ms", dbMs.toString());
       res.setHeader("x-row-count", bots.length.toString());
       res.setHeader("x-snapshot-id", snapshotId);
       res.setHeader("x-generated-at", generatedAt);
+      res.setHeader("x-total-ms", totalMs.toString());
       res.json({ 
         success: true, 
         data: botsWithNow, 
@@ -4903,6 +4962,8 @@ export function registerRoutes(app: Express) {
         },
       });
     } catch (error) {
+      clearTimeout(timeoutHandle);
+      if (shouldAbort()) return;
       console.error("Error fetching bots overview:", error);
       res.status(500).json({ error: "Failed to fetch bots overview" });
     }
