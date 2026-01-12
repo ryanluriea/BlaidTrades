@@ -192,12 +192,8 @@ if (isWorkerOnlyMode) {
       // This runs on every startup to handle cases where db:push didn't create them
       await ensureTickTablesExist();
       
-      // PRODUCTION FIX: Consolidate all data to canonical user (blaidtrades@gmail.com)
-      // This ensures /api/bots returns data for the logged-in user
-      // Runs on every startup - idempotent and safe
-      await ensureCanonicalUserConsolidation();
     } else {
-      log(`[STARTUP] WARNING: Database warmup failed - sessions will use MemoryStore (not persistent)`);
+      log(`[STARTUP] WARNING: Database warmup failed after 3 attempts - sessions will use MemoryStore (not persistent)`);
     }
     
     // Now setup auth with database ready (session store will use PostgreSQL if DB is ready)
@@ -276,6 +272,33 @@ if (isWorkerOnlyMode) {
       }).catch(err => {
         log(`[STARTUP] Failed to register DB query metrics: ${err.message}`);
       });
+      
+      // PRODUCTION FIX: Consolidate all data to canonical user (blaidtrades@gmail.com)
+      // This ensures /api/bots returns data for the logged-in user
+      // Runs with its own retry logic, independent of warmupDatabase() result
+      // This is critical - must run even if initial warmup failed
+      (async () => {
+        const MAX_RETRIES = 5;
+        const BASE_DELAY = 2000; // 2 seconds
+        
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            log(`[USER_CONSOLIDATION] Attempt ${attempt}/${MAX_RETRIES}...`);
+            await ensureCanonicalUserConsolidation();
+            log(`[USER_CONSOLIDATION] Completed successfully on attempt ${attempt}`);
+            return; // Success - exit retry loop
+          } catch (err) {
+            const delay = BASE_DELAY * Math.pow(2, attempt - 1); // Exponential backoff
+            log(`[USER_CONSOLIDATION] Attempt ${attempt} failed: ${err instanceof Error ? err.message : 'unknown'}`);
+            if (attempt < MAX_RETRIES) {
+              log(`[USER_CONSOLIDATION] Retrying in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+              log(`[USER_CONSOLIDATION] FAILED after ${MAX_RETRIES} attempts - bots page may be empty`);
+            }
+          }
+        }
+      })();
       
       // AUTONOMOUS: Register memory sentinel callbacks for worker pausing
       registerSchedulerCallbacks(pauseHeavyWorkers, resumeHeavyWorkers);
