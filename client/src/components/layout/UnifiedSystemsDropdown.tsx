@@ -11,7 +11,9 @@ import {
   Dialog,
   DialogContent,
   DialogTrigger,
+  DialogTitle,
 } from "@/components/ui/dialog";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import {
   Select,
   SelectContent,
@@ -551,7 +553,7 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
           setIsOpen(open);
         }
       }}>
-        <Tooltip open={isOpen ? false : undefined}>
+        <Tooltip>
           <DialogTrigger asChild>
             <TooltipTrigger asChild>
               <Button 
@@ -577,6 +579,9 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
         </Tooltip>
 
         <DialogContent className="w-[36rem] max-w-[36rem] p-0 gap-0 sm:top-[12%] sm:translate-y-0">
+          <VisuallyHidden.Root>
+            <DialogTitle>AI & Systems Configuration</DialogTitle>
+          </VisuallyHidden.Root>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="px-6 pt-6 pb-4 border-b border-border">
               <div className="flex items-center justify-between mb-4">

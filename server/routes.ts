@@ -4385,6 +4385,11 @@ export function registerRoutes(app: Express) {
       const queryUserId = req.query.user_id as string;
       const userId = sessionUserId || queryUserId;
       
+      // DEPRECATION WARNING: Log when clients use query param fallback
+      if (!sessionUserId && queryUserId) {
+        console.warn(`[DEPRECATION] /api/bots-overview: user_id query param fallback used. Migrate to session-based auth.`);
+      }
+      
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -4909,6 +4914,11 @@ export function registerRoutes(app: Express) {
       const sessionUserId = (req.user as any)?.id;
       const queryUserId = req.query.user_id as string;
       const userId = sessionUserId || queryUserId;
+      
+      // DEPRECATION WARNING: Log when clients use query param fallback
+      if (!sessionUserId && queryUserId) {
+        console.warn(`[DEPRECATION] /api/bots: user_id query param fallback used. Migrate to session-based auth.`);
+      }
       
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });

@@ -434,7 +434,7 @@ export function AISettingsDropdown() {
           setIsOpen(open);
         }
       }}>
-        <Tooltip open={isOpen ? false : undefined}>
+        <Tooltip>
           <PopoverTrigger asChild>
             <TooltipTrigger asChild>
               <Button 
