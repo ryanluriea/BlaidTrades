@@ -726,14 +726,48 @@ export async function ensureCanonicalUserConsolidation(): Promise<void> {
     );
     const otherUserIds = otherUsersResult.rows.map((r: { id: string }) => r.id);
     
+    // Step 2b: CRITICAL - Fix orphaned bots (user_id doesn't match ANY user)
+    // This catches bots created with a user_id that no longer exists
+    try {
+      await poolWeb.query(`SET statement_timeout = '60s'`);
+      const orphanedResult = await poolWeb.query(
+        `UPDATE bots SET user_id = $1 WHERE user_id != $1 AND user_id NOT IN (SELECT id FROM users)`,
+        [canonicalUserId]
+      );
+      await poolWeb.query(`SET statement_timeout = '5s'`);
+      if (orphanedResult.rowCount && orphanedResult.rowCount > 0) {
+        console.log(`[USER_CONSOLIDATION] Fixed ${orphanedResult.rowCount} orphaned bots (user_id didn't match any user)`);
+      }
+    } catch (err) {
+      console.log(`[USER_CONSOLIDATION] Orphan check: ${err instanceof Error ? err.message : 'unknown'}`);
+      try { await poolWeb.query(`SET statement_timeout = '5s'`); } catch {}
+    }
+    
+    // Step 2c: CRITICAL - Fix bots owned by wrong user (even if only canonical user exists)
+    try {
+      await poolWeb.query(`SET statement_timeout = '60s'`);
+      const wrongOwnerResult = await poolWeb.query(
+        `UPDATE bots SET user_id = $1 WHERE user_id != $1`,
+        [canonicalUserId]
+      );
+      await poolWeb.query(`SET statement_timeout = '5s'`);
+      if (wrongOwnerResult.rowCount && wrongOwnerResult.rowCount > 0) {
+        console.log(`[USER_CONSOLIDATION] Reassigned ${wrongOwnerResult.rowCount} bots to canonical user`);
+      }
+    } catch (err) {
+      console.log(`[USER_CONSOLIDATION] Reassignment: ${err instanceof Error ? err.message : 'unknown'}`);
+      try { await poolWeb.query(`SET statement_timeout = '5s'`); } catch {}
+    }
+    
     if (otherUserIds.length === 0) {
-      console.log(`[USER_CONSOLIDATION] No other users to migrate - already consolidated`);
+      console.log(`[USER_CONSOLIDATION] No other users to migrate - checking bot ownership`);
       // Verify final state
       const botCountResult = await poolWeb.query(
         `SELECT COUNT(*) as count FROM bots WHERE user_id = $1`,
         [canonicalUserId]
       );
-      console.log(`[USER_CONSOLIDATION] COMPLETE: 1 user, ${botCountResult.rows[0].count} bots owned by canonical user`);
+      const totalBotsResult = await poolWeb.query(`SELECT COUNT(*) as count FROM bots`);
+      console.log(`[USER_CONSOLIDATION] COMPLETE: 1 user, ${botCountResult.rows[0].count}/${totalBotsResult.rows[0].count} bots owned by canonical user`);
       return;
     }
     
