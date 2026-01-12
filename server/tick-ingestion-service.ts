@@ -139,12 +139,18 @@ class TickIngestionServiceImpl {
     const tradingDay = new Date(tick.timestamp);
     tradingDay.setUTCHours(0, 0, 0, 0);
 
+    // Explicitly set sequenceId to null when not provided
+    // (Drizzle treats missing properties as DEFAULT, which fails for nullable columns without defaults)
+    const sequenceIdValue = tick.sequenceId !== undefined && tick.sequenceId !== null
+      ? (typeof tick.sequenceId === "bigint" ? tick.sequenceId : BigInt(tick.sequenceId))
+      : null;
+
     const insertTick: InsertTradeTick = {
       symbol: tick.symbol,
       exchange: tick.exchange ?? "XCME",
       timestampNs,
       receivedAtNs,
-      ...(tick.sequenceId !== undefined && tick.sequenceId !== null ? { sequenceId: typeof tick.sequenceId === "bigint" ? tick.sequenceId : BigInt(tick.sequenceId) } : {}),
+      sequenceId: sequenceIdValue,
       price: tick.price,
       size: tick.size,
       side: tick.side ?? null,
@@ -178,12 +184,18 @@ class TickIngestionServiceImpl {
     const midPrice = (tick.bidPrice + tick.askPrice) / 2;
     const spreadTicks = (tick.askPrice - tick.bidPrice) / tickSize;
 
+    // Explicitly set sequenceId to null when not provided
+    // (Drizzle treats missing properties as DEFAULT, which fails for nullable columns without defaults)
+    const sequenceIdValue = tick.sequenceId !== undefined && tick.sequenceId !== null
+      ? (typeof tick.sequenceId === "bigint" ? tick.sequenceId : BigInt(tick.sequenceId))
+      : null;
+
     const insertTick: InsertQuoteTick = {
       symbol: tick.symbol,
       exchange: tick.exchange ?? "XCME",
       timestampNs,
       receivedAtNs,
-      ...(tick.sequenceId !== undefined && tick.sequenceId !== null ? { sequenceId: typeof tick.sequenceId === "bigint" ? tick.sequenceId : BigInt(tick.sequenceId) } : {}),
+      sequenceId: sequenceIdValue,
       bidPrice: tick.bidPrice,
       bidSize: tick.bidSize,
       askPrice: tick.askPrice,
