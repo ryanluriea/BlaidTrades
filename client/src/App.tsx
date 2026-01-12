@@ -53,6 +53,9 @@ async function checkIdbAvailability(): Promise<boolean> {
   return idbAvailable;
 }
 
+// Track if we've already logged the localStorage fallback (to avoid spamming)
+let idbFallbackLogged = false;
+
 const idbPersister = {
   persistClient: async (client: any) => {
     const useIdb = await checkIdbAvailability();
@@ -64,8 +67,15 @@ const idbPersister = {
         idbAvailable = false;
       }
     }
+    // IndexedDB not available (common in embedded iframes/cross-origin contexts)
+    // Gracefully fallback to localStorage - this is expected behavior, not an error
     try {
       localStorage.setItem(IDB_CACHE_KEY, JSON.stringify(client));
+      // Log once per session for debugging if needed, but suppress spam
+      if (!idbFallbackLogged && typeof console !== 'undefined') {
+        console.debug('[CACHE] Using localStorage persister (IndexedDB unavailable in this context)');
+        idbFallbackLogged = true;
+      }
     } catch {}
   },
   restoreClient: async () => {

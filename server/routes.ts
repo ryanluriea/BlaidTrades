@@ -4647,11 +4647,6 @@ export function registerRoutes(app: Express) {
       const queryUserId = req.query.user_id as string;
       const userId = sessionUserId || queryUserId;
       
-      // DEPRECATION WARNING: Log when clients use query param fallback
-      if (!sessionUserId && queryUserId) {
-        console.warn(`[DEPRECATION] /api/bots-overview: user_id query param fallback used. Migrate to session-based auth.`);
-      }
-      
       if (!userId) {
         clearTimeout(timeoutHandle);
         return res.status(401).json({ error: "Authentication required" });
@@ -5217,11 +5212,6 @@ export function registerRoutes(app: Express) {
       const sessionUserId = (req.user as any)?.id;
       const queryUserId = req.query.user_id as string;
       const userId = sessionUserId || queryUserId;
-      
-      // DEPRECATION WARNING: Log when clients use query param fallback
-      if (!sessionUserId && queryUserId) {
-        console.warn(`[DEPRECATION] /api/bots: user_id query param fallback used. Migrate to session-based auth.`);
-      }
       
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
@@ -8652,21 +8642,34 @@ export function registerRoutes(app: Express) {
       const registryStatus = getAllIntegrationsStatus();
       
       // Get proof-of-use stats from integration_usage_events table
-      // Use 7-day window for verification validity
+      // Optimized query using CTEs instead of correlated subqueries
       const proofOfUseResult = await db.execute(sql`
+        WITH recent_events AS (
+          SELECT integration, created_at, operation, status
+          FROM integration_usage_events
+          WHERE created_at > NOW() - INTERVAL '7 days'
+        ),
+        counts_24h AS (
+          SELECT integration, COUNT(*) as count_24h
+          FROM integration_usage_events
+          WHERE created_at > NOW() - INTERVAL '24 hours'
+          GROUP BY integration
+        ),
+        last_verified AS (
+          SELECT DISTINCT ON (integration) integration, created_at as last_verified_at
+          FROM integration_usage_events
+          WHERE operation = 'verify' AND status = 'OK'
+          ORDER BY integration, created_at DESC
+        )
         SELECT 
-          integration as provider,
-          (SELECT COUNT(*) FROM integration_usage_events iue4 
-           WHERE iue4.integration = integration_usage_events.integration 
-           AND iue4.created_at > NOW() - INTERVAL '24 hours') as count_24h,
-          MAX(created_at) as last_used_at,
-          (SELECT created_at FROM integration_usage_events iue3 
-           WHERE iue3.integration = integration_usage_events.integration 
-           AND iue3.operation = 'verify' AND iue3.status = 'OK'
-           ORDER BY created_at DESC LIMIT 1) as last_verified_at
-        FROM integration_usage_events
-        WHERE created_at > NOW() - INTERVAL '7 days'
-        GROUP BY integration
+          r.integration as provider,
+          COALESCE(c.count_24h, 0) as count_24h,
+          MAX(r.created_at) as last_used_at,
+          lv.last_verified_at
+        FROM recent_events r
+        LEFT JOIN counts_24h c ON c.integration = r.integration
+        LEFT JOIN last_verified lv ON lv.integration = r.integration
+        GROUP BY r.integration, c.count_24h, lv.last_verified_at
       `);
       
       // Helper to convert PostgreSQL timestamp to ISO format for frontend compatibility

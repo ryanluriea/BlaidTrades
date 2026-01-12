@@ -58,12 +58,9 @@ try {
   const dbUrl = new URL(DATABASE_URL);
   const hostInfo = dbUrl.hostname || dbUrl.host;
   const isPooler = hostInfo.includes('-pooler');
-  const isLegacyHelium = hostInfo === 'helium';
+  const isReplitInternal = hostInfo === 'helium' || hostInfo.includes('replit');
   const hasReader = !!DATABASE_READER_URL;
-  console.log(`[DB_CONFIG] host=${hostInfo} port=${dbUrl.port || 5432} pooler=${isPooler} legacy=${isLegacyHelium} reader=${hasReader}`);
-  if (isLegacyHelium) {
-    console.warn('[DB_CONFIG] WARNING: Using legacy helium database host - may have connectivity issues');
-  }
+  console.log(`[DB_CONFIG] host=${hostInfo} port=${dbUrl.port || 5432} pooler=${isPooler} replit_managed=${isReplitInternal} reader=${hasReader}`);
 } catch (e) {
   console.log('[DB_CONFIG] Could not parse DATABASE_URL for telemetry');
 }

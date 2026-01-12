@@ -47,6 +47,12 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - **QC Badge Hydration:** QC verification status is batch-fetched and hydrated directly on strategy candidates during API response, ensuring TRIALS candidates show QC badges even when older than the 200-verification limit. Frontend prioritizes hydrated state over separate QC verifications fetch.
 
 ## Recent Changes (January 2026)
+- **Production Stabilization (Jan 12):**
+  - Optimized health-summary endpoint from 6.4s to ~2s using CTEs instead of correlated subqueries
+  - Fixed legacy database host warning (now shows `replit_managed=true` for Replit internal hosts)
+  - Removed deprecation warning spam for user_id query param fallback
+  - Improved Redis connection reliability with 10s timeout and exponential backoff retry strategy
+  - Updated IndexedDB persister with once-per-session debug logging to reduce browser console spam
 - **QC Badge Fix for Trials:** Added QC verification hydration to `/api/strategy-lab/candidates` endpoint using DISTINCT ON query for most recent verification per candidate. Frontend updated to use hydrated `qcVerification.badgeState` with fallback to fetched verifications.
 - **BigInt Serialization Fix:** Converted BigInt timestamps/sequences to strings before PostgreSQL insert in tick ingestion service to prevent driver serialization errors in production.
 

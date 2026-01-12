@@ -78,8 +78,11 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
     const client = createClient({ 
       url: redisUrl,
       socket: {
-        connectTimeout: 3000, // 3 second timeout
-        reconnectStrategy: false, // Don't auto-reconnect on failure
+        connectTimeout: 10000, // 10 second timeout for cloud Redis
+        reconnectStrategy: (retries) => {
+          if (retries > 3) return false; // Stop after 3 retries
+          return Math.min(retries * 500, 3000); // Exponential backoff, max 3s
+        },
       }
     });
     
@@ -94,7 +97,7 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
     // Connect with timeout
     const connectPromise = client.connect();
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Connection timeout')), 3000)
+      setTimeout(() => reject(new Error('Connection timeout')), 10000)
     );
     
     await Promise.race([connectPromise, timeoutPromise]);
