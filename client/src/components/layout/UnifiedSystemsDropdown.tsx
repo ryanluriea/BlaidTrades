@@ -251,6 +251,75 @@ function EditableCostCapInput({
   );
 }
 
+function EditableQCLimitInput({ 
+  label,
+  initialValue, 
+  onSave,
+  testId,
+}: { 
+  label: string;
+  initialValue: number; 
+  onSave: (value: number) => void;
+  testId: string;
+}) {
+  const [localValue, setLocalValue] = useState(String(initialValue));
+  const [isDirty, setIsDirty] = useState(false);
+  
+  useEffect(() => {
+    setLocalValue(String(initialValue));
+    setIsDirty(false);
+  }, [initialValue]);
+
+  const resetToOriginal = () => {
+    setLocalValue(String(initialValue));
+    setIsDirty(false);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value);
+    setIsDirty(true);
+  };
+
+  const handleSave = () => {
+    const numValue = parseInt(localValue, 10);
+    if (!isNaN(numValue) && numValue >= 1 && isDirty) {
+      onSave(numValue);
+      setIsDirty(false);
+    } else if (isDirty) {
+      resetToOriginal();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave();
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === "Escape") {
+      resetToOriginal();
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-[10px] text-muted-foreground">{label}:</span>
+      <Input
+        type="text"
+        inputMode="numeric"
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        className={cn(
+          "h-5 w-12 px-1 text-[10px] font-mono text-center",
+          isDirty && "border-amber-400"
+        )}
+        data-testid={testId}
+      />
+    </div>
+  );
+}
+
 export function UnifiedSystemsDropdown({ className }: { className?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("systems");
@@ -484,6 +553,34 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
       toast.error(error.message || "Failed to update QuantConnect settings");
     },
   });
+
+  const qcLimitsMutation = useMutation({
+    mutationFn: async (limits: { qcDailyLimit?: number; qcWeeklyLimit?: number }) => {
+      const response = await fetch("/api/strategy-lab/state", {
+        method: "PATCH",
+        body: JSON.stringify(limits),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to update QC limits");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/strategy-lab/state"] });
+      toast.success("QC budget limits updated");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update QC limits");
+    },
+  });
+
+  const handleQCDailyLimitSave = (value: number) => {
+    qcLimitsMutation.mutate({ qcDailyLimit: value });
+  };
+
+  const handleQCWeeklyLimitSave = (value: number) => {
+    qcLimitsMutation.mutate({ qcWeeklyLimit: value });
+  };
 
   const handleQCToggle = (currentEnabled: boolean) => {
     const action = currentEnabled ? "Disable" : "Enable";
@@ -919,9 +1016,19 @@ export function UnifiedSystemsDropdown({ className }: { className?: string }) {
                     />
                   </div>
                   {qcEnabled && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant="outline" className="text-[10px]">Daily: {qcDailyLimit}</Badge>
-                      <Badge variant="outline" className="text-[10px]">Weekly: {qcWeeklyLimit}</Badge>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <EditableQCLimitInput
+                        label="Daily"
+                        initialValue={qcDailyLimit}
+                        onSave={handleQCDailyLimitSave}
+                        testId="input-qc-daily-limit-dropdown"
+                      />
+                      <EditableQCLimitInput
+                        label="Weekly"
+                        initialValue={qcWeeklyLimit}
+                        onSave={handleQCWeeklyLimitSave}
+                        testId="input-qc-weekly-limit-dropdown"
+                      />
                     </div>
                   )}
                 </div>
