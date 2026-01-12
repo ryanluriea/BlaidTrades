@@ -16930,6 +16930,62 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Fleet Risk Engine endpoint - real-time fleet-wide risk status
+  app.get("/api/system/fleet-risk", async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID().slice(0, 8);
+    console.log(`[FLEET_RISK_API] trace_id=${traceId} request=GET /api/system/fleet-risk`);
+    
+    try {
+      const { fleetRiskEngine } = await import("./fleet-risk-engine");
+      const state = fleetRiskEngine.getState();
+      const limits = fleetRiskEngine.getLimits();
+      const metricsHistory = fleetRiskEngine.getMetricsHistory();
+      
+      // Convert Maps to arrays for JSON serialization
+      const exposure = state.exposure ? {
+        totalContracts: state.exposure.totalContracts,
+        totalExposureDollars: state.exposure.totalExposureDollars,
+        netLongContracts: state.exposure.netLongContracts,
+        netShortContracts: state.exposure.netShortContracts,
+        bySymbol: Array.from(state.exposure.bySymbol.values()),
+        bySector: Array.from(state.exposure.bySector.values()),
+        byStage: Array.from(state.exposure.byStage.values()),
+        correlationRisk: state.exposure.correlationRisk,
+        concentrationHHI: state.exposure.concentrationHHI,
+      } : null;
+      
+      res.json({
+        success: true,
+        trace_id: traceId,
+        timestamp: new Date().toISOString(),
+        state: {
+          killSwitchTier: state.killSwitchTier,
+          tierChangedAt: state.tierChangedAt,
+          tierReason: state.tierReason,
+          exposure,
+          dailyPnL: state.dailyPnL,
+          peakEquity: state.peakEquity,
+          currentEquity: state.currentEquity,
+          drawdownPct: state.drawdownPct,
+          activeBotsCount: state.activeBotsCount,
+          haltedBotsCount: state.haltedBotsCount,
+          violations: state.violations.slice(0, 20),
+          lastAssessment: state.lastAssessment,
+          selfHealingStatus: state.selfHealingStatus,
+        },
+        limits,
+        metricsHistory: metricsHistory.slice(-60), // Last 60 readings (1 hour at 1-min intervals)
+      });
+    } catch (error) {
+      console.error(`[FLEET_RISK_API] trace_id=${traceId} error=`, error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch fleet risk status",
+        trace_id: traceId,
+      });
+    }
+  });
+
   // ============================================
   // DIAGNOSTICS ENDPOINTS
   // ============================================

@@ -51,6 +51,7 @@ import { runPromotionWorker } from "./promotion-engine";
 import { expireStaleRequests } from "./governance-approval";
 import { runRiskEnforcementCheck } from "./risk-enforcement";
 import { recordBatchMetrics, recordFallback, getFallbackMetrics } from "./fail-fast-validators";
+import { startFleetRiskEngine, stopFleetRiskEngine, fleetRiskEngine } from "./fleet-risk-engine";
 
 // Reconciliation interval - runs every 30 minutes to detect and fix stuck candidates
 let reconciliationInterval: NodeJS.Timeout | null = null;
@@ -6504,6 +6505,9 @@ function clearAllWorkerIntervals(): void {
   // Stop drift detection
   stopScheduledDriftDetection();
   
+  // Stop fleet risk engine
+  stopFleetRiskEngine().catch(err => console.error("[SCHEDULER] Fleet risk engine stop error:", err));
+  
   console.log("[SCHEDULER] All worker intervals cleared");
 }
 
@@ -8294,26 +8298,36 @@ async function initializeWorkers(): Promise<void> {
   
   // Run immediately on startup with self-healing
   const startupTraceId = crypto.randomUUID().slice(0, 8);
+  console.log(`[SCHEDULER] trace_id=${startupTraceId} Starting immediate startup workers...`);
   
   // MAINTENANCE_MODE: Only run critical workers on startup, skip heavy ones
   await selfHealingWrapper("timeout", runTimeoutWorker, startupTraceId);
+  console.log(`[SCHEDULER] trace_id=${startupTraceId} timeout worker done`);
   await selfHealingWrapper("supervisor", runSupervisorLoop, startupTraceId);
-  await selfHealingWrapper("runner", runRunnerWorker, startupTraceId);
+  console.log(`[SCHEDULER] trace_id=${startupTraceId} supervisor done`);
+  // Runner worker is long-running (rehydrates all bots), run in background to not block Fleet Risk Engine startup
+  selfHealingWrapper("runner", runRunnerWorker, startupTraceId).catch(e => console.error(`[SCHEDULER] trace_id=${startupTraceId} runner startup error:`, e));
+  console.log(`[SCHEDULER] trace_id=${startupTraceId} runner worker scheduled (background)`);
   
   if (!heavyWorkersPaused) {
+    console.log(`[SCHEDULER] trace_id=${startupTraceId} scheduling heavy workers (background)...`);
     // Run QC auto-trigger immediately on startup (with 30s delay to let other systems initialize)
     setTimeout(() => selfHealingWrapper("qc-auto-trigger", runQCAutoTriggerWorker, startupTraceId).catch(console.error), 30_000);
-    await selfHealingWrapper("backtest", runBacktestWorker, startupTraceId);
-    await selfHealingWrapper("evolution", runEvolutionWorker, startupTraceId);
-    await selfHealingWrapper("trend", runTrendConsistencyWorker, startupTraceId);
+    // Heavy workers run in background - don't block Fleet Risk Engine startup
+    selfHealingWrapper("backtest", runBacktestWorker, startupTraceId).catch(e => console.error(`[SCHEDULER] trace_id=${startupTraceId} backtest startup error:`, e));
+    selfHealingWrapper("evolution", runEvolutionWorker, startupTraceId).catch(e => console.error(`[SCHEDULER] trace_id=${startupTraceId} evolution startup error:`, e));
+    selfHealingWrapper("trend", runTrendConsistencyWorker, startupTraceId).catch(e => console.error(`[SCHEDULER] trace_id=${startupTraceId} trend startup error:`, e));
     // Delayed startup tasks
     setTimeout(() => selfHealingWrapper("calendar", runEconomicCalendarRefresh, startupTraceId), 5_000);
     setTimeout(() => selfHealingWrapper("autonomy", runAutonomyLoop, startupTraceId), 60_000);
+    console.log(`[SCHEDULER] trace_id=${startupTraceId} heavy workers scheduled (background)`);
   } else {
     console.log(`[SCHEDULER] MAINTENANCE_MODE: Skipped immediate startup runs for heavy workers`);
   }
   setTimeout(() => runBlownAccountStartupSweep().catch(console.error), 10_000);
+  console.log(`[SCHEDULER] trace_id=${startupTraceId} immediate startup configuration complete`);
   
+  console.log(`[SCHEDULER] Startup workers completed, continuing to periodic workers...`);
   // AUTONOMOUS: Run candidate reconciliation on startup and periodically
   // Detects and fixes stuck candidates in intermediate states
   setTimeout(async () => {
@@ -8394,6 +8408,16 @@ async function initializeWorkers(): Promise<void> {
     }
   }), RISK_ENFORCEMENT_INTERVAL_MS);
   console.log(`[SCHEDULER] Risk enforcement worker started (interval: ${RISK_ENFORCEMENT_INTERVAL_MS / 60_000}min)`);
+  
+  // AUTONOMOUS: Fleet Risk Engine - fleet-wide exposure limits, cross-bot netting, tiered kill-switch
+  // Runs independently with self-healing recovery
+  console.log(`[SCHEDULER] Starting Fleet Risk Engine...`);
+  try {
+    await startFleetRiskEngine();
+    console.log(`[SCHEDULER] Fleet Risk Engine started (autonomous mode)`);
+  } catch (fleetRiskError) {
+    console.error(`[SCHEDULER] Fleet Risk Engine failed to start:`, fleetRiskError);
+  }
   
   // AUTONOMOUS: Run SENT_TO_LAB promotion immediately on startup (5s delay for DB init)
   setTimeout(async () => {
