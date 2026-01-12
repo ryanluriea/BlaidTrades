@@ -644,6 +644,9 @@ export function StrategyLabView() {
   const [trialsMinWinRate, setTrialsMinWinRate] = useState(50);
   const [trialsMaxDrawdown, setTrialsMaxDrawdown] = useState(20);
   
+  // Research interval override (0=adaptive, 15/30/60 fixed minutes)
+  const [researchIntervalOverrideMinutes, setResearchIntervalOverrideMinutes] = useState(0);
+  
   // Collapsible settings state for each tab
   const [newTabSettingsOpen, setNewTabSettingsOpen] = useState(false);
   const [testingTabSettingsOpen, setTestingTabSettingsOpen] = useState(false);
@@ -731,7 +734,11 @@ export function StrategyLabView() {
     if (typeof autonomousState?.trialsMaxDrawdown === "number") {
       setTrialsMaxDrawdown(autonomousState.trialsMaxDrawdown);
     }
-  }, [autonomousState?.autoPromoteThreshold, autonomousState?.autoPromoteTier, autonomousState?.perplexityModel, autonomousState?.searchRecency, autonomousState?.customFocus, autonomousState?.costEfficiencyMode, autonomousState?.qcDailyLimit, autonomousState?.qcWeeklyLimit, autonomousState?.qcAutoTriggerEnabled, autonomousState?.qcAutoTriggerThreshold, autonomousState?.qcAutoTriggerTier, autonomousState?.fastTrackEnabled, autonomousState?.fastTrackMinTrades, autonomousState?.fastTrackMinSharpe, autonomousState?.fastTrackMinWinRate, autonomousState?.fastTrackMaxDrawdown, autonomousState?.trialsAutoPromoteEnabled, autonomousState?.trialsMinTrades, autonomousState?.trialsMinSharpe, autonomousState?.trialsMinWinRate, autonomousState?.trialsMaxDrawdown]);
+    // Sync Research interval override
+    if (typeof autonomousState?.researchIntervalOverrideMinutes === "number") {
+      setResearchIntervalOverrideMinutes(autonomousState.researchIntervalOverrideMinutes);
+    }
+  }, [autonomousState?.autoPromoteThreshold, autonomousState?.autoPromoteTier, autonomousState?.perplexityModel, autonomousState?.searchRecency, autonomousState?.customFocus, autonomousState?.costEfficiencyMode, autonomousState?.qcDailyLimit, autonomousState?.qcWeeklyLimit, autonomousState?.qcAutoTriggerEnabled, autonomousState?.qcAutoTriggerThreshold, autonomousState?.qcAutoTriggerTier, autonomousState?.fastTrackEnabled, autonomousState?.fastTrackMinTrades, autonomousState?.fastTrackMinSharpe, autonomousState?.fastTrackMinWinRate, autonomousState?.fastTrackMaxDrawdown, autonomousState?.trialsAutoPromoteEnabled, autonomousState?.trialsMinTrades, autonomousState?.trialsMinSharpe, autonomousState?.trialsMinWinRate, autonomousState?.trialsMaxDrawdown, autonomousState?.researchIntervalOverrideMinutes]);
 
   // Shared helper function for saving column dropdown settings with proper tracking
   const handleColumnSettingsSave = useCallback((updates: Record<string, unknown>) => {
@@ -743,6 +750,7 @@ export function StrategyLabView() {
       qcAutoTriggerThreshold, qcAutoTriggerTier,
       fastTrackEnabled, fastTrackMinTrades, fastTrackMinSharpe, fastTrackMinWinRate, fastTrackMaxDrawdown,
       trialsAutoPromoteEnabled, trialsMinTrades, trialsMinSharpe, trialsMinWinRate, trialsMaxDrawdown,
+      researchIntervalOverrideMinutes,
       ...updates,
     }, {
       onSettled: () => {
@@ -756,7 +764,7 @@ export function StrategyLabView() {
     customFocus, costEfficiencyMode, qcAutoTriggerEnabled, qcDailyLimit, qcWeeklyLimit,
     qcAutoTriggerThreshold, qcAutoTriggerTier, fastTrackEnabled, fastTrackMinTrades,
     fastTrackMinSharpe, fastTrackMinWinRate, fastTrackMaxDrawdown, trialsAutoPromoteEnabled,
-    trialsMinTrades, trialsMinSharpe, trialsMinWinRate, trialsMaxDrawdown
+    trialsMinTrades, trialsMinSharpe, trialsMinWinRate, trialsMaxDrawdown, researchIntervalOverrideMinutes
   ]);
   
   // Per-column IntersectionObserver for lazy loading
@@ -1381,6 +1389,45 @@ export function StrategyLabView() {
                         )}
                       </div>
                     </div>
+                  </div>
+                  <div className="pt-2 mt-2 border-t border-border/40">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-xs font-normal">Research Interval</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3 w-3 text-muted-foreground/60 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-[200px]">
+                            <span className="text-xs">Control how frequently the system searches for new strategies. Adaptive mode adjusts based on pipeline status and discovery rate.</span>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Select
+                        value={String(researchIntervalOverrideMinutes)}
+                        onValueChange={(val) => {
+                          const minutes = parseInt(val);
+                          setResearchIntervalOverrideMinutes(minutes);
+                          handleColumnSettingsSave({ researchIntervalOverrideMinutes: minutes });
+                        }}
+                        disabled={toggleState.isPending}
+                      >
+                        <SelectTrigger className="w-24 h-7 text-xs" data-testid="select-research-interval">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">Adaptive</SelectItem>
+                          <SelectItem value="15">15 min</SelectItem>
+                          <SelectItem value="30">30 min</SelectItem>
+                          <SelectItem value="60">60 min</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {researchIntervalOverrideMinutes === 0 && (
+                      <p className="text-[9px] text-muted-foreground/70 mt-1">
+                        Currently: {autonomousState?.adaptiveMode || "BALANCED"} ({Math.round((autonomousState?.adaptiveIntervalMs || 7200000) / 60000)}min)
+                      </p>
+                    )}
                   </div>
                 </div>
               </PopoverContent>

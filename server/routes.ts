@@ -14528,6 +14528,8 @@ export function registerRoutes(app: Express) {
             trialsMinSharpe: labs.trialsMinSharpe as number | undefined,
             trialsMinWinRate: labs.trialsMinWinRate as number | undefined,
             trialsMaxDrawdown: labs.trialsMaxDrawdown as number | undefined,
+            // Research interval override
+            researchIntervalOverrideMinutes: labs.researchIntervalOverrideMinutes as number | undefined,
           });
         }
       }
@@ -14553,7 +14555,7 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/strategy-lab/state", async (req: Request, res: Response) => {
     try {
-      const { isPlaying, pauseReason, depth, requireManualApproval, autoPromoteThreshold, autoPromoteTier, perplexityModel, searchRecency, customFocus, costEfficiencyMode, qcDailyLimit, qcWeeklyLimit, qcAutoTriggerEnabled, qcAutoTriggerThreshold, qcAutoTriggerTier, fastTrackEnabled, fastTrackMinTrades, fastTrackMinSharpe, fastTrackMinWinRate, fastTrackMaxDrawdown, trialsAutoPromoteEnabled, trialsMinTrades, trialsMinSharpe, trialsMinWinRate, trialsMaxDrawdown, user_id } = req.body;
+      const { isPlaying, pauseReason, depth, requireManualApproval, autoPromoteThreshold, autoPromoteTier, perplexityModel, searchRecency, customFocus, costEfficiencyMode, qcDailyLimit, qcWeeklyLimit, qcAutoTriggerEnabled, qcAutoTriggerThreshold, qcAutoTriggerTier, fastTrackEnabled, fastTrackMinTrades, fastTrackMinSharpe, fastTrackMinWinRate, fastTrackMaxDrawdown, trialsAutoPromoteEnabled, trialsMinTrades, trialsMinSharpe, trialsMinWinRate, trialsMaxDrawdown, researchIntervalOverrideMinutes, user_id } = req.body;
       const { setStrategyLabPlaying, setStrategyLabDepth, setStrategyLabManualApproval, setStrategyLabAutoPromoteSettings, setStrategyLabResearchSettings, setStrategyLabCostEfficiencyMode, setStrategyLabQCSettings, getStrategyLabState, getLastResearchCycleTime, runStrategyLabResearchCycle } = await import("./strategy-lab-engine");
       
       const wasPaused = !getStrategyLabState().isPlaying;
@@ -14659,6 +14661,13 @@ export function registerRoutes(app: Express) {
         console.log(`[STRATEGY_LAB] Trials auto-promote settings updated`);
       }
       
+      // Handle Research Interval Override (0=adaptive, 15/30/60 minutes)
+      if (typeof researchIntervalOverrideMinutes === "number") {
+        const { setStrategyLabResearchInterval } = await import("./strategy-lab-engine");
+        setStrategyLabResearchInterval(researchIntervalOverrideMinutes);
+        console.log(`[STRATEGY_LAB] Research interval updated: ${researchIntervalOverrideMinutes}min`);
+      }
+      
       const validDepths = ["CONTINUOUS_SCAN", "FOCUSED_BURST", "FRONTIER_RESEARCH"];
       if (depth !== undefined) {
         if (!validDepths.includes(depth)) {
@@ -14707,6 +14716,8 @@ export function registerRoutes(app: Express) {
             trialsMinSharpe: state.trialsMinSharpe,
             trialsMinWinRate: state.trialsMinWinRate,
             trialsMaxDrawdown: state.trialsMaxDrawdown,
+            // Research interval override
+            researchIntervalOverrideMinutes: state.researchIntervalOverrideMinutes,
           };
           await storage.upsertAppSettings(persistUserId, { labs: updatedLabs });
           console.log(`[STRATEGY_LAB] Settings persisted to database for user=${persistUserId}`);

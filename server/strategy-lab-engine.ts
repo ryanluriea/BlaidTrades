@@ -594,6 +594,11 @@ async function computeAdaptiveInterval(): Promise<AdaptiveState> {
 }
 
 async function getCurrentResearchIntervalMs(): Promise<number> {
+  // Check for user override first
+  if (strategyLabState.researchIntervalOverrideMinutes > 0) {
+    return strategyLabState.researchIntervalOverrideMinutes * 60 * 1000;
+  }
+  // Fall back to adaptive interval
   const state = await computeAdaptiveInterval();
   return state.currentIntervalMs;
 }
@@ -647,6 +652,8 @@ export interface StrategyLabState {
   trialsMinSharpe: number;
   trialsMinWinRate: number;
   trialsMaxDrawdown: number;
+  // Research interval override (0 = use adaptive, otherwise fixed interval in minutes)
+  researchIntervalOverrideMinutes: number;
 }
 
 interface ResearchCycleStats {
@@ -728,6 +735,8 @@ let strategyLabState: StrategyLabState = {
   trialsMinSharpe: 1.0,
   trialsMinWinRate: 50,
   trialsMaxDrawdown: 20,
+  // Research interval override (0 = use adaptive)
+  researchIntervalOverrideMinutes: 0,
 };
 
 // Sync cost efficiency mode to global for AI cascade
@@ -848,6 +857,20 @@ export function setStrategyLabQCSettings(settings: {
   return getStrategyLabState();
 }
 
+export function setStrategyLabResearchInterval(intervalMinutes: number): StrategyLabState {
+  // Valid values: 0 (adaptive), 15, 30, 60
+  const validIntervals = [0, 15, 30, 60];
+  if (validIntervals.includes(intervalMinutes)) {
+    strategyLabState.researchIntervalOverrideMinutes = intervalMinutes;
+    strategyLabState.lastStateChange = new Date();
+    const modeLabel = intervalMinutes === 0 ? "ADAPTIVE" : `FIXED_${intervalMinutes}m`;
+    console.log(`[STRATEGY_LAB] Research interval changed: mode=${modeLabel} override=${intervalMinutes}min`);
+  } else {
+    console.warn(`[STRATEGY_LAB] Invalid research interval: ${intervalMinutes}. Valid values: ${validIntervals.join(', ')}`);
+  }
+  return getStrategyLabState();
+}
+
 export function setStrategyLabFastTrackSettings(settings: {
   enabled?: boolean;
   minTrades?: number;
@@ -933,6 +956,8 @@ export interface StrategyLabSettingsInit {
   trialsMinSharpe?: number;
   trialsMinWinRate?: number;
   trialsMaxDrawdown?: number;
+  // Research interval override
+  researchIntervalOverrideMinutes?: number;
 }
 
 export function initializeStrategyLabFromSettings(settings: StrategyLabSettingsInit): void {
@@ -1028,6 +1053,12 @@ export function initializeStrategyLabFromSettings(settings: StrategyLabSettingsI
   }
   if (typeof settings.trialsMaxDrawdown === "number") {
     strategyLabState.trialsMaxDrawdown = Math.max(5, Math.min(50, settings.trialsMaxDrawdown));
+  }
+  
+  // Load Research interval override (0=adaptive, 15/30/60 fixed)
+  const validIntervals = [0, 15, 30, 60];
+  if (typeof settings.researchIntervalOverrideMinutes === "number" && validIntervals.includes(settings.researchIntervalOverrideMinutes)) {
+    strategyLabState.researchIntervalOverrideMinutes = settings.researchIntervalOverrideMinutes;
   }
   
   settingsInitialized = true;
