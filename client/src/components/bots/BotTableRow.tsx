@@ -131,10 +131,11 @@ function MetricGridBox({ label, value, colorClass, tooltip, onClick }: MetricGri
 // Inline QC Verification Checkmark - Social Media Style Badge
 interface InlineQCCheckmarkProps {
   state?: QCBadgeState;
+  qcScore?: number | null;
   onClick?: () => void;
 }
 
-function InlineQCCheckmark({ state, onClick }: InlineQCCheckmarkProps) {
+function InlineQCCheckmark({ state, qcScore, onClick }: InlineQCCheckmarkProps) {
   if (!state || state === "NONE") return null;
   
   const isPassed = state === "QC_PASSED" || state === "VERIFIED";
@@ -193,6 +194,11 @@ function InlineQCCheckmark({ state, onClick }: InlineQCCheckmarkProps) {
           isPending && "text-blue-400"
         )}>{tooltipTitle}</p>
         <p className="text-muted-foreground">{tooltipDesc}</p>
+        {qcScore != null && (
+          <p className="text-muted-foreground">
+            QC Score: <span className="font-mono font-medium">{(qcScore * 100).toFixed(1)}%</span>
+          </p>
+        )}
         {onClick && <p className="text-[9px] text-blue-400/80 italic mt-0.5">Click for details</p>}
       </TooltipContent>
     </Tooltip>
@@ -1033,6 +1039,7 @@ export function BotTableRow({
                   <span className="flex-shrink-0">
                     <InlineQCCheckmark
                       state={qcBadgeInfo.state as QCBadgeState}
+                      qcScore={qcBadgeInfo.qcScore}
                       onClick={() => setQcProofOpen(true)}
                     />
                   </span>

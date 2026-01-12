@@ -12,6 +12,7 @@ export interface QCVerification {
   snapshotHash: string;
   tierAtRun: string | null;
   confidenceAtRun: number | null;
+  qcScore: number | null;
   queuedAt: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -155,6 +156,7 @@ export interface QCBadgeInfo {
   queuedAt: string | null;
   startedAt: string | null;
   progressPct: number | null;
+  qcScore: number | null;
 }
 
 export function getCandidateQCBadgeState(
@@ -174,7 +176,8 @@ export function getCandidateQCBadgeInfo(
     maxAttempts: null,
     queuedAt: null,
     startedAt: null,
-    progressPct: null
+    progressPct: null,
+    qcScore: null
   };
   
   if (!verifications || verifications.length === 0) {
@@ -195,7 +198,8 @@ export function getCandidateQCBadgeInfo(
     maxAttempts: latest.maxAttempts,
     queuedAt: latest.queuedAt,
     startedAt: latest.startedAt,
-    progressPct: latest.progressPct
+    progressPct: latest.progressPct,
+    qcScore: latest.qcScore
   };
   
   if (latest.status === "QUEUED") return { state: "QUEUED", ...baseInfo };

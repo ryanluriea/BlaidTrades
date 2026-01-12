@@ -100,6 +100,7 @@ interface StrategyCandidateTableRowProps {
   qcQueuedAt?: string | null;
   qcStartedAt?: string | null;
   qcProgressPct?: number | null;
+  qcScore?: number | null;
   showQCStatus?: boolean;
   compact?: boolean;
   nameColorClass?: string;
@@ -291,10 +292,11 @@ function QCStatusPill({ state, elapsedTime, onClick }: QCStatusPillProps) {
 // Inline QC Verification Checkmark - Social Media Style Badge
 interface InlineQCCheckmarkProps {
   state?: QCBadgeState;
+  qcScore?: number | null;
   onClick?: (e: MouseEvent<HTMLDivElement>) => void;
 }
 
-function InlineQCCheckmark({ state, onClick }: InlineQCCheckmarkProps) {
+function InlineQCCheckmark({ state, qcScore, onClick }: InlineQCCheckmarkProps) {
   if (!state || state === "NONE") return null;
   
   const isPassed = state === "QC_PASSED" || state === "VERIFIED";
@@ -354,6 +356,11 @@ function InlineQCCheckmark({ state, onClick }: InlineQCCheckmarkProps) {
             isPending && "text-blue-400"
           )}>{tooltipTitle}</p>
           <p className="text-muted-foreground">{tooltipDesc}</p>
+          {qcScore != null && (
+            <p className="text-muted-foreground">
+              QC Score: <span className="font-mono font-medium">{(qcScore * 100).toFixed(1)}%</span>
+            </p>
+          )}
           {onClick && <p className="text-[9px] text-blue-400/80 italic mt-0.5">Click for details</p>}
         </TooltipContent>
       </Tooltip>
@@ -921,6 +928,7 @@ export function StrategyCandidateTableRow({
   qcQueuedAt,
   qcStartedAt,
   qcProgressPct,
+  qcScore,
   showQCStatus = false,
   compact = false,
   nameColorClass,
@@ -1090,7 +1098,8 @@ export function StrategyCandidateTableRow({
                 </TooltipProvider>
                 {/* QC Verification Badge - Social Media Style Checkmark */}
                 <InlineQCCheckmark 
-                  state={qcBadgeState} 
+                  state={qcBadgeState}
+                  qcScore={qcScore}
                   onClick={qcBadgeState && qcBadgeState !== "NONE" ? (e) => { e.stopPropagation(); setQcProofOpen(true); } : undefined}
                 />
                 {/* Favorite star toggle - always accessible via 3-dot menu, visible indicator when favorited */}

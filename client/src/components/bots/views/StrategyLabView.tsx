@@ -2016,6 +2016,7 @@ export function StrategyLabView() {
                             qcQueuedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
                             qcStartedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
                             qcProgressPct={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
+                            qcScore={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore : undefined}
                             showQCStatus={showQC}
                             onRunQCVerification={showQC && columnId !== "trials" ? handleRunQCVerification : undefined}
                             isRunningQC={showQC && columnId !== "trials" && runningQCCandidateId === candidate.id}
