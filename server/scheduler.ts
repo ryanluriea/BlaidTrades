@@ -4951,7 +4951,7 @@ async function runSelfHealingWorker(): Promise<void> {
         SET 
           status = 'RESOLVED',
           resolved_at = NOW(),
-          resolved_by = 'SELF_HEALING_AUTO'
+          updated_at = NOW()
         WHERE status = 'OPEN'
           AND created_at < NOW() - INTERVAL '24 hours'
         RETURNING id, title, category
@@ -4968,7 +4968,7 @@ async function runSelfHealingWorker(): Promise<void> {
         SET 
           status = 'RESOLVED',
           resolved_at = NOW(),
-          resolved_by = 'SELF_HEALING_AUTO'
+          updated_at = NOW()
         WHERE status = 'OPEN'
           AND category = 'BOT_DEGRADED'
           AND entity_type = 'BOT'
@@ -4995,7 +4995,7 @@ async function runSelfHealingWorker(): Promise<void> {
         SET 
           status = 'RESOLVED',
           resolved_at = NOW(),
-          resolved_by = 'SELF_HEALING_AUTO'
+          updated_at = NOW()
         WHERE status = 'OPEN'
           AND category = 'INTEGRATION_FAILURE'
           AND EXISTS (
@@ -5039,16 +5039,33 @@ async function runSelfHealingWorker(): Promise<void> {
     // Clean up old STOPPED instances and expired sessions to keep tables lean
     try {
       // Delete old STOPPED bot instances older than 7 days (keep recent for debugging)
-      const oldInstances = await db.execute(sql`
-        DELETE FROM bot_instances 
-        WHERE status = 'STOPPED'
-          AND stopped_at < NOW() - INTERVAL '7 days'
-        RETURNING id
-      `);
+      // Use batch delete with LIMIT to prevent FK check timeouts on large trade_logs table
+      let totalInstancesDeleted = 0;
+      const BATCH_SIZE = 50;
+      let batchCount = 0;
+      const MAX_BATCHES = 10;
       
-      const oldInstanceCount = oldInstances.rows.length;
-      if (oldInstanceCount > 0) {
-        console.log(`[SELF_HEALING] trace_id=${traceId} phase6 pruned ${oldInstanceCount} old STOPPED instances (>7 days)`);
+      while (batchCount < MAX_BATCHES) {
+        const batch = await db.execute(sql`
+          DELETE FROM bot_instances 
+          WHERE id IN (
+            SELECT id FROM bot_instances
+            WHERE status = 'STOPPED'
+              AND stopped_at < NOW() - INTERVAL '7 days'
+            LIMIT ${BATCH_SIZE}
+          )
+          RETURNING id
+        `);
+        
+        const deletedCount = batch.rows.length;
+        if (deletedCount === 0) break;
+        
+        totalInstancesDeleted += deletedCount;
+        batchCount++;
+      }
+      
+      if (totalInstancesDeleted > 0) {
+        console.log(`[SELF_HEALING] trace_id=${traceId} phase6 pruned ${totalInstancesDeleted} old STOPPED instances (>7 days)`);
       }
       
       // Clean up orphaned bot_jobs that are stuck in terminal states for >24 hours
@@ -5064,7 +5081,7 @@ async function runSelfHealingWorker(): Promise<void> {
         console.log(`[SELF_HEALING] trace_id=${traceId} phase6 pruned ${oldJobCount} old completed jobs (>7 days)`);
       }
       
-      console.log(`[SELF_HEALING] trace_id=${traceId} phase6_complete pruned_instances=${oldInstanceCount} pruned_jobs=${oldJobCount}`);
+      console.log(`[SELF_HEALING] trace_id=${traceId} phase6_complete pruned_instances=${totalInstancesDeleted} pruned_jobs=${oldJobCount}`);
     } catch (pruneError) {
       console.error(`[SELF_HEALING] trace_id=${traceId} prune_error=`, pruneError);
     }
