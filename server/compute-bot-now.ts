@@ -37,6 +37,36 @@ function buildUuidArrayRaw(ids: string[]): ReturnType<typeof sql.raw> {
   return sql.raw(validatedIds.map(id => `'${id}'`).join(", "));
 }
 
+/**
+ * PRODUCTION-SAFE: Batch size for UUID array queries
+ * Keeps SQL statement size under Neon PostgreSQL limits (~50 UUIDs = ~2KB query)
+ */
+const BATCH_SIZE = 50;
+
+/**
+ * Split an array into chunks for batched processing
+ */
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+/**
+ * Merge multiple Maps into one
+ */
+function mergeMaps<K, V>(...maps: Map<K, V>[]): Map<K, V> {
+  const result = new Map<K, V>();
+  for (const map of maps) {
+    for (const [key, value] of map) {
+      result.set(key, value);
+    }
+  }
+  return result;
+}
+
 // =============================================
 // CANONICAL BOT STATE (single state)
 // =============================================
@@ -448,6 +478,64 @@ async function getHistoryExistsPerBot(botIds: string[]): Promise<Map<string, His
   }
   
   return result;
+}
+
+// =============================================
+// BATCHED QUERY WRAPPERS (for large bot counts)
+// =============================================
+
+async function getLatestJobsPerBotBatched(botIds: string[]): Promise<Map<string, LatestJob>> {
+  if (botIds.length <= BATCH_SIZE) {
+    return getLatestJobsPerBot(botIds);
+  }
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getLatestJobsPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function getLatestInstancesPerBotBatched(botIds: string[]): Promise<Map<string, LatestInstance>> {
+  if (botIds.length <= BATCH_SIZE) {
+    return getLatestInstancesPerBot(botIds);
+  }
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getLatestInstancesPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function getLatestBacktestsPerBotBatched(botIds: string[]): Promise<Map<string, LatestBacktest>> {
+  if (botIds.length <= BATCH_SIZE) {
+    return getLatestBacktestsPerBot(botIds);
+  }
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getLatestBacktestsPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function getActiveJobCountsPerBotBatched(botIds: string[]): Promise<Map<string, JobCounts>> {
+  if (botIds.length <= BATCH_SIZE) {
+    return getActiveJobCountsPerBot(botIds);
+  }
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getActiveJobCountsPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function getHistoryExistsPerBotBatched(botIds: string[]): Promise<Map<string, HistoryExists>> {
+  if (botIds.length <= BATCH_SIZE) {
+    return getHistoryExistsPerBot(botIds);
+  }
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getHistoryExistsPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function getRecentlyCompletedJobsPerBotBatched(botIds: string[]): Promise<Map<string, RecentCompletedJob>> {
+  if (botIds.length <= BATCH_SIZE) {
+    return getRecentlyCompletedJobsPerBot(botIds);
+  }
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getRecentlyCompletedJobsPerBot(chunk)));
+  return mergeMaps(...results);
 }
 
 // =============================================
@@ -908,13 +996,14 @@ export async function computeBotsNow(botList: BotInput[], userId?: string): Prom
     }
   }
   
+  // Use batched queries to avoid Neon PostgreSQL statement size limits (239+ bots = ~10KB query)
   const [latestJobs, latestInstances, latestBacktests, activeJobCounts, historyExistsMap, recentCompletedJobs] = await Promise.all([
-    getLatestJobsPerBot(botIds),
-    getLatestInstancesPerBot(botIds),
-    getLatestBacktestsPerBot(botIds),
-    getActiveJobCountsPerBot(botIds),
-    getHistoryExistsPerBot(botIds),
-    getRecentlyCompletedJobsPerBot(botIds),  // Jobs completed within 2 min for badge persistence
+    getLatestJobsPerBotBatched(botIds),
+    getLatestInstancesPerBotBatched(botIds),
+    getLatestBacktestsPerBotBatched(botIds),
+    getActiveJobCountsPerBotBatched(botIds),
+    getHistoryExistsPerBotBatched(botIds),
+    getRecentlyCompletedJobsPerBotBatched(botIds),  // Jobs completed within 2 min for badge persistence
   ]);
   
   const result = new Map<string, BotNow>();
