@@ -62,6 +62,15 @@ function isValidUuid(str: string): boolean {
 }
 
 /**
+ * PRODUCTION-SAFE: Build a parameterized UUID array for PostgreSQL ANY() queries
+ * Uses ARRAY[...] syntax that works with Neon PostgreSQL (avoids parameter limit issues)
+ * Pattern: WHERE column = ANY(ARRAY[${buildUuidArray(ids)}]::uuid[])
+ */
+function buildUuidArray(ids: string[]) {
+  return sql.join(ids.map(id => sql`${id}`), sql`, `);
+}
+
+/**
  * Execute async operations in batches to prevent database pool exhaustion
  * INSTITUTIONAL: Max 4 concurrent DB operations per batch
  */
@@ -4679,9 +4688,8 @@ export function registerRoutes(app: Express) {
       const phase3Start = Date.now();
       let flatInstances: any[] = [];
       if (botIds.length > 0) {
-        const instanceBotIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
         const instanceResults = await db.execute(sql`
-          SELECT * FROM bot_instances WHERE bot_id IN (${instanceBotIdParams})
+          SELECT * FROM bot_instances WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
         `);
         flatInstances = instanceResults.rows as any[];
       }
@@ -4715,13 +4723,11 @@ export function registerRoutes(app: Express) {
       const trendDataMap = new Map<string, { trend: string | null; peakGeneration: number | null; declineFromPeakPct: number | null }>();
       if (botIds.length > 0) {
         try {
-          // Use sql.join for proper parameterized IN clause (same pattern as matrix aggregates)
-          const trendBotIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
           const latestTrendData = await db.execute(sql`
             SELECT DISTINCT ON (bot_id) 
               bot_id, trend_direction, peak_generation, decline_from_peak_pct
             FROM generation_metrics_history
-            WHERE bot_id IN (${trendBotIdParams})
+            WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
             ORDER BY bot_id, created_at DESC NULLS LAST, id DESC
           `);
           
@@ -4772,8 +4778,6 @@ export function registerRoutes(app: Express) {
       const matrixAggregates = new Map<string, any>();
       if (botIds.length > 0) {
         try {
-          // Use sql.join for proper parameterized IN clause
-          const botIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
           // Query calculates aggregates from matrix_cells when matrix_runs fields are NULL
           // CRITICAL: LAB stage bots filter by current_generation_id to prevent stale data leakage
           const matrixResults = await db.execute(sql`
@@ -4782,7 +4786,7 @@ export function registerRoutes(app: Express) {
                 mr.id, mr.bot_id, mr.status, mr.completed_at, mr.total_cells, mr.completed_cells
               FROM matrix_runs mr
               INNER JOIN bots b ON b.id = mr.bot_id
-              WHERE mr.bot_id IN (${botIdParams})
+              WHERE mr.bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
                 AND mr.status = 'COMPLETED'
                 -- INSTITUTIONAL: TRIALS stage must filter by current generation to prevent cumulative data display
                 -- PAPER+ stages show latest completed run regardless of generation (cumulative view)
@@ -4892,7 +4896,6 @@ export function registerRoutes(app: Express) {
       }>();
       if (botIds.length > 0) {
         try {
-          const mxBotIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
           // Get latest matrix run with current running cell's timeframe
           const mxResults = await db.execute(sql`
             SELECT DISTINCT ON (mr.bot_id) 
@@ -4910,7 +4913,7 @@ export function registerRoutes(app: Express) {
               ) as progress,
               mr.current_timeframe
             FROM matrix_runs mr
-            WHERE mr.bot_id IN (${mxBotIdParams})
+            WHERE mr.bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
             ORDER BY mr.bot_id, mr.created_at DESC NULLS LAST, mr.id DESC
           `);
           for (const row of mxResults.rows as any[]) {
@@ -4932,11 +4935,10 @@ export function registerRoutes(app: Express) {
       const alertCounts = new Map<string, number>();
       if (botIds.length > 0) {
         try {
-          const alertBotIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
           const alertResults = await db.execute(sql`
             SELECT entity_id as bot_id, COUNT(*) as count
             FROM alerts
-            WHERE entity_id IN (${alertBotIdParams})
+            WHERE entity_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
               AND entity_type = 'BOT'
               AND status = 'OPEN'
             GROUP BY entity_id
@@ -4960,7 +4962,6 @@ export function registerRoutes(app: Express) {
       }>();
       if (botIds.length > 0) {
         try {
-          const costBotIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
           const costResults = await db.execute(sql`
             WITH cost_summary AS (
               SELECT 
@@ -4970,7 +4971,7 @@ export function registerRoutes(app: Express) {
                 SUM(output_tokens) as total_output_tokens,
                 COUNT(*) as event_count
               FROM bot_cost_events
-              WHERE bot_id IN (${costBotIdParams})
+              WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
                 AND category = 'llm'
               GROUP BY bot_id
             ),
@@ -4980,7 +4981,7 @@ export function registerRoutes(app: Express) {
                 provider as last_provider,
                 (metadata->>'model')::text as last_model
               FROM bot_cost_events
-              WHERE bot_id IN (${costBotIdParams})
+              WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
                 AND category = 'llm'
               ORDER BY bot_id, created_at DESC
             )
@@ -5014,11 +5015,10 @@ export function registerRoutes(app: Express) {
       const latestGenerationMap = new Map<string, number>();
       if (botIds.length > 0) {
         try {
-          const genBotIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
           const genResults = await db.execute(sql`
             SELECT bot_id, MAX(generation_number) as latest_gen
             FROM bot_generations
-            WHERE bot_id IN (${genBotIdParams})
+            WHERE bot_id = ANY(ARRAY[${buildUuidArray(botIds)}]::uuid[])
             GROUP BY bot_id
           `);
           for (const row of genResults.rows as any[]) {
