@@ -8249,10 +8249,30 @@ async function initializeWorkers(): Promise<void> {
   grokResearchInterval = setInterval(createSelfHealingWorker("grok-research", runGrokResearchWorker), GROK_RESEARCH_CHECK_INTERVAL_MS);
   
   // AUTONOMOUS: Auto-enable Grok research on startup if XAI_API_KEY is configured
-  // This ensures the Grok contrarian research system starts automatically without manual intervention
-  if (!grokResearchEnabled && process.env.XAI_API_KEY) {
+  // AND Strategy Lab is not paused (Grok Research follows Strategy Lab pause state)
+  // Note: We check the persisted Strategy Lab state from app_settings.labs to avoid circular dependency
+  let strategyLabActive = true; // Default to active if not found
+  try {
+    const labSettingsResult = await db.execute(sql`
+      SELECT labs FROM app_settings 
+      WHERE labs IS NOT NULL AND labs != '{}'::jsonb
+      LIMIT 1
+    `);
+    if (labSettingsResult.rows.length > 0) {
+      const labs = (labSettingsResult.rows[0] as { labs: Record<string, any> }).labs;
+      // Strategy Lab is active unless explicitly paused (isPlaying === false)
+      strategyLabActive = labs?.isPlaying !== false;
+    }
+  } catch (err) {
+    console.log(`[SCHEDULER] Could not check Strategy Lab state, defaulting to active`);
+  }
+  
+  if (!grokResearchEnabled && process.env.XAI_API_KEY && strategyLabActive) {
     grokResearchEnabled = true;
-    console.log(`[SCHEDULER] AUTO-ENABLED Grok research: XAI_API_KEY detected`);
+    console.log(`[SCHEDULER] AUTO-ENABLED Grok research: XAI_API_KEY detected, Strategy Lab active`);
+  } else if (process.env.XAI_API_KEY && !strategyLabActive) {
+    grokResearchEnabled = false;
+    console.log(`[SCHEDULER] Grok research DISABLED: Strategy Lab is paused`);
   }
   console.log(`[SCHEDULER] Grok research worker started (check interval: ${GROK_RESEARCH_CHECK_INTERVAL_MS / 60000}min, enabled=${grokResearchEnabled})`);
   

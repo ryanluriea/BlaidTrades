@@ -14789,6 +14789,36 @@ export function registerRoutes(app: Express) {
       if (typeof isPlaying === "boolean") {
         setStrategyLabPlaying(isPlaying, pauseReason);
         
+        // SYNC: Grok Research follows Strategy Lab pause state
+        const { setGrokResearchEnabled, getGrokResearchState } = await import("./scheduler");
+        if (!isPlaying) {
+          // Pausing Strategy Lab also pauses Grok Research
+          setGrokResearchEnabled(false);
+          console.log(`[STRATEGY_LAB] Grok Research auto-paused (Strategy Lab paused)`);
+        } else if (isPlaying && wasPaused && process.env.XAI_API_KEY) {
+          // Resuming Strategy Lab - only resume Grok Research if it was previously enabled
+          // First check persisted grok_enabled setting, then fall back to in-memory state
+          const grokSettingResult = await db.execute(sql`
+            SELECT value FROM system_settings WHERE key = 'grok_enabled' LIMIT 1
+          `);
+          let grokWasEnabled: boolean;
+          if (grokSettingResult.rows.length > 0) {
+            // Persisted setting exists - use it
+            grokWasEnabled = grokSettingResult.rows[0].value === true;
+          } else {
+            // No persisted setting - check if Grok was running before pause (in-memory fallback)
+            // On fresh systems without explicit toggle, default to enabled for autonomous operation
+            grokWasEnabled = true;
+            console.log(`[STRATEGY_LAB] No persisted grok_enabled setting, defaulting to enabled for autonomous operation`);
+          }
+          if (grokWasEnabled) {
+            setGrokResearchEnabled(true);
+            console.log(`[STRATEGY_LAB] Grok Research auto-resumed (Strategy Lab resumed, was previously enabled)`);
+          } else {
+            console.log(`[STRATEGY_LAB] Grok Research stays disabled (was explicitly disabled by user)`);
+          }
+        }
+        
         if (isPlaying && wasPaused) {
           console.log(`[STRATEGY_LAB] Resuming from pause - triggering immediate research cycle`);
           runStrategyLabResearchCycle(true).then(result => {
