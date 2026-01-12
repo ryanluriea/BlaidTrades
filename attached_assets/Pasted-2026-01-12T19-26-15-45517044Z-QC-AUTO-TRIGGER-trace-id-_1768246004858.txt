@@ -1,0 +1,50 @@
+2026-01-12T19:26:15.45517044Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=ddc4d0f1 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-12T19:26:15.456974248Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=7fcaa1c0 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-12T19:26:15.458824066Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=87ee9f95 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-12T19:26:15.460814336Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=d11f0b89 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-12T19:26:15.462663704Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=9520f884 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-12T19:26:15.465028257Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=2b79e344 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-12T19:26:15.466925996Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=cdb1af5c reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-12T19:26:15.468800294Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=e98191c6 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-12T19:26:15.470759203Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=b755c42e reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-12T19:26:15.472901324Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=70abf30c reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-12T19:26:15.474915454Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=b90441de reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-12T19:26:15.476889714Z [QC_AUTO_TRIGGER] trace_id=e036a37b SNAPSHOT_COOLDOWN candidate=38bd5d5c reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-19"
+2026-01-12T19:26:15.643414909Z [SCHEDULER] trace_id=493c3c18 Running FOLLOWUP integration verification (30s)...
+2026-01-12T19:26:15.64345371Z [INTEGRATION_VERIFY] trace_id=integ-verify-3f6e39a9 Starting autonomous integration verification...
+2026-01-12T19:26:16.923487083Z [INTEGRATION_USAGE] trace_id=6c9ee675-641c-4e89-a21d-7f2fdb939b05 provider=databento operation=verify status=OK latency_ms=1278
+2026-01-12T19:26:16.96906752Z [INTEGRATION_USAGE] trace_id=23a5a836-7b91-4df8-921e-134d1d3610f7 provider=polygon operation=verify status=OK latency_ms=43
+2026-01-12T19:26:16.969166741Z [QC_AUTH_TEST] trace_id=180d9289 Testing authentication...
+2026-01-12T19:26:16.969171971Z [QC_AUTH_TEST] trace_id=180d9289 user_id=437724 token_length=64 timestamp=1768245976
+2026-01-12T19:26:16.969174971Z [QC_AUTH_TEST] trace_id=180d9289 hash=7327b24e89d2ed4a688acedfe3c4953c13dddb7e46b3011bcd492ce0a26ab937
+2026-01-12T19:26:17.413138972Z [QC_AUTH_TEST] trace_id=180d9289 status=200 success=true errors=[]
+2026-01-12T19:26:17.414900299Z [INTEGRATION_USAGE] trace_id=4c7d8bb1-4527-4675-ba0f-3b111714f64f provider=quantconnect operation=verify status=OK latency_ms=445
+2026-01-12T19:26:17.416436355Z [INTEGRATION_USAGE] trace_id=82ced036-fe05-48f5-9a6c-70d711da3e4d provider=ironbeam operation=verify status=OK latency_ms=0
+2026-01-12T19:26:17.418116411Z [INTEGRATION_USAGE] trace_id=87703030-2297-43b3-a022-524dd26732f5 provider=ironbeam_2 operation=verify status=OK latency_ms=0
+2026-01-12T19:26:17.419784207Z [INTEGRATION_USAGE] trace_id=4a38751f-1170-42da-a9c9-94befc9ddaf7 provider=ironbeam_3 operation=verify status=OK latency_ms=0
+2026-01-12T19:26:17.421409143Z [INTEGRATION_USAGE] trace_id=a5053f01-572c-4839-ae09-a9d27800c7d5 provider=tradovate operation=verify status=OK latency_ms=0
+2026-01-12T19:26:17.451892513Z [INTEGRATION_USAGE] trace_id=f9abd97a-830d-462c-b803-74ef08640b1b provider=redis operation=verify status=OK latency_ms=28
+2026-01-12T19:26:17.563904783Z [INTEGRATION_USAGE] trace_id=707adf33-a6be-4718-9b1d-ad14545d576e provider=redis_queue operation=verify status=OK latency_ms=107
+2026-01-12T19:26:17.900175066Z [LIVE_DATA_SERVICE] Quote tick symbol=ES last=7017.25 bid=7017.25 ask=7017.5 mid=7017.38 quotes_total=911
+2026-01-12T19:26:18.110694724Z [INTEGRATION_USAGE] trace_id=9b84a1f4-dcaf-4efe-ab0b-a02a4329be38 provider=openai operation=verify status=OK latency_ms=545
+2026-01-12T19:26:18.112362781Z [INTEGRATION_USAGE] trace_id=35715297-a359-4a27-a539-f8af0bfc30a1 provider=anthropic operation=verify status=OK latency_ms=0
+2026-01-12T19:26:18.172269979Z [INTEGRATION_USAGE] trace_id=ae78da2b-4c09-4c2f-b85e-3f9658b94421 provider=gemini operation=verify status=OK latency_ms=58
+2026-01-12T19:26:18.281537122Z [INTEGRATION_USAGE] trace_id=6da73f74-e686-4e37-b3f0-f1c79c3a4b77 provider=groq operation=verify status=OK latency_ms=107
+2026-01-12T19:26:18.34754946Z [INTEGRATION_USAGE] trace_id=39a43592-9abb-4fc3-8686-6888ba51100c provider=xai operation=verify status=OK latency_ms=64
+2026-01-12T19:26:19.919205289Z [INTEGRATION_USAGE] trace_id=53ec6875-6c5f-48e7-81c7-7b477b170df5 provider=perplexity operation=verify status=OK latency_ms=1569
+2026-01-12T19:26:20.044772372Z [INTEGRATION_USAGE] trace_id=b278b7d9-f564-45ae-aa22-be6425d801f6 provider=openrouter operation=verify status=OK latency_ms=123
+2026-01-12T19:26:20.096534771Z [INTEGRATION_USAGE] trace_id=8f261e6f-4267-4c81-97d6-46747fabb765 provider=finnhub operation=verify status=OK latency_ms=50
+2026-01-12T19:26:20.169050923Z [INTEGRATION_USAGE] trace_id=29ca7b6f-068a-4afe-a371-5eaa4ed25175 provider=alphavantage operation=verify status=OK latency_ms=70
+2026-01-12T19:26:20.344135213Z [INTEGRATION_USAGE] trace_id=c037aa9c-2011-4729-ad19-bf15690c2898 provider=fmp operation=verify status=OK latency_ms=173
+2026-01-12T19:26:20.446255356Z [INTEGRATION_USAGE] trace_id=84ddc7fa-7207-45d7-b080-d1c78fac8a09 provider=fred operation=verify status=OK latency_ms=100
+2026-01-12T19:26:20.530780106Z [INTEGRATION_USAGE] trace_id=ad61f0d7-fd3c-4cda-a021-bc67e6c06b5c provider=unusual_whales operation=verify status=OK latency_ms=82
+2026-01-12T19:26:20.593340021Z [INTEGRATION_USAGE] trace_id=e8cefe7b-e700-4d7c-8a09-455805a2c511 provider=news_api operation=verify status=ERROR latency_ms=61
+2026-01-12T19:26:20.593378991Z [INTEGRATION_VERIFY] trace_id=integ-verify-3f6e39a9 provider=news_api FAILED: HTTP 429
+2026-01-12T19:26:20.666230287Z [INTEGRATION_USAGE] trace_id=d8ad5aae-80c2-4d08-8266-fe619207c2ef provider=marketaux operation=verify status=OK latency_ms=70
+2026-01-12T19:26:20.668133575Z [INTEGRATION_USAGE] trace_id=04e2005c-4850-4a9c-bbbf-750921270bf0 provider=discord operation=verify status=ERROR latency_ms=0
+2026-01-12T19:26:20.668156656Z [INTEGRATION_VERIFY] trace_id=integ-verify-3f6e39a9 Complete: 22 OK, 2 FAILED
+2026-01-12T19:26:20.668163146Z [INTEGRATION_VERIFY] trace_id=integ-verify-3f6e39a9 provider=discord FAILED: DISCORD_WEBHOOK_URL not set
+2026-01-12T19:26:20.670227536Z [ACTIVITY_EVENT] type=INTEGRATION_VERIFIED severity=WARN title="Integration verification: 2 issues detected" trace_id=integ-verify-3f6e39a9
+2026-01-12T19:26:25.203784181Z [BACKTEST_WORKER] trace_id=a9c25179-0270-42a5-8559-3405724a1ee0 circuit_breaker_open skipping
+2026-01-12T19:26:30.308923705Z [QC_THRESHOLD_RECOVERY] trace_id=02e4d150 Scanning for DIVERGENT verifications eligible for re-run...
+2026-01-12T19:26:30.311994375Z [QC_THRESHOLD_RECOVERY] trace_id=02e4d150 No DIVERGENT verifications eligible for threshold re-run
