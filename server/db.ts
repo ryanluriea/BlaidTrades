@@ -678,6 +678,10 @@ export async function ensureTickTablesExist(): Promise<void> {
  * than the logged-in user.
  */
 export async function ensureCanonicalUserConsolidation(): Promise<void> {
+  // CRITICAL: Log immediately at function entry to confirm code execution on Render
+  console.log(`[USER_CONSOLIDATION] ========== FUNCTION ENTRY ==========`);
+  console.log(`[USER_CONSOLIDATION] Timestamp: ${new Date().toISOString()}`);
+  
   const CANONICAL_EMAIL = 'blaidtrades@gmail.com';
   
   console.log(`[USER_CONSOLIDATION] Starting canonical user consolidation for ${CANONICAL_EMAIL}...`);
