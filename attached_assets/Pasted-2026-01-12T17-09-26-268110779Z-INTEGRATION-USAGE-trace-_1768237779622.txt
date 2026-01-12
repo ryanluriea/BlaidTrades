@@ -1,0 +1,50 @@
+2026-01-12T17:09:26.268110779Z [INTEGRATION_USAGE] trace_id=ff0d0f85-b63a-4bc7-83ec-25c229458555 provider=polygon operation=verify status=OK latency_ms=99
+2026-01-12T17:09:26.268215453Z [QC_AUTH_TEST] trace_id=205da553 Testing authentication...
+2026-01-12T17:09:26.268247183Z [QC_AUTH_TEST] trace_id=205da553 user_id=437724 token_length=64 timestamp=1768237766
+2026-01-12T17:09:26.268275294Z [QC_AUTH_TEST] trace_id=205da553 hash=461f50d6fc21a677af4e516c7d98ed8576ae8d9df7173f8ce757b8ed868db957
+2026-01-12T17:09:26.304957799Z [QC_AUTH_TEST] trace_id=205da553 status=200 success=true errors=[]
+2026-01-12T17:09:26.322972072Z [INTEGRATION_USAGE] trace_id=fc327949-af5a-40a0-b4cc-50d5cbdecf22 provider=quantconnect operation=verify status=OK latency_ms=36
+2026-01-12T17:09:26.362479682Z [INTEGRATION_USAGE] trace_id=f725115d-00df-481a-92f6-12bede9024ef provider=ironbeam operation=verify status=OK latency_ms=0
+2026-01-12T17:09:26.388808165Z [INTEGRATION_USAGE] trace_id=8010d1c8-96ac-417c-b31e-2c68b948fb11 provider=ironbeam_2 operation=verify status=OK latency_ms=0
+2026-01-12T17:09:26.420122479Z [INTEGRATION_USAGE] trace_id=53e3c38f-1371-4793-8a45-e8453337372f provider=ironbeam_3 operation=verify status=OK latency_ms=0
+2026-01-12T17:09:26.439110651Z [INTEGRATION_USAGE] trace_id=02b4d7cc-55ba-4be8-8253-62f0de24845e provider=tradovate operation=verify status=OK latency_ms=0
+2026-01-12T17:09:26.546149375Z [INTEGRATION_USAGE] trace_id=ecacc294-4915-46ed-818e-c60e4ce51edd provider=redis operation=verify status=OK latency_ms=79
+2026-01-12T17:09:26.661037346Z [INTEGRATION_USAGE] trace_id=acc7696b-c0b5-4491-bb09-485b95f7a1d6 provider=redis_queue operation=verify status=OK latency_ms=97
+2026-01-12T17:09:27.045763037Z [INTEGRATION_USAGE] trace_id=b977470f-e258-4f1b-9d12-06d2b42fc5b1 provider=perplexity operation=verify status=OK latency_ms=1117
+2026-01-12T17:09:27.046976203Z [INTEGRATION_USAGE] trace_id=24879c71-db68-44e6-beff-47d50f8c331e provider=openai operation=verify status=OK latency_ms=367
+2026-01-12T17:09:27.064856872Z [INTEGRATION_USAGE] trace_id=114f3394-2291-4621-8724-ba8f7917b73f provider=anthropic operation=verify status=OK latency_ms=0
+2026-01-12T17:09:27.168311088Z [INTEGRATION_USAGE] trace_id=d8c3e9e3-fbb3-4508-b462-6fe92611526b provider=gemini operation=verify status=OK latency_ms=73
+2026-01-12T17:09:27.21482696Z [INTEGRATION_USAGE] trace_id=46f9e60f-9c86-428f-bb24-075a5b079848 provider=openrouter operation=verify status=OK latency_ms=152
+2026-01-12T17:09:27.313159892Z [NOVELTY_BACKFILL] Complete: 283 updated, 0 errors
+2026-01-12T17:09:27.313332747Z 5:09:27 PM [express] [STARTUP] Novelty scores backfilled: 283 updated, 0 errors
+2026-01-12T17:09:27.316815402Z [CANDIDATE_MIGRATION] trace_id=6d6c0141 no qualifying PENDING_REVIEW candidates found
+2026-01-12T17:09:27.322594546Z [INTEGRATION_USAGE] trace_id=d9167ded-564a-4a91-911c-e64070bd28b2 provider=groq operation=verify status=OK latency_ms=151
+2026-01-12T17:09:27.3529269Z [INTEGRATION_USAGE] trace_id=ea6c093c-63a3-49c8-904a-ddced5a06ab5 provider=finnhub operation=verify status=OK latency_ms=136
+2026-01-12T17:09:27.357287981Z [INTEGRATION_USAGE] trace_id=26ee0277-29ea-4eb8-942d-177d8118c309 provider=xai operation=verify status=OK latency_ms=33
+2026-01-12T17:09:27.442301443Z [INTEGRATION_USAGE] trace_id=82d49667-8436-4c63-a2a2-be0c3ceb8621 provider=alphavantage operation=verify status=OK latency_ms=88
+2026-01-12T17:09:27.458868731Z [INTEGRATION_USAGE] trace_id=793435fa-3f63-4260-aec5-bae269128c65 provider=fmp operation=verify status=OK latency_ms=14
+2026-01-12T17:09:27.938914273Z [INTEGRATION_USAGE] trace_id=cb002834-a8f4-4003-8901-4807a4670262 provider=fred operation=verify status=OK latency_ms=478
+2026-01-12T17:09:28.040530794Z [INTEGRATION_USAGE] trace_id=795c1217-5e48-4bdf-ab02-2b1675b273b9 provider=unusual_whales operation=verify status=OK latency_ms=100
+2026-01-12T17:09:28.109454161Z [INTEGRATION_USAGE] trace_id=e9bd4c39-344a-44c5-960e-88a3c96b7a57 provider=news_api operation=verify status=ERROR latency_ms=67
+2026-01-12T17:09:28.109472411Z [INTEGRATION_VERIFY] trace_id=integ-verify-d6179d4f provider=news_api FAILED: HTTP 429
+2026-01-12T17:09:28.137379832Z [SCHEDULER] trace_id=backfill-1ba487cd Running generation backfill on startup...
+2026-01-12T17:09:28.139705572Z [BACKFILL_GENERATIONS] trace_id=backfill-1ba487cd No bots need generation backfill
+2026-01-12T17:09:28.287963159Z [INTEGRATION_USAGE] trace_id=e5642450-3700-4d17-ab24-85e9d948a8aa provider=marketaux operation=verify status=OK latency_ms=176
+2026-01-12T17:09:28.290076522Z [INTEGRATION_USAGE] trace_id=a2333305-56d7-4cbf-a994-48a67bd2489b provider=discord operation=verify status=ERROR latency_ms=1
+2026-01-12T17:09:28.290079422Z [INTEGRATION_VERIFY] trace_id=integ-verify-d6179d4f provider=discord FAILED: DISCORD_WEBHOOK_URL not set
+2026-01-12T17:09:28.290101613Z [INTEGRATION_VERIFY] trace_id=integ-verify-d6179d4f Complete: 22 OK, 2 FAILED
+2026-01-12T17:09:28.293066962Z [ACTIVITY_EVENT] type=INTEGRATION_VERIFIED severity=WARN title="Integration verification: 2 issues detected" trace_id=integ-verify-d6179d4f
+2026-01-12T17:09:28.526248177Z [INTEGRATION_USAGE] trace_id=a1ea1c1d-c5db-4899-a59a-37b5ed41ff71 provider=perplexity operation=verify status=OK latency_ms=1167
+2026-01-12T17:09:28.58312238Z [INTEGRATION_USAGE] trace_id=45a3246a-e7c0-4f9c-a109-0ce9e88668a9 provider=openrouter operation=verify status=OK latency_ms=54
+2026-01-12T17:09:28.631772636Z [INTEGRATION_USAGE] trace_id=5e95af67-4b38-4ec7-a8f2-7b5cce28dfd5 provider=finnhub operation=verify status=OK latency_ms=46
+2026-01-12T17:09:28.67206733Z [INTEGRATION_USAGE] trace_id=895fce3f-4167-4ad7-bfec-eff46c5e8be5 provider=alphavantage operation=verify status=OK latency_ms=38
+2026-01-12T17:09:28.685753532Z [INTEGRATION_USAGE] trace_id=3186e31b-2214-4906-98b1-39e323f9ef28 provider=fmp operation=verify status=OK latency_ms=12
+2026-01-12T17:09:28.736509111Z [INTEGRATION_USAGE] trace_id=1e4bf42f-358f-43f2-8ebf-a67e37b68a68 provider=fred operation=verify status=OK latency_ms=49
+2026-01-12T17:09:28.793949972Z [INTEGRATION_USAGE] trace_id=b879aeed-003e-4419-aa70-b70345d9ae8c provider=unusual_whales operation=verify status=OK latency_ms=55
+2026-01-12T17:09:28.829688568Z [INTEGRATION_USAGE] trace_id=fed0478a-e252-40e8-9b87-80c9858a3ddf provider=news_api operation=verify status=ERROR latency_ms=33
+2026-01-12T17:09:28.829689658Z [INTEGRATION_VERIFY] trace_id=integ-verify-42a9e48f provider=news_api FAILED: HTTP 429
+2026-01-12T17:09:28.882895901Z [INTEGRATION_USAGE] trace_id=58bc7063-896d-45f2-8bb1-b80e854813c2 provider=marketaux operation=verify status=OK latency_ms=51
+2026-01-12T17:09:28.885048406Z [INTEGRATION_USAGE] trace_id=e8035166-619e-42d4-9712-8203f065b43f provider=discord operation=verify status=ERROR latency_ms=0
+2026-01-12T17:09:28.885067537Z [INTEGRATION_VERIFY] trace_id=integ-verify-42a9e48f Complete: 22 OK, 2 FAILED
+2026-01-12T17:09:28.885089217Z [INTEGRATION_VERIFY] trace_id=integ-verify-42a9e48f provider=discord FAILED: DISCORD_WEBHOOK_URL not set
+2026-01-12T17:09:28.887195481Z [ACTIVITY_EVENT] type=INTEGRATION_VERIFIED severity=WARN title="Integration verification: 2 issues detected" trace_id=integ-verify-42a9e48f

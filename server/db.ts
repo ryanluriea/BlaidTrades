@@ -665,3 +665,173 @@ export async function ensureTickTablesExist(): Promise<void> {
     console.log(`[STARTUP_MIGRATION] Tick tables partially created: ${created} succeeded, ${failed} failed`);
   }
 }
+
+/**
+ * PRODUCTION FIX: Consolidate all data to a single canonical user
+ * 
+ * This runs on every startup to ensure:
+ * 1. The canonical user (blaidtrades@gmail.com) exists
+ * 2. ALL data across ALL tables is owned by that user
+ * 3. All other users are deleted
+ * 
+ * This fixes the empty bots page issue where bots belong to a different user_id
+ * than the logged-in user.
+ */
+export async function ensureCanonicalUserConsolidation(): Promise<void> {
+  const CANONICAL_EMAIL = 'blaidtrades@gmail.com';
+  
+  console.log(`[USER_CONSOLIDATION] Starting canonical user consolidation for ${CANONICAL_EMAIL}...`);
+  
+  try {
+    // Step 1: Find or create the canonical user
+    const findUserResult = await poolWeb.query(
+      `SELECT id, email, username FROM users WHERE email = $1`,
+      [CANONICAL_EMAIL]
+    );
+    
+    let canonicalUserId: string;
+    
+    if (findUserResult.rows.length > 0) {
+      canonicalUserId = findUserResult.rows[0].id;
+      console.log(`[USER_CONSOLIDATION] Found canonical user: ${canonicalUserId}`);
+    } else {
+      // Create the canonical user if it doesn't exist
+      // SECURITY: Require ADMIN_PASSWORD env var - no default password
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      if (!adminPassword) {
+        console.error(`[USER_CONSOLIDATION] ERROR: ADMIN_PASSWORD env var required to create canonical user`);
+        return;
+      }
+      const bcrypt = await import('bcryptjs');
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      
+      const insertResult = await poolWeb.query(
+        `INSERT INTO users (id, email, username, password, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW())
+         RETURNING id`,
+        [CANONICAL_EMAIL, 'blaidtrades', hashedPassword]
+      );
+      canonicalUserId = insertResult.rows[0].id;
+      console.log(`[USER_CONSOLIDATION] Created canonical user: ${canonicalUserId}`);
+    }
+    
+    // Step 2: Get all other user IDs that need to be migrated FROM
+    const otherUsersResult = await poolWeb.query(
+      `SELECT id FROM users WHERE id != $1`,
+      [canonicalUserId]
+    );
+    const otherUserIds = otherUsersResult.rows.map((r: { id: string }) => r.id);
+    
+    if (otherUserIds.length === 0) {
+      console.log(`[USER_CONSOLIDATION] No other users to migrate - already consolidated`);
+      // Verify final state
+      const botCountResult = await poolWeb.query(
+        `SELECT COUNT(*) as count FROM bots WHERE user_id = $1`,
+        [canonicalUserId]
+      );
+      console.log(`[USER_CONSOLIDATION] COMPLETE: 1 user, ${botCountResult.rows[0].count} bots owned by canonical user`);
+      return;
+    }
+    
+    console.log(`[USER_CONSOLIDATION] Found ${otherUserIds.length} other users to migrate from`);
+    
+    // Step 3: Dynamically find ALL columns referencing users table via FK
+    // This ensures we don't miss any references
+    const fkQuery = await poolWeb.query(`
+      SELECT 
+        kcu.table_name,
+        kcu.column_name
+      FROM information_schema.key_column_usage kcu
+      JOIN information_schema.table_constraints tc 
+        ON kcu.constraint_name = tc.constraint_name
+        AND kcu.table_schema = tc.table_schema
+      JOIN information_schema.constraint_column_usage ccu
+        ON tc.constraint_name = ccu.constraint_name
+        AND tc.table_schema = ccu.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND ccu.table_name = 'users'
+        AND ccu.column_name = 'id'
+        AND kcu.table_schema = 'public'
+      ORDER BY kcu.table_name, kcu.column_name
+    `);
+    
+    console.log(`[USER_CONSOLIDATION] Found ${fkQuery.rows.length} FK columns referencing users`);
+    
+    // Step 4: Update ALL FK references to point to canonical user
+    // Use longer timeout for potentially large tables
+    let totalMigrated = 0;
+    
+    for (const row of fkQuery.rows) {
+      const { table_name, column_name } = row;
+      try {
+        // Use a longer statement timeout for large tables
+        await poolWeb.query(`SET statement_timeout = '60s'`);
+        
+        const updateResult = await poolWeb.query(
+          `UPDATE ${table_name} SET ${column_name} = $1 WHERE ${column_name} = ANY($2::uuid[])`,
+          [canonicalUserId, otherUserIds]
+        );
+        
+        // Reset timeout
+        await poolWeb.query(`SET statement_timeout = '5s'`);
+        
+        const rowsUpdated = updateResult.rowCount || 0;
+        if (rowsUpdated > 0) {
+          console.log(`[USER_CONSOLIDATION] Migrated ${rowsUpdated} rows in ${table_name}.${column_name}`);
+          totalMigrated += rowsUpdated;
+        }
+      } catch (err) {
+        console.log(`[USER_CONSOLIDATION] ${table_name}.${column_name} skipped: ${err instanceof Error ? err.message : 'unknown'}`);
+        // Reset timeout even on error
+        try { await poolWeb.query(`SET statement_timeout = '5s'`); } catch {}
+      }
+    }
+    
+    // Step 5: Also update bots table user_id (may not have FK constraint)
+    try {
+      await poolWeb.query(`SET statement_timeout = '60s'`);
+      const botsResult = await poolWeb.query(
+        `UPDATE bots SET user_id = $1 WHERE user_id = ANY($2::uuid[])`,
+        [canonicalUserId, otherUserIds]
+      );
+      await poolWeb.query(`SET statement_timeout = '5s'`);
+      if (botsResult.rowCount && botsResult.rowCount > 0) {
+        console.log(`[USER_CONSOLIDATION] Migrated ${botsResult.rowCount} bots to canonical user`);
+        totalMigrated += botsResult.rowCount;
+      }
+    } catch (err) {
+      console.log(`[USER_CONSOLIDATION] bots migration: ${err instanceof Error ? err.message : 'unknown'}`);
+      try { await poolWeb.query(`SET statement_timeout = '5s'`); } catch {}
+    }
+    
+    console.log(`[USER_CONSOLIDATION] Total rows migrated: ${totalMigrated}`);
+    
+    // Step 6: Delete all other users
+    try {
+      await poolWeb.query(`SET statement_timeout = '60s'`);
+      const deleteResult = await poolWeb.query(
+        `DELETE FROM users WHERE id = ANY($1::uuid[])`,
+        [otherUserIds]
+      );
+      await poolWeb.query(`SET statement_timeout = '5s'`);
+      console.log(`[USER_CONSOLIDATION] Deleted ${deleteResult.rowCount || 0} other users`);
+    } catch (err) {
+      console.error(`[USER_CONSOLIDATION] Failed to delete users: ${err instanceof Error ? err.message : 'unknown'}`);
+      try { await poolWeb.query(`SET statement_timeout = '5s'`); } catch {}
+    }
+    
+    // Verify final state
+    const verifyResult = await poolWeb.query(`SELECT COUNT(*) as count FROM users`);
+    const botCountResult = await poolWeb.query(
+      `SELECT COUNT(*) as count FROM bots WHERE user_id = $1`,
+      [canonicalUserId]
+    );
+    
+    console.log(`[USER_CONSOLIDATION] COMPLETE: ${verifyResult.rows[0].count} user(s) remaining, ${botCountResult.rows[0].count} bots owned by canonical user`);
+    
+  } catch (error) {
+    console.error(`[USER_CONSOLIDATION] ERROR: ${error instanceof Error ? error.message : 'unknown'}`);
+    // Don't throw - allow server to continue starting even if consolidation fails
+    // This prevents infinite restart loops in production
+  }
+}

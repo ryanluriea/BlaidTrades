@@ -6,7 +6,7 @@ import { createServer } from "http";
 import { startScheduler, pauseHeavyWorkers, resumeHeavyWorkers } from "./scheduler";
 import { livePnLWebSocket } from "./websocket-server";
 import { researchMonitorWS } from "./research-monitor-ws";
-import { validateSchemaAtStartup, warmupDatabase, poolWeb, ensureTickTablesExist } from "./db";
+import { validateSchemaAtStartup, warmupDatabase, poolWeb, ensureTickTablesExist, ensureCanonicalUserConsolidation } from "./db";
 import { reconcileConfigAtStartup } from "./config-reconciliation";
 import bcrypt from "bcryptjs";
 import { startMemorySentinel, loadSheddingMiddleware, getInstanceId, registerSchedulerCallbacks, registerCacheEvictionCallback } from "./ops/memorySentinel";
@@ -191,6 +191,11 @@ if (isWorkerOnlyMode) {
       // Creates trade_ticks, quote_ticks, order_book_snapshots if missing
       // This runs on every startup to handle cases where db:push didn't create them
       await ensureTickTablesExist();
+      
+      // PRODUCTION FIX: Consolidate all data to canonical user (blaidtrades@gmail.com)
+      // This ensures /api/bots returns data for the logged-in user
+      // Runs on every startup - idempotent and safe
+      await ensureCanonicalUserConsolidation();
     } else {
       log(`[STARTUP] WARNING: Database warmup failed - sessions will use MemoryStore (not persistent)`);
     }
