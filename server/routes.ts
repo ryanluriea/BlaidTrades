@@ -5208,8 +5208,8 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/bots", async (req: Request, res: Response) => {
     try {
-      // INDUSTRY STANDARD: Use session-based auth with query param as fallback
-      const sessionUserId = (req.user as any)?.id;
+      // FIXED: Read user ID from session (where auth actually stores it)
+      const sessionUserId = req.session?.userId;
       const queryUserId = req.query.user_id as string;
       const userId = sessionUserId || queryUserId;
       
@@ -24386,9 +24386,14 @@ export function registerRoutes(app: Express) {
       const totalBotsResult = await db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE archived_at IS NULL`);
       const totalBots = parseInt((totalBotsResult.rows[0] as any)?.count || "0");
       
-      // Get session user if logged in
-      const sessionUserId = (req.user as any)?.id || null;
-      const sessionUserEmail = (req.user as any)?.email || null;
+      // Get session user if logged in (auth stores user ID in req.session.userId)
+      const sessionUserId = req.session?.userId || null;
+      // Fetch email from database if we have a session
+      let sessionUserEmail: string | null = null;
+      if (sessionUserId) {
+        const sessionUserResult = await db.execute(sql`SELECT email FROM users WHERE id = ${sessionUserId}`);
+        sessionUserEmail = (sessionUserResult.rows[0] as any)?.email || null;
+      }
       
       // Check if session user owns any bots
       const sessionUserBots = botOwnership.find(b => b.user_id === sessionUserId);
