@@ -53,6 +53,13 @@ The platform employs a modular monolith architecture, utilizing a React frontend
     - **Risk Manager:** VaR calculations, Expected Shortfall, Sector Exposure, Concentration Metrics, and dynamic risk limits with an enforcement engine.
 - **Grok Autonomous Learning System:** Closed-loop learning from bot performance feedback for auto-evolution, supported by a Full Spectrum Research Orchestrator for concurrent research.
 - **Cloud Readiness:** Containerized with Docker and includes Terraform configurations for AWS (ECS Fargate, Aurora Serverless v2, ElastiCache Redis, ALB) and Render Blueprint for simplified deployments.
+- **Institutional Latency & Execution Infrastructure (Jan 2026):**
+    - **Worker Thread Pool (server/worker-thread-pool.ts):** Offloads CPU-intensive tasks (backtesting, Monte Carlo, feature engineering) to separate threads, keeping event loop latency <5ms.
+    - **Latency Tracker (server/latency-tracker.ts):** P50/P90/P99 latency monitoring using perf_hooks for event loop, quote processing, order execution, database queries, and WebSocket delivery.
+    - **FIX Protocol Adapter (server/fix-protocol-adapter.ts):** Industry-standard FIX 4.4 interface with REST/WebSocket fallback. Ready for QuickFIX sidecar integration when Ironbeam FIX credentials obtained.
+    - **Execution Quality Metrics (server/execution-quality-metrics.ts):** Transaction Cost Analysis (TCA) with slippage vs VWAP benchmark, fill ratio tracking, implementation shortfall, and market impact estimation. Persists to PostgreSQL time-series tables.
+    - **Enhanced TWAP/VWAP Execution (server/execution-algorithms.ts):** Smart order slicing with volume curve participation, dynamic caps from adaptive weights system, stage-gated execution (simulation vs live).
+    - **API Endpoints:** `/api/observability/latency`, `/api/observability/execution-quality`, `/api/observability/worker-pool`, `/api/observability/fix-adapter` for production monitoring dashboards.
 
 ## External Dependencies
 -   **PostgreSQL:** Primary database.

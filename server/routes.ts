@@ -712,6 +712,152 @@ export function registerRoutes(app: Express) {
   });
 
   // =====================================================
+  // INSTITUTIONAL LATENCY & EXECUTION QUALITY METRICS
+  // =====================================================
+  
+  app.get("/api/observability/latency", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { latencyTracker } = await import("./latency-tracker");
+      
+      const snapshots = latencyTracker.getAllSnapshots();
+      const eventLoopMetrics = latencyTracker.getEventLoopMetrics();
+      const executionQuality = latencyTracker.getExecutionQualitySummary();
+      
+      res.json({
+        success: true,
+        data: {
+          latencySnapshots: snapshots,
+          eventLoop: eventLoopMetrics,
+          executionQuality,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      console.error("[LATENCY] Error getting metrics:", err);
+      res.status(500).json({ error: "Failed to get latency metrics" });
+    }
+  });
+
+  app.get("/api/observability/latency/history/:category", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { latencyTracker } = await import("./latency-tracker");
+      const category = req.params.category;
+      const limit = parseInt(req.query.limit as string) || 60;
+      
+      const history = latencyTracker.getHistoricalSnapshots(category as any, limit);
+      
+      res.json({
+        success: true,
+        data: {
+          category,
+          history,
+          count: history.length,
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get latency history" });
+    }
+  });
+
+  app.get("/api/observability/execution-quality", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { executionQualityMetrics } = await import("./execution-quality-metrics");
+      
+      const botId = req.query.botId as string | undefined;
+      const symbol = req.query.symbol as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 100;
+      const since = req.query.since ? new Date(req.query.since as string) : undefined;
+      
+      const metrics = await executionQualityMetrics.getRecentMetrics({ botId, symbol, limit, since });
+      
+      res.json({
+        success: true,
+        data: {
+          metrics,
+          count: metrics.length,
+        },
+      });
+    } catch (err) {
+      console.error("[EXEC_QUALITY] Error getting metrics:", err);
+      res.status(500).json({ error: "Failed to get execution quality metrics" });
+    }
+  });
+
+  app.get("/api/observability/execution-quality/aggregated", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { executionQualityMetrics } = await import("./execution-quality-metrics");
+      
+      const period = (req.query.period as "HOUR" | "DAY" | "WEEK") || "HOUR";
+      const symbol = req.query.symbol as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 24;
+      
+      const aggregated = await executionQualityMetrics.getAggregatedMetrics(period, { symbol, limit });
+      
+      res.json({
+        success: true,
+        data: {
+          period,
+          aggregated,
+          count: aggregated.length,
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get aggregated execution metrics" });
+    }
+  });
+
+  app.get("/api/observability/execution-quality/impact/:symbol", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { executionQualityMetrics } = await import("./execution-quality-metrics");
+      
+      const symbol = req.params.symbol;
+      const orderSize = parseInt(req.query.orderSize as string) || 1;
+      
+      const impact = executionQualityMetrics.estimateMarketImpact(symbol, orderSize);
+      
+      res.json({
+        success: true,
+        data: impact,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to estimate market impact" });
+    }
+  });
+
+  app.get("/api/observability/worker-pool", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { workerPool } = await import("./worker-thread-pool");
+      const metrics = workerPool.getMetrics();
+      
+      res.json({
+        success: true,
+        data: metrics,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get worker pool metrics" });
+    }
+  });
+
+  app.get("/api/observability/fix-adapter", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { fixAdapter } = await import("./fix-protocol-adapter");
+      const metrics = fixAdapter.getMetrics();
+      const session = fixAdapter.getSessionState();
+      
+      res.json({
+        success: true,
+        data: {
+          metrics,
+          session,
+          connectionMode: fixAdapter.getConnectionMode(),
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get FIX adapter metrics" });
+    }
+  });
+
+  // =====================================================
   // SYSTEM POWER CONTROL - Master On/Off Switch
   // =====================================================
   

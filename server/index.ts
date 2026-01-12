@@ -232,6 +232,22 @@ if (isWorkerOnlyMode) {
         log(`[STARTUP] Failed to register WS metrics: ${err.message}`);
       });
       
+      // INSTITUTIONAL: Initialize latency tracker for P50/P90/P99 monitoring
+      import("./latency-tracker").then(({ latencyTracker }) => {
+        latencyTracker.initialize();
+        log(`[STARTUP] Latency tracker initialized with P50/P90/P99 monitoring`);
+      }).catch(err => {
+        log(`[STARTUP] Failed to initialize latency tracker: ${err.message}`);
+      });
+      
+      // INSTITUTIONAL: Initialize execution quality metrics service
+      import("./execution-quality-metrics").then(async ({ executionQualityMetrics }) => {
+        await executionQualityMetrics.initialize();
+        log(`[STARTUP] Execution quality metrics service initialized`);
+      }).catch(err => {
+        log(`[STARTUP] Failed to initialize execution quality metrics: ${err.message}`);
+      });
+      
       // Register DB query metrics recorder for production monitoring
       Promise.all([
         import("./db"),
