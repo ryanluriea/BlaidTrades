@@ -56,7 +56,7 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
   - Fixed self-healing worker: Removed non-existent `resolved_by` column references from alerts UPDATE queries (replaced with `updated_at = NOW()`)
   - Fixed bot_instances DELETE timeout: Implemented batch deletion (LIMIT 50, MAX_BATCHES 10) to prevent FK check timeouts on large trade_logs table
 - **QC Badge Fix for Trials:** Added QC verification hydration to `/api/strategy-lab/candidates` endpoint using DISTINCT ON query for most recent verification per candidate. Frontend updated to use hydrated `qcVerification.badgeState` with fallback to fetched verifications.
-- **BigInt Serialization Fix:** Converted BigInt timestamps/sequences to strings before PostgreSQL insert in tick ingestion service to prevent driver serialization errors in production.
+- **BigInt Serialization Fix:** Fixed tick ingestion to pass native `bigint` values (not strings) to Drizzle schema columns using `mode: "bigint"`. Added defensive typeof checks for sequenceId coercion.
 
 ## External Dependencies
 -   **PostgreSQL:** Primary database.
