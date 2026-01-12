@@ -1,0 +1,50 @@
+2026-01-12T16:00:07.920341796Z [MIGRATE-ENUMS]   - Values added: 0
+2026-01-12T16:00:07.92048697Z [MIGRATE-ENUMS]   - Enums unchanged: 70
+2026-01-12T16:00:07.920535201Z [MIGRATE-ENUMS]   - Enums not in DB yet: 2
+2026-01-12T16:00:07.921066114Z [MIGRATE-ENUMS] Success - enum migration completed
+2026-01-12T16:00:08.07163639Z 
+2026-01-12T16:00:08.07165567Z > trading-bot-platform@0.0.0 db:seed-users
+2026-01-12T16:00:08.07165857Z > tsx scripts/seed-system-users.ts
+2026-01-12T16:00:08.07166079Z 
+2026-01-12T16:00:08.392314406Z [SEED_USERS] Checking for system user...
+2026-01-12T16:00:08.427550532Z [SEED_USERS] User exists with different ID: bd83c3ca-ce2e-403a-8fa8-ca967fb70173
+2026-01-12T16:00:08.427565062Z [SEED_USERS] Expected ID: 489c9350-10da-4fb9-8f6b-aeffc9412a46
+2026-01-12T16:00:08.427567932Z [SEED_USERS] Updating user ID to canonical DEFAULT_USER_ID...
+2026-01-12T16:00:08.440656314Z [SEED_USERS] Discovered 30 FK columns referencing users.id
+2026-01-12T16:00:08.448407451Z [SEED_USERS] ERROR migrating app_settings.user_id: insert or update on table "app_settings" violates foreign key constraint "app_settings_user_id_users_id_fk"
+2026-01-12T16:00:08.449109199Z [SEED_USERS] Migration failed, rolled back: insert or update on table "app_settings" violates foreign key constraint "app_settings_user_id_users_id_fk"
+2026-01-12T16:00:08.449117549Z [SEED_USERS] FK constraint prevents ID update - manual intervention required
+2026-01-12T16:00:08.44913126Z [SEED_USERS] Run: UPDATE users SET id = '489c9350-10da-4fb9-8f6b-aeffc9412a46' WHERE email = 'blaidtrades@gmail.com'
+2026-01-12T16:00:08.452146057Z [SEED_USERS] Error seeding users: error: insert or update on table "app_settings" violates foreign key constraint "app_settings_user_id_users_id_fk"
+2026-01-12T16:00:08.452158507Z     at /opt/render/project/src/node_modules/pg/lib/client.js:545:17
+2026-01-12T16:00:08.452161747Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-12T16:00:08.452188307Z     at async seedSystemUsers (/opt/render/project/src/scripts/seed-system-users.ts:241:28) {
+2026-01-12T16:00:08.452191128Z   length: 319,
+2026-01-12T16:00:08.452194068Z   severity: 'ERROR',
+2026-01-12T16:00:08.452196308Z   code: '23503',
+2026-01-12T16:00:08.452200018Z   detail: 'Key (user_id)=(489c9350-10da-4fb9-8f6b-aeffc9412a46) is not present in table "users".',
+2026-01-12T16:00:08.452202438Z   hint: undefined,
+2026-01-12T16:00:08.452204728Z   position: undefined,
+2026-01-12T16:00:08.452207878Z   internalPosition: undefined,
+2026-01-12T16:00:08.452210208Z   internalQuery: undefined,
+2026-01-12T16:00:08.452212408Z   where: undefined,
+2026-01-12T16:00:08.452214628Z   schema: 'public',
+2026-01-12T16:00:08.452216928Z   table: 'app_settings',
+2026-01-12T16:00:08.452219178Z   column: undefined,
+2026-01-12T16:00:08.452221398Z   dataType: undefined,
+2026-01-12T16:00:08.452224259Z   constraint: 'app_settings_user_id_users_id_fk',
+2026-01-12T16:00:08.452226519Z   file: 'ri_triggers.c',
+2026-01-12T16:00:08.452228748Z   line: '2772',
+2026-01-12T16:00:08.452230949Z   routine: 'ri_ReportViolation'
+2026-01-12T16:00:08.452233189Z }
+2026-01-12T16:00:08.452575267Z [SEED_USERS] Complete
+2026-01-12T16:00:29.433490564Z ==> Pre-deploy complete!
+2026-01-12T16:00:33.157089299Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+2026-01-12T16:00:33.238619906Z ==> Deploying...
+2026-01-12T16:02:02.368029269Z ==> Your service is live 🎉
+2026-01-12T16:02:02.587421201Z ==> 
+2026-01-12T16:02:02.687869737Z ==> ///////////////////////////////////////////////////////////
+2026-01-12T16:02:02.793812063Z ==> 
+2026-01-12T16:02:02.894301769Z ==> Available at your primary URL https://blaidtrades.com + 2 more domains
+2026-01-12T16:02:03.000958195Z ==> 
+2026-01-12T16:02:03.138969079Z ==> ///////////////////////////////////////////////////////////

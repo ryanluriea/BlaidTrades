@@ -234,7 +234,62 @@ async function seedSystemUsers() {
         const fkRefs = fkColumns.rows.map(r => ({ table: r.table_name, column: r.column_name }));
         console.log(`[SEED_USERS] Discovered ${fkRefs.length} FK columns referencing users.id`);
         
-        // Migrate any orphaned data from wrong ID to DEFAULT_USER_ID
+        // Get ALL columns from users table dynamically to preserve all data
+        const columnsResult = await client.query(`
+          SELECT column_name FROM information_schema.columns 
+          WHERE table_name = 'users' AND table_schema = 'public'
+          ORDER BY ordinal_position
+        `);
+        const allColumns = columnsResult.rows.map(r => r.column_name);
+        console.log(`[SEED_USERS] Users table has ${allColumns.length} columns: ${allColumns.join(', ')}`);
+        
+        // Get the existing user's FULL data
+        const userData = await client.query(
+          `SELECT * FROM users WHERE id = $1`,
+          [existingId]
+        );
+        
+        if (userData.rows.length === 0) {
+          throw new Error(`User with ID ${existingId} not found`);
+        }
+        
+        const existingUserData = userData.rows[0];
+        const originalEmail = existingUserData.email;
+        console.log(`[SEED_USERS] Preserving user data for ${originalEmail}`);
+        
+        // STEP 1: Temporarily change old user's email to avoid UNIQUE constraint violation
+        // Note: Based on schema analysis, email is the ONLY unique constraint on users table (besides id)
+        const tempEmail = `temp_migration_${Date.now()}@placeholder.local`;
+        console.log(`[SEED_USERS] Temporarily changing old user email to avoid UNIQUE conflict...`);
+        await client.query(
+          `UPDATE users SET email = $1 WHERE id = $2`,
+          [tempEmail, existingId]
+        );
+        
+        // STEP 2: Create new user with DEFAULT_USER_ID by copying ALL data from existing user
+        const columnsExceptId = allColumns.filter(c => c !== 'id');
+        const columnList = ['id', ...columnsExceptId].map(c => `"${c}"`).join(', ');
+        const valuePlaceholders = ['$1', ...columnsExceptId.map((_, i) => `$${i + 2}`)].join(', ');
+        
+        // Use ORIGINAL email for the new user
+        const valuesForInsert = columnsExceptId.map(c => {
+          if (c === 'email') return originalEmail;
+          return existingUserData[c];
+        });
+        const values = [DEFAULT_USER_ID, ...valuesForInsert];
+        
+        console.log(`[SEED_USERS] Creating user with DEFAULT_USER_ID (preserving all ${allColumns.length} columns)...`);
+        await client.query(
+          `INSERT INTO users (${columnList}) VALUES (${valuePlaceholders})
+           ON CONFLICT (id) DO UPDATE SET 
+             email = EXCLUDED.email,
+             username = EXCLUDED.username,
+             updated_at = NOW()`,
+          values
+        );
+        
+        // STEP 3: Migrate all FK references from old ID to DEFAULT_USER_ID
+        // Now DEFAULT_USER_ID exists, so FK constraints will be satisfied
         let totalMigrated = 0;
         for (const { table, column } of fkRefs) {
           try {
@@ -256,12 +311,9 @@ async function seedSystemUsers() {
           console.log(`[SEED_USERS] Migrated ${totalMigrated} total rows to DEFAULT_USER_ID`);
         }
         
-        // Now update the user's ID to DEFAULT_USER_ID
-        // This should succeed since we moved all dependent data first
-        await client.query(
-          `UPDATE users SET id = $1, updated_at = NOW() WHERE email = $2`,
-          [DEFAULT_USER_ID, SYSTEM_USER_EMAIL]
-        );
+        // STEP 4: Delete the old user (now has no FK references)
+        console.log(`[SEED_USERS] Deleting old user ${existingId}...`);
+        await client.query(`DELETE FROM users WHERE id = $1`, [existingId]);
         
         await client.query('COMMIT');
         console.log(`[SEED_USERS] SUCCESS: User ${SYSTEM_USER_EMAIL} now has ID ${DEFAULT_USER_ID}`);
