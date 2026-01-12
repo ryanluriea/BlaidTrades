@@ -2125,7 +2125,7 @@ export function StrategyLabView() {
                   sortedPending,
                   isPlaying ? "Discovering..." : "No new candidates",
                   isPlaying ? "AI is researching new strategies" : "Start research to generate candidates",
-                  false,
+                  true,  // Show QC badges for NEW candidates too (VERIFIED/FAILED/etc.)
                   true,
                   newColumnVisible,
                   newSentinelRef
