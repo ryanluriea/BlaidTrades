@@ -1,0 +1,50 @@
+2026-01-12T03:17:02.02693594Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T03:17:02.030270167Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=abe37b62-e075-43e5-9b37-5171fe1b0b78 insufficient_data sessions=0 using_defaults
+2026-01-12T03:17:02.031552618Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=abe37b62-e075-43e5-9b37-5171fe1b0b78 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T03:17:02.033736265Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T03:17:02.037153103Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=dfbde20d-6cc4-4453-aaf2-0ff890106663 insufficient_data sessions=0 using_defaults
+2026-01-12T03:17:02.038471445Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=dfbde20d-6cc4-4453-aaf2-0ff890106663 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T03:17:02.040829585Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T03:17:02.0441104Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=a9f3cb03-d4cf-41f2-8478-73e8e204f178 insufficient_data sessions=0 using_defaults
+2026-01-12T03:17:02.045422122Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=a9f3cb03-d4cf-41f2-8478-73e8e204f178 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T03:17:02.047910394Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T03:17:02.053406206Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=2eb80058-6f98-4a21-96a4-556960534f7b insufficient_data sessions=0 using_defaults
+2026-01-12T03:17:02.056405197Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=2eb80058-6f98-4a21-96a4-556960534f7b built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T03:17:02.062075392Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T03:17:02.065614252Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=abacfaf3-d9da-4b88-b3bd-3b6dfe499331 insufficient_data sessions=0 using_defaults
+2026-01-12T03:17:02.066964005Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=abacfaf3-d9da-4b88-b3bd-3b6dfe499331 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T03:17:02.071054384Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T03:17:02.07497225Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=a74bee67-5845-442c-97db-d6c5e68591b1 insufficient_data sessions=0 using_defaults
+2026-01-12T03:17:02.07674741Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=a74bee67-5845-442c-97db-d6c5e68591b1 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T03:17:02.079569697Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T03:17:02.083030005Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=8dcd2d25-d17b-4619-b331-bac909df1910 insufficient_data sessions=0 using_defaults
+2026-01-12T03:17:02.084275706Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=8dcd2d25-d17b-4619-b331-bac909df1910 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T03:17:02.086461073Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T03:17:02.089609456Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=30075a83-e98a-43f2-8373-9b5255b8b3ee insufficient_data sessions=0 using_defaults
+2026-01-12T03:17:02.090872157Z [ADAPTIVE_WEIGHTS] trace_id=7e56f087-b74b-47bf-8c5b-7aabd40e58a8 bot_id=30075a83-e98a-43f2-8373-9b5255b8b3ee built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-12T03:17:02.093127615Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-12T03:17:04.972087011Z [IRONBEAM_LIVE] trace_id=4cee9dd4 STALE_DETECTED no_quote_for_ms=Infinity threshold=120000
+2026-01-12T03:17:04.972106832Z [LIVE_DATA_SERVICE] Stale data detected - Ironbeam will auto-reconnect
+2026-01-12T03:17:04.972124652Z [IRONBEAM_LIVE] trace_id=4cee9dd4 forcing reconnection due to stale data
+2026-01-12T03:17:04.972175853Z [IRONBEAM_LIVE] trace_id=4cee9dd4 reconnecting in 1000ms (attempt 1, failures=1)
+2026-01-12T03:17:04.997621401Z [IRONBEAM_LIVE] trace_id=4cee9dd4 WebSocket closed
+2026-01-12T03:17:04.997640562Z [IRONBEAM_LIVE] trace_id=4cee9dd4 reconnecting in 2000ms (attempt 2, failures=2)
+2026-01-12T03:17:04.997652552Z [LIVE_DATA_SERVICE] Ironbeam disconnected, falling back to cache
+2026-01-12T03:17:05.972580524Z [IRONBEAM_LIVE] trace_id=4cee9dd4 auth attempt: username_len=8 password_len=5 apiKey_len=32 env=live
+2026-01-12T03:17:06.202922805Z [IRONBEAM_LIVE] trace_id=4cee9dd4 authenticated successfully
+2026-01-12T03:17:06.205686601Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Ironbeam Live Authenticated" trace_id=4cee9dd4
+2026-01-12T03:17:06.207843918Z [INTEGRATION_USAGE] trace_id=4cee9dd4 provider=ironbeam operation=broker_auth status=OK latency_ms=0
+2026-01-12T03:17:06.36469024Z [IRONBEAM_LIVE] trace_id=4cee9dd4 stream created: 5e0748c4-162f-4e91-99f0-dabe8c423045
+2026-01-12T03:17:06.36472214Z [IRONBEAM_LIVE] front_month_calc: month=0 day=12 -> H27
+2026-01-12T03:17:06.364833842Z [IRONBEAM_LIVE] trace_id=4cee9dd4 subscribing to: XCME:MES.H27, XCME:MNQ.H27, XCME:ES.H27, XCME:NQ.H27
+2026-01-12T03:17:06.364838642Z [IRONBEAM_LIVE] trace_id=4cee9dd4 queued 4 symbols for subscription after connect
+2026-01-12T03:17:06.451519222Z [IRONBEAM_LIVE] trace_id=4cee9dd4 WebSocket connected (failures reset)
+2026-01-12T03:17:06.452067081Z [IRONBEAM_LIVE] trace_id=4cee9dd4 unknown_msg_type keys=b
+2026-01-12T03:17:06.452166393Z [IRONBEAM_LIVE] trace_id=4cee9dd4 unknown_msg_type keys=p
+2026-01-12T03:17:06.454110906Z [INTEGRATION_USAGE] trace_id=4cee9dd4 provider=ironbeam operation=broker_websocket_connect status=OK latency_ms=0
+2026-01-12T03:17:06.454151527Z [IRONBEAM_LIVE] front_month_calc: month=0 day=12 -> H27
+2026-01-12T03:17:06.454223568Z [IRONBEAM_LIVE] trace_id=4cee9dd4 subscribing via REST API: XCME:MES.H27, XCME:MNQ.H27, XCME:ES.H27, XCME:NQ.H27
+2026-01-12T03:17:06.454313409Z [IRONBEAM_LIVE] trace_id=4cee9dd4 trying: GET /v2/market/quotes/subscribe/{streamId}?symbols=X&symbols=Y
+2026-01-12T03:17:06.486110285Z [IRONBEAM_LIVE] trace_id=4cee9dd4 subscribe quotes SUCCESS: {"additionalProperties":{},"status":"OK","message":"Success"}
+2026-01-12T03:17:06.488649758Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Ironbeam Quote Subscription Active" trace_id=4cee9dd4
+2026-01-12T03:17:06.488659018Z [LIVE_DATA_SERVICE] Ironbeam reconnected
