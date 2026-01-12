@@ -13913,7 +13913,37 @@ export function registerRoutes(app: Express) {
       const { calculateRegimeAdjustedScore } = await import("./ai-strategy-evolution");
       const currentRegime = await getCachedRegime();
       
+      // INSTITUTIONAL: Batch fetch latest QC verification for each candidate
+      // This ensures TRIALS candidates show QC badges even after 200+ new verifications
+      const candidateIds = candidates.map((c: any) => c.id);
+      let qcVerificationMap = new Map<string, { status: string; badgeState: string | null; qcScore: number | null; finishedAt: Date | null }>();
+      
+      if (candidateIds.length > 0) {
+        try {
+          const qcResult = await db.execute(sql`
+            SELECT DISTINCT ON (candidate_id) 
+              candidate_id, status, badge_state, qc_score, finished_at
+            FROM qc_verifications
+            WHERE candidate_id = ANY(${candidateIds}::uuid[])
+            ORDER BY candidate_id, queued_at DESC
+          `);
+          
+          for (const row of qcResult.rows as any[]) {
+            qcVerificationMap.set(row.candidate_id, {
+              status: row.status,
+              badgeState: row.badge_state,
+              qcScore: row.qc_score,
+              finishedAt: row.finished_at,
+            });
+          }
+        } catch (qcError) {
+          console.warn("[STRATEGY_LAB_CANDIDATES] QC verification fetch warning:", qcError);
+          // Continue without QC data - UI will show NONE state
+        }
+      }
+      
       // Build regime adjustment for each candidate, using stored values as fallback
+      // Also attach QC verification status from batch fetch
       const candidatesWithRegime = candidates.map((c: any) => {
         const archetypeName = c.archetype_name || c.archetypeName || "";
         const originalScore = c.confidence_score ?? c.confidenceScore ?? 50;
@@ -13926,6 +13956,10 @@ export function registerRoutes(app: Express) {
         const adjustedScore = freshAdjustment.adjustedScore;
         const regimeBonus = freshAdjustment.regimeBonus;
         
+        // INSTITUTIONAL: Hydrate QC verification status directly on candidate
+        // This ensures TRIALS candidates show QC badges without relying on limit=200 fetch
+        const qcData = qcVerificationMap.get(c.id);
+        
         return {
           ...c,
           regime_adjustment: {
@@ -13936,6 +13970,13 @@ export function registerRoutes(app: Express) {
             reason: freshAdjustment.reason,
             current_regime: currentRegime,
           },
+          // Include QC verification status for badge display
+          qcVerification: qcData ? {
+            status: qcData.status,
+            badgeState: qcData.badgeState,
+            qcScore: qcData.qcScore,
+            finishedAt: qcData.finishedAt,
+          } : null,
         };
       });
       

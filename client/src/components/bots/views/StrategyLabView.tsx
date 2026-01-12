@@ -1853,15 +1853,20 @@ export function StrategyLabView() {
         };
         
         // QC priority order: RUNNING > QUEUED > VERIFIED > DIVERGENT > INCONCLUSIVE > FAILED > NONE
+        // Uses hydrated qcVerification from candidate first, falls back to qcVerifications array
         const getQcPriority = (c: StrategyCandidate): number => {
-          const info = getCandidateQCBadgeInfo(qcVerifications, c.id);
-          switch (info.state) {
+          const hydratedState = (c as any).qcVerification?.badgeState;
+          const state = hydratedState || getCandidateQCBadgeInfo(qcVerifications, c.id).state;
+          switch (state) {
             case "RUNNING": return 10;
             case "QUEUED": return 9;
             case "VERIFIED": return 8;
+            case "QC_PASSED": return 8; // Same as VERIFIED
             case "DIVERGENT": return 7;
             case "INCONCLUSIVE": return 6;
+            case "QC_INCONCLUSIVE": return 6;
             case "FAILED": return 5;
+            case "QC_FAILED": return 5;
             default: return 0;
           }
         };
@@ -2010,13 +2015,19 @@ export function StrategyLabView() {
                               });
                             }}
                             qcBudget={showQC && columnId !== "trials" && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
-                            qcBadgeState={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).state : undefined}
+                            qcBadgeState={showQC ? (
+                              (candidate as any).qcVerification?.badgeState as QCBadgeState || 
+                              getCandidateQCBadgeInfo(qcVerifications, candidate.id).state
+                            ) : undefined}
                             qcAttemptCount={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
                             qcMaxAttempts={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
                             qcQueuedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
                             qcStartedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
                             qcProgressPct={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
-                            qcScore={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore : undefined}
+                            qcScore={showQC ? (
+                              (candidate as any).qcVerification?.qcScore ?? 
+                              getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore
+                            ) : undefined}
                             showQCStatus={showQC}
                             onRunQCVerification={showQC && columnId !== "trials" ? handleRunQCVerification : undefined}
                             isRunningQC={showQC && columnId !== "trials" && runningQCCandidateId === candidate.id}

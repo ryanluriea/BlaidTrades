@@ -44,6 +44,11 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - **Fail-Fast Validators:** Implements "fail-closed" data integrity patterns with validation severity levels (SEV-0, SEV-1, SEV-2) for risk configuration, promotion metrics, archetypes, session modes, symbols, timeframes, backtest errors, batch metrics, and fallback rates.
 - **Database Migrations:** Utilizes an idempotent pre-deploy migration script (`scripts/migrate-enums.ts`) to safely add missing PostgreSQL enum values.
 - **Testing Infrastructure:** Comprehensive unit tests cover AST rule parser, QC optimization (grid generation, result ranking, parameter sensitivity, walk-forward analysis, verification gates), and QC monitoring (parse method recording, verification gate outcomes, optimization metrics).
+- **QC Badge Hydration:** QC verification status is batch-fetched and hydrated directly on strategy candidates during API response, ensuring TRIALS candidates show QC badges even when older than the 200-verification limit. Frontend prioritizes hydrated state over separate QC verifications fetch.
+
+## Recent Changes (January 2026)
+- **QC Badge Fix for Trials:** Added QC verification hydration to `/api/strategy-lab/candidates` endpoint using DISTINCT ON query for most recent verification per candidate. Frontend updated to use hydrated `qcVerification.badgeState` with fallback to fetched verifications.
+- **BigInt Serialization Fix:** Converted BigInt timestamps/sequences to strings before PostgreSQL insert in tick ingestion service to prevent driver serialization errors in production.
 
 ## External Dependencies
 -   **PostgreSQL:** Primary database.
