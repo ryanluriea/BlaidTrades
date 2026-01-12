@@ -1905,16 +1905,16 @@ export function StrategyLabView() {
                                 return next;
                               });
                             }}
-                            qcBudget={showQC && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
+                            qcBudget={showQC && columnId !== "trials" && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
                             qcBadgeState={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).state : undefined}
-                            qcAttemptCount={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
-                            qcMaxAttempts={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
-                            qcQueuedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
-                            qcStartedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
-                            qcProgressPct={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
+                            qcAttemptCount={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
+                            qcMaxAttempts={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
+                            qcQueuedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
+                            qcStartedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
+                            qcProgressPct={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
                             showQCStatus={showQC}
-                            onRunQCVerification={showQC ? handleRunQCVerification : undefined}
-                            isRunningQC={showQC && runningQCCandidateId === candidate.id}
+                            onRunQCVerification={showQC && columnId !== "trials" ? handleRunQCVerification : undefined}
+                            isRunningQC={showQC && columnId !== "trials" && runningQCCandidateId === candidate.id}
                             compact={true}
                           />
                         </motion.div>
@@ -2043,7 +2043,7 @@ export function StrategyLabView() {
                   sortedSentToLab,
                   "No bots in trials",
                   isQcColumnVisible ? "Strategies that pass QC go here" : "Send strategies here for trials",
-                  isQcColumnVisible,
+                  true,  // Always show QC status for TRIALS - they passed QC to get here
                   false,
                   trialsColumnVisible,
                   trialsSentinelRef
