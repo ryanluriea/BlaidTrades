@@ -77,6 +77,7 @@ The platform employs a modular monolith architecture, utilizing a React frontend
 The platform implements institutional-grade "fail-closed" data integrity patterns. Invalid data halts operations rather than continuing with silent defaults.
 
 **Environment Variables:**
+- `DATABENTO_LICENSE_BUFFER_HOURS`: Buffer hours for CME license-free data window (default: 26). Prevents Databento requests from hitting the paid license boundary.
 - `MAX_CONTRACTS_TRIALS`: Max contracts per trade for TRIALS stage (default: 10)
 - `MAX_CONTRACTS_PAPER`: Max contracts per trade for PAPER stage (default: 20)
 - `MAX_CONTRACTS_SHADOW`: Max contracts per trade for SHADOW stage (default: 30)
