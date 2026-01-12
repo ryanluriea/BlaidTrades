@@ -26,18 +26,52 @@ function isValidUuid(str: string): boolean {
 }
 
 /**
- * PRODUCTION-SAFE: Convert UUID array to PostgreSQL array literal string
- * This is passed as a SINGLE parameter (constant query size ~50 bytes)
- * PostgreSQL parses the array literal server-side, avoiding statement size limits
+ * PRODUCTION-SAFE: Build a raw SQL uuid array literal
+ * Uses sql.raw() to embed the array directly in the query (not as a parameter)
+ * This is safe because all UUIDs are validated first
  * 
- * Example: ['uuid1', 'uuid2'] -> '{uuid1,uuid2}' passed as $1::uuid[]
+ * The array literal format '{uuid1,uuid2,...}' is much smaller than
+ * individual quoted strings 'uuid1', 'uuid2', ... (~50% size reduction)
  */
-function toUuidArrayLiteral(ids: string[]): string {
+function buildUuidArraySql(ids: string[]): ReturnType<typeof sql.raw> {
   const validatedIds = ids.filter(id => isValidUuid(id));
   if (validatedIds.length === 0) {
-    return '{}';
+    return sql.raw("'{}'::uuid[]");
   }
-  return `{${validatedIds.join(',')}}`;
+  // Use array literal format: '{uuid1,uuid2,...}'::uuid[]
+  // This is ~50% smaller than ARRAY['uuid1','uuid2',...]::uuid[]
+  return sql.raw(`'{${validatedIds.join(',')}}'::uuid[]`);
+}
+
+/**
+ * PRODUCTION-SAFE: Batch size for queries
+ * Keeps SQL statement size well under Neon PostgreSQL limits
+ * 50 bots × ~37 chars = ~1.8KB per query (limit is ~10KB)
+ */
+const BATCH_SIZE = 50;
+
+/**
+ * Split an array into chunks for batched processing
+ */
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+/**
+ * Merge multiple Maps into one
+ */
+function mergeMaps<K, V>(...maps: Map<K, V>[]): Map<K, V> {
+  const result = new Map<K, V>();
+  for (const map of maps) {
+    for (const [key, value] of map) {
+      result.set(key, value);
+    }
+  }
+  return result;
 }
 
 // =============================================
@@ -202,7 +236,7 @@ interface IntegrationStatus {
 async function getLatestJobsPerBot(botIds: string[]): Promise<Map<string, LatestJob>> {
   if (botIds.length === 0) return new Map();
   
-  const uuidArray = toUuidArrayLiteral(botIds);
+  const uuidArraySql = buildUuidArraySql(botIds);
   const results = await db.execute(sql`
     SELECT DISTINCT ON (j.bot_id) 
       j.bot_id as "botId",
@@ -217,7 +251,7 @@ async function getLatestJobsPerBot(botIds: string[]): Promise<Map<string, Latest
     FROM bot_jobs j
     LEFT JOIN bots b ON j.bot_id = b.id
     LEFT JOIN bot_generations g ON b.current_generation_id = g.id
-    WHERE j.bot_id = ANY(${uuidArray}::uuid[])
+    WHERE j.bot_id = ANY(${uuidArraySql})
     ORDER BY j.bot_id, j.created_at DESC NULLS LAST, j.id DESC
   `);
   
@@ -231,7 +265,7 @@ async function getLatestJobsPerBot(botIds: string[]): Promise<Map<string, Latest
 async function getLatestInstancesPerBot(botIds: string[]): Promise<Map<string, LatestInstance>> {
   if (botIds.length === 0) return new Map();
   
-  const uuidArray = toUuidArrayLiteral(botIds);
+  const uuidArraySql = buildUuidArraySql(botIds);
   const results = await db.execute(sql`
     SELECT DISTINCT ON (bot_id)
       bot_id as "botId",
@@ -242,7 +276,7 @@ async function getLatestInstancesPerBot(botIds: string[]): Promise<Map<string, L
       is_primary_runner as "isPrimaryRunner",
       job_type as "jobType"
     FROM bot_instances
-    WHERE bot_id = ANY(${uuidArray}::uuid[])
+    WHERE bot_id = ANY(${uuidArraySql})
       AND job_type = 'RUNNER'
       AND is_primary_runner = true
     ORDER BY bot_id, updated_at DESC NULLS LAST, id DESC
@@ -258,7 +292,7 @@ async function getLatestInstancesPerBot(botIds: string[]): Promise<Map<string, L
 async function getLatestBacktestsPerBot(botIds: string[]): Promise<Map<string, LatestBacktest>> {
   if (botIds.length === 0) return new Map();
   
-  const uuidArray = toUuidArrayLiteral(botIds);
+  const uuidArraySql = buildUuidArraySql(botIds);
   const results = await db.execute(sql`
     SELECT DISTINCT ON (bot_id)
       bot_id as "botId",
@@ -272,7 +306,7 @@ async function getLatestBacktestsPerBot(botIds: string[]): Promise<Map<string, L
       win_rate as "winRate",
       max_drawdown_pct as "maxDrawdownPct"
     FROM backtest_sessions
-    WHERE bot_id = ANY(${uuidArray}::uuid[])
+    WHERE bot_id = ANY(${uuidArraySql})
       AND status = 'completed'
     ORDER BY bot_id, completed_at DESC NULLS LAST, id DESC
   `);
@@ -289,7 +323,7 @@ async function getRecentlyCompletedJobsPerBot(botIds: string[]): Promise<Map<str
   if (botIds.length === 0) return new Map();
   
   const recentCutoff = new Date(Date.now() - RECENT_JOB_WINDOW_MS);
-  const uuidArray = toUuidArrayLiteral(botIds);
+  const uuidArraySql = buildUuidArraySql(botIds);
   
   // Include COMPLETED and FAILED statuses - both should persist for visibility
   const results = await db.execute(sql`
@@ -304,7 +338,7 @@ async function getRecentlyCompletedJobsPerBot(botIds: string[]): Promise<Map<str
     FROM bot_jobs j
     LEFT JOIN bots b ON j.bot_id = b.id
     LEFT JOIN bot_generations g ON b.current_generation_id = g.id
-    WHERE j.bot_id = ANY(${uuidArray}::uuid[])
+    WHERE j.bot_id = ANY(${uuidArraySql})
       AND j.status IN ('COMPLETED', 'FAILED')
       AND j.completed_at >= ${recentCutoff}
     ORDER BY j.bot_id, j.completed_at DESC NULLS LAST, j.id DESC
@@ -331,7 +365,7 @@ interface JobCounts {
 async function getActiveJobCountsPerBot(botIds: string[]): Promise<Map<string, JobCounts>> {
   if (botIds.length === 0) return new Map();
   
-  const uuidArray = toUuidArrayLiteral(botIds);
+  const uuidArraySql = buildUuidArraySql(botIds);
   const results = await db.execute(sql`
     SELECT 
       bot_id as "botId",
@@ -339,7 +373,7 @@ async function getActiveJobCountsPerBot(botIds: string[]): Promise<Map<string, J
       status,
       COUNT(*)::int as count
     FROM bot_jobs
-    WHERE bot_id = ANY(${uuidArray}::uuid[])
+    WHERE bot_id = ANY(${uuidArraySql})
       AND status IN ('QUEUED', 'RUNNING', 'PENDING')
     GROUP BY bot_id, job_type, status
   `);
@@ -410,26 +444,26 @@ interface HistoryExists {
 async function getHistoryExistsPerBot(botIds: string[]): Promise<Map<string, HistoryExists>> {
   if (botIds.length === 0) return new Map();
   
-  const uuidArray = toUuidArrayLiteral(botIds);
+  const uuidArraySql = buildUuidArraySql(botIds);
   
   // Run all three queries in parallel
   const [jobResults, backtestResults, instanceResults] = await Promise.all([
     db.execute(sql`
       SELECT bot_id as "botId", COUNT(*)::int > 0 as "hasAny"
       FROM bot_jobs 
-      WHERE bot_id = ANY(${uuidArray}::uuid[])
+      WHERE bot_id = ANY(${uuidArraySql})
       GROUP BY bot_id
     `),
     db.execute(sql`
       SELECT bot_id as "botId", COUNT(*)::int > 0 as "hasAny"
       FROM backtest_sessions 
-      WHERE bot_id = ANY(${uuidArray}::uuid[])
+      WHERE bot_id = ANY(${uuidArraySql})
       GROUP BY bot_id
     `),
     db.execute(sql`
       SELECT bot_id as "botId", COUNT(*)::int > 0 as "hasAny"
       FROM bot_instances 
-      WHERE bot_id = ANY(${uuidArray}::uuid[])
+      WHERE bot_id = ANY(${uuidArraySql})
       GROUP BY bot_id
     `),
   ]);
@@ -458,6 +492,67 @@ async function getHistoryExistsPerBot(botIds: string[]): Promise<Map<string, His
   }
   
   return result;
+}
+
+// =============================================
+// BATCHED QUERY WRAPPERS
+// Keeps each query under PostgreSQL statement size limits
+// =============================================
+
+async function batchedGetLatestJobsPerBot(botIds: string[]): Promise<Map<string, LatestJob>> {
+  if (botIds.length === 0) return new Map();
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getLatestJobsPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function batchedGetLatestInstancesPerBot(botIds: string[]): Promise<Map<string, LatestInstance>> {
+  if (botIds.length === 0) return new Map();
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getLatestInstancesPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function batchedGetJobCurrentRunningPerBot(botIds: string[]): Promise<Map<string, CurrentRunningJob>> {
+  if (botIds.length === 0) return new Map();
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getJobCurrentRunningPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function batchedGetLatestBacktestsPerBot(botIds: string[]): Promise<Map<string, LatestBacktest>> {
+  if (botIds.length === 0) return new Map();
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getLatestBacktestsPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function batchedGetRecentlyCompletedJobsPerBot(botIds: string[]): Promise<Map<string, RecentCompletedJob>> {
+  if (botIds.length === 0) return new Map();
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getRecentlyCompletedJobsPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function batchedGetActiveJobCountsPerBot(botIds: string[]): Promise<Map<string, JobCounts>> {
+  if (botIds.length === 0) return new Map();
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getActiveJobCountsPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function batchedGetHistoryExistsPerBot(botIds: string[]): Promise<Map<string, HistoryExists>> {
+  if (botIds.length === 0) return new Map();
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getHistoryExistsPerBot(chunk)));
+  return mergeMaps(...results);
+}
+
+async function batchedGetRunnerJobStatusPerBot(botIds: string[]): Promise<Map<string, RunnerJobStatus>> {
+  if (botIds.length === 0) return new Map();
+  const chunks = chunkArray(botIds, BATCH_SIZE);
+  const results = await Promise.all(chunks.map(chunk => getRunnerJobStatusPerBot(chunk)));
+  return mergeMaps(...results);
 }
 
 // =============================================
@@ -918,14 +1013,15 @@ export async function computeBotsNow(botList: BotInput[], userId?: string): Prom
     }
   }
   
-  // Parameterized uuid[] arrays - query size stays constant regardless of bot count
+  // BATCHED queries - each batch processes 50 bots (~1.8KB per query)
+  // This keeps statement size well under Neon PostgreSQL's ~10KB limit
   const [latestJobs, latestInstances, latestBacktests, activeJobCounts, historyExistsMap, recentCompletedJobs] = await Promise.all([
-    getLatestJobsPerBot(botIds),
-    getLatestInstancesPerBot(botIds),
-    getLatestBacktestsPerBot(botIds),
-    getActiveJobCountsPerBot(botIds),
-    getHistoryExistsPerBot(botIds),
-    getRecentlyCompletedJobsPerBot(botIds),  // Jobs completed within 10 min for badge persistence
+    batchedGetLatestJobsPerBot(botIds),
+    batchedGetLatestInstancesPerBot(botIds),
+    batchedGetLatestBacktestsPerBot(botIds),
+    batchedGetActiveJobCountsPerBot(botIds),
+    batchedGetHistoryExistsPerBot(botIds),
+    batchedGetRecentlyCompletedJobsPerBot(botIds),  // Jobs completed within 10 min for badge persistence
   ]);
   
   const result = new Map<string, BotNow>();
