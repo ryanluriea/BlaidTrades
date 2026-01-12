@@ -24366,7 +24366,7 @@ export function registerRoutes(app: Express) {
   // These endpoints help diagnose production data issues
   
   // GET /api/internal/consolidation-status - Show user/bot ownership state
-  app.get("/api/internal/consolidation-status", async (req: Request, res: Response) => {
+  app.get("/api/internal/consolidation-status", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       // Get all users
@@ -24427,7 +24427,7 @@ export function registerRoutes(app: Express) {
   });
 
   // POST /api/internal/run-consolidation - Manually trigger user consolidation
-  app.post("/api/internal/run-consolidation", async (req: Request, res: Response) => {
+  app.post("/api/internal/run-consolidation", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       console.log(`[RUN_CONSOLIDATION] trace_id=${traceId} Starting manual consolidation...`);
