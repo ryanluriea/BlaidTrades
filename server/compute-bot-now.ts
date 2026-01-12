@@ -182,7 +182,7 @@ async function getLatestJobsPerBot(botIds: string[]): Promise<Map<string, Latest
   if (botIds.length === 0) return new Map();
   
   // FIX: Use sql.join() instead of sql.raw() for proper parameterization
-  const botIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
+  const botIdParams = sql.join(botIds.map(id => sql`${id}`), sql`, `);
   
   // Join with bot_generations to get generation_number for the active job
   const results = await db.execute(sql`
@@ -214,7 +214,7 @@ async function getLatestInstancesPerBot(botIds: string[]): Promise<Map<string, L
   if (botIds.length === 0) return new Map();
   
   // FIX: Use sql.join() instead of sql.raw() for proper parameterization
-  const botIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
+  const botIdParams = sql.join(botIds.map(id => sql`${id}`), sql`, `);
   
   const results = await db.execute(sql`
     SELECT DISTINCT ON (bot_id)
@@ -243,7 +243,7 @@ async function getLatestBacktestsPerBot(botIds: string[]): Promise<Map<string, L
   if (botIds.length === 0) return new Map();
   
   // FIX: Use sql.join() instead of sql.raw() for proper parameterization
-  const botIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
+  const botIdParams = sql.join(botIds.map(id => sql`${id}`), sql`, `);
   
   // INSTITUTIONAL: Deterministic ordering with multiple tie-breakers
   // ORDER BY bot_id, completed_at DESC NULLS LAST, id DESC
@@ -278,7 +278,7 @@ async function getRecentlyCompletedJobsPerBot(botIds: string[]): Promise<Map<str
   if (botIds.length === 0) return new Map();
   
   // FIX: Use sql.join() instead of sql.raw() for proper parameterization
-  const botIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
+  const botIdParams = sql.join(botIds.map(id => sql`${id}`), sql`, `);
   const recentCutoff = new Date(Date.now() - RECENT_JOB_WINDOW_MS);
   
   // Include COMPLETED and FAILED statuses - both should persist for visibility
@@ -322,7 +322,7 @@ async function getActiveJobCountsPerBot(botIds: string[]): Promise<Map<string, J
   if (botIds.length === 0) return new Map();
   
   // FIX: Use sql.join() instead of sql.raw() for proper parameterization
-  const botIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
+  const botIdParams = sql.join(botIds.map(id => sql`${id}`), sql`, `);
   
   const results = await db.execute(sql`
     SELECT 
@@ -403,7 +403,7 @@ async function getHistoryExistsPerBot(botIds: string[]): Promise<Map<string, His
   if (botIds.length === 0) return new Map();
   
   // FIX: Use sql.join() instead of sql.raw() for proper parameterization
-  const botIdParams = sql.join(botIds.map(id => sql`${id}::uuid`), sql`, `);
+  const botIdParams = sql.join(botIds.map(id => sql`${id}`), sql`, `);
   
   // Run all three queries in parallel
   const [jobResults, backtestResults, instanceResults] = await Promise.all([
