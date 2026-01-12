@@ -55,10 +55,21 @@ async function seedSystemUsers() {
     );
 
     if (userByEmail.rows.length > 0) {
-      console.log(`[SEED_USERS] User exists with different ID: ${userByEmail.rows[0].id}`);
+      const existingId = userByEmail.rows[0].id;
+      console.log(`[SEED_USERS] User exists with different ID: ${existingId}`);
       console.log(`[SEED_USERS] Expected ID: ${DEFAULT_USER_ID}`);
-      // Update strategy-lab-engine.ts to use the correct ID, or update the user ID
-      // For now, we'll create the expected user
+      
+      // Update the existing user's ID to match the expected system ID
+      // This ensures all bots/data owned by the expected ID become accessible
+      console.log(`[SEED_USERS] Updating user ID from ${existingId} to ${DEFAULT_USER_ID}...`);
+      
+      await pool.query(
+        `UPDATE users SET id = $1, updated_at = NOW() WHERE email = $2`,
+        [DEFAULT_USER_ID, SYSTEM_USER_EMAIL]
+      );
+      
+      console.log(`[SEED_USERS] User ID updated successfully to ${DEFAULT_USER_ID}`);
+      return;
     }
 
     // Create system user with secure random password (system user - not for manual login)
@@ -66,8 +77,8 @@ async function seedSystemUsers() {
     const hashedPassword = await bcrypt.hash(randomPassword, 12);
     
     await pool.query(
-      `INSERT INTO users (id, email, username, password_hash, role, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 'admin', NOW(), NOW())
+      `INSERT INTO users (id, email, username, password, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
        ON CONFLICT (id) DO UPDATE SET
          email = EXCLUDED.email,
          username = EXCLUDED.username,

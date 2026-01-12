@@ -1,0 +1,50 @@
+2026-01-12T14:04:44.618478549Z [MIGRATE-ENUMS] Total enum types to check: 72
+2026-01-12T14:04:44.640114379Z [MIGRATE-ENUMS] PostgreSQL version: 180001 (supports IF NOT EXISTS: true)
+2026-01-12T14:04:44.782604365Z [MIGRATE-ENUMS] SKIP: Enum 'dlq_status' does not exist in database (will be created by Drizzle)
+2026-01-12T14:04:44.783527154Z [MIGRATE-ENUMS] SKIP: Enum 'consistency_sweep_status' does not exist in database (will be created by Drizzle)
+2026-01-12T14:04:44.783534164Z [MIGRATE-ENUMS] Migration complete:
+2026-01-12T14:04:44.783553994Z [MIGRATE-ENUMS]   - Enums updated: 0
+2026-01-12T14:04:44.783595635Z [MIGRATE-ENUMS]   - Values added: 0
+2026-01-12T14:04:44.783716338Z [MIGRATE-ENUMS]   - Enums unchanged: 70
+2026-01-12T14:04:44.783758099Z [MIGRATE-ENUMS]   - Enums not in DB yet: 2
+2026-01-12T14:04:44.784198948Z [MIGRATE-ENUMS] Success - enum migration completed
+2026-01-12T14:04:44.914621739Z 
+2026-01-12T14:04:44.914646379Z > trading-bot-platform@0.0.0 db:seed-users
+2026-01-12T14:04:44.914650329Z > tsx scripts/seed-system-users.ts
+2026-01-12T14:04:44.914653179Z 
+2026-01-12T14:04:45.220328553Z [SEED_USERS] Checking for system user...
+2026-01-12T14:04:45.242985524Z [SEED_USERS] User exists with different ID: bd83c3ca-ce2e-403a-8fa8-ca967fb70173
+2026-01-12T14:04:45.243012124Z [SEED_USERS] Expected ID: 489c9350-10da-4fb9-8f6b-aeffc9412a46
+2026-01-12T14:04:45.576095555Z [SEED_USERS] Error seeding users: error: column "password_hash" of relation "users" does not exist
+2026-01-12T14:04:45.576116455Z     at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2026-01-12T14:04:45.576119845Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-12T14:04:45.576122105Z     at async seedSystemUsers (/opt/render/project/src/scripts/seed-system-users.ts:68:5) {
+2026-01-12T14:04:45.576124236Z   length: 131,
+2026-01-12T14:04:45.576126965Z   severity: 'ERROR',
+2026-01-12T14:04:45.576129016Z   code: '42703',
+2026-01-12T14:04:45.576131136Z   detail: undefined,
+2026-01-12T14:04:45.576133266Z   hint: undefined,
+2026-01-12T14:04:45.576135236Z   position: '41',
+2026-01-12T14:04:45.576137966Z   internalPosition: undefined,
+2026-01-12T14:04:45.576139996Z   internalQuery: undefined,
+2026-01-12T14:04:45.576142056Z   where: undefined,
+2026-01-12T14:04:45.576144186Z   schema: undefined,
+2026-01-12T14:04:45.576146206Z   table: undefined,
+2026-01-12T14:04:45.576148386Z   column: undefined,
+2026-01-12T14:04:45.576150416Z   dataType: undefined,
+2026-01-12T14:04:45.576152456Z   constraint: undefined,
+2026-01-12T14:04:45.576154436Z   file: 'parse_target.c',
+2026-01-12T14:04:45.576156446Z   line: '1068',
+2026-01-12T14:04:45.576158686Z   routine: 'checkInsertTargets'
+2026-01-12T14:04:45.576161106Z }
+2026-01-12T14:04:45.576191467Z [SEED_USERS] Complete
+2026-01-12T14:04:57.446596207Z ==> Pre-deploy complete!
+2026-01-12T14:04:58.584075753Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+2026-01-12T14:04:58.66044828Z ==> Deploying...
+2026-01-12T14:05:49.990755761Z ==> Your service is live 🎉
+2026-01-12T14:05:50.52646Z ==> 
+2026-01-12T14:05:51.03544547Z ==> ///////////////////////////////////////////////////////////
+2026-01-12T14:05:51.150214106Z ==> 
+2026-01-12T14:05:51.251418132Z ==> Available at your primary URL https://blaidtrades.com + 2 more domains
+2026-01-12T14:05:52.137468927Z ==> 
+2026-01-12T14:05:52.234474523Z ==> ///////////////////////////////////////////////////////////
