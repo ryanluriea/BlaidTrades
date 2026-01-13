@@ -123,11 +123,21 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - Files: `server/scheduler.ts` (runArchetypeBackfill), `server/backtest-executor.ts`, `server/strategy-lab-engine.ts`
 
 **Loading Performance & Black Screen Fixes (Added Jan 2026):**
-- Industry-standard auth pattern: ProtectedRoute shows themed skeleton shell during auth verification, never blocking spinners or black screens
+- **Fully Optimistic AuthContext:** Never blocks navigation - `loading=false` and `isVerified=true` immediately
+- **Cold start optimization:** No cached user redirects to login instantly (no skeleton wait)
+- **Warm start optimization:** Cached user renders immediately, server verifies in background
+- **5-minute verification cache:** Fresh sessions skip server round-trip entirely
+- **ProtectedRoute pattern:** Trust cache immediately, only block if explicitly loading
 - Disabled `refetchOnWindowFocus` globally to prevent tab-switch flicker (stale-while-revalidate pattern)
 - Persistent themed wrapper around all routes ensures `bg-background` always visible
 - AuthContext caches session state with SSR-safe localStorage guards and backward-compatible migration
-- Security: Protected content only renders after server confirms valid session
+
+**Progressive Data Loading (Added Jan 2026):**
+- **Bots page:** Primary data (bot overview) loads first, secondary metrics defer 100ms via `requestIdleCallback`
+- **Strategy Lab:** Same pattern - skeleton with cached data immediately, heavy queries deferred
+- **Query client config:** 5-30 minute stale times, instant cache reads, silent background refresh
+- **Error boundaries:** Global ErrorBoundary wraps app for graceful degradation with themed fallback UI
+- Files: `client/src/contexts/AuthContext.tsx`, `client/src/pages/Bots.tsx`, `client/src/components/bots/views/StrategyLabView.tsx`
 
 **Bot Generations Unique Constraint (Added Jan 2026):**
 - Added unique constraint on `(bot_id, generation_number)` to `bot_generations` table
