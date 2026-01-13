@@ -7,7 +7,7 @@
  * Valid stages: TRIALS (LAB) → PAPER → SHADOW → CANARY → LIVE
  */
 
-import { db } from "./db";
+import { db, withTracedTransaction, DbTransaction } from "./db";
 import { bots, botStageChanges, backtestSessions } from "@shared/schema";
 import type { Bot, InsertBotStageChange } from "@shared/schema";
 import { eq, desc, and, gte, isNull } from "drizzle-orm";
@@ -477,6 +477,12 @@ export async function evaluateBotForDemotion(botId: string): Promise<DemotionEva
 
 /**
  * Execute bot promotion - update database and create audit trail
+ * 
+ * INSTITUTIONAL: Uses transactional wrapper for atomic execution
+ * Critical database operations (bot stage update, stage change log) are
+ * wrapped in a transaction. Activity logging and notifications run after
+ * transaction commits to preserve their side effects (AI feedback, Discord).
+ * On transaction failure, all critical changes are automatically rolled back.
  */
 export async function executePromotion(
   botId: string,
@@ -517,60 +523,73 @@ export async function executePromotion(
     };
   }
   
+  const traceId = `promo-${botId.substring(0, 8)}-${Date.now().toString(36)}`;
+  
   try {
-    // 1. Update bot stage in database
-    await db
-      .update(bots)
-      .set({
-        stage: normalizedTarget,
-        stageUpdatedAt: new Date(),
-        stageReasonCode: triggeredBy === "autonomous" ? "AUTO_PROMOTION" : "MANUAL_PROMOTION",
-        updatedAt: new Date(),
-      })
-      .where(eq(bots.id, botId));
+    // TRANSACTIONAL: Critical DB operations are atomic - rollback on any failure
+    const stageChangeId = await withTracedTransaction(
+      traceId,
+      `BOT_PROMOTION ${bot.name}: ${fromStage}→${normalizedTarget}`,
+      async (tx: DbTransaction) => {
+        // 1. Update bot stage in database
+        await tx
+          .update(bots)
+          .set({
+            stage: normalizedTarget,
+            stageUpdatedAt: new Date(),
+            stageReasonCode: triggeredBy === "autonomous" ? "AUTO_PROMOTION" : "MANUAL_PROMOTION",
+            updatedAt: new Date(),
+          })
+          .where(eq(bots.id, botId));
+        
+        // 2. Log stage change to bot_stage_changes table (audit trail)
+        const stageChangeData: InsertBotStageChange = {
+          botId,
+          fromStage,
+          toStage: normalizedTarget,
+          decision: "PROMOTED",
+          reasonsJson: {
+            triggeredBy,
+            approvedBy: approvedBy || null,
+            timestamp: new Date().toISOString(),
+            traceId,
+          },
+          triggeredBy: approvedBy || "system",
+        };
+        
+        const [stageChange] = await tx
+          .insert(botStageChanges)
+          .values(stageChangeData)
+          .returning({ id: botStageChanges.id });
+        
+        return stageChange?.id || null;
+      }
+    );
     
-    // 2. Log stage change to bot_stage_changes table
-    const stageChangeData: InsertBotStageChange = {
-      botId,
-      fromStage,
-      toStage: normalizedTarget,
-      decision: "PROMOTED",
-      reasonsJson: {
-        triggeredBy,
-        approvedBy: approvedBy || null,
-        timestamp: new Date().toISOString(),
-      },
-      triggeredBy: approvedBy || "system",
-    };
-    
-    const [stageChange] = await db
-      .insert(botStageChanges)
-      .values(stageChangeData)
-      .returning({ id: botStageChanges.id });
-    
-    // 3. Log activity event
+    // POST-TRANSACTION: Activity logging with side effects (AI feedback, notifications)
+    // Runs after commit to ensure side effects only trigger on successful promotion
     const activityEventId = await logBotPromotion(
       bot.userId,
       botId,
       bot.name,
       fromStage,
       normalizedTarget,
-      undefined,
+      traceId,
       triggeredBy
     );
     
-    console.log(`[PROMOTION_ENGINE] Promoted bot ${bot.name} (${botId}): ${fromStage} → ${normalizedTarget}`);
+    console.log(`[PROMOTION_ENGINE] trace_id=${traceId} Promoted bot ${bot.name} (${botId}): ${fromStage} → ${normalizedTarget}`);
     
     return {
       success: true,
       botId,
       fromStage,
       toStage: normalizedTarget,
-      stageChangeId: stageChange?.id || null,
+      stageChangeId,
       activityEventId,
     };
   } catch (error) {
-    console.error(`[PROMOTION_ENGINE] Failed to promote bot ${botId}:`, error);
+    console.error(`[PROMOTION_ENGINE] trace_id=${traceId} Failed to promote bot ${botId}:`, error);
     return {
       success: false,
       botId,
@@ -585,6 +604,12 @@ export async function executePromotion(
 
 /**
  * Execute bot demotion - update database and create audit trail
+ * 
+ * INSTITUTIONAL: Uses transactional wrapper for atomic execution
+ * Critical database operations (bot stage update, stage change log) are
+ * wrapped in a transaction. Activity logging and notifications run after
+ * transaction commits to preserve their side effects (AI feedback, Discord).
+ * On transaction failure, all critical changes are automatically rolled back.
  */
 export async function executeDemotion(
   botId: string,
@@ -625,38 +650,51 @@ export async function executeDemotion(
     };
   }
   
+  const traceId = `demo-${botId.substring(0, 8)}-${Date.now().toString(36)}`;
+  
   try {
-    // 1. Update bot stage in database
-    await db
-      .update(bots)
-      .set({
-        stage: normalizedTarget,
-        stageUpdatedAt: new Date(),
-        stageReasonCode: triggeredBy === "risk_breach" ? "RISK_DEMOTION" : "AUTO_DEMOTION",
-        updatedAt: new Date(),
-      })
-      .where(eq(bots.id, botId));
+    // TRANSACTIONAL: Critical DB operations are atomic - rollback on any failure
+    const stageChangeId = await withTracedTransaction(
+      traceId,
+      `BOT_DEMOTION ${bot.name}: ${fromStage}→${normalizedTarget}`,
+      async (tx: DbTransaction) => {
+        // 1. Update bot stage in database
+        await tx
+          .update(bots)
+          .set({
+            stage: normalizedTarget,
+            stageUpdatedAt: new Date(),
+            stageReasonCode: triggeredBy === "risk_breach" ? "RISK_DEMOTION" : "AUTO_DEMOTION",
+            updatedAt: new Date(),
+          })
+          .where(eq(bots.id, botId));
+        
+        // 2. Log stage change to bot_stage_changes table (audit trail)
+        const stageChangeData: InsertBotStageChange = {
+          botId,
+          fromStage,
+          toStage: normalizedTarget,
+          decision: "DEMOTED",
+          reasonsJson: {
+            triggeredBy,
+            reason,
+            timestamp: new Date().toISOString(),
+            traceId,
+          },
+          triggeredBy: "system",
+        };
+        
+        const [stageChange] = await tx
+          .insert(botStageChanges)
+          .values(stageChangeData)
+          .returning({ id: botStageChanges.id });
+        
+        return stageChange?.id || null;
+      }
+    );
     
-    // 2. Log stage change to bot_stage_changes table
-    const stageChangeData: InsertBotStageChange = {
-      botId,
-      fromStage,
-      toStage: normalizedTarget,
-      decision: "DEMOTED",
-      reasonsJson: {
-        triggeredBy,
-        reason,
-        timestamp: new Date().toISOString(),
-      },
-      triggeredBy: "system",
-    };
-    
-    const [stageChange] = await db
-      .insert(botStageChanges)
-      .values(stageChangeData)
-      .returning({ id: botStageChanges.id });
-    
-    // 3. Log activity event
+    // POST-TRANSACTION: Activity logging with side effects (AI feedback, notifications)
+    // Runs after commit to ensure side effects only trigger on successful demotion
     const activityEventId = await logBotDemotion(
       bot.userId,
       botId,
@@ -664,22 +702,22 @@ export async function executeDemotion(
       fromStage,
       normalizedTarget,
       reason,
-      undefined,
+      traceId,
       triggeredBy
     );
     
-    console.log(`[PROMOTION_ENGINE] Demoted bot ${bot.name} (${botId}): ${fromStage} → ${normalizedTarget} - ${reason}`);
+    console.log(`[PROMOTION_ENGINE] trace_id=${traceId} Demoted bot ${bot.name} (${botId}): ${fromStage} → ${normalizedTarget} - ${reason}`);
     
     return {
       success: true,
       botId,
       fromStage,
       toStage: normalizedTarget,
-      stageChangeId: stageChange?.id || null,
+      stageChangeId,
       activityEventId,
     };
   } catch (error) {
-    console.error(`[PROMOTION_ENGINE] Failed to demote bot ${botId}:`, error);
+    console.error(`[PROMOTION_ENGINE] trace_id=${traceId} Failed to demote bot ${botId}:`, error);
     return {
       success: false,
       botId,
