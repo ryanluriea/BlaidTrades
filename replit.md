@@ -93,3 +93,12 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - Self-healing health watchdog auto-clears cache when hit rate < 30% for 2 consecutive checks
 - Infrastructure Health panel in Systems Status dropdown (DB/Redis/Cache status with color indicators)
 - Manual cache heal button and `/api/system/quick-health` endpoint for UI health data
+
+**Fleet Governor (Added Jan 2026):**
+- Automated fleet size management with performance-based demotion to enforce bot cap limits
+- Per-stage caps: Global (default 100), Trials (50), Paper (25), Live (10)
+- Composite ranking formula: Sharpe + Win Rate + Risk-Adjusted PnL - Drawdown
+- Demotion settings: Grace period (1-168 hours), minimum observation trades (5-100), policy (ARCHIVE/RECYCLE)
+- UI: Fleet Governor popover in Strategy Lab header with settings for all caps and demotion parameters
+- Backend: `setFleetGovernorSettings()` in strategy-lab-engine.ts with database persistence via app_settings
+- Designed for autonomous cost optimization - disabled by default (opt-in feature)

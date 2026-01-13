@@ -654,6 +654,15 @@ export interface StrategyLabState {
   trialsMaxDrawdown: number;
   // Research interval override (0 = use adaptive, otherwise fixed interval in minutes)
   researchIntervalOverrideMinutes: number;
+  // Fleet Governor settings (automated fleet size management)
+  fleetGovernorEnabled: boolean;
+  fleetGovernorGlobalCap: number; // Total active bots across all stages
+  fleetGovernorTrialsCap: number; // Max TRIALS stage bots
+  fleetGovernorPaperCap: number; // Max PAPER stage bots
+  fleetGovernorLiveCap: number; // Max LIVE stage bots (most restrictive)
+  fleetGovernorGracePeriodHours: number; // Grace period before demotion
+  fleetGovernorMinObservationTrades: number; // Min trades before bot can be ranked
+  fleetGovernorDemotionPolicy: "ARCHIVE" | "RECYCLE"; // What to do with demoted bots
 }
 
 interface ResearchCycleStats {
@@ -737,6 +746,15 @@ let strategyLabState: StrategyLabState = {
   trialsMaxDrawdown: 20,
   // Research interval override (0 = use adaptive)
   researchIntervalOverrideMinutes: 0,
+  // Fleet Governor defaults (automated fleet size management)
+  fleetGovernorEnabled: false, // Off by default - opt-in feature
+  fleetGovernorGlobalCap: 100, // Total active bots across all stages
+  fleetGovernorTrialsCap: 50, // Max TRIALS stage bots
+  fleetGovernorPaperCap: 25, // Max PAPER stage bots
+  fleetGovernorLiveCap: 10, // Max LIVE stage bots (most restrictive)
+  fleetGovernorGracePeriodHours: 24, // 24 hour grace period before demotion
+  fleetGovernorMinObservationTrades: 20, // Min trades before bot can be ranked
+  fleetGovernorDemotionPolicy: "ARCHIVE" as const, // Default to archive (safer)
 };
 
 // Sync cost efficiency mode to global for AI cascade
@@ -927,6 +945,46 @@ export function setStrategyLabTrialsAutoPromoteSettings(settings: {
   return getStrategyLabState();
 }
 
+export function setFleetGovernorSettings(settings: {
+  enabled?: boolean;
+  globalCap?: number;
+  trialsCap?: number;
+  paperCap?: number;
+  liveCap?: number;
+  gracePeriodHours?: number;
+  minObservationTrades?: number;
+  demotionPolicy?: "ARCHIVE" | "RECYCLE";
+}): StrategyLabState {
+  if (typeof settings.enabled === "boolean") {
+    strategyLabState.fleetGovernorEnabled = settings.enabled;
+  }
+  if (typeof settings.globalCap === "number") {
+    strategyLabState.fleetGovernorGlobalCap = Math.max(10, Math.min(500, settings.globalCap));
+  }
+  if (typeof settings.trialsCap === "number") {
+    strategyLabState.fleetGovernorTrialsCap = Math.max(5, Math.min(200, settings.trialsCap));
+  }
+  if (typeof settings.paperCap === "number") {
+    strategyLabState.fleetGovernorPaperCap = Math.max(5, Math.min(100, settings.paperCap));
+  }
+  if (typeof settings.liveCap === "number") {
+    strategyLabState.fleetGovernorLiveCap = Math.max(1, Math.min(50, settings.liveCap));
+  }
+  if (typeof settings.gracePeriodHours === "number") {
+    strategyLabState.fleetGovernorGracePeriodHours = Math.max(1, Math.min(168, settings.gracePeriodHours)); // 1 hour to 1 week
+  }
+  if (typeof settings.minObservationTrades === "number") {
+    strategyLabState.fleetGovernorMinObservationTrades = Math.max(5, Math.min(100, settings.minObservationTrades));
+  }
+  if (settings.demotionPolicy === "ARCHIVE" || settings.demotionPolicy === "RECYCLE") {
+    strategyLabState.fleetGovernorDemotionPolicy = settings.demotionPolicy;
+  }
+  strategyLabState.lastStateChange = new Date();
+  
+  console.log(`[FLEET_GOVERNOR] Settings changed: enabled=${strategyLabState.fleetGovernorEnabled} globalCap=${strategyLabState.fleetGovernorGlobalCap} trialsCap=${strategyLabState.fleetGovernorTrialsCap} paperCap=${strategyLabState.fleetGovernorPaperCap} liveCap=${strategyLabState.fleetGovernorLiveCap} gracePeriod=${strategyLabState.fleetGovernorGracePeriodHours}h demotionPolicy=${strategyLabState.fleetGovernorDemotionPolicy}`);
+  return getStrategyLabState();
+}
+
 let settingsInitialized = false;
 
 export interface StrategyLabSettingsInit {
@@ -958,6 +1016,15 @@ export interface StrategyLabSettingsInit {
   trialsMaxDrawdown?: number;
   // Research interval override
   researchIntervalOverrideMinutes?: number;
+  // Fleet Governor settings
+  fleetGovernorEnabled?: boolean;
+  fleetGovernorGlobalCap?: number;
+  fleetGovernorTrialsCap?: number;
+  fleetGovernorPaperCap?: number;
+  fleetGovernorLiveCap?: number;
+  fleetGovernorGracePeriodHours?: number;
+  fleetGovernorMinObservationTrades?: number;
+  fleetGovernorDemotionPolicy?: string;
 }
 
 export function initializeStrategyLabFromSettings(settings: StrategyLabSettingsInit): void {
@@ -1061,8 +1128,38 @@ export function initializeStrategyLabFromSettings(settings: StrategyLabSettingsI
     strategyLabState.researchIntervalOverrideMinutes = settings.researchIntervalOverrideMinutes;
   }
   
+  // Load Fleet Governor settings
+  if (typeof settings.fleetGovernorEnabled === "boolean") {
+    strategyLabState.fleetGovernorEnabled = settings.fleetGovernorEnabled;
+  }
+  if (typeof settings.fleetGovernorGlobalCap === "number") {
+    strategyLabState.fleetGovernorGlobalCap = Math.max(10, Math.min(500, settings.fleetGovernorGlobalCap));
+  }
+  if (typeof settings.fleetGovernorTrialsCap === "number") {
+    strategyLabState.fleetGovernorTrialsCap = Math.max(5, Math.min(200, settings.fleetGovernorTrialsCap));
+  }
+  if (typeof settings.fleetGovernorPaperCap === "number") {
+    strategyLabState.fleetGovernorPaperCap = Math.max(5, Math.min(100, settings.fleetGovernorPaperCap));
+  }
+  if (typeof settings.fleetGovernorLiveCap === "number") {
+    strategyLabState.fleetGovernorLiveCap = Math.max(1, Math.min(50, settings.fleetGovernorLiveCap));
+  }
+  if (typeof settings.fleetGovernorGracePeriodHours === "number") {
+    strategyLabState.fleetGovernorGracePeriodHours = Math.max(1, Math.min(168, settings.fleetGovernorGracePeriodHours));
+  }
+  if (typeof settings.fleetGovernorMinObservationTrades === "number") {
+    strategyLabState.fleetGovernorMinObservationTrades = Math.max(5, Math.min(100, settings.fleetGovernorMinObservationTrades));
+  }
+  const validDemotionPolicies = ["ARCHIVE", "RECYCLE"];
+  if (settings.fleetGovernorDemotionPolicy && validDemotionPolicies.includes(settings.fleetGovernorDemotionPolicy)) {
+    strategyLabState.fleetGovernorDemotionPolicy = settings.fleetGovernorDemotionPolicy as "ARCHIVE" | "RECYCLE";
+  }
+  
   settingsInitialized = true;
   console.log(`[STRATEGY_LAB] Initialized from persisted settings: isPlaying=${strategyLabState.isPlaying} requireManualApproval=${strategyLabState.requireManualApproval} threshold=${strategyLabState.autoPromoteThreshold} tier=${strategyLabState.autoPromoteTier} costEfficiency=${strategyLabState.costEfficiencyMode} qcDaily=${strategyLabState.qcDailyLimit} qcWeekly=${strategyLabState.qcWeeklyLimit} fastTrack=${strategyLabState.fastTrackEnabled} trialsAuto=${strategyLabState.trialsAutoPromoteEnabled}`);
+  if (strategyLabState.fleetGovernorEnabled) {
+    console.log(`[FLEET_GOVERNOR] Loaded from DB: enabled=${strategyLabState.fleetGovernorEnabled} globalCap=${strategyLabState.fleetGovernorGlobalCap} trialsCap=${strategyLabState.fleetGovernorTrialsCap} paperCap=${strategyLabState.fleetGovernorPaperCap} liveCap=${strategyLabState.fleetGovernorLiveCap}`);
+  }
 }
 
 export interface AutoPromoteResult {

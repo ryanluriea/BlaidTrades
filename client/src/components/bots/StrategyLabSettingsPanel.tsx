@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { 
-  Zap, Rocket, Activity, ChevronDown, Info
+  Zap, Rocket, Activity, ChevronDown, Info, Shield
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -53,6 +53,22 @@ interface StrategyLabSettingsPanelProps {
   setTrialsMinWinRate: (v: number) => void;
   trialsMaxDrawdown: number;
   setTrialsMaxDrawdown: (v: number) => void;
+  fleetGovernorEnabled: boolean;
+  setFleetGovernorEnabled: (v: boolean) => void;
+  fleetGovernorGlobalCap: number;
+  setFleetGovernorGlobalCap: (v: number) => void;
+  fleetGovernorTrialsCap: number;
+  setFleetGovernorTrialsCap: (v: number) => void;
+  fleetGovernorPaperCap: number;
+  setFleetGovernorPaperCap: (v: number) => void;
+  fleetGovernorLiveCap: number;
+  setFleetGovernorLiveCap: (v: number) => void;
+  fleetGovernorGracePeriodHours: number;
+  setFleetGovernorGracePeriodHours: (v: number) => void;
+  fleetGovernorMinObservationTrades: number;
+  setFleetGovernorMinObservationTrades: (v: number) => void;
+  fleetGovernorDemotionPolicy: "ARCHIVE" | "RECYCLE";
+  setFleetGovernorDemotionPolicy: (v: "ARCHIVE" | "RECYCLE") => void;
   isPending: boolean;
   onSave: (updates: Record<string, unknown>) => void;
 }
@@ -89,12 +105,29 @@ export function StrategyLabSettingsPanel({
   setTrialsMinWinRate,
   trialsMaxDrawdown,
   setTrialsMaxDrawdown,
+  fleetGovernorEnabled,
+  setFleetGovernorEnabled,
+  fleetGovernorGlobalCap,
+  setFleetGovernorGlobalCap,
+  fleetGovernorTrialsCap,
+  setFleetGovernorTrialsCap,
+  fleetGovernorPaperCap,
+  setFleetGovernorPaperCap,
+  fleetGovernorLiveCap,
+  setFleetGovernorLiveCap,
+  fleetGovernorGracePeriodHours,
+  setFleetGovernorGracePeriodHours,
+  fleetGovernorMinObservationTrades,
+  setFleetGovernorMinObservationTrades,
+  fleetGovernorDemotionPolicy,
+  setFleetGovernorDemotionPolicy,
   isPending,
   onSave,
 }: StrategyLabSettingsPanelProps) {
   const [qcPopoverOpen, setQcPopoverOpen] = useState(false);
   const [fastTrackPopoverOpen, setFastTrackPopoverOpen] = useState(false);
   const [trialsPopoverOpen, setTrialsPopoverOpen] = useState(false);
+  const [fleetGovernorPopoverOpen, setFleetGovernorPopoverOpen] = useState(false);
 
   return (
     <div className="flex items-center gap-2 p-2 rounded-lg border border-border/50 bg-muted/20 flex-wrap">
@@ -452,6 +485,171 @@ export function StrategyLabSettingsPanel({
                 <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/30">
                   MNQ
                 </Badge>
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* Section 4: Fleet Governor - Dropdown Button */}
+      <Popover open={fleetGovernorPopoverOpen} onOpenChange={setFleetGovernorPopoverOpen}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="sm"
+            className={cn(
+              "h-8 gap-1.5 text-[11px] font-medium border-border/60 bg-background/50 px-2",
+              fleetGovernorEnabled && "border-amber-500/40"
+            )}
+            data-testid="toggle-fleet-governor-settings"
+          >
+            <Shield className={cn("h-3.5 w-3.5", fleetGovernorEnabled ? "text-amber-400" : "text-muted-foreground")} />
+            <span className="hidden sm:inline">Fleet Governor</span>
+            <Badge variant="outline" className={cn("text-[9px]", fleetGovernorEnabled ? "text-amber-400 border-amber-500/40" : "")}>
+              {fleetGovernorEnabled ? `${fleetGovernorGlobalCap} Cap` : "Off"}
+            </Badge>
+            <ChevronDown className={cn("h-3 w-3 transition-transform", fleetGovernorPopoverOpen && "rotate-180")} />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-96 p-3" align="start">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="panel-fleet-governor" className="text-xs font-normal">Fleet Governor</Label>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Automated fleet size management with performance-based demotion
+                </p>
+              </div>
+              <Switch
+                id="panel-fleet-governor"
+                checked={fleetGovernorEnabled}
+                disabled={isPending}
+                onCheckedChange={(checked) => {
+                  setFleetGovernorEnabled(checked);
+                  onSave({ fleetGovernorEnabled: checked });
+                }}
+                data-testid="switch-fleet-governor"
+              />
+            </div>
+            
+            <div className={cn("space-y-3", !fleetGovernorEnabled && "opacity-50 pointer-events-none")}>
+              <div className="h-px bg-border/50" />
+              
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-1.5 block">Stage Caps</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[9px] text-muted-foreground">Global</Label>
+                    <Input
+                      type="number" min={10} max={500}
+                      value={fleetGovernorGlobalCap}
+                      onChange={(e) => setFleetGovernorGlobalCap(parseInt(e.target.value) || 100)}
+                      onBlur={(e) => onSave({ fleetGovernorGlobalCap: parseInt(e.target.value) || 100 })}
+                      className="h-7 text-xs"
+                      disabled={!fleetGovernorEnabled || isPending}
+                      data-testid="input-fleet-global-cap"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] text-muted-foreground">Trials</Label>
+                    <Input
+                      type="number" min={5} max={200}
+                      value={fleetGovernorTrialsCap}
+                      onChange={(e) => setFleetGovernorTrialsCap(parseInt(e.target.value) || 50)}
+                      onBlur={(e) => onSave({ fleetGovernorTrialsCap: parseInt(e.target.value) || 50 })}
+                      className="h-7 text-xs"
+                      disabled={!fleetGovernorEnabled || isPending}
+                      data-testid="input-fleet-trials-cap"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] text-muted-foreground">Paper</Label>
+                    <Input
+                      type="number" min={5} max={100}
+                      value={fleetGovernorPaperCap}
+                      onChange={(e) => setFleetGovernorPaperCap(parseInt(e.target.value) || 25)}
+                      onBlur={(e) => onSave({ fleetGovernorPaperCap: parseInt(e.target.value) || 25 })}
+                      className="h-7 text-xs"
+                      disabled={!fleetGovernorEnabled || isPending}
+                      data-testid="input-fleet-paper-cap"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] text-muted-foreground">Live</Label>
+                    <Input
+                      type="number" min={1} max={50}
+                      value={fleetGovernorLiveCap}
+                      onChange={(e) => setFleetGovernorLiveCap(parseInt(e.target.value) || 10)}
+                      onBlur={(e) => onSave({ fleetGovernorLiveCap: parseInt(e.target.value) || 10 })}
+                      className="h-7 text-xs"
+                      disabled={!fleetGovernorEnabled || isPending}
+                      data-testid="input-fleet-live-cap"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="h-px bg-border/50" />
+              
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-1.5 block">Demotion Settings</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[9px] text-muted-foreground">Grace (hrs)</Label>
+                    <Input
+                      type="number" min={1} max={168}
+                      value={fleetGovernorGracePeriodHours}
+                      onChange={(e) => setFleetGovernorGracePeriodHours(parseInt(e.target.value) || 24)}
+                      onBlur={(e) => onSave({ fleetGovernorGracePeriodHours: parseInt(e.target.value) || 24 })}
+                      className="h-7 text-xs"
+                      disabled={!fleetGovernorEnabled || isPending}
+                      data-testid="input-fleet-grace-period"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] text-muted-foreground">Min Trades</Label>
+                    <Input
+                      type="number" min={5} max={100}
+                      value={fleetGovernorMinObservationTrades}
+                      onChange={(e) => setFleetGovernorMinObservationTrades(parseInt(e.target.value) || 20)}
+                      onBlur={(e) => onSave({ fleetGovernorMinObservationTrades: parseInt(e.target.value) || 20 })}
+                      className="h-7 text-xs"
+                      disabled={!fleetGovernorEnabled || isPending}
+                      data-testid="input-fleet-min-trades"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] text-muted-foreground">Policy</Label>
+                    <Select
+                      value={fleetGovernorDemotionPolicy}
+                      disabled={!fleetGovernorEnabled || isPending}
+                      onValueChange={(v) => {
+                        const policy = v as "ARCHIVE" | "RECYCLE";
+                        setFleetGovernorDemotionPolicy(policy);
+                        onSave({ fleetGovernorDemotionPolicy: policy });
+                      }}
+                    >
+                      <SelectTrigger className="h-7 text-xs" data-testid="select-fleet-demotion-policy">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ARCHIVE">Archive</SelectItem>
+                        <SelectItem value="RECYCLE">Recycle</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="h-px bg-border/50" />
+              <div className="text-[9px] text-muted-foreground/80">
+                <div className="flex items-start gap-1">
+                  <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                  <span>
+                    Fleet Governor uses composite ranking (Sharpe + Win Rate + Risk-Adjusted PnL - Drawdown) 
+                    to demote underperformers when stage caps are exceeded.
+                  </span>
+                </div>
               </div>
             </div>
           </div>

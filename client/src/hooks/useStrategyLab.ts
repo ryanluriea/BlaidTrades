@@ -914,6 +914,17 @@ export interface StrategyLabAutonomousState {
   trialsMinSharpe?: number;
   trialsMinWinRate?: number;
   trialsMaxDrawdown?: number;
+  // Research interval override (0=adaptive, 15/30/60 fixed minutes)
+  researchIntervalOverrideMinutes?: number;
+  // Fleet Governor settings (automated fleet size management)
+  fleetGovernorEnabled?: boolean;
+  fleetGovernorGlobalCap?: number;
+  fleetGovernorTrialsCap?: number;
+  fleetGovernorPaperCap?: number;
+  fleetGovernorLiveCap?: number;
+  fleetGovernorGracePeriodHours?: number;
+  fleetGovernorMinObservationTrades?: number;
+  fleetGovernorDemotionPolicy?: "ARCHIVE" | "RECYCLE";
 }
 
 export interface LinkedBotData {

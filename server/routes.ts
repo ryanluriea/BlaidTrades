@@ -15684,6 +15684,31 @@ export function registerRoutes(app: Express) {
         console.log(`[STRATEGY_LAB] Research interval updated: ${researchIntervalOverrideMinutes}min`);
       }
       
+      // Handle Fleet Governor settings
+      const { 
+        fleetGovernorEnabled, fleetGovernorGlobalCap, fleetGovernorTrialsCap,
+        fleetGovernorPaperCap, fleetGovernorLiveCap, fleetGovernorGracePeriodHours,
+        fleetGovernorMinObservationTrades, fleetGovernorDemotionPolicy
+      } = req.body;
+      
+      if (fleetGovernorEnabled !== undefined || fleetGovernorGlobalCap !== undefined || 
+          fleetGovernorTrialsCap !== undefined || fleetGovernorPaperCap !== undefined ||
+          fleetGovernorLiveCap !== undefined || fleetGovernorGracePeriodHours !== undefined ||
+          fleetGovernorMinObservationTrades !== undefined || fleetGovernorDemotionPolicy !== undefined) {
+        const { setFleetGovernorSettings } = await import("./strategy-lab-engine");
+        setFleetGovernorSettings({
+          enabled: typeof fleetGovernorEnabled === "boolean" ? fleetGovernorEnabled : undefined,
+          globalCap: typeof fleetGovernorGlobalCap === "number" ? fleetGovernorGlobalCap : undefined,
+          trialsCap: typeof fleetGovernorTrialsCap === "number" ? fleetGovernorTrialsCap : undefined,
+          paperCap: typeof fleetGovernorPaperCap === "number" ? fleetGovernorPaperCap : undefined,
+          liveCap: typeof fleetGovernorLiveCap === "number" ? fleetGovernorLiveCap : undefined,
+          gracePeriodHours: typeof fleetGovernorGracePeriodHours === "number" ? fleetGovernorGracePeriodHours : undefined,
+          minObservationTrades: typeof fleetGovernorMinObservationTrades === "number" ? fleetGovernorMinObservationTrades : undefined,
+          demotionPolicy: fleetGovernorDemotionPolicy === "ARCHIVE" || fleetGovernorDemotionPolicy === "RECYCLE" ? fleetGovernorDemotionPolicy : undefined,
+        });
+        console.log(`[STRATEGY_LAB] Fleet Governor settings updated`);
+      }
+      
       const validDepths = ["CONTINUOUS_SCAN", "FOCUSED_BURST", "FRONTIER_RESEARCH"];
       if (depth !== undefined) {
         if (!validDepths.includes(depth)) {
@@ -15734,6 +15759,15 @@ export function registerRoutes(app: Express) {
             trialsMaxDrawdown: state.trialsMaxDrawdown,
             // Research interval override
             researchIntervalOverrideMinutes: state.researchIntervalOverrideMinutes,
+            // Fleet Governor settings
+            fleetGovernorEnabled: state.fleetGovernorEnabled,
+            fleetGovernorGlobalCap: state.fleetGovernorGlobalCap,
+            fleetGovernorTrialsCap: state.fleetGovernorTrialsCap,
+            fleetGovernorPaperCap: state.fleetGovernorPaperCap,
+            fleetGovernorLiveCap: state.fleetGovernorLiveCap,
+            fleetGovernorGracePeriodHours: state.fleetGovernorGracePeriodHours,
+            fleetGovernorMinObservationTrades: state.fleetGovernorMinObservationTrades,
+            fleetGovernorDemotionPolicy: state.fleetGovernorDemotionPolicy,
           };
           await storage.upsertAppSettings(persistUserId, { labs: updatedLabs });
           console.log(`[STRATEGY_LAB] Settings persisted to database for user=${persistUserId}`);

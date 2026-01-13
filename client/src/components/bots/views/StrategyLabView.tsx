@@ -647,6 +647,16 @@ export function StrategyLabView() {
   // Research interval override (0=adaptive, 15/30/60 fixed minutes)
   const [researchIntervalOverrideMinutes, setResearchIntervalOverrideMinutes] = useState(0);
   
+  // Fleet Governor settings (automated fleet size management)
+  const [fleetGovernorEnabled, setFleetGovernorEnabled] = useState(false);
+  const [fleetGovernorGlobalCap, setFleetGovernorGlobalCap] = useState(100);
+  const [fleetGovernorTrialsCap, setFleetGovernorTrialsCap] = useState(50);
+  const [fleetGovernorPaperCap, setFleetGovernorPaperCap] = useState(25);
+  const [fleetGovernorLiveCap, setFleetGovernorLiveCap] = useState(10);
+  const [fleetGovernorGracePeriodHours, setFleetGovernorGracePeriodHours] = useState(24);
+  const [fleetGovernorMinObservationTrades, setFleetGovernorMinObservationTrades] = useState(20);
+  const [fleetGovernorDemotionPolicy, setFleetGovernorDemotionPolicy] = useState<"ARCHIVE" | "RECYCLE">("ARCHIVE");
+  
   // Collapsible settings state for each tab
   const [newTabSettingsOpen, setNewTabSettingsOpen] = useState(false);
   const [testingTabSettingsOpen, setTestingTabSettingsOpen] = useState(false);
@@ -738,7 +748,32 @@ export function StrategyLabView() {
     if (typeof autonomousState?.researchIntervalOverrideMinutes === "number") {
       setResearchIntervalOverrideMinutes(autonomousState.researchIntervalOverrideMinutes);
     }
-  }, [autonomousState?.autoPromoteThreshold, autonomousState?.autoPromoteTier, autonomousState?.perplexityModel, autonomousState?.searchRecency, autonomousState?.customFocus, autonomousState?.costEfficiencyMode, autonomousState?.qcDailyLimit, autonomousState?.qcWeeklyLimit, autonomousState?.qcAutoTriggerEnabled, autonomousState?.qcAutoTriggerThreshold, autonomousState?.qcAutoTriggerTier, autonomousState?.fastTrackEnabled, autonomousState?.fastTrackMinTrades, autonomousState?.fastTrackMinSharpe, autonomousState?.fastTrackMinWinRate, autonomousState?.fastTrackMaxDrawdown, autonomousState?.trialsAutoPromoteEnabled, autonomousState?.trialsMinTrades, autonomousState?.trialsMinSharpe, autonomousState?.trialsMinWinRate, autonomousState?.trialsMaxDrawdown, autonomousState?.researchIntervalOverrideMinutes]);
+    // Sync Fleet Governor settings
+    if (typeof autonomousState?.fleetGovernorEnabled === "boolean") {
+      setFleetGovernorEnabled(autonomousState.fleetGovernorEnabled);
+    }
+    if (typeof autonomousState?.fleetGovernorGlobalCap === "number") {
+      setFleetGovernorGlobalCap(autonomousState.fleetGovernorGlobalCap);
+    }
+    if (typeof autonomousState?.fleetGovernorTrialsCap === "number") {
+      setFleetGovernorTrialsCap(autonomousState.fleetGovernorTrialsCap);
+    }
+    if (typeof autonomousState?.fleetGovernorPaperCap === "number") {
+      setFleetGovernorPaperCap(autonomousState.fleetGovernorPaperCap);
+    }
+    if (typeof autonomousState?.fleetGovernorLiveCap === "number") {
+      setFleetGovernorLiveCap(autonomousState.fleetGovernorLiveCap);
+    }
+    if (typeof autonomousState?.fleetGovernorGracePeriodHours === "number") {
+      setFleetGovernorGracePeriodHours(autonomousState.fleetGovernorGracePeriodHours);
+    }
+    if (typeof autonomousState?.fleetGovernorMinObservationTrades === "number") {
+      setFleetGovernorMinObservationTrades(autonomousState.fleetGovernorMinObservationTrades);
+    }
+    if (autonomousState?.fleetGovernorDemotionPolicy === "ARCHIVE" || autonomousState?.fleetGovernorDemotionPolicy === "RECYCLE") {
+      setFleetGovernorDemotionPolicy(autonomousState.fleetGovernorDemotionPolicy);
+    }
+  }, [autonomousState?.autoPromoteThreshold, autonomousState?.autoPromoteTier, autonomousState?.perplexityModel, autonomousState?.searchRecency, autonomousState?.customFocus, autonomousState?.costEfficiencyMode, autonomousState?.qcDailyLimit, autonomousState?.qcWeeklyLimit, autonomousState?.qcAutoTriggerEnabled, autonomousState?.qcAutoTriggerThreshold, autonomousState?.qcAutoTriggerTier, autonomousState?.fastTrackEnabled, autonomousState?.fastTrackMinTrades, autonomousState?.fastTrackMinSharpe, autonomousState?.fastTrackMinWinRate, autonomousState?.fastTrackMaxDrawdown, autonomousState?.trialsAutoPromoteEnabled, autonomousState?.trialsMinTrades, autonomousState?.trialsMinSharpe, autonomousState?.trialsMinWinRate, autonomousState?.trialsMaxDrawdown, autonomousState?.researchIntervalOverrideMinutes, autonomousState?.fleetGovernorEnabled, autonomousState?.fleetGovernorGlobalCap, autonomousState?.fleetGovernorTrialsCap, autonomousState?.fleetGovernorPaperCap, autonomousState?.fleetGovernorLiveCap, autonomousState?.fleetGovernorGracePeriodHours, autonomousState?.fleetGovernorMinObservationTrades, autonomousState?.fleetGovernorDemotionPolicy]);
 
   // Shared helper function for saving column dropdown settings with proper tracking
   const handleColumnSettingsSave = useCallback((updates: Record<string, unknown>) => {
@@ -751,6 +786,8 @@ export function StrategyLabView() {
       fastTrackEnabled, fastTrackMinTrades, fastTrackMinSharpe, fastTrackMinWinRate, fastTrackMaxDrawdown,
       trialsAutoPromoteEnabled, trialsMinTrades, trialsMinSharpe, trialsMinWinRate, trialsMaxDrawdown,
       researchIntervalOverrideMinutes,
+      fleetGovernorEnabled, fleetGovernorGlobalCap, fleetGovernorTrialsCap, fleetGovernorPaperCap,
+      fleetGovernorLiveCap, fleetGovernorGracePeriodHours, fleetGovernorMinObservationTrades, fleetGovernorDemotionPolicy,
       ...updates,
     }, {
       onSettled: () => {
@@ -764,7 +801,9 @@ export function StrategyLabView() {
     customFocus, costEfficiencyMode, qcAutoTriggerEnabled, qcDailyLimit, qcWeeklyLimit,
     qcAutoTriggerThreshold, qcAutoTriggerTier, fastTrackEnabled, fastTrackMinTrades,
     fastTrackMinSharpe, fastTrackMinWinRate, fastTrackMaxDrawdown, trialsAutoPromoteEnabled,
-    trialsMinTrades, trialsMinSharpe, trialsMinWinRate, trialsMaxDrawdown, researchIntervalOverrideMinutes
+    trialsMinTrades, trialsMinSharpe, trialsMinWinRate, trialsMaxDrawdown, researchIntervalOverrideMinutes,
+    fleetGovernorEnabled, fleetGovernorGlobalCap, fleetGovernorTrialsCap, fleetGovernorPaperCap,
+    fleetGovernorLiveCap, fleetGovernorGracePeriodHours, fleetGovernorMinObservationTrades, fleetGovernorDemotionPolicy
   ]);
   
   // Per-column IntersectionObserver for lazy loading
@@ -1636,6 +1675,170 @@ export function StrategyLabView() {
         
         {/* Right side - Menu */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Fleet Governor Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className={cn(
+                  "h-7 px-2 text-[10px] gap-1",
+                  fleetGovernorEnabled ? "text-amber-400" : "text-muted-foreground"
+                )}
+                data-testid="button-fleet-governor"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Governor</span>
+                <Badge variant="outline" className={cn("text-[8px] h-4", fleetGovernorEnabled ? "text-amber-400 border-amber-500/40" : "")}>
+                  {fleetGovernorEnabled ? `${fleetGovernorGlobalCap}` : "Off"}
+                </Badge>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-96 p-3" side="bottom" align="end">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-medium flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-amber-400" />
+                      Fleet Governor
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Automated fleet size management with performance-based demotion
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={fleetGovernorEnabled}
+                    disabled={toggleState.isPending}
+                    onCheckedChange={(checked) => {
+                      setFleetGovernorEnabled(checked);
+                      handleColumnSettingsSave({ fleetGovernorEnabled: checked });
+                    }}
+                    data-testid="switch-fleet-governor"
+                  />
+                </div>
+                
+                <div className={cn("space-y-3", !fleetGovernorEnabled && "opacity-50 pointer-events-none")}>
+                  <div className="h-px bg-border/50" />
+                  
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground mb-1.5 block">Stage Caps</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-muted-foreground">Global</Label>
+                        <Input
+                          type="number" min={10} max={500}
+                          value={fleetGovernorGlobalCap}
+                          onChange={(e) => setFleetGovernorGlobalCap(parseInt(e.target.value) || 100)}
+                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorGlobalCap: parseInt(e.target.value) || 100 })}
+                          className="h-7 text-xs"
+                          disabled={!fleetGovernorEnabled || toggleState.isPending}
+                          data-testid="input-fleet-global-cap"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-muted-foreground">Trials</Label>
+                        <Input
+                          type="number" min={5} max={200}
+                          value={fleetGovernorTrialsCap}
+                          onChange={(e) => setFleetGovernorTrialsCap(parseInt(e.target.value) || 50)}
+                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorTrialsCap: parseInt(e.target.value) || 50 })}
+                          className="h-7 text-xs"
+                          disabled={!fleetGovernorEnabled || toggleState.isPending}
+                          data-testid="input-fleet-trials-cap"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-muted-foreground">Paper</Label>
+                        <Input
+                          type="number" min={5} max={100}
+                          value={fleetGovernorPaperCap}
+                          onChange={(e) => setFleetGovernorPaperCap(parseInt(e.target.value) || 25)}
+                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorPaperCap: parseInt(e.target.value) || 25 })}
+                          className="h-7 text-xs"
+                          disabled={!fleetGovernorEnabled || toggleState.isPending}
+                          data-testid="input-fleet-paper-cap"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-muted-foreground">Live</Label>
+                        <Input
+                          type="number" min={1} max={50}
+                          value={fleetGovernorLiveCap}
+                          onChange={(e) => setFleetGovernorLiveCap(parseInt(e.target.value) || 10)}
+                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorLiveCap: parseInt(e.target.value) || 10 })}
+                          className="h-7 text-xs"
+                          disabled={!fleetGovernorEnabled || toggleState.isPending}
+                          data-testid="input-fleet-live-cap"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="h-px bg-border/50" />
+                  
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground mb-1.5 block">Demotion Settings</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-muted-foreground">Grace (hrs)</Label>
+                        <Input
+                          type="number" min={1} max={168}
+                          value={fleetGovernorGracePeriodHours}
+                          onChange={(e) => setFleetGovernorGracePeriodHours(parseInt(e.target.value) || 24)}
+                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorGracePeriodHours: parseInt(e.target.value) || 24 })}
+                          className="h-7 text-xs"
+                          disabled={!fleetGovernorEnabled || toggleState.isPending}
+                          data-testid="input-fleet-grace-period"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-muted-foreground">Min Trades</Label>
+                        <Input
+                          type="number" min={5} max={100}
+                          value={fleetGovernorMinObservationTrades}
+                          onChange={(e) => setFleetGovernorMinObservationTrades(parseInt(e.target.value) || 20)}
+                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorMinObservationTrades: parseInt(e.target.value) || 20 })}
+                          className="h-7 text-xs"
+                          disabled={!fleetGovernorEnabled || toggleState.isPending}
+                          data-testid="input-fleet-min-trades"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-muted-foreground">Policy</Label>
+                        <Select
+                          value={fleetGovernorDemotionPolicy}
+                          disabled={!fleetGovernorEnabled || toggleState.isPending}
+                          onValueChange={(v) => {
+                            const policy = v as "ARCHIVE" | "RECYCLE";
+                            setFleetGovernorDemotionPolicy(policy);
+                            handleColumnSettingsSave({ fleetGovernorDemotionPolicy: policy });
+                          }}
+                        >
+                          <SelectTrigger className="h-7 text-xs" data-testid="select-fleet-demotion-policy">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ARCHIVE">Archive</SelectItem>
+                            <SelectItem value="RECYCLE">Recycle</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="h-px bg-border/50" />
+                  <div className="text-[9px] text-muted-foreground/80 flex items-start gap-1">
+                    <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <span>
+                      Uses composite ranking (Sharpe + Win Rate + Risk-Adjusted PnL - Drawdown) 
+                      to demote underperformers when stage caps are exceeded.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+          
           {/* 3-Dot Menu - Filter, Sort, Bulk Actions, Settings */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2019,11 +2222,11 @@ export function StrategyLabView() {
                               (candidate as any).qcVerification?.badgeState as QCBadgeState || 
                               getCandidateQCBadgeInfo(qcVerifications, candidate.id).state
                             ) : undefined}
-                            qcAttemptCount={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
-                            qcMaxAttempts={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
-                            qcQueuedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
-                            qcStartedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
-                            qcProgressPct={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
+                            qcAttemptCount={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
+                            qcMaxAttempts={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
+                            qcQueuedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
+                            qcStartedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
+                            qcProgressPct={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
                             qcScore={showQC ? (
                               (candidate as any).qcVerification?.qcScore ?? 
                               getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore
