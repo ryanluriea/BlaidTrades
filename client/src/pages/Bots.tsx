@@ -82,13 +82,15 @@ export default function Bots() {
   // SINGLE DATA SOURCE - everything comes from bots-overview
   const { data: overview, isLoading, error, refetch, isFetching, dataUpdatedAt } = useBotsOverview();
   
-  // Execution proof for PAPER/SHADOW/LIVE bots
+  // Memoize bot IDs - hooks internally skip fetch when array is empty
   const botIds = useMemo(() => overview?.bots?.map(b => b.id) || [], [overview?.bots]);
+  
+  // Execution proof for PAPER/SHADOW/LIVE bots
   const { data: executionProofResult } = useExecutionProof(botIds);
   const executionProofData = executionProofResult?.data;
   const isExecutionProofDegraded = executionProofResult?.degraded ?? false;
   
-  // Fetch actual runner and jobs data for all bots (replaces hardcoded zeros)
+  // Fetch actual runner and jobs data for all bots
   const { data: runnerJobsData, isLoading: runnerJobsLoading } = useBotRunnerAndJobs(botIds);
   
   // Fetch LAB starvation data for idle reason + next run display
