@@ -451,7 +451,8 @@ export default function Bots() {
   };
 
   const renderBotList = () => {
-    // Error state with fallback to previous data (handles thrown errors)
+    // INDUSTRY STANDARD: Use React Query's error state
+    // Only show error if no cached data to display (placeholderData keeps previous data visible)
     if (error && !overview?.bots?.length) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       return (
@@ -464,22 +465,8 @@ export default function Bots() {
         </div>
       );
     }
-    
-    // GRACEFUL DEGRADATION: Show error banner when loadFailed is true
-    // This handles 401/503/server errors that return empty data instead of throwing
-    if (overview?.loadFailed && !overview?.bots?.length) {
-      return (
-        <div className="space-y-4">
-          <ErrorBanner
-            endpoint="bots-overview"
-            message={overview.loadFailedReason || "Failed to load bots"}
-            onRetry={() => refetch()}
-          />
-        </div>
-      );
-    }
 
-    // Loading state (only on initial load)
+    // Loading state (only on initial load when no cached data)
     const hasBots = overview && overview.bots && overview.bots.length > 0;
     if (isLoading && !hasBots) {
       return (

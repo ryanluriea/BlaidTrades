@@ -241,9 +241,6 @@ export interface BotsOverviewData {
   source: "cache" | "db" | "stale";
   // FRESHNESS CONTRACT: Frontend must validate data age before display
   freshnessContract?: FreshnessContract;
-  // GRACEFUL DEGRADATION: Set to true when data fetch failed (empty data returned)
-  loadFailed?: boolean;
-  loadFailedReason?: string;
 }
 
 const EMPTY_DATA: BotsOverviewData = {
@@ -253,18 +250,7 @@ const EMPTY_DATA: BotsOverviewData = {
   integrationsSummary: { brokersConnected: 0, dataSourcesConnected: 0, aiProvidersConnected: 0 },
   generatedAt: new Date().toISOString(),
   source: "db",
-  loadFailed: false,
 };
-
-// Helper to create failed data response with reason
-function createFailedData(reason: string): BotsOverviewData {
-  return {
-    ...EMPTY_DATA,
-    generatedAt: new Date().toISOString(),
-    loadFailed: true,
-    loadFailedReason: reason,
-  };
-}
 
 /**
  * Extract job startedAt timestamp from botNow.activeJob based on job type
@@ -449,33 +435,26 @@ export function useBotsOverview() {
         credentials: "include",
       });
 
-      // GRACEFUL DEGRADATION: Return empty data on errors instead of throwing
-      // This prevents eternal skeleton loading states and matches useStrategyLab pattern
+      // INDUSTRY STANDARD: Throw errors and let React Query handle retry/error states
       
       // Handle 401 Unauthorized - user not authenticated
       if (response.status === 401) {
-        console.warn(`[useBotsOverview] 401 unauthorized - returning empty data`);
-        return createFailedData("Session expired - please log in again");
+        throw new Error("Session expired - please log in again");
       }
       
       // Handle 503 Service Unavailable (request timeout / database overload)
       if (response.status === 503) {
-        const errorBody = await response.json().catch(() => ({}));
-        const retryAfterMs = errorBody.retryAfterMs ?? 5000;
-        console.warn(`[useBotsOverview] 503 degraded response - returning empty data, will refetch in ${retryAfterMs}ms`);
-        return createFailedData("Server is temporarily overloaded - data will refresh automatically");
+        throw new Error("Server is temporarily overloaded");
       }
 
       if (!response.ok) {
-        console.warn(`[useBotsOverview] HTTP ${response.status} - returning empty data`);
-        return createFailedData(`Failed to load bots (error ${response.status})`);
+        throw new Error(`Failed to load bots (error ${response.status})`);
       }
 
       const result = await response.json();
       
       if (!result.success) {
-        console.warn(`[useBotsOverview] API error: ${result.error || 'unknown'} - returning empty data`);
-        return createFailedData(result.error || "Failed to load bots");
+        throw new Error(result.error || "Failed to load bots");
       }
 
       // Update server clock offset if serverTime is provided
@@ -571,9 +550,12 @@ export function useBotsOverview() {
     enabled: !!user?.id,
     gcTime: 5 * 60_000,
     refetchOnReconnect: true,
-    // GRACEFUL: No retry needed since we return EMPTY_DATA instead of throwing
-    // Normal refetchInterval (60s) handles automatic recovery
-    retry: false,
+    // INDUSTRY STANDARD: Limited retries with exponential backoff
+    // After max retries, error state is shown and refetchInterval handles recovery
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
+    // Keep showing previous data while refetching (prevents skeleton flicker)
+    placeholderData: (previousData) => previousData,
   });
 }
 
