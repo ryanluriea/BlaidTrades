@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useBootReady } from "@/contexts/BootContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,6 +48,11 @@ export default function BotDetail() {
   const evolveBot = useEvolutionEngine();
   const exportBotpack = useExportBotpack();
   const importBotpack = useImportBotpack();
+
+  const markReady = useBootReady();
+  useEffect(() => {
+    if (!isLoading) markReady();
+  }, [isLoading, markReady]);
 
   const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
