@@ -116,12 +116,44 @@ function normalizeRegimeAdjustment(obj: any): any {
 function normalizeCandidate(candidate: any): any {
   if (!candidate || typeof candidate !== 'object') return candidate;
   const clone = { ...candidate };
+  
   if ('regimeAdjustment' in clone) {
     clone.regimeAdjustment = normalizeRegimeAdjustment(clone.regimeAdjustment);
   }
   if ('regime_adjustment' in clone) {
     clone.regime_adjustment = normalizeRegimeAdjustment(clone.regime_adjustment);
   }
+  
+  const nullableEmptyFields = [
+    'linkedBot', 'linked_bot',
+    'qcVerification', 'qc_verification',
+    'explainersJson', 'explainers_json',
+    'plainLanguageSummaryJson', 'plain_language_summary_json',
+    'reasoning_json', 'reasoningJson',
+    'evidence_json', 'evidenceJson',
+    'capital_sim_json', 'capitalSimJson',
+    'expected_metrics_json', 'expectedMetricsJson',
+    'ai_usage_json', 'aiUsageJson',
+    'genetic_traits', 'geneticTraits',
+  ];
+  
+  for (const field of nullableEmptyFields) {
+    if (field in clone && isEmptyObject(clone[field])) {
+      clone[field] = null;
+    }
+  }
+  
+  if ('scores' in clone && clone.scores && typeof clone.scores === 'object') {
+    if ('aggregate' in clone.scores && isEmptyObject(clone.scores.aggregate)) {
+      clone.scores = { ...clone.scores, aggregate: null };
+    }
+  }
+  if ('blueprint' in clone && clone.blueprint && typeof clone.blueprint === 'object') {
+    if (isEmptyObject(clone.blueprint)) {
+      clone.blueprint = { name: null, archetype: null };
+    }
+  }
+  
   return clone;
 }
 

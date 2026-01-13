@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
+function isNonEmptyObject(obj: unknown): obj is Record<string, unknown> {
+  return obj !== null && typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).length > 0;
+}
+
 export interface StrategyLabSession {
   id: string;
   user_id: string;
@@ -1147,7 +1151,17 @@ interface RawStrategyCandidate {
   novelty_score: number | null;
   confidence_breakdown_json: Record<string, number> | null;
   rules_json?: { entry?: string; exit?: string; riskModel?: string } | null;
+  rulesJson?: { entry?: string; exit?: string; riskModel?: string } | null;
   explainers_json?: {
+    why?: string;
+    differentiators?: string[];
+    expectedBehavior?: { winRate?: string; tradeFrequency?: string; drawdownProfile?: string };
+    targetedInefficiency?: string;
+    researchMemo?: string;
+    regimeFit?: string;
+    falsificationConditions?: string[];
+  } | null;
+  explainersJson?: {
     why?: string;
     differentiators?: string[];
     expectedBehavior?: { winRate?: string; tradeFrequency?: string; drawdownProfile?: string };
@@ -1193,6 +1207,14 @@ interface RawStrategyCandidate {
     reason: string;
     current_regime: string;
   } | null;
+  regimeAdjustment?: {
+    originalScore: number;
+    adjustedScore: number;
+    regimeBonus: number;
+    regimeMatch: "OPTIMAL" | "FAVORABLE" | "NEUTRAL" | "UNFAVORABLE";
+    reason: string;
+    currentRegime: string;
+  } | null;
   ai_provider?: string | null;
   created_by_ai?: string | null;
   ai_provider_badge?: boolean | null;
@@ -1212,11 +1234,11 @@ interface RawStrategyCandidate {
 }
 
 function mapRawToCandidate(raw: RawStrategyCandidate): StrategyCandidate {
-  const rulesJson = raw.rules_json || {};
-  const explainersJson = raw.explainers_json || null;
+  const rulesJson = isNonEmptyObject(raw.rulesJson) ? raw.rulesJson : (isNonEmptyObject(raw.rules_json) ? raw.rules_json : {});
+  const explainersJson = isNonEmptyObject(raw.explainersJson) ? raw.explainersJson : (isNonEmptyObject(raw.explainers_json) ? raw.explainers_json : null);
   
   let linkedBot: LinkedBotData | null = null;
-  if (raw.linkedBot) {
+  if (isNonEmptyObject(raw.linkedBot) && (raw.linkedBot as any).id) {
     const lb = raw.linkedBot as any;
     // Defensive: use null for missing business-critical fields, NOT fabricated values
     // This ensures UI shows "Unknown" placeholders rather than misleading canonical states
@@ -1227,14 +1249,14 @@ function mapRawToCandidate(raw: RawStrategyCandidate): StrategyCandidate {
       status: lb.status ?? null,
       symbol: lb.symbol ?? null,
       healthScore: lb.healthScore ?? lb.health_score ?? null,
-      metrics: lb.metrics ? {
+      metrics: isNonEmptyObject(lb.metrics) ? {
         totalTrades: lb.metrics.total_trades ?? lb.metrics.trades ?? null,
         winRate: lb.metrics.win_rate ?? lb.metrics.winRate ?? null,
         sharpeRatio: lb.metrics.sharpe_ratio ?? lb.metrics.sharpeRatio ?? null,
         maxDrawdownPct: lb.metrics.max_drawdown_pct ?? lb.metrics.maxDrawdownPct ?? null,
         netPnl: lb.metrics.net_pnl ?? lb.metrics.netPnl ?? null,
       } : null,
-      stageMetrics: lb.stageMetrics ? {
+      stageMetrics: isNonEmptyObject(lb.stageMetrics) ? {
         trades: lb.stageMetrics.trades ?? null,
         winRate: lb.stageMetrics.winRate ?? null,
         netPnl: lb.stageMetrics.netPnl ?? null,
@@ -1268,15 +1290,14 @@ function mapRawToCandidate(raw: RawStrategyCandidate): StrategyCandidate {
       exit: rulesJson.exit ?? "",
       riskModel: rulesJson.riskModel ?? "",
     },
-    // Defensive: provide safe defaults for all explainer sub-properties
-    explainersJson: explainersJson ? {
+    explainersJson: isNonEmptyObject(explainersJson) ? {
       why: explainersJson.why ?? "",
-      differentiators: explainersJson.differentiators ?? [],
-      expectedBehavior: explainersJson.expectedBehavior ?? {},
+      differentiators: Array.isArray(explainersJson.differentiators) ? explainersJson.differentiators : [],
+      expectedBehavior: isNonEmptyObject(explainersJson.expectedBehavior) ? explainersJson.expectedBehavior : {},
       targetedInefficiency: explainersJson.targetedInefficiency ?? "",
       researchMemo: explainersJson.researchMemo ?? "",
       regimeFit: explainersJson.regimeFit ?? "",
-      falsificationConditions: explainersJson.falsificationConditions ?? [],
+      falsificationConditions: Array.isArray(explainersJson.falsificationConditions) ? explainersJson.falsificationConditions : [],
     } : null,
     linkedBot,
     sessionId: undefined,
@@ -1285,7 +1306,14 @@ function mapRawToCandidate(raw: RawStrategyCandidate): StrategyCandidate {
     searchRecency: (raw.search_recency as StrategyCandidate["searchRecency"]) || undefined,
     customFocusUsed: raw.custom_focus_used ?? null,
     isFavorite: raw.is_favorite ?? false,
-    regimeAdjustment: raw.regime_adjustment ? {
+    regimeAdjustment: isNonEmptyObject(raw.regimeAdjustment) && raw.regimeAdjustment.regimeMatch ? {
+      originalScore: raw.regimeAdjustment.originalScore ?? 0,
+      adjustedScore: raw.regimeAdjustment.adjustedScore ?? raw.regimeAdjustment.originalScore ?? 0,
+      regimeBonus: raw.regimeAdjustment.regimeBonus ?? 0,
+      regimeMatch: raw.regimeAdjustment.regimeMatch ?? "NEUTRAL",
+      reason: raw.regimeAdjustment.reason ?? "",
+      currentRegime: raw.regimeAdjustment.currentRegime ?? "UNKNOWN",
+    } : isNonEmptyObject(raw.regime_adjustment) && raw.regime_adjustment.regime_match ? {
       originalScore: raw.regime_adjustment.original_score ?? 0,
       adjustedScore: raw.regime_adjustment.adjusted_score ?? raw.regime_adjustment.original_score ?? 0,
       regimeBonus: raw.regime_adjustment.regime_bonus ?? 0,
@@ -1296,14 +1324,12 @@ function mapRawToCandidate(raw: RawStrategyCandidate): StrategyCandidate {
     aiProvider: raw.ai_provider || null,
     createdByAi: raw.created_by_ai || null,
     aiProviderBadge: raw.ai_provider_badge ?? null,
-    // Defensive: handle both camelCase (API) and snake_case (potential fallback)
-    // All sub-properties get safe defaults to prevent undefined access in components
-    qcVerification: raw.qcVerification ? {
+    qcVerification: isNonEmptyObject(raw.qcVerification) && raw.qcVerification.status ? {
       status: raw.qcVerification.status ?? "NONE",
       badgeState: raw.qcVerification.badgeState ?? null,
       qcScore: raw.qcVerification.qcScore ?? null,
       finishedAt: raw.qcVerification.finishedAt ?? null,
-    } : raw.qc_verification ? {
+    } : isNonEmptyObject(raw.qc_verification) && raw.qc_verification.status ? {
       status: raw.qc_verification.status ?? "NONE",
       badgeState: raw.qc_verification.badge_state ?? null,
       qcScore: raw.qc_verification.qc_score ?? null,
