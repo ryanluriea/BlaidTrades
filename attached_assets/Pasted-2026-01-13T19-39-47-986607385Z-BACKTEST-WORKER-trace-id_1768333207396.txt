@@ -1,0 +1,50 @@
+2026-01-13T19:39:47.986607385Z [BACKTEST_WORKER] trace_id=5d845125-fe4c-49d2-a3a3-609069dedb02 at_concurrency_limit=1
+2026-01-13T19:39:48.07257786Z [TX:0f473b88-4b35-471b-9fe8-cc6662890ece] BACKTEST_TRADES:3ad25bb6 COMMITTED
+2026-01-13T19:39:48.123152888Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece updated generation performanceSnapshot gen_id=192fcb91-2dca-4cfb-b66f-919394a18bb7
+2026-01-13T19:39:48.123929322Z [INTEGRATION_USAGE] trace_id=1e90d5b7-e0a1-4a20-9f4a-07a1e38f8bb7 provider=openai operation=verify status=OK latency_ms=3109
+2026-01-13T19:39:48.12598909Z [INTEGRATION_USAGE] trace_id=5e3c7111-3150-4892-badf-e1737d978984 provider=anthropic operation=verify status=OK latency_ms=0
+2026-01-13T19:39:48.127325077Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece LAB_BASELINE gen_id=192fcb91-2dca-4cfb-b66f-919394a18bb7 valid=true reason=N/A trades=102
+2026-01-13T19:39:48.134977235Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for VWAP Magnet Trap" trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece
+2026-01-13T19:39:48.135014697Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece session_id=3ad25bb6-4f2d-492e-b999-6915f2b7241c completed trades=102 pnl=-488.98
+2026-01-13T19:39:48.15513698Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece session_id=5a132d26-8357-4cb3-86cd-c93d61029679 bot_id=91e8afff-eb0f-4275-8d2b-7bceacd9e085 starting
+2026-01-13T19:39:48.168983323Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for VWAP Magnet Trap" trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece
+2026-01-13T19:39:48.169003015Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece using REAL Databento data for MES via BAR_CACHE
+2026-01-13T19:39:48.169017785Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece loading_5year_history symbol=MES days=90 source=COLD_STORAGE
+2026-01-13T19:39:48.169208686Z [BAR_CACHE] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece symbol=MES cold_storage_empty
+2026-01-13T19:39:48.169240328Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece cold_storage_empty falling_back_to_redis_cache
+2026-01-13T19:39:48.172039598Z [BARS_CACHE] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece instance=32b5cbe1 lock_acquired fetching_from_provider
+2026-01-13T19:39:48.176785041Z [INTEGRATION_USAGE] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-13T19:39:48.176845004Z [DATABENTO] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece CME_LICENSE_CAP: Requested end=2026-01-13T19:39:48.148Z capped to 2026-01-12T17:39:48.176Z (26h buffer for license-free window)
+2026-01-13T19:39:48.176858665Z [DATABENTO] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece fetching symbol=MES.c.0 start=2025-10-15T19:39:48.148Z end=2026-01-12T17:39:48.176Z schema=ohlcv-1m
+2026-01-13T19:39:48.215917612Z [BLOWN_ACCOUNT_SWEEP] trace_id=blown-sweep-17f8fd11 Starting blown account detection sweep...
+2026-01-13T19:39:48.2246064Z [BLOWN_ACCOUNT_SWEEP] trace_id=blown-sweep-17f8fd11 No missed blown accounts found
+2026-01-13T19:39:48.278925852Z [ARCHETYPE_BACKFILL] trace_id=archetype-backfill-6b741dd6 Starting archetype backfill...
+2026-01-13T19:39:48.28063414Z [ARCHETYPE_BACKFILL] trace_id=archetype-backfill-6b741dd6 No bots need archetype backfill
+2026-01-13T19:39:48.311359091Z [INTEGRATION_USAGE] trace_id=bf43a5e8-0081-41e7-bfb8-e174ef81c427 provider=gemini operation=verify status=OK latency_ms=183
+2026-01-13T19:39:48.409062568Z [INTEGRATION_USAGE] trace_id=2e02feaa-b18c-41f4-bf8d-1b2a42af39db provider=groq operation=verify status=OK latency_ms=94
+2026-01-13T19:39:48.533876029Z [INTEGRATION_USAGE] trace_id=35df2b81-9f52-464d-a51e-598b80df65eb provider=xai operation=verify status=OK latency_ms=121
+2026-01-13T19:39:49.373899676Z [BOTS_CACHE] Cached userId=489c9350-10da-4fb9-8f6b-aeffc9412a46 bots=89 ttl=300s
+2026-01-13T19:39:49.373925928Z [CACHE_WARMER] trace_id=cache-warm-2a523a1a users=1 warmed=1 skipped=0 failed=0 duration=8086ms
+2026-01-13T19:39:49.787044736Z [INTEGRATION_USAGE] trace_id=c42e3b22-7213-455c-a292-eba1c1ddbde3 provider=perplexity operation=verify status=OK latency_ms=1251
+2026-01-13T19:39:50.215762839Z [SCHEDULER] trace_id=recon-startup-a8d56a51 Running candidate reconciliation on startup...
+2026-01-13T19:39:50.215999872Z [RECONCILIATION] trace_id=recon-mkczxa2v Starting candidate reconciliation (dryRun=true)...
+2026-01-13T19:39:50.218611102Z [RECONCILIATION] trace_id=recon-mkczxa2v Complete: stuck=100 autoRepaired=0 manualReview=100 errors=0
+2026-01-13T19:39:50.220585285Z [RECONCILIATION] trace_id=recon-mkczxa2v Found 16 QC-passed candidates stuck (requires manual promotion via UI)
+2026-01-13T19:39:50.220592596Z [SCHEDULER] trace_id=recon-startup-a8d56a51 Found 100 stuck candidates, auto-repairing...
+2026-01-13T19:39:50.220598376Z [RECONCILIATION] trace_id=recon-mkczxa30 Starting candidate reconciliation (dryRun=false)...
+2026-01-13T19:39:50.222133894Z [RECONCILIATION] trace_id=recon-mkczxa30 Complete: stuck=100 autoRepaired=0 manualReview=100 errors=0
+2026-01-13T19:39:50.223179754Z [RECONCILIATION] trace_id=recon-mkczxa30 Found 16 QC-passed candidates stuck (requires manual promotion via UI)
+2026-01-13T19:39:50.223187844Z [SCHEDULER] trace_id=recon-startup-a8d56a51 Reconciliation complete: repaired=0 manual_review=100
+2026-01-13T19:39:50.223400677Z [INVARIANT_CHECK] trace_id=invariant-mkczxa33 Running state invariant checks...
+2026-01-13T19:39:50.226302573Z [INVARIANT_CHECK] trace_id=invariant-mkczxa33 All checks PASSED
+2026-01-13T19:39:52.548518029Z [DATABENTO] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece fetched bars=82155 latency=4372ms
+2026-01-13T19:39:52.552847267Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece
+2026-01-13T19:39:52.846849231Z [BARS_CACHE] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece instance=32b5cbe1 cache_set key=bars:v2:MES:1m:ALL:1760557188148:1768333188148 bars=82155 compressed_bytes=837283
+2026-01-13T19:39:52.861570684Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece REAL_DATA fetched_bars=82155 provider=databento latency=4690ms
+2026-01-13T19:39:52.884149678Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece bot_name="VWAP Magnet Trap" inferred_archetype="none" using="vwap_bounce"
+2026-01-13T19:39:52.884335918Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-13T19:39:52.884524449Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-13T19:39:52.887087646Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece using_real_strategy version=1.0.0 rules=MES VWAP rules_hash=f62984d601fdbce9
+2026-01-13T19:39:52.891283647Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-13T19:39:52.891298508Z [BACKTEST_EXECUTOR] trace_id=0f473b88-4b35-471b-9fe8-cc6662890ece SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-13T19:39:52.897701974Z [SESSION_CHECK] UTC=2025-10-15T20:30:00.000Z ET_hour=16 ET_min=30 ET_day=3 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55

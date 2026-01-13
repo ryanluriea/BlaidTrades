@@ -124,16 +124,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
             setCachedAuth(data.user);
           } else {
-            console.log("[Auth] No session from server");
+            // Server returned OK but no user - this is a logout signal
+            // The backend confirmed no valid session exists
+            console.log("[Auth] No session");
             setUser(null);
             setSession(null);
             setCachedAuth(null);
           }
-        } else {
-          console.log("[Auth] Server rejected session");
+        } else if (response.status === 401) {
+          // Definitive rejection - session truly expired, clear cache
+          console.log("[Auth] Session expired (401)");
           setUser(null);
           setSession(null);
           setCachedAuth(null);
+        } else {
+          // Other errors (5xx, network) - keep cached state for resilience
+          console.log("[Auth] Server error, keeping cached state", response.status);
+          // Don't clear user - graceful degradation
         }
       } catch (error) {
         console.error("[Auth] Check session error - keeping cached state", error);
@@ -223,7 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     navigate("/login");
   };
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const response = await fetch("/api/auth/me", {
         credentials: "include",
@@ -240,22 +247,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           setCachedAuth(data.user);
         } else {
+          // Server confirmed no session - treat as logout
+          console.log("[Auth] Refresh: no session");
           setUser(null);
           setSession(null);
           setCachedAuth(null);
         }
-      } else {
+      } else if (response.status === 401) {
+        // Definitive rejection - session truly expired
+        console.log("[Auth] Refresh: session expired (401)");
         setUser(null);
         setSession(null);
         setCachedAuth(null);
       }
+      // For other errors (5xx), keep existing state
     } catch (error) {
-      console.error("[Auth] Refresh user error", error);
-      setUser(null);
-      setSession(null);
-      setCachedAuth(null);
+      // Network errors - keep existing state for resilience
+      console.error("[Auth] Refresh user error - keeping existing state", error);
     }
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, session, loading, isVerified, signUp, signIn, signOut, refreshUser }}>
