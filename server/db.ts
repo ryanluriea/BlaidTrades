@@ -510,6 +510,30 @@ async function attemptSchemaValidation(): Promise<{ valid: boolean; errors: stri
 }
 
 /**
+ * STARTUP MIGRATION: Ensure archetype_name column exists on bots table
+ * Uses ADD COLUMN IF NOT EXISTS to be idempotent - safe for concurrent Render instances
+ * MUST run BEFORE any code that touches the bots table (storage, scheduler, backfill)
+ */
+export async function ensureArchetypeColumn(): Promise<void> {
+  console.log('[STARTUP_MIGRATION] Ensuring archetype_name column exists...');
+  
+  try {
+    await poolWeb.query(`
+      ALTER TABLE bots ADD COLUMN IF NOT EXISTS archetype_name text
+    `);
+    console.log('[STARTUP_MIGRATION] archetype_name column ensured (created or already exists)');
+  } catch (error) {
+    // Log but don't fail startup - the column might already exist
+    const errMsg = error instanceof Error ? error.message : 'unknown';
+    console.error(`[STARTUP_MIGRATION] Failed to ensure archetype_name column: ${errMsg}`);
+    // Re-throw only if it's not a "column already exists" error
+    if (!errMsg.includes('already exists')) {
+      throw error;
+    }
+  }
+}
+
+/**
  * STARTUP MIGRATION: Ensure tick ingestion tables exist
  * Creates trade_ticks, quote_ticks, order_book_snapshots, tick_sequence_gaps, tick_ingestion_metrics
  * Uses CREATE TABLE IF NOT EXISTS to be idempotent

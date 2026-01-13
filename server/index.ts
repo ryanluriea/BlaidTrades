@@ -6,7 +6,7 @@ import { createServer } from "http";
 import { startScheduler, pauseHeavyWorkers, resumeHeavyWorkers } from "./scheduler";
 import { livePnLWebSocket } from "./websocket-server";
 import { researchMonitorWS } from "./research-monitor-ws";
-import { validateSchemaAtStartup, warmupDatabase, poolWeb, ensureTickTablesExist, ensureCanonicalUserConsolidation } from "./db";
+import { validateSchemaAtStartup, warmupDatabase, poolWeb, ensureTickTablesExist, ensureCanonicalUserConsolidation, ensureArchetypeColumn } from "./db";
 import { reconcileConfigAtStartup } from "./config-reconciliation";
 import bcrypt from "bcryptjs";
 import { startMemorySentinel, loadSheddingMiddleware, getInstanceId, registerSchedulerCallbacks, registerCacheEvictionCallback } from "./ops/memorySentinel";
@@ -111,6 +111,10 @@ if (isWorkerOnlyMode) {
     
     log(`[STARTUP] Database ready - starting scheduler workers`);
     
+    // CRITICAL: Ensure archetype_name column exists BEFORE any bot queries
+    // This auto-migrates production databases on deploy
+    await ensureArchetypeColumn();
+    
     // CRITICAL: Ensure system user exists for autonomous operations
     try {
       const systemUser = await storage.ensureSystemUser();
@@ -172,6 +176,10 @@ if (isWorkerOnlyMode) {
     
     if (dbReady) {
       log(`[STARTUP] Database ready - PostgreSQL session store will be used`);
+      
+      // CRITICAL: Ensure archetype_name column exists BEFORE any bot queries
+      // This auto-migrates production databases on deploy
+      await ensureArchetypeColumn();
       
       // Bootstrap admin account on first deploy (when users table is empty)
       await bootstrapAdminAccount();
