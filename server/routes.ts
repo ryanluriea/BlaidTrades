@@ -640,6 +640,113 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Institutional-grade RED Metrics Dashboard (Rate/Errors/Duration)
+  app.get("/api/observability/red-metrics", async (_req: Request, res: Response) => {
+    try {
+      const { getREDMetrics } = await import("./observability/red-dashboard");
+      res.json(getREDMetrics());
+    } catch (err) {
+      console.error("[RED_METRICS] Error:", err);
+      res.status(500).json({ error: "Failed to get RED metrics" });
+    }
+  });
+
+  // SLO Compliance Status
+  app.get("/api/observability/slo-status", async (_req: Request, res: Response) => {
+    try {
+      const { latencyTracker } = await import("./observability/latency-tracker");
+      const sloStatus = latencyTracker.getSLOStatus();
+      res.json({
+        slos: sloStatus,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[SLO_STATUS] Error:", err);
+      res.status(500).json({ error: "Failed to get SLO status" });
+    }
+  });
+
+  // Broker/Integration Health Status
+  app.get("/api/observability/broker-health", async (_req: Request, res: Response) => {
+    try {
+      const { getBrokerHealth } = await import("./resilience/broker-resilience");
+      res.json({
+        brokers: getBrokerHealth(),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[BROKER_HEALTH] Error:", err);
+      res.status(500).json({ error: "Failed to get broker health" });
+    }
+  });
+
+  // Event Loop Stats
+  app.get("/api/observability/event-loop", async (_req: Request, res: Response) => {
+    try {
+      const { eventLoopMonitor } = await import("./observability/event-loop-monitor");
+      res.json({
+        stats: eventLoopMonitor.getStats(),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[EVENT_LOOP] Error:", err);
+      res.status(500).json({ error: "Failed to get event loop stats" });
+    }
+  });
+
+  // Memory Leak Detection Stats
+  app.get("/api/observability/memory-leak", async (_req: Request, res: Response) => {
+    try {
+      const { memoryLeakDetector } = await import("./observability/memory-leak-detector");
+      res.json({
+        stats: memoryLeakDetector.getStats(),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[MEMORY_LEAK] Error:", err);
+      res.status(500).json({ error: "Failed to get memory leak stats" });
+    }
+  });
+
+  // Disaster Recovery Status
+  app.get("/api/observability/dr-status", async (_req: Request, res: Response) => {
+    try {
+      const { drTracker } = await import("./observability/disaster-recovery");
+      res.json(drTracker.getStatus());
+    } catch (err) {
+      console.error("[DR_STATUS] Error:", err);
+      res.status(500).json({ error: "Failed to get DR status" });
+    }
+  });
+
+  // Audit Log with Tamper-Evident Hash Chain
+  app.get("/api/observability/audit-integrity", async (_req: Request, res: Response) => {
+    try {
+      const { tamperEvidentAudit } = await import("./security/tamper-evident-audit");
+      res.json({
+        stats: tamperEvidentAudit.getStats(),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[AUDIT_INTEGRITY] Error:", err);
+      res.status(500).json({ error: "Failed to get audit integrity" });
+    }
+  });
+
+  // Idempotency Store Stats
+  app.get("/api/observability/idempotency-stats", async (_req: Request, res: Response) => {
+    try {
+      const { idempotencyStore } = await import("./resilience/idempotency-middleware");
+      res.json({
+        stats: idempotencyStore.getStats(),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[IDEMPOTENCY] Error:", err);
+      res.status(500).json({ error: "Failed to get idempotency stats" });
+    }
+  });
+
   // Remote cache kill-switch control - disable client caching without redeploy
   // Durable persistence: PostgreSQL (primary), Redis (fast cache), memory (fallback)
   // FAIL-SAFE: Return 503 when all stores unavailable so client activates fail-safe

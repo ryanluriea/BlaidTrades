@@ -8320,6 +8320,14 @@ async function initializeWorkers(): Promise<void> {
   // INSTITUTIONAL: Ensure clean state - clear any existing intervals first
   clearAllWorkerIntervals();
   
+  // INSTITUTIONAL: Initialize observability FIRST (synchronous, before workers)
+  try {
+    const { initializeObservability } = await import('./observability/index');
+    initializeObservability();
+  } catch (observErr) {
+    console.error("[SCHEDULER] Failed to initialize observability:", observErr);
+  }
+  
   // SEV-1: Check circuit breaker before attempting any DB operations
   const { isCircuitOpen } = await import('./db');
   const circuitOpen = isCircuitOpen();
