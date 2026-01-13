@@ -1,0 +1,50 @@
+2026-01-13T00:19:56.028022153Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=2dd54d8b-cc04-4ed0-b7a3-5d9667914035 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.030210825Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.032768243Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=9e197dc4-0cb7-49ec-8c68-8936c17a7491 insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.034029587Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=9e197dc4-0cb7-49ec-8c68-8936c17a7491 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.035966144Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.038916889Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=347999d7-0e75-465c-92b0-292cec190939 insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.040165233Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=347999d7-0e75-465c-92b0-292cec190939 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.042168281Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.044991194Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=c4dfb078-7dc6-48df-b643-8acd3313b010 insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.046202897Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=c4dfb078-7dc6-48df-b643-8acd3313b010 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.048312037Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.051241573Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=2c17b821-5187-4d6d-b83e-b1d5a299a7b7 insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.052405435Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=2c17b821-5187-4d6d-b83e-b1d5a299a7b7 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.054520764Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.05742781Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=b127ee4b-8d4c-438c-a37b-b1fc9e3aae34 insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.058774055Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=b127ee4b-8d4c-438c-a37b-b1fc9e3aae34 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.060705532Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.063635977Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.064974322Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.067913688Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.070893364Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.072298241Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.07490552Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.077941798Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.079377195Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.08125721Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.084213556Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.085588882Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.087470238Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.090465295Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce insufficient_data sessions=0 using_defaults
+2026-01-13T00:19:56.091968073Z [ADAPTIVE_WEIGHTS] trace_id=4f057c90-6e6b-4aaa-b50c-a11eaa90ba0d bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T00:19:56.093825268Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T00:19:56.765596244Z [IRONBEAM_LIVE] trace_id=84e29488 message_count=920 raw_data_preview={"q":[{"s":"XCME:ES.H26","l":7006.25,"sz":1,"ch":-10.25,"op":7014,"hi":7014,"lo":7003.25,"ags":2,"td":1,"stt":7016.5,"stts":"20260112","sttst":1766341842378,"pstt":7005,"pstts":"20260109","sttch":11.5
+2026-01-13T00:19:59.455772847Z [DATABENTO] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d fetched bars=4832 latency=4237ms
+2026-01-13T00:19:59.457996709Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=6500c2f6-96d6-4fca-adec-a372407e178d
+2026-01-13T00:19:59.484310387Z [BARS_CACHE] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d instance=2456aef4 cache_set key=bars:v2:MNQ:5m:ALL:1765671595174:1768263595174 bars=4832 compressed_bytes=67850
+2026-01-13T00:19:59.486417686Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d resampling cached bars from 1m to 5m (factor=5)
+2026-01-13T00:19:59.489524465Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d REAL_DATA fetched_bars=967 provider=databento latency=4291ms
+2026-01-13T00:19:59.491563284Z [STRATEGY_INFERENCE] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d bot_name="Hype Gap Reversal" inferred_archetype="reversal"
+2026-01-13T00:19:59.491572174Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d bot_name="Hype Gap Reversal" inferred_archetype="reversal" using="reversal"
+2026-01-13T00:19:59.491579334Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d archetype=reversal mapped_to=reversal
+2026-01-13T00:19:59.491842989Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d TRIALS_SESSION_WIDENING original=10:00-15:30 widened=09:35-15:55
+2026-01-13T00:19:59.493533831Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d using_real_strategy version=1.0.0 rules=MNQ Reversal rules_hash=536ecfafe6e25f06
+2026-01-13T00:19:59.493661143Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-13T00:19:59.493664843Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d SESSION_MODE=FULL_24x5 SESSION_BYPASS=true timezone=America/New_York
+2026-01-13T00:19:59.498079427Z [STRATEGY_EXECUTOR] bars=967 valid_bars=967 session_bars=917 outside_session=0 no_trade_window=0 entry_signals=0 trades=0
+2026-01-13T00:19:59.498093817Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d REAL_EXECUTION trades=0 pnl=0.00 win_rate=0.0%
+2026-01-13T00:19:59.498116297Z [BACKTEST_EXECUTOR] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d FAIL_FAST: ZERO_TRADES_GENERATED - Strategy produced 0 trades over 967 bars. Check entry conditions or data quality.
+2026-01-13T00:19:59.501905339Z [ACTIVITY_EVENT] type=BACKTEST_FAILED severity=WARN title="Backtest failed: ZERO_TRADES_GENERATED" trace_id=6500c2f6-96d6-4fca-adec-a372407e178d
+2026-01-13T00:19:59.50197435Z [BACKTEST_WORKER] trace_id=6500c2f6-96d6-4fca-adec-a372407e178d job_id=79ffd42e-4342-4ae9-9a0f-e864273a4d8b error= Strategy produced 0 trades over 967 bars. Check entry conditions or data quality.

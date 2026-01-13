@@ -26,22 +26,22 @@ function isValidUuid(str: string): boolean {
 }
 
 /**
- * PRODUCTION-SAFE: Build a raw SQL uuid array literal
+ * PRODUCTION-SAFE: Build a raw SQL uuid array using ARRAY constructor
  * Uses sql.raw() to embed the array directly in the query (not as a parameter)
  * This is safe because all UUIDs are validated first
  * 
- * CRITICAL: UUIDs contain hyphens, so PostgreSQL requires double-quotes around
- * each element in the array literal. Format: '{"uuid1","uuid2"}'::uuid[]
+ * CRITICAL: Uses ARRAY['uuid'::uuid] syntax instead of '{"uuid"}'::uuid[]
+ * because Drizzle/Node escapes double quotes in array literals, breaking PostgreSQL parsing
  */
 function buildUuidArraySql(ids: string[]): ReturnType<typeof sql.raw> {
   const validatedIds = ids.filter(id => isValidUuid(id));
   if (validatedIds.length === 0) {
-    return sql.raw("'{}'::uuid[]");
+    return sql.raw("ARRAY[]::uuid[]");
   }
-  // PostgreSQL array literal with double-quoted elements (required for hyphens)
-  // Format: '{"uuid1","uuid2",...}'::uuid[]
-  const quotedIds = validatedIds.map(id => `"${id}"`).join(',');
-  return sql.raw(`'{${quotedIds}}'::uuid[]`);
+  // ARRAY constructor syntax - no double quotes needed, avoids escaping issues
+  // Format: ARRAY['uuid1'::uuid,'uuid2'::uuid]
+  const elements = validatedIds.map(id => `'${id}'::uuid`).join(',');
+  return sql.raw(`ARRAY[${elements}]`);
 }
 
 /**

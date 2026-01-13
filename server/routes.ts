@@ -4182,12 +4182,16 @@ export function registerRoutes(app: Express) {
       // Build query for targeted bots
       let botsQuery;
       if (botIds && Array.isArray(botIds) && botIds.length > 0) {
-        // Format as PostgreSQL array literal with double-quoted UUIDs (required for hyphens)
-        const botIdArray = `{${botIds.map((id: string) => `"${id}"`).join(',')}}`;
+        // ARRAY constructor syntax - no escaping issues with sql.raw()
+        const validBotIds = botIds.filter((id: string) => isValidUuid(id));
+        if (validBotIds.length === 0) {
+          return res.status(400).json({ error_code: "INVALID_BOT_IDS", message: "No valid UUIDs provided" });
+        }
+        const botIdArraySql = sql.raw(`ARRAY[${validBotIds.map((id: string) => `'${id}'::uuid`).join(',')}]`);
         botsQuery = await db.execute(sql`
           SELECT id, name, symbol, stage, metrics_reset_at 
           FROM bots 
-          WHERE id = ANY(${botIdArray}::uuid[]) AND killed_at IS NULL
+          WHERE id = ANY(${botIdArraySql}) AND killed_at IS NULL
         `);
       } else {
         botsQuery = await db.execute(sql`
@@ -4305,12 +4309,16 @@ export function registerRoutes(app: Express) {
       // Get target bots
       let botsQuery;
       if (botIds && Array.isArray(botIds) && botIds.length > 0) {
-        // Format as PostgreSQL array literal with double-quoted UUIDs (required for hyphens)
-        const botIdArray = `{${botIds.map((id: string) => `"${id}"`).join(',')}}`;
+        // ARRAY constructor syntax - no escaping issues with sql.raw()
+        const validBotIds = botIds.filter((id: string) => isValidUuid(id));
+        if (validBotIds.length === 0) {
+          return res.status(400).json({ error_code: "INVALID_BOT_IDS", message: "No valid UUIDs provided" });
+        }
+        const botIdArraySql = sql.raw(`ARRAY[${validBotIds.map((id: string) => `'${id}'::uuid`).join(',')}]`);
         botsQuery = await db.execute(sql`
           SELECT id, name, strategy_config 
           FROM bots 
-          WHERE id = ANY(${botIdArray}::uuid[]) AND killed_at IS NULL
+          WHERE id = ANY(${botIdArraySql}) AND killed_at IS NULL
         `);
       } else {
         botsQuery = await db.execute(sql`
@@ -13941,23 +13949,26 @@ export function registerRoutes(app: Express) {
       
       if (candidateIds.length > 0) {
         try {
-          // Format as PostgreSQL array literal with double-quoted UUIDs (required for hyphens)
-          const candidateIdArray = `{${candidateIds.map((id: string) => `"${id}"`).join(',')}}`;
-          const qcResult = await db.execute(sql`
-            SELECT DISTINCT ON (candidate_id) 
-              candidate_id, status, badge_state, qc_score, finished_at
-            FROM qc_verifications
-            WHERE candidate_id = ANY(${candidateIdArray}::uuid[])
-            ORDER BY candidate_id, queued_at DESC
-          `);
+          // ARRAY constructor syntax - no escaping issues with sql.raw()
+          const validCandidateIds = candidateIds.filter((id: string) => isValidUuid(id));
+          if (validCandidateIds.length > 0) {
+            const candidateIdArraySql = sql.raw(`ARRAY[${validCandidateIds.map((id: string) => `'${id}'::uuid`).join(',')}]`);
+            const qcResult = await db.execute(sql`
+              SELECT DISTINCT ON (candidate_id) 
+                candidate_id, status, badge_state, qc_score, finished_at
+              FROM qc_verifications
+              WHERE candidate_id = ANY(${candidateIdArraySql})
+              ORDER BY candidate_id, queued_at DESC
+            `);
           
-          for (const row of qcResult.rows as any[]) {
-            qcVerificationMap.set(row.candidate_id, {
-              status: row.status,
-              badgeState: row.badge_state,
-              qcScore: row.qc_score,
-              finishedAt: row.finished_at,
-            });
+            for (const row of qcResult.rows as any[]) {
+              qcVerificationMap.set(row.candidate_id, {
+                status: row.status,
+                badgeState: row.badge_state,
+                qcScore: row.qc_score,
+                finishedAt: row.finished_at,
+              });
+            }
           }
         } catch (qcError) {
           console.warn("[STRATEGY_LAB_CANDIDATES] QC verification fetch warning:", qcError);
@@ -14048,26 +14059,29 @@ export function registerRoutes(app: Express) {
         // Batch fetch all bots and metrics in one query
         let botDataMap = new Map<string, any>();
         if (candidateIds.length > 0) {
-          // Format as PostgreSQL array literal with double-quoted UUIDs (required for hyphens)
-          const botIdArray = `{${candidateIds.map((id: string) => `"${id}"`).join(',')}}`;
-          const botDataResult = await db.execute(sql`
-            SELECT 
-              b.id, b.name, b.stage, b.status, b.symbol, b.health_score, b.created_at,
-              bmr.total_trades as trades, bmr.win_rate, bmr.sharpe_ratio, 
-              bmr.max_drawdown_pct, bmr.net_pnl
-            FROM bots b
-            LEFT JOIN LATERAL (
-              SELECT total_trades, win_rate, sharpe_ratio, max_drawdown_pct, net_pnl
-              FROM bot_metrics_rollup 
-              WHERE bot_id = b.id
-              ORDER BY updated_at DESC NULLS LAST
-              LIMIT 1
-            ) bmr ON true
-            WHERE b.id = ANY(${botIdArray}::uuid[])
-          `);
+          // ARRAY constructor syntax - no escaping issues with sql.raw()
+          const validBotIds = candidateIds.filter((id: string) => isValidUuid(id));
+          if (validBotIds.length > 0) {
+            const botIdArraySql = sql.raw(`ARRAY[${validBotIds.map((id: string) => `'${id}'::uuid`).join(',')}]`);
+            const botDataResult = await db.execute(sql`
+              SELECT 
+                b.id, b.name, b.stage, b.status, b.symbol, b.health_score, b.created_at,
+                bmr.total_trades as trades, bmr.win_rate, bmr.sharpe_ratio, 
+                bmr.max_drawdown_pct, bmr.net_pnl
+              FROM bots b
+              LEFT JOIN LATERAL (
+                SELECT total_trades, win_rate, sharpe_ratio, max_drawdown_pct, net_pnl
+                FROM bot_metrics_rollup 
+                WHERE bot_id = b.id
+                ORDER BY updated_at DESC NULLS LAST
+                LIMIT 1
+              ) bmr ON true
+              WHERE b.id = ANY(${botIdArraySql})
+            `);
           
-          for (const row of botDataResult.rows as any[]) {
-            botDataMap.set(row.id, row);
+            for (const row of botDataResult.rows as any[]) {
+              botDataMap.set(row.id, row);
+            }
           }
         }
         
