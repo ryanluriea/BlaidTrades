@@ -53,6 +53,7 @@ import { runRiskEnforcementCheck } from "./risk-enforcement";
 import { recordBatchMetrics, recordFallback, getFallbackMetrics } from "./fail-fast-validators";
 import { startFleetRiskEngine, stopFleetRiskEngine, fleetRiskEngine } from "./fleet-risk-engine";
 import { runResurrectionScan } from "./regime-resurrection-detector";
+import { getCachedBotsOverview, setCachedBotsOverview, getCacheAgeSeconds } from "./cache/bots-overview-cache";
 
 // Reconciliation interval - runs every 30 minutes to detect and fix stuck candidates
 let reconciliationInterval: NodeJS.Timeout | null = null;
@@ -82,6 +83,8 @@ let promotionWorkerInterval: NodeJS.Timeout | null = null;
 let governanceExpirationInterval: NodeJS.Timeout | null = null;
 let riskEnforcementInterval: NodeJS.Timeout | null = null;
 let resurrectionDetectorInterval: NodeJS.Timeout | null = null;
+let cacheWarmerInterval: NodeJS.Timeout | null = null;
+const CACHE_WARMER_INTERVAL_MS = 25_000; // 25 seconds (before 30s TTL expires)
 let isSchedulerRunning = false;
 
 // Grok Research Engine State - independent from Perplexity
@@ -6535,6 +6538,88 @@ async function runQCVerificationWorker(): Promise<void> {
 }
 
 /**
+ * Cache Warmer Worker
+ * PERFORMANCE: Pre-computes bots-overview data so users never hit cold cache
+ * Runs every 25 seconds to keep cache fresh before 30s TTL expires
+ * Processes ALL users with active bots in batches for scalability
+ */
+async function runCacheWarmerWorker(): Promise<void> {
+  const traceId = `cache-warm-${crypto.randomUUID().slice(0, 8)}`;
+  const start = Date.now();
+  
+  try {
+    // Get ALL users who have active bots (no limit - must warm everyone)
+    const usersWithBots = await db.execute(sql`
+      SELECT DISTINCT user_id as id FROM bots WHERE archived_at IS NULL
+    `);
+    
+    if (usersWithBots.rows.length === 0) {
+      return;
+    }
+    
+    let warmed = 0;
+    let skipped = 0;
+    let failed = 0;
+    
+    // Process in batches of 10 with parallel execution for efficiency
+    const BATCH_SIZE = 10;
+    const userIds = usersWithBots.rows
+      .map(row => (row as { id: string }).id)
+      .filter(id => id);
+    
+    for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+      const batch = userIds.slice(i, i + BATCH_SIZE);
+      
+      await Promise.all(batch.map(async (userId) => {
+        try {
+          // Check if cache is fresh enough (skip if < 20 seconds old)
+          const age = await getCacheAgeSeconds(userId);
+          if (age !== null && age < 20) {
+            skipped++;
+            return;
+          }
+          
+          // Check if already cached and still valid
+          const cached = await getCachedBotsOverview(userId);
+          if (cached.hit && cached.fresh) {
+            skipped++;
+            return;
+          }
+          
+          // Compute and cache bots overview
+          const bots = await storage.getBotsOverview(userId);
+          
+          // Only cache if there are bots
+          if (bots.length > 0) {
+            await setCachedBotsOverview(userId, {
+              data: bots,
+              generatedAt: new Date().toISOString(),
+              snapshotId: crypto.randomUUID(),
+              degraded: false,
+              degradedPhases: [],
+              freshnessContract: { maxAgeSeconds: 30, refreshAfterSeconds: 25 },
+            });
+            warmed++;
+          }
+        } catch (err) {
+          failed++;
+          if (failed <= 3) {
+            console.warn(`[CACHE_WARMER] trace_id=${traceId} user=${userId.slice(0,8)} failed:`, err);
+          }
+        }
+      }));
+    }
+    
+    const duration = Date.now() - start;
+    if (warmed > 0 || failed > 0) {
+      console.log(`[CACHE_WARMER] trace_id=${traceId} users=${userIds.length} warmed=${warmed} skipped=${skipped} failed=${failed} duration=${duration}ms`);
+    }
+  } catch (err) {
+    console.error(`[CACHE_WARMER] trace_id=${traceId} worker error:`, err);
+  }
+}
+
+/**
  * Start the scheduler with leader election and self-healing
  * INSTITUTIONAL: Only one instance will be the leader and run workers
  */
@@ -8605,6 +8690,16 @@ async function initializeWorkers(): Promise<void> {
   }), RESURRECTION_DETECTOR_INTERVAL_MS);
   console.log(`[SCHEDULER] Resurrection detector worker started (interval: ${RESURRECTION_DETECTOR_INTERVAL_MS / 60_000}min)`);
   
+  // PERFORMANCE: Cache Warmer Worker - keeps bots-overview cache warm so users never hit cold cache
+  cacheWarmerInterval = setInterval(createSelfHealingWorker("cache-warmer", runCacheWarmerWorker), CACHE_WARMER_INTERVAL_MS);
+  console.log(`[SCHEDULER] Cache warmer worker started (interval: ${CACHE_WARMER_INTERVAL_MS / 1000}s)`);
+  
+  // Run cache warmer immediately on startup (3s delay for Redis init)
+  setTimeout(async () => {
+    console.log(`[SCHEDULER] trace_id=${startupTraceId} Running cache warmer on startup...`);
+    await runCacheWarmerWorker();
+  }, 3_000);
+  
   // AUTONOMOUS: Run SENT_TO_LAB promotion immediately on startup (5s delay for DB init)
   setTimeout(async () => {
     console.log(`[SCHEDULER] trace_id=${startupTraceId} Running SENT_TO_LAB promotion on startup...`);
@@ -8812,6 +8907,11 @@ export async function stopScheduler(): Promise<void> {
   if (resurrectionDetectorInterval) {
     clearInterval(resurrectionDetectorInterval);
     resurrectionDetectorInterval = null;
+  }
+  
+  if (cacheWarmerInterval) {
+    clearInterval(cacheWarmerInterval);
+    cacheWarmerInterval = null;
   }
   
   // Stop cloud backup scheduler

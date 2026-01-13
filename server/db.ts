@@ -76,8 +76,8 @@ const STATEMENT_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_W
 const CONNECTION_TIMEOUT_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WEB_MS || "5000", 10);
 const CONNECTION_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WORKER_MS || "10000", 10);
 const IDLE_TIMEOUT_MS = parseInt(process.env.DB_IDLE_TIMEOUT_MS || "30000", 10);
-const POOL_WEB_MAX = parseInt(process.env.DB_POOL_WEB_MAX || "6", 10);
-const POOL_WORKER_MAX = parseInt(process.env.DB_POOL_WORKER_MAX || "12", 10);
+const POOL_WEB_MAX = parseInt(process.env.DB_POOL_WEB_MAX || "12", 10);
+const POOL_WORKER_MAX = parseInt(process.env.DB_POOL_WORKER_MAX || "8", 10);
 const POOL_WRITER_MAX = parseInt(process.env.DB_POOL_WRITER_MAX || "4", 10);
 
 console.log(`[DB_POOL] Config: web_max=${POOL_WEB_MAX} worker_max=${POOL_WORKER_MAX} idle_timeout=${IDLE_TIMEOUT_MS}ms`);

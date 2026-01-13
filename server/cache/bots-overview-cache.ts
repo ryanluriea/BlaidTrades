@@ -184,6 +184,43 @@ export function markRefreshInProgress(userId: string, inProgress: boolean): void
 }
 
 /**
+ * Get all cached user IDs (for cache warming)
+ */
+export async function getCachedUserIds(): Promise<string[]> {
+  try {
+    const client = await getRedisClient();
+    if (!client) {
+      return [];
+    }
+    
+    const keys = await client.keys(`${CACHE_KEY_PREFIX}*`);
+    return keys.map(k => k.replace(CACHE_KEY_PREFIX, ''));
+  } catch (err) {
+    console.warn('[BOTS_CACHE] getCachedUserIds failed:', err);
+    return [];
+  }
+}
+
+/**
+ * Check if cache needs refresh (< 10 seconds to expiry)
+ */
+export async function getCacheAgeSeconds(userId: string): Promise<number | null> {
+  try {
+    const client = await getRedisClient();
+    if (!client) return null;
+    
+    const key = `${CACHE_KEY_PREFIX}${userId}`;
+    const cached = await client.get(key);
+    if (!cached) return null;
+    
+    const parsed = JSON.parse(cached);
+    return Math.floor((Date.now() - parsed.cachedAt) / 1000);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get cache statistics for observability
  */
 export async function getBotsOverviewCacheStats(): Promise<{

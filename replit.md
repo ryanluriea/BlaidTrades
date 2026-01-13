@@ -139,6 +139,15 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - **Error boundaries:** Global ErrorBoundary wraps app for graceful degradation with themed fallback UI
 - Files: `client/src/contexts/AuthContext.tsx`, `client/src/pages/Bots.tsx`, `client/src/components/bots/views/StrategyLabView.tsx`
 
+**Cache Warming Infrastructure (Added Jan 2026):**
+- **Cache Warmer Worker:** Background scheduler pre-computes bots-overview data for ALL users with active bots
+- **25-second refresh interval:** Keeps cache warm before 30s TTL expires, ensuring users never hit cold cache
+- **Batched parallel processing:** Processes users in batches of 10 with Promise.all for efficiency
+- **Skip optimization:** Skips users with cache < 20s old to avoid redundant work
+- **Connection pool rebalancing:** Web pool increased from 6→12 connections, worker pool reduced from 12→8 to prioritize user-facing requests over background jobs
+- **Startup pre-warming:** Runs 3s after startup to warm cache before first user request
+- Files: `server/scheduler.ts` (runCacheWarmerWorker, cacheWarmerInterval), `server/db.ts` (POOL_WEB_MAX, POOL_WORKER_MAX)
+
 **Bot Generations Unique Constraint (Added Jan 2026):**
 - Added unique constraint on `(bot_id, generation_number)` to `bot_generations` table
 - Required for `ON CONFLICT` inserts in evolution worker
