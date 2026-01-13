@@ -191,63 +191,28 @@ export async function runReconciliation(dryRun: boolean = true): Promise<Reconci
     
     console.log(`[RECONCILIATION] trace_id=${traceId} Complete: stuck=${report.stuckCandidates.length} autoRepaired=${report.autoRepairedCount} manualReview=${report.manualReviewRequired.length} errors=${report.errors.length}`);
     
-    // QC-PASSED REPAIR: Find candidates with QC_PASSED/VERIFIED badge but not SENT_TO_LAB
+    // QC-PASSED REPAIR: Find candidates with VERIFIED badge but not SENT_TO_LAB
     // These got stuck because auto-promotion failed after QC completion
-    const qcPassedStuckResult = await db.execute(sql`
-      SELECT DISTINCT c.id, c.strategy_name, c.disposition, c.user_id
-      FROM strategy_candidates c
-      JOIN qc_verifications q ON c.id = q.candidate_id
-      WHERE q.status = 'COMPLETED'
-        AND (q.badge_state = 'QC_PASSED' OR q.badge_state = 'VERIFIED')
-        AND q.qc_gate_passed = true
-        AND c.disposition NOT IN ('SENT_TO_LAB', 'REJECTED', 'MERGED')
-        AND c.created_bot_id IS NULL
-      ORDER BY q.finished_at DESC
-      LIMIT 50
-    `);
-    
-    const qcPassedStuck = qcPassedStuckResult.rows as Array<{
-      id: string;
-      strategy_name: string;
-      disposition: string;
-      user_id: string;
-    }>;
-    
-    if (qcPassedStuck.length > 0) {
-      console.log(`[RECONCILIATION] trace_id=${traceId} Found ${qcPassedStuck.length} QC-passed candidates stuck without promotion`);
+    // Note: strategy_candidates table does not have user_id column, so we count only for observability
+    // Valid badge_state enum values: DIVERGENT, VERIFIED, FAILED, INCONCLUSIVE
+    try {
+      const qcPassedStuckResult = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM strategy_candidates c
+        JOIN qc_verifications q ON c.id = q.candidate_id
+        WHERE q.status = 'COMPLETED'
+          AND q.badge_state = 'VERIFIED'
+          AND c.disposition NOT IN ('SENT_TO_LAB', 'REJECTED', 'MERGED')
+          AND c.created_bot_id IS NULL
+      `);
       
-      for (const candidate of qcPassedStuck) {
-        if (!dryRun) {
-          try {
-            // Re-trigger promotion by calling the send-to-lab endpoint internally
-            const promoteUrl = `http://localhost:5000/api/strategy-lab/candidates/${candidate.id}/send-to-lab`;
-            const response = await fetch(promoteUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                user_id: candidate.user_id,
-                session_id: "qc_reconciliation_repair",
-                target_stage: "TRIALS",
-              }),
-            });
-            
-            if (response.ok) {
-              console.log(`[RECONCILIATION] trace_id=${traceId} QC_REPAIR: promoted ${candidate.strategy_name} (${candidate.id.substring(0, 8)}) from ${candidate.disposition} to SENT_TO_LAB`);
-              report.autoRepairedCount++;
-            } else {
-              const errorText = await response.text();
-              console.warn(`[RECONCILIATION] trace_id=${traceId} QC_REPAIR_FAILED: ${candidate.id} - ${response.status} ${errorText}`);
-              report.errors.push(`QC repair failed for ${candidate.id}: ${errorText}`);
-            }
-          } catch (err) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-            console.error(`[RECONCILIATION] trace_id=${traceId} QC_REPAIR_ERROR: ${candidate.id} - ${errMsg}`);
-            report.errors.push(`QC repair error for ${candidate.id}: ${errMsg}`);
-          }
-        } else {
-          console.log(`[RECONCILIATION] trace_id=${traceId} DRY_RUN: Would promote QC-passed ${candidate.strategy_name} (${candidate.id.substring(0, 8)})`);
-        }
+      const qcStuckCount = Number((qcPassedStuckResult.rows[0] as any)?.count || 0);
+      if (qcStuckCount > 0) {
+        console.log(`[RECONCILIATION] trace_id=${traceId} Found ${qcStuckCount} QC-passed candidates stuck (requires manual promotion via UI)`);
       }
+    } catch (qcErr) {
+      // Non-fatal: log but don't fail the entire reconciliation
+      console.warn(`[RECONCILIATION] trace_id=${traceId} QC_PASSED_CHECK skipped: ${qcErr instanceof Error ? qcErr.message : String(qcErr)}`);
     }
     
   } catch (err) {
