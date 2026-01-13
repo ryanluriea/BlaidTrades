@@ -451,7 +451,7 @@ export default function Bots() {
   };
 
   const renderBotList = () => {
-    // Error state with fallback to previous data
+    // Error state with fallback to previous data (handles thrown errors)
     if (error && !overview?.bots?.length) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       return (
@@ -459,6 +459,20 @@ export default function Bots() {
           <ErrorBanner
             endpoint="bots-overview"
             message={errorMessage}
+            onRetry={() => refetch()}
+          />
+        </div>
+      );
+    }
+    
+    // GRACEFUL DEGRADATION: Show error banner when loadFailed is true
+    // This handles 401/503/server errors that return empty data instead of throwing
+    if (overview?.loadFailed && !overview?.bots?.length) {
+      return (
+        <div className="space-y-4">
+          <ErrorBanner
+            endpoint="bots-overview"
+            message={overview.loadFailedReason || "Failed to load bots"}
             onRetry={() => refetch()}
           />
         </div>
