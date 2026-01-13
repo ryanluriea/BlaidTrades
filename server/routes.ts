@@ -489,6 +489,20 @@ export function registerRoutes(app: Express) {
     res.status(200).send("OK");
   });
 
+  // Client-side error telemetry endpoint (fire and forget from ErrorBoundary)
+  app.post("/api/client-error", (req: Request, res: Response) => {
+    try {
+      const { name, message, stack, componentStack, url, timestamp } = req.body || {};
+      console.error(`[CLIENT_ERROR] ${timestamp || new Date().toISOString()} url=${url || 'unknown'}`);
+      console.error(`[CLIENT_ERROR] ${name || 'Error'}: ${message || 'No message'}`);
+      if (stack) console.error(`[CLIENT_ERROR] Stack: ${stack.slice(0, 1000)}`);
+      if (componentStack) console.error(`[CLIENT_ERROR] Component: ${componentStack.slice(0, 500)}`);
+    } catch {
+      // Best effort - don't fail on malformed payloads
+    }
+    res.status(204).send();
+  });
+
   app.get("/readyz", async (_req: Request, res: Response) => {
     const startDb = Date.now();
     let dbOk = false;
