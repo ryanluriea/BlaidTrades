@@ -754,7 +754,7 @@ let strategyLabState: StrategyLabState = {
   fleetGovernorLiveCap: 10, // Max LIVE stage bots (most restrictive)
   fleetGovernorGracePeriodHours: 24, // 24 hour grace period before demotion
   fleetGovernorMinObservationTrades: 20, // Min trades before bot can be ranked
-  fleetGovernorDemotionPolicy: "ARCHIVE" as const, // Default to archive (safer)
+  fleetGovernorDemotionPolicy: "RECYCLE" as const, // Default to recycle - give strategies a chance to evolve before archiving
 };
 
 // Sync cost efficiency mode to global for AI cascade

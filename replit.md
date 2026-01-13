@@ -102,3 +102,12 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - UI: Fleet Governor popover in Strategy Lab header with settings for all caps and demotion parameters
 - Backend: `setFleetGovernorSettings()` in strategy-lab-engine.ts with database persistence via app_settings
 - Designed for autonomous cost optimization - enabled by default
+- Default demotion policy: RECYCLE (send back for evolution before archiving)
+
+**Regime Resurrection Detector (Added Jan 2026):**
+- Autonomous service that brings archived bots back to life when market regimes favor their archetype
+- Archetype-to-regime affinity mapping for all 24 strategy archetypes
+- Favorable regimes: VOLATILITY_SPIKE, VOLATILITY_COMPRESSION, TRENDING_STRONG, RANGE_BOUND
+- Example: Mean reversion bots resurrected when regime shifts to RANGE_BOUND
+- Runs every 60 minutes, resurrects up to 5 matching bots per scan
+- Resurrected bots return to TRIALS stage for re-evaluation

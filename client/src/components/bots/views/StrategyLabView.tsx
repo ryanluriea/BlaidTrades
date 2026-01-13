@@ -655,7 +655,7 @@ export function StrategyLabView() {
   const [fleetGovernorLiveCap, setFleetGovernorLiveCap] = useState(10);
   const [fleetGovernorGracePeriodHours, setFleetGovernorGracePeriodHours] = useState(24);
   const [fleetGovernorMinObservationTrades, setFleetGovernorMinObservationTrades] = useState(20);
-  const [fleetGovernorDemotionPolicy, setFleetGovernorDemotionPolicy] = useState<"ARCHIVE" | "RECYCLE">("ARCHIVE");
+  const [fleetGovernorDemotionPolicy, setFleetGovernorDemotionPolicy] = useState<"ARCHIVE" | "RECYCLE">("RECYCLE");
   
   // Collapsible settings state for each tab
   const [newTabSettingsOpen, setNewTabSettingsOpen] = useState(false);

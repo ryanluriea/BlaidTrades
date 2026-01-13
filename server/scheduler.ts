@@ -52,6 +52,7 @@ import { expireStaleRequests } from "./governance-approval";
 import { runRiskEnforcementCheck } from "./risk-enforcement";
 import { recordBatchMetrics, recordFallback, getFallbackMetrics } from "./fail-fast-validators";
 import { startFleetRiskEngine, stopFleetRiskEngine, fleetRiskEngine } from "./fleet-risk-engine";
+import { runResurrectionScan } from "./regime-resurrection-detector";
 
 // Reconciliation interval - runs every 30 minutes to detect and fix stuck candidates
 let reconciliationInterval: NodeJS.Timeout | null = null;
@@ -80,6 +81,7 @@ let consistencySweepInterval: NodeJS.Timeout | null = null;
 let promotionWorkerInterval: NodeJS.Timeout | null = null;
 let governanceExpirationInterval: NodeJS.Timeout | null = null;
 let riskEnforcementInterval: NodeJS.Timeout | null = null;
+let resurrectionDetectorInterval: NodeJS.Timeout | null = null;
 let isSchedulerRunning = false;
 
 // Grok Research Engine State - independent from Perplexity
@@ -159,6 +161,7 @@ const GOVERNANCE_EXPIRATION_INTERVAL_MS = 60 * 60_000; // 1 hour
 
 // Risk Enforcement Worker - checks all active bots for risk limit breaches
 const RISK_ENFORCEMENT_INTERVAL_MS = 5 * 60_000; // 5 minutes
+const RESURRECTION_DETECTOR_INTERVAL_MS = 60 * 60_000; // 1 hour - check if archived bots should be resurrected based on current regime
 
 // Integration verification worker - runs on startup and periodically
 // AUTONOMOUS: Aggressive verification for fast self-healing
@@ -8456,6 +8459,16 @@ async function initializeWorkers(): Promise<void> {
     console.error(`[SCHEDULER] Fleet Risk Engine failed to start:`, fleetRiskError);
   }
   
+  // AUTONOMOUS: Resurrection Detector - brings archived bots back when regime favors their archetype
+  resurrectionDetectorInterval = setInterval(createSelfHealingWorker("resurrection-detector", async () => {
+    const resurrectionTraceId = `resurrection-${crypto.randomUUID().slice(0, 8)}`;
+    const result = await runResurrectionScan(resurrectionTraceId);
+    if (result.resurrectedCount > 0) {
+      console.log(`[RESURRECTION_DETECTOR] Resurrected ${result.resurrectedCount} bots for ${result.currentRegime} regime`);
+    }
+  }), RESURRECTION_DETECTOR_INTERVAL_MS);
+  console.log(`[SCHEDULER] Resurrection detector worker started (interval: ${RESURRECTION_DETECTOR_INTERVAL_MS / 60_000}min)`);
+  
   // AUTONOMOUS: Run SENT_TO_LAB promotion immediately on startup (5s delay for DB init)
   setTimeout(async () => {
     console.log(`[SCHEDULER] trace_id=${startupTraceId} Running SENT_TO_LAB promotion on startup...`);
@@ -8649,6 +8662,11 @@ export async function stopScheduler(): Promise<void> {
   if (riskEnforcementInterval) {
     clearInterval(riskEnforcementInterval);
     riskEnforcementInterval = null;
+  }
+  
+  if (resurrectionDetectorInterval) {
+    clearInterval(resurrectionDetectorInterval);
+    resurrectionDetectorInterval = null;
   }
   
   // Stop cloud backup scheduler
