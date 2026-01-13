@@ -11,7 +11,6 @@ import { useExecutionProof } from "@/hooks/useExecutionProof";
 import { useBotRunnerAndJobs } from "@/hooks/useBotRunnerAndJobs";
 import { useLabStarvation, getLabIdleInfo } from "@/hooks/useLabStarvation";
 import { useMarketHours } from "@/hooks/useMarketHours";
-import { useBootReady } from "@/contexts/BootContext";
 import { CreateBotDialog } from "@/components/bots/CreateBotDialog";
 import { BotTableRow } from "@/components/bots/BotTableRow";
 import { AutonomyPipeline } from "@/components/bots/AutonomyPipeline";
@@ -100,14 +99,6 @@ export default function Bots() {
   // Market hours for maintenance detection
   const { data: marketHours } = useMarketHours();
   const isMaintenanceWindow = marketHours?.sessionType === 'MAINTENANCE';
-  
-  // Signal boot controller when data is ready (or failed)
-  const markReady = useBootReady();
-  useEffect(() => {
-    if (!isLoading || error) {
-      markReady();
-    }
-  }, [isLoading, error, markReady]);
   
   const deleteBot = useDeleteBot();
   const botListRef = useRef<HTMLDivElement>(null);

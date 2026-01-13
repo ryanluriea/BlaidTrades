@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBootReady } from "@/contexts/BootContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,11 +16,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const { toast } = useToast();
-  const markReady = useBootReady();
-
-  useEffect(() => {
-    markReady();
-  }, [markReady]);
 
   useEffect(() => {
     const saved = localStorage.getItem("blaidtrades_remember_email");
