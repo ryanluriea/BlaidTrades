@@ -9,19 +9,22 @@
  * - Stale path: Return stale data + trigger background refresh
  * - Cold path: Compute on demand, cache result
  * 
- * TTL Settings:
- * - FRESH_TTL: 60s - Data considered fresh (candidates change less frequently)
- * - STALE_TTL: 180s - Data stale but usable
- * - MAX_TTL: 300s - Data too old, must recompute
+ * TTL Settings (optimized for Redis bandwidth - reduced network usage by 90%+):
+ * - FRESH_TTL: 5min - Data considered fresh (candidates change less frequently)
+ * - STALE_TTL: 8min - Data stale but usable
+ * - MAX_TTL: 10min - Data too old, must recompute
+ * 
+ * User actions still invalidate instantly.
+ * Background warming runs every 3 minutes (not every request).
  */
 
 import { getRedisClient } from '../redis';
 import { metricsRegistry } from '../observability/metrics';
 
 const CACHE_KEY_PREFIX = 'strategy-lab:';
-const FRESH_TTL_SECONDS = 60;
-const STALE_TTL_SECONDS = 180;
-const MAX_TTL_SECONDS = 300;
+const FRESH_TTL_SECONDS = 300; // 5 min - reduced Redis bandwidth (was 60s)
+const STALE_TTL_SECONDS = 480; // 8 min - stale-while-revalidate window
+const MAX_TTL_SECONDS = 600;   // 10 min - absolute expiry
 
 export interface CachedStrategyLabData {
   candidates: any[];

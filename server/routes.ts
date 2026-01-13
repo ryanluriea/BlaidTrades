@@ -20,7 +20,7 @@ import { sendSms, verifyAwsConfig, maskPhoneNumber } from "./providers/sms/awsSn
 import { sendDiscord, verifyDiscordConfig, verifyDiscordConnection, VALID_CHANNELS, VALID_SEVERITIES } from "./providers/notify/discordWebhook";
 import { logActivityEvent, logDiscordNotification, logBotPromotion, logBotDemotion, logRunnerStarted, logRunnerRestarted, logJobTimeout } from "./activity-logger";
 import { activityEvents, strategyArchetypes, auditReports, backtestSessions, matrixRuns, matrixCells, botJobs, strategyCandidates, grokInjections, aiRequests } from "@shared/schema";
-import { pingRedis, isRedisConfigured, getRedisClient } from "./redis";
+import { pingRedis, isRedisConfigured, getRedisClient, getRedisMetrics } from "./redis";
 import { eq, desc, and, or, ilike, sql as drizzleSql, gte, lte, inArray } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { computeBotsNow, computeBotNow } from "./compute-bot-now";
@@ -536,6 +536,23 @@ export function registerRoutes(app: Express) {
         redis: { ok: redisOk, latencyMs: redisLatencyMs, optional: true },
       },
     });
+  });
+
+  app.get("/api/redis/metrics", async (_req: Request, res: Response) => {
+    try {
+      const metrics = await getRedisMetrics();
+      res.json({
+        ...metrics,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[REDIS_METRICS] Failed to get metrics:", err);
+      res.status(500).json({ 
+        error: "Failed to get Redis metrics",
+        configured: isRedisConfigured(),
+        connected: false,
+      });
+    }
   });
 
   app.get("/api/latency-stats", async (_req: Request, res: Response) => {

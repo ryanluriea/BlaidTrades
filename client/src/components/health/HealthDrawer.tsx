@@ -6,6 +6,7 @@ import { useSmokeTest } from "@/hooks/useSmokeTest";
 import { useRunFullAudit } from "@/hooks/useFullAudit";
 import { useHealthSummary, type HealthBlocker } from "@/hooks/useHealthSummary";
 import { useMemoryStatus } from "@/hooks/useMemoryStatus";
+import { useRedisMetrics } from "@/hooks/useRedisMetrics";
 import { useScaleTestResults, useScaleTestStatus, useRunScaleTest } from "@/hooks/useScaleTests";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { DataConsistencyVerifier } from "./DataConsistencyVerifier";
@@ -103,6 +104,7 @@ export function HealthDrawer({ open, onOpenChange }: HealthDrawerProps) {
   const { runSmokeTest, isRunning: smokeTestRunning } = useSmokeTest();
   const { mutateAsync: runAudit, isPending: auditRunning } = useRunFullAudit();
   const { data: memoryStatus } = useMemoryStatus();
+  const { data: redisMetrics } = useRedisMetrics();
   const { data: scaleTestResults } = useScaleTestResults();
   const { data: scaleTestStatus } = useScaleTestStatus();
   const { mutateAsync: runScaleTest, isPending: scaleTestRunning } = useRunScaleTest();
@@ -489,6 +491,75 @@ ${readiness.blockers.map((b) => `- [${b.severity}] ${b.message}`).join("\n") || 
                 </Card>
               </div>
             );})()}
+
+            {/* Redis Section */}
+            {redisMetrics && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Database className="w-4 h-4" />
+                  Redis Cache
+                </h3>
+                <Card className="p-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Status</span>
+                      <div className="flex items-center gap-2">
+                        {redisMetrics.connected ? (
+                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">CONNECTED</Badge>
+                        ) : redisMetrics.configured ? (
+                          <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px]">DISCONNECTED</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px]">NOT CONFIGURED</Badge>
+                        )}
+                        {redisMetrics.latencyMs !== null && (
+                          <span className="text-xs font-mono text-muted-foreground">
+                            {redisMetrics.latencyMs}ms
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {redisMetrics.memory.usedMB !== null && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Memory</span>
+                          <span className="text-xs font-mono">
+                            {redisMetrics.memory.usedMB} MB
+                            {redisMetrics.memory.maxMB && ` / ${redisMetrics.memory.maxMB} MB`}
+                          </span>
+                        </div>
+                        {redisMetrics.memory.usagePercent !== null && (
+                          <Progress 
+                            value={redisMetrics.memory.usagePercent} 
+                            className={cn(
+                              "h-2",
+                              redisMetrics.memory.usagePercent > 80 ? "bg-red-500/20" : 
+                              redisMetrics.memory.usagePercent > 60 ? "bg-yellow-500/20" : "bg-muted"
+                            )}
+                          />
+                        )}
+                      </>
+                    )}
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <p className="text-muted-foreground">Keys</p>
+                        <p className="font-mono">{redisMetrics.keys.total ?? "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Ops/sec</p>
+                        <p className="font-mono">{redisMetrics.stats.opsPerSecond ?? "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Clients</p>
+                        <p className="font-mono">{redisMetrics.stats.connectedClients ?? "-"}</p>
+                      </div>
+                    </div>
+                    {redisMetrics.error && (
+                      <p className="text-xs text-red-400">{redisMetrics.error}</p>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            )}
 
             {/* Scale Tests Section */}
             <div className="space-y-2">

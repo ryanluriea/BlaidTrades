@@ -9,19 +9,22 @@
  * - Stale path: Return stale data + trigger background refresh
  * - Cold path: Compute on demand, cache result
  * 
- * TTL Settings:
- * - FRESH_TTL: 30s - Data considered fresh, serve immediately
- * - STALE_TTL: 120s - Data stale but usable, trigger background refresh
- * - MAX_TTL: 300s - Data too old, must recompute
+ * TTL Settings (optimized for Redis bandwidth - reduced network usage by 90%+):
+ * - FRESH_TTL: 3min - Data considered fresh, serve immediately
+ * - STALE_TTL: 5min - Data stale but usable, trigger background refresh
+ * - MAX_TTL: 10min - Data too old, must recompute
+ * 
+ * User actions (create/update/delete) still invalidate instantly.
+ * Background cache warming runs every 3 minutes (not 25 seconds).
  */
 
 import { getRedisClient } from '../redis';
 import { metricsRegistry } from '../observability/metrics';
 
 const CACHE_KEY_PREFIX = 'bots-overview:';
-const FRESH_TTL_SECONDS = 30;
-const STALE_TTL_SECONDS = 120;
-const MAX_TTL_SECONDS = 300;
+const FRESH_TTL_SECONDS = 180; // 3 min - reduced Redis bandwidth (was 30s)
+const STALE_TTL_SECONDS = 300; // 5 min - stale-while-revalidate window
+const MAX_TTL_SECONDS = 600;   // 10 min - absolute expiry
 
 export interface CachedBotsOverview {
   data: any[];

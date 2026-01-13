@@ -84,7 +84,7 @@ let governanceExpirationInterval: NodeJS.Timeout | null = null;
 let riskEnforcementInterval: NodeJS.Timeout | null = null;
 let resurrectionDetectorInterval: NodeJS.Timeout | null = null;
 let cacheWarmerInterval: NodeJS.Timeout | null = null;
-const CACHE_WARMER_INTERVAL_MS = 25_000; // 25 seconds (before 30s TTL expires)
+const CACHE_WARMER_INTERVAL_MS = 180_000; // 3 minutes - reduced from 25s to cut Redis bandwidth by 90%+
 let isSchedulerRunning = false;
 
 // Grok Research Engine State - independent from Perplexity

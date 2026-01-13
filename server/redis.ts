@@ -368,3 +368,127 @@ export function isUniqueViolation(error: unknown): boolean {
   }
   return false;
 }
+
+/**
+ * Redis Metrics for monitoring dashboard
+ */
+export interface RedisMetrics {
+  configured: boolean;
+  connected: boolean;
+  latencyMs: number | null;
+  memory: {
+    usedBytes: number | null;
+    usedMB: number | null;
+    peakBytes: number | null;
+    peakMB: number | null;
+    maxBytes: number | null;
+    maxMB: number | null;
+    usagePercent: number | null;
+  };
+  keys: {
+    total: number | null;
+    expiring: number | null;
+  };
+  stats: {
+    totalCommands: number | null;
+    opsPerSecond: number | null;
+    connectedClients: number | null;
+    uptimeSeconds: number | null;
+  };
+  error?: string;
+}
+
+/**
+ * Get detailed Redis metrics for monitoring dashboard
+ * Uses Redis INFO command to fetch memory, key count, and operation stats
+ */
+export async function getRedisMetrics(): Promise<RedisMetrics> {
+  const emptyMetrics: RedisMetrics = {
+    configured: isRedisConfigured(),
+    connected: false,
+    latencyMs: null,
+    memory: {
+      usedBytes: null, usedMB: null, peakBytes: null, peakMB: null,
+      maxBytes: null, maxMB: null, usagePercent: null,
+    },
+    keys: { total: null, expiring: null },
+    stats: { totalCommands: null, opsPerSecond: null, connectedClients: null, uptimeSeconds: null },
+  };
+
+  if (!isRedisConfigured()) {
+    return { ...emptyMetrics, error: 'Redis not configured' };
+  }
+
+  const startTime = Date.now();
+  
+  try {
+    const client = await getRedisClient();
+    if (!client) {
+      return { ...emptyMetrics, error: 'Failed to connect to Redis' };
+    }
+
+    // Get Redis INFO in parallel
+    const [memoryInfo, statsInfo, keyspaceInfo, clientInfo] = await Promise.all([
+      client.info('memory'),
+      client.info('stats'),
+      client.info('keyspace'),
+      client.info('clients'),
+    ]);
+
+    const latencyMs = Date.now() - startTime;
+
+    // Parse memory info
+    const usedMemory = parseInt(memoryInfo.match(/used_memory:(\d+)/)?.[1] || '0');
+    const peakMemory = parseInt(memoryInfo.match(/used_memory_peak:(\d+)/)?.[1] || '0');
+    const maxMemory = parseInt(memoryInfo.match(/maxmemory:(\d+)/)?.[1] || '0');
+
+    // Parse stats info
+    const totalCommands = parseInt(statsInfo.match(/total_commands_processed:(\d+)/)?.[1] || '0');
+    const opsPerSecond = parseFloat(statsInfo.match(/instantaneous_ops_per_sec:(\d+)/)?.[1] || '0');
+    const uptimeSeconds = parseInt(statsInfo.match(/uptime_in_seconds:(\d+)/)?.[1] || '0');
+
+    // Parse clients info
+    const connectedClients = parseInt(clientInfo.match(/connected_clients:(\d+)/)?.[1] || '0');
+
+    // Parse keyspace info (e.g., "db0:keys=123,expires=45,avg_ttl=1234")
+    const keyspaceMatch = keyspaceInfo.match(/keys=(\d+)/);
+    const expiringMatch = keyspaceInfo.match(/expires=(\d+)/);
+    const totalKeys = keyspaceMatch ? parseInt(keyspaceMatch[1]) : 0;
+    const expiringKeys = expiringMatch ? parseInt(expiringMatch[1]) : 0;
+
+    // Calculate usage percent (if maxmemory is set)
+    const usagePercent = maxMemory > 0 ? (usedMemory / maxMemory) * 100 : null;
+
+    return {
+      configured: true,
+      connected: true,
+      latencyMs,
+      memory: {
+        usedBytes: usedMemory,
+        usedMB: Math.round(usedMemory / 1024 / 1024 * 10) / 10,
+        peakBytes: peakMemory,
+        peakMB: Math.round(peakMemory / 1024 / 1024 * 10) / 10,
+        maxBytes: maxMemory || null,
+        maxMB: maxMemory ? Math.round(maxMemory / 1024 / 1024 * 10) / 10 : null,
+        usagePercent: usagePercent ? Math.round(usagePercent * 10) / 10 : null,
+      },
+      keys: {
+        total: totalKeys,
+        expiring: expiringKeys,
+      },
+      stats: {
+        totalCommands,
+        opsPerSecond,
+        connectedClients,
+        uptimeSeconds,
+      },
+    };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to get metrics';
+    return {
+      ...emptyMetrics,
+      latencyMs: Date.now() - startTime,
+      error: errorMessage,
+    };
+  }
+}
