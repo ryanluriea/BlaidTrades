@@ -633,6 +633,7 @@ export const candidateDispositionEnum = pgEnum("candidate_disposition", [
   "SENT_TO_LAB",
   "QUEUED",
   "READY",  // Ready for promotion after QC bypass
+  "WAITLIST", // QC passed but fleet at capacity - waiting for slot
   "REJECTED",
   "MERGED",
   "EXPIRED",

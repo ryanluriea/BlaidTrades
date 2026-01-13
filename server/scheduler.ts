@@ -42,7 +42,7 @@ import { processGrokResearchCycle, type GrokResearchDepth } from "./grok-researc
 import { livePnLWebSocket } from "./websocket-server";
 import { checkGrokBotAndLogPromotion, logGrokGateResult, requestGrokEvolution, logGrokSuccessPatterns } from "./grok-feedback-collector";
 import { runTournament, getTournamentStats } from "./tournament-engine";
-import { runReconciliation, runInvariantChecks } from "./candidate-state-machine";
+import { runReconciliation, runInvariantChecks, promoteQCPassedCandidates, getFleetCapacity } from "./candidate-state-machine";
 import { healthCheck as dbHealthCheck, getCircuitBreakerState } from "./db-resilience";
 import { startBackupScheduler, stopBackupScheduler } from "./backup-service";
 import { runConsistencySweep } from "./scheduled-consistency-sweep";
@@ -8644,6 +8644,17 @@ async function initializeWorkers(): Promise<void> {
       const invariants = await runInvariantChecks();
       if (!invariants.passed) {
         console.warn(`[RECONCILIATION_WORKER] trace_id=${reconTraceId} Invariant violations: ${invariants.violations.join("; ")}`);
+      }
+      
+      // AUTONOMOUS: Run QC-passed candidate auto-promotion after reconciliation
+      // This moves VERIFIED candidates to SENT_TO_LAB or WAITLIST based on fleet capacity
+      try {
+        const promoResult = await promoteQCPassedCandidates(false);
+        if (promoResult.promoted > 0 || promoResult.waitlisted > 0) {
+          console.log(`[RECONCILIATION_WORKER] trace_id=${reconTraceId} QC_PROMOTION: promoted=${promoResult.promoted} waitlisted=${promoResult.waitlisted} capacity=${promoResult.capacityInfo.activeBotsCount}/${promoResult.capacityInfo.globalCap}`);
+        }
+      } catch (promoError) {
+        console.error(`[RECONCILIATION_WORKER] trace_id=${reconTraceId} QC_PROMOTION_ERROR:`, promoError);
       }
     } catch (error) {
       console.error(`[RECONCILIATION_WORKER] Error:`, error);

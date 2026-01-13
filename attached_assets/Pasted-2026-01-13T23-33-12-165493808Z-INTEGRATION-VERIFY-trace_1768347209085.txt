@@ -1,0 +1,50 @@
+2026-01-13T23:33:12.165493808Z [INTEGRATION_VERIFY] trace_id=integ-verify-f314819a Complete: 22 OK, 2 FAILED
+2026-01-13T23:33:12.165517338Z [INTEGRATION_VERIFY] trace_id=integ-verify-f314819a provider=discord FAILED: DISCORD_WEBHOOK_URL not set
+2026-01-13T23:33:12.167963639Z [ACTIVITY_EVENT] type=INTEGRATION_VERIFIED severity=WARN title="Integration verification: 2 issues detected" trace_id=integ-verify-f314819a
+2026-01-13T23:33:12.462853068Z [BACKTEST_WORKER] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 processing_jobs=1
+2026-01-13T23:33:12.474669885Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 bot_id=13a66c8b-41fd-4397-970f-fb426ffbf899 already_has_valid_baseline
+2026-01-13T23:33:12.474698366Z [BACKTEST_WORKER] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 bot_id=13a66c8b-41fd-4397-970f-fb426ffbf899 created_session=15b1b3b3-504a-458b-8631-bb03b911072a - will now execute
+2026-01-13T23:33:12.476631746Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 session_id=15b1b3b3-504a-458b-8631-bb03b911072a bot_id=13a66c8b-41fd-4397-970f-fb426ffbf899 starting
+2026-01-13T23:33:12.482270634Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Lull Band Fade" trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84
+2026-01-13T23:33:12.482286715Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 using REAL Databento data for MES via BAR_CACHE
+2026-01-13T23:33:12.482296715Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-13T23:33:12.482458038Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 cold_storage_empty falling_back_to_redis_cache
+2026-01-13T23:33:12.482458218Z [BAR_CACHE] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 symbol=MES cold_storage_empty
+2026-01-13T23:33:12.485128404Z [BARS_CACHE] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 instance=d2d87357 lock_acquired fetching_from_provider
+2026-01-13T23:33:12.488555016Z [INTEGRATION_USAGE] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-13T23:33:12.488684218Z [DATABENTO] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 CME_LICENSE_CAP: Requested end=2026-01-13T23:33:12.474Z capped to 2026-01-12T21:33:12.488Z (26h buffer for license-free window)
+2026-01-13T23:33:12.488694069Z [DATABENTO] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 fetching symbol=MES.c.0 start=2025-12-14T23:33:12.474Z end=2026-01-12T21:33:12.488Z schema=ohlcv-1m
+2026-01-13T23:33:12.738001212Z [BLOWN_ACCOUNT_SWEEP] trace_id=blown-sweep-c93ed7e9 Starting blown account detection sweep...
+2026-01-13T23:33:12.74077126Z [BLOWN_ACCOUNT_SWEEP] trace_id=blown-sweep-c93ed7e9 No missed blown accounts found
+2026-01-13T23:33:12.897775699Z [ARCHETYPE_BACKFILL] trace_id=archetype-backfill-b9246ab1 Starting archetype backfill...
+2026-01-13T23:33:12.899494945Z [ARCHETYPE_BACKFILL] trace_id=archetype-backfill-b9246ab1 No bots need archetype backfill
+2026-01-13T23:33:14.737182715Z [SCHEDULER] trace_id=recon-startup-cc3abc3b Running candidate reconciliation on startup...
+2026-01-13T23:33:14.73744627Z [RECONCILIATION] trace_id=recon-mkd89g1d Starting candidate reconciliation (dryRun=true)...
+2026-01-13T23:33:14.73980056Z [RECONCILIATION] trace_id=recon-mkd89g1d Complete: stuck=100 autoRepaired=0 manualReview=100 errors=0
+2026-01-13T23:33:14.741543116Z [RECONCILIATION] trace_id=recon-mkd89g1d Found 16 QC-passed candidates stuck (requires manual promotion via UI)
+2026-01-13T23:33:14.741574047Z [SCHEDULER] trace_id=recon-startup-cc3abc3b Found 100 stuck candidates, auto-repairing...
+2026-01-13T23:33:14.741591117Z [RECONCILIATION] trace_id=recon-mkd89g1h Starting candidate reconciliation (dryRun=false)...
+2026-01-13T23:33:14.743303713Z [RECONCILIATION] trace_id=recon-mkd89g1h Complete: stuck=100 autoRepaired=0 manualReview=100 errors=0
+2026-01-13T23:33:14.744373766Z [RECONCILIATION] trace_id=recon-mkd89g1h Found 16 QC-passed candidates stuck (requires manual promotion via UI)
+2026-01-13T23:33:14.744381546Z [SCHEDULER] trace_id=recon-startup-cc3abc3b Reconciliation complete: repaired=0 manual_review=100
+2026-01-13T23:33:14.744547149Z [INVARIANT_CHECK] trace_id=invariant-mkd89g1k Running state invariant checks...
+2026-01-13T23:33:14.747990301Z [INVARIANT_CHECK] trace_id=invariant-mkd89g1k All checks PASSED
+2026-01-13T23:33:16.538218337Z [ECONOMIC_CALENDAR] trace_id=b9b8f60c-c813-40d6-b173-10ba4078a068 success events=3176 range=2026-01-06..2026-02-12
+2026-01-13T23:33:17.333013518Z [DATABENTO] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 fetched bars=5085 latency=4844ms
+2026-01-13T23:33:17.336283516Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84
+2026-01-13T23:33:17.358550863Z [BARS_CACHE] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 instance=d2d87357 cache_set key=bars:v2:MES:5m:ALL:1765755192474:1768347192474 bars=5085 compressed_bytes=58140
+2026-01-13T23:33:17.360269029Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 resampling cached bars from 1m to 5m (factor=5)
+2026-01-13T23:33:17.363469136Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 REAL_DATA fetched_bars=1017 provider=databento latency=4879ms
+2026-01-13T23:33:17.36654221Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 bot_name="Lull Band Fade" inferred_archetype="none" using="mean_reversion"
+2026-01-13T23:33:17.366554011Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 archetype=mean_reversion mapped_to=mean_reversion
+2026-01-13T23:33:17.366648333Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 TRIALS_SESSION_WIDENING original=09:35-15:45 widened=09:35-15:55
+2026-01-13T23:33:17.372754701Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 using_real_strategy version=1.0.0 rules=MES Mean Reversion rules_hash=2ed0d477dd805d09
+2026-01-13T23:33:17.372902924Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-13T23:33:17.372907164Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-13T23:33:17.373428695Z [SESSION_CHECK] UTC=2025-12-15T20:24:00.000Z ET_hour=15 ET_min=24 ET_day=1 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-13T23:33:17.518069135Z [STRATEGY_EXECUTOR] bars=1017 valid_bars=1017 session_bars=213 outside_session=714 no_trade_window=40 entry_signals=0 trades=0
+2026-01-13T23:33:17.518089885Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 REAL_EXECUTION trades=0 pnl=0.00 win_rate=0.0%
+2026-01-13T23:33:17.518101236Z [BACKTEST_EXECUTOR] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 FAIL_FAST: ZERO_TRADES_GENERATED - Strategy produced 0 trades over 1017 bars. Check entry conditions or data quality.
+2026-01-13T23:33:17.526276397Z [ACTIVITY_EVENT] type=BACKTEST_FAILED severity=WARN title="Backtest failed: ZERO_TRADES_GENERATED" trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84
+2026-01-13T23:33:17.526333108Z [BACKTEST_WORKER] trace_id=76ec6e24-6194-422d-b20f-9b70e3838c84 job_id=d4675f32-f2a8-4e28-a0ee-88d2494b3fd3 error= Strategy produced 0 trades over 1017 bars. Check entry conditions or data quality.
+2026-01-13T23:33:17.897661717Z [SCHEDULER] trace_id=f2659212 Strategy Lab is paused, skipping startup research
