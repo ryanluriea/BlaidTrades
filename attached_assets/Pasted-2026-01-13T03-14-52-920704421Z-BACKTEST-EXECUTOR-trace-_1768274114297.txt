@@ -1,0 +1,50 @@
+2026-01-13T03:14:52.920704421Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 REAL_EXECUTION trades=325 pnl=-1109.25 win_rate=40.9%
+2026-01-13T03:14:52.920713061Z [TX:4c0269cc-61f6-44c4-aa83-c03604433c02] BACKTEST_TRADES:d88816ad START
+2026-01-13T03:14:52.969100767Z [SCHEDULER] trace_id=abf57813 Grok research disabled, skipping startup cycle
+2026-01-13T03:14:53.346705578Z [TX:4c0269cc-61f6-44c4-aa83-c03604433c02] BACKTEST_TRADES:d88816ad COMMITTED
+2026-01-13T03:14:53.364071041Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 updated generation performanceSnapshot gen_id=baecb57b-c3b2-45ae-a5f9-dfa5208cc515
+2026-01-13T03:14:53.365874549Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 LAB_BASELINE gen_id=baecb57b-c3b2-45ae-a5f9-dfa5208cc515 valid=true reason=N/A trades=325
+2026-01-13T03:14:53.367921258Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Pulse Fade Trap" trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02
+2026-01-13T03:14:53.367928738Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 session_id=d88816ad-b386-485b-994f-3a7d6c0993e0 completed trades=325 pnl=-1109.25
+2026-01-13T03:14:53.382996631Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 session_id=9c103878-f756-4619-8f83-1483a13eef8e bot_id=d9857268-8530-4607-a7d2-55d2201cf6e8 starting
+2026-01-13T03:14:53.386807316Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Pulse Fade Trap" trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02
+2026-01-13T03:14:53.386817006Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 using REAL Databento data for MES via BAR_CACHE
+2026-01-13T03:14:53.386829447Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 loading_5year_history symbol=MES days=90 source=COLD_STORAGE
+2026-01-13T03:14:53.387040456Z [BAR_CACHE] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 symbol=MES cold_storage_empty
+2026-01-13T03:14:53.387046306Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 cold_storage_empty falling_back_to_redis_cache
+2026-01-13T03:14:53.392052953Z [BARS_CACHE] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 instance=ebc9ef85 lock_acquired fetching_from_provider
+2026-01-13T03:14:53.394858505Z [INTEGRATION_USAGE] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-13T03:14:53.394878006Z [DATABENTO] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 CME_LICENSE_CAP: Requested end=2026-01-13T03:14:53.378Z capped to 2026-01-12T01:14:53.394Z (26h buffer for license-free window)
+2026-01-13T03:14:53.394881526Z [DATABENTO] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 fetching symbol=MES.c.0 start=2025-10-15T03:14:53.378Z end=2026-01-12T01:14:53.394Z schema=ohlcv-1m
+2026-01-13T03:14:56.622309544Z [DATABENTO] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 fetched bars=82155 latency=3228ms
+2026-01-13T03:14:56.625997284Z [BACKTEST_WORKER] trace_id=b9ffed58-8a11-4958-be4d-0ab334ea6849 at_concurrency_limit=1
+2026-01-13T03:14:56.627086301Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02
+2026-01-13T03:14:56.761740955Z [QC_AUTO_TRIGGER] trace_id=35a083fa starting_cycle
+2026-01-13T03:14:56.766558274Z [QC_AUTO_TRIGGER] trace_id=35a083fa checking threshold=90% tier=AB eligible=15
+2026-01-13T03:14:56.769281962Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=87ee9f95 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-13T03:14:56.77131743Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=d11f0b89 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-13T03:14:56.773182401Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=df174abe reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-13T03:14:56.775076883Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=b90441de reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-13T03:14:56.776815588Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=cdb1af5c reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-13T03:14:56.801682646Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=e98191c6 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-13T03:14:56.803514055Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=3bfe06fc reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-13T03:14:56.805326894Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=b755c42e reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-13T03:14:56.807072379Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=70abf30c reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-13T03:14:56.808748762Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=9520f884 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-13T03:14:56.810281928Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=2b79e344 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-13T03:14:56.811973052Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=9ab009b9 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-13T03:14:56.813606213Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=7fcaa1c0 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-17"
+2026-01-13T03:14:56.815279225Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=ddc4d0f1 reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-18"
+2026-01-13T03:14:56.81884961Z [QC_AUTO_TRIGGER] trace_id=35a083fa SNAPSHOT_COOLDOWN candidate=38bd5d5c reason="Snapshot already verified within last 7 days. Cooldown ends 2026-01-19"
+2026-01-13T03:14:56.899423791Z [SCHEDULER] trace_id=abf57813 Running FOLLOWUP integration verification (30s)...
+2026-01-13T03:14:56.899474253Z [INTEGRATION_VERIFY] trace_id=integ-verify-3a1d6e77 Starting autonomous integration verification...
+2026-01-13T03:14:56.9312554Z [BARS_CACHE] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 instance=ebc9ef85 cache_set key=bars:v2:MES:1m:ALL:1760498093378:1768274093378 bars=82155 compressed_bytes=838272
+2026-01-13T03:14:56.949194427Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 REAL_DATA fetched_bars=82155 provider=databento latency=3560ms
+2026-01-13T03:14:57.01872918Z [STRATEGY_INFERENCE] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 bot_name="Pulse Fade Trap" inferred_archetype="gap_fade"
+2026-01-13T03:14:57.018755701Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 bot_name="Pulse Fade Trap" inferred_archetype="gap_fade" using="gap_fade"
+2026-01-13T03:14:57.018759001Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 archetype=gap_fade mapped_to=gap_fade
+2026-01-13T03:14:57.101621812Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 TRIALS_SESSION_WIDENING original=09:30-11:00 widened=09:35-15:55
+2026-01-13T03:14:57.104078778Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 using_real_strategy version=1.0.0 rules=MES Gap Fade rules_hash=2a374c1494c8112d
+2026-01-13T03:14:57.12212429Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-13T03:14:57.122148451Z [BACKTEST_EXECUTOR] trace_id=4c0269cc-61f6-44c4-aa83-c03604433c02 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-13T03:14:57.128494746Z [SESSION_CHECK] UTC=2025-10-15T04:05:00.000Z ET_hour=0 ET_min=5 ET_day=3 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
