@@ -263,6 +263,33 @@ export function normalizeArchetype(input: string): StrategyArchetype {
     "volume_surge": "momentum_surge",
     "squeeze_breakout": "breakout",
     "consolidation_break": "breakout",
+    
+    // Common Strategy Lab generated names (added for coverage)
+    "diverge": "mean_reversion",
+    "diverge_short": "mean_reversion",
+    "diverge_long": "mean_reversion",
+    "crush": "breakout",
+    "crush_bounce": "breakout",
+    "vol_crush": "breakout",
+    "vol_grind": "trend_following",
+    "grind": "trend_following",
+    "grind_fade": "mean_reversion",
+    "bounce": "mean_reversion",
+    "ceiling": "mean_reversion",
+    "ceiling_fade": "mean_reversion",
+    "dormancy": "mean_reversion",
+    "dormancy_fade": "mean_reversion",
+    "complacency": "mean_reversion",
+    "complacency_fade": "mean_reversion",
+    "sentiment": "momentum_surge",
+    "sentiment_fade": "mean_reversion",
+    "peak_fade": "mean_reversion",
+    "trap": "reversal",
+    "fade_trap": "reversal",
+    "quiet": "mean_reversion",
+    "quiet_range": "mean_reversion",
+    "echo": "scalping",
+    "echo_chamber": "scalping",
   };
   
   if (aliases[normalized]) {
@@ -270,8 +297,8 @@ export function normalizeArchetype(input: string): StrategyArchetype {
   }
   
   // Try to extract archetype from compound names like "mnq_trend_momentum" or "mes_gap_fade"
-  // Strip common instrument prefixes
-  const withoutInstrument = normalized.replace(/^(mes|mnq|es|nq|ym|mym|rtm|m2k|cl|gc)_/, "");
+  // Strip common instrument prefixes (including full names like "nasdaq", "spx", "dowfutures")
+  const withoutInstrument = normalized.replace(/^(mes|mnq|es|nq|ym|mym|rtm|m2k|cl|gc|nasdaq|spx|dowfutures|sp500|emini)_/, "");
   
   if (STRATEGY_ARCHETYPES.includes(withoutInstrument as StrategyArchetype)) {
     return withoutInstrument as StrategyArchetype;
