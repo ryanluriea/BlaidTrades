@@ -1,0 +1,50 @@
+2026-01-13T17:11:05.140959564Z     '                strategy_config, performance_snapshot, timeframe\n' +
+2026-01-13T17:11:05.140961294Z     '              ) VALUES (\n' +
+2026-01-13T17:11:05.140963014Z     '                $1::uuid, $2, $3,\n' +
+2026-01-13T17:11:05.140964754Z     "                $4::uuid, 'LAB_CONTINUOUS_EVOLUTION',\n" +
+2026-01-13T17:11:05.140966434Z     '                $5,\n' +
+2026-01-13T17:11:05.140968104Z     "                '{}'::jsonb,\n" +
+2026-01-13T17:11:05.140969744Z     '                $6::jsonb,\n' +
+2026-01-13T17:11:05.140971424Z     '                $7\n' +
+2026-01-13T17:11:05.140973084Z     '              )\n' +
+2026-01-13T17:11:05.140974794Z     '              ON CONFLICT (bot_id, generation_number) DO NOTHING\n' +
+2026-01-13T17:11:05.140976454Z     '              RETURNING id\n' +
+2026-01-13T17:11:05.140978134Z     '            ',
+2026-01-13T17:11:05.140979904Z   params: [
+2026-01-13T17:11:05.140981604Z     'ee21d879-6a72-49f6-90c1-ab69b3deea69',
+2026-01-13T17:11:05.140984044Z     2,
+2026-01-13T17:11:05.140987114Z     1,
+2026-01-13T17:11:05.140989764Z     '14862f4b-4232-4889-92a4-dc19260dbdc2',
+2026-01-13T17:11:05.140992444Z     'Gen 2: Evolution cycle',
+2026-01-13T17:11:05.140997564Z     '{"generation":1,"snapshotAt":"2026-01-13T17:11:05.139Z","simPnl":-3291.06,"simTotalTrades":269,"livePnl":0,"liveTotalTrades":0,"liveWinRate":0,"latestBacktestPnl":-1249.31,"latestBacktestTrades":69,"latestBacktestWinRate":0.3478261,"latestBacktestMaxDd":14.86533}',
+2026-01-13T17:11:05.141005934Z     '5m'
+2026-01-13T17:11:05.141008845Z   ],
+2026-01-13T17:11:05.141013415Z   cause: error: there is no unique or exclusion constraint matching the ON CONFLICT specification
+2026-01-13T17:11:05.141015395Z       at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2026-01-13T17:11:05.141017155Z       at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-13T17:11:05.141018805Z       at async targetPool.query (file:///opt/render/project/src/dist/index.js:3316:22)
+2026-01-13T17:11:05.141020565Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:113:20
+2026-01-13T17:11:05.141022435Z       at async NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:39:16)
+2026-01-13T17:11:05.141024085Z       at async runEvolutionWorker (file:///opt/render/project/src/dist/index.js:39413:31)
+2026-01-13T17:11:05.141025745Z       at async selfHealingWrapper (file:///opt/render/project/src/dist/index.js:38102:5)
+2026-01-13T17:11:05.141027405Z       at async Timeout._onTimeout (file:///opt/render/project/src/dist/index.js:43985:7) {
+2026-01-13T17:11:05.141029105Z     length: 148,
+2026-01-13T17:11:05.141030785Z     severity: 'ERROR',
+2026-01-13T17:11:05.141032495Z     code: '42P10',
+2026-01-13T17:11:05.141034205Z     detail: undefined,
+2026-01-13T17:11:05.141035895Z     hint: undefined,
+2026-01-13T17:11:05.141037515Z     position: undefined,
+2026-01-13T17:11:05.141039165Z     internalPosition: undefined,
+2026-01-13T17:11:05.141040815Z     internalQuery: undefined,
+2026-01-13T17:11:05.141042465Z     where: undefined,
+2026-01-13T17:11:05.141044125Z     schema: undefined,
+2026-01-13T17:11:05.141045755Z     table: undefined,
+2026-01-13T17:11:05.141047435Z     column: undefined,
+2026-01-13T17:11:05.141049065Z     dataType: undefined,
+2026-01-13T17:11:05.141050755Z     constraint: undefined,
+2026-01-13T17:11:05.141052405Z     file: 'plancat.c',
+2026-01-13T17:11:05.141054035Z     line: '958',
+2026-01-13T17:11:05.141055755Z     routine: 'infer_arbiter_indexes'
+2026-01-13T17:11:05.141057475Z   }
+2026-01-13T17:11:05.141059155Z }
+2026-01-13T17:11:05.142262128Z [EVOLUTION_WORKER] trace_id=e2c02996-e581-495c-8fe6-557961d8e16c job_id=14862f4b-4232-4889-92a4-dc19260dbdc2 CRITICAL no generation id for gen=2
