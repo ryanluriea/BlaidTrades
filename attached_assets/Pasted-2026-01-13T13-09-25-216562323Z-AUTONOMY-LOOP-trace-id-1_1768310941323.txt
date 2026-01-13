@@ -1,0 +1,50 @@
+2026-01-13T13:09:25.216562323Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=c4fe4576-ddfd-4a51-bbd7-b6dc7af90281 LAB_EVOLUTION job=EVOLVING reason="5/5 improvements, 57 trades, jitter=12min, ready to evolve" iteration=2
+2026-01-13T13:09:25.221731513Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Quiescent Band Fade: EVOLVING queued" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.618691262Z [DATABENTO] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 fetched bars=82155 latency=4328ms
+2026-01-13T13:09:25.620510134Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Quiescent Band Fade: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.620523784Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=c4fe4576-ddfd-4a51-bbd7-b6dc7af90281 HOLD failed_gates=profitable,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.623088139Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0
+2026-01-13T13:09:25.715543176Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Tech Sentiment Scalp: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.715573026Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=be2fd985-4d93-4b4f-9f3d-4c8af535b47c HOLD failed_gates=min_trades,rolling_metrics_consistency
+2026-01-13T13:09:25.728060633Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Dormancy Range Fade: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.728077163Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=3c0eb906-0e59-440b-a28f-e249dd5e0637 HOLD failed_gates=profitable,win_rate,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.743351419Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="VWAP Complacency Fade: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.74337874Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=c67571aa-96e2-43ae-b162-ef73fc7030eb HOLD failed_gates=min_trades,profitable,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.770037263Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="VWAP Deviation Fade: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.770062143Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=05011994-02fd-4de6-8a03-8404edb8c1ca HOLD failed_gates=min_trades,profitable,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.795587057Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Complacency Band Fade: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.795611947Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=3a887040-5f27-4376-9555-0eb32b2598ea HOLD failed_gates=profitable,win_rate,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.802734061Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=826f9ccb-1d73-4e07-bce1-3fc042d04837 LAB_EVOLUTION job=EVOLVING reason="5/4 improvements, 50 trades, jitter=12min, ready to evolve" iteration=2
+2026-01-13T13:09:25.808005233Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="VWAP Extremity Bounce: EVOLVING queued" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.814630248Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="VWAP Extremity Bounce: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.814644568Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=826f9ccb-1d73-4e07-bce1-3fc042d04837 HOLD failed_gates=profitable,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.827766386Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Sentiment Peak Fade: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.827783707Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=a8be4d35-f93b-48e0-beae-b56a23e8b4af HOLD failed_gates=profitable,win_rate,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.840435066Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Lull Band Fade: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.840453797Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=13a66c8b-41fd-4397-970f-fb426ffbf899 HOLD failed_gates=profitable,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.846808797Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=e55b3d23-ef21-4d31-9399-fbdbe6b11de1 LAB_EVOLUTION job=EVOLVING reason="5/3 improvements, 55 trades, jitter=1min, ready to evolve" iteration=2
+2026-01-13T13:09:25.851765173Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Vol Complacency Fade: EVOLVING queued" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.889609191Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Vol Complacency Fade: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.889639552Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=e55b3d23-ef21-4d31-9399-fbdbe6b11de1 HOLD failed_gates=profitable,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.897239634Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=34cb67dc-4745-47c9-b341-a4ae5b3aa3ba LAB_EVOLUTION job=EVOLVING reason="5/3 improvements, 89 trades, jitter=4min, ready to evolve" iteration=2
+2026-01-13T13:09:25.902156109Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Divorce Drift Fade: EVOLVING queued" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.908667972Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Divorce Drift Fade: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.908682422Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=34cb67dc-4745-47c9-b341-a4ae5b3aa3ba HOLD failed_gates=profitable,win_rate,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.915529561Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=2c84541e-01af-48dc-af5f-352db9ac70fe LAB_EVOLUTION job=EVOLVING reason="4/3 improvements, 16 trades, jitter=7min, ready to evolve" iteration=2
+2026-01-13T13:09:25.920120601Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Hype Fade Reversal: EVOLVING queued" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.928062339Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Hype Fade Reversal: Evolving" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:25.928077719Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=2c84541e-01af-48dc-af5f-352db9ac70fe HOLD failed_gates=min_trades,profitable,win_rate,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T13:09:25.931889786Z [AUTONOMY_LOOP] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=e55eb272-a8f8-4256-9200-273143aebd15 QUEUING_BASELINE_BACKTEST reason=NO_COMPLETED_BACKTESTS
+2026-01-13T13:09:25.935749833Z [BACKTEST_EXECUTOR] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 bot_id=e55eb272-a8f8-4256-9200-273143aebd15 queueing_5year_backtest days=1825 start=2021-01-14T00:00:00.000Z end=2026-01-13T00:00:00.000Z
+2026-01-13T13:09:25.936513526Z [BARS_CACHE] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 instance=ef922f66 cache_set key=bars:v2:MES:1m:ALL:1760533761267:1768309761267 bars=82155 compressed_bytes=838022
+2026-01-13T13:09:25.951282683Z [BACKTEST_EXECUTOR] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 REAL_DATA fetched_bars=82155 provider=databento latency=4669ms
+2026-01-13T13:09:25.952075047Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest queued for Vol Complacency Trap" trace_id=1c372784-49d1-43de-a465-7a80c6270bc6
+2026-01-13T13:09:26.091582191Z [STRATEGY_INFERENCE] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 bot_name="Lull Band Fade" inferred_archetype="gap_fade"
+2026-01-13T13:09:26.091612482Z [BACKTEST_EXECUTOR] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 bot_name="Lull Band Fade" inferred_archetype="gap_fade" using="gap_fade"
+2026-01-13T13:09:26.091616612Z [BACKTEST_EXECUTOR] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 archetype=gap_fade mapped_to=gap_fade
+2026-01-13T13:09:26.091871806Z [BACKTEST_EXECUTOR] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 TRIALS_SESSION_WIDENING original=09:30-11:00 widened=09:35-15:55
+2026-01-13T13:09:26.092905264Z [BACKTEST_EXECUTOR] trace_id=1c372784-49d1-43de-a465-7a80c6270bc6 queued_baseline session_id=314d9477-6aac-4d00-88e0-3a542bd19ab8 bot_id=e55eb272-a8f8-4256-9200-273143aebd15
+2026-01-13T13:09:26.095411338Z [BACKTEST_EXECUTOR] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 using_real_strategy version=1.0.0 rules=MES Gap Fade rules_hash=2a374c1494c8112d
+2026-01-13T13:09:26.197603934Z [BACKTEST_EXECUTOR] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-13T13:09:26.197632784Z [BACKTEST_EXECUTOR] trace_id=f59081be-5c75-40b6-a3a9-e837e6d551b0 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-13T13:09:26.205782626Z [SESSION_CHECK] UTC=2025-10-15T14:00:00.000Z ET_hour=10 ET_min=0 ET_day=3 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
