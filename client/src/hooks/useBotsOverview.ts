@@ -430,7 +430,8 @@ export function useBotsOverview() {
     queryFn: async (): Promise<BotsOverviewData> => {
       if (!user?.id) return EMPTY_DATA;
 
-      const response = await fetch(`/api/bots-overview?user_id=${user.id}`, {
+      // INSTITUTIONAL: Use session auth only - no user_id in query params
+      const response = await fetch("/api/bots-overview", {
         credentials: "include",
       });
 

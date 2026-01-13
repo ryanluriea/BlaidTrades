@@ -1046,8 +1046,8 @@ export function useStrategyLabOverview() {
   return useQuery<StrategyLabOverviewResponse, Error, StrategyLabOverviewData>({
     queryKey: ["/api/strategy-lab/overview", user?.id],
     queryFn: async (): Promise<StrategyLabOverviewResponse> => {
-      const params = user?.id ? `?user_id=${user.id}` : '';
-      const response = await fetch(`/api/strategy-lab/overview${params}`, {
+      // INSTITUTIONAL: Use session auth only - no user_id in query params
+      const response = await fetch("/api/strategy-lab/overview", {
         credentials: "include",
       });
       if (!response.ok) {
@@ -1088,8 +1088,8 @@ export function useStrategyLabAutonomousState() {
   return useQuery<StrategyLabStateResponse, Error, StrategyLabAutonomousState>({
     queryKey: ["/api/strategy-lab/state", user?.id],
     queryFn: async (): Promise<StrategyLabStateResponse> => {
-      const params = user?.id ? `?user_id=${user.id}` : '';
-      const response = await fetch(`/api/strategy-lab/state${params}`, {
+      // INSTITUTIONAL: Use session auth only - no user_id in query params
+      const response = await fetch("/api/strategy-lab/state", {
         credentials: "include",
       });
       if (!response.ok) {

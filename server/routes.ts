@@ -4647,7 +4647,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/bots-overview", async (req: Request, res: Response) => {
+  app.get("/api/bots-overview", requireAuth, async (req: Request, res: Response) => {
     // PRODUCTION RESILIENCE: 25-second timeout to prevent request hanging
     const REQUEST_TIMEOUT_MS = 25000;
     const requestStart = Date.now();
@@ -4669,16 +4669,14 @@ export function registerRoutes(app: Express) {
     }, REQUEST_TIMEOUT_MS);
     
     try {
-      // PRODUCTION DEBUG: Log session and query state for diagnostics
-      const sessionUserId = req.session?.userId;
-      const queryUserId = req.query.user_id as string;
-      const userId = sessionUserId || queryUserId;
+      // INSTITUTIONAL: Use session userId only for consistency across all endpoints
+      const userId = req.session?.userId;
       
-      console.log(`[bots-overview] AUTH_DEBUG sessionUserId=${sessionUserId || 'NONE'} queryUserId=${queryUserId || 'NONE'} resolvedUserId=${userId || 'NONE'}`);
+      console.log(`[bots-overview] AUTH_DEBUG sessionUserId=${userId || 'NONE'}`);
       
       if (!userId) {
         clearTimeout(timeoutHandle);
-        console.log(`[bots-overview] AUTH_FAILED no userId available`);
+        console.log(`[bots-overview] AUTH_FAILED no session userId`);
         return res.status(401).json({ error: "Authentication required" });
       }
       
@@ -13815,9 +13813,10 @@ export function registerRoutes(app: Express) {
 
   // Strategy Lab Overview - UNIFIED endpoint for fast page load
   // Combines status, state, and candidate counts in a single request
-  app.get("/api/strategy-lab/overview", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/overview", requireAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.query.user_id as string | undefined;
+      // INSTITUTIONAL: Use session userId for consistency with bots-overview
+      const userId = req.session?.userId as string | undefined;
       const { getStrategyLabState, getLastResearchCycleTime, getResearchActivity, initializeStrategyLabFromSettings } = await import("./strategy-lab-engine");
       
       // Load persisted settings from database if user_id provided
@@ -13905,7 +13904,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Strategy Lab Research Engine - IMPLEMENTED
-  app.get("/api/strategy-lab/status", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/status", requireAuth, async (req: Request, res: Response) => {
     try {
       const status = await getStrategyLabStatus();
       return res.json({
@@ -13918,7 +13917,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/strategy-lab/candidates", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/candidates", requireAuth, async (req: Request, res: Response) => {
     try {
       const { disposition, limit, include_bots } = req.query;
       const disp = (disposition as string) || "ALL";
@@ -14140,7 +14139,7 @@ export function registerRoutes(app: Express) {
   });
   
   // Reconciliation endpoint: find orphaned candidates (SENT_TO_LAB but no bot exists)
-  app.post("/api/strategy-lab/reconcile", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/reconcile", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       console.log(`[STRATEGY_LAB_RECONCILE] trace_id=${traceId} starting reconciliation`);
@@ -14188,7 +14187,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Backfill novelty scores for all strategy candidates
-  app.post("/api/strategy-lab/backfill-novelty", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/backfill-novelty", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       console.log(`[NOVELTY_BACKFILL_API] trace_id=${traceId} starting backfill`);
@@ -14209,7 +14208,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Get QC verification details for a specific candidate
-  app.get("/api/strategy-lab/candidates/:candidateId/qc-verification", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/candidates/:candidateId/qc-verification", requireAuth, async (req: Request, res: Response) => {
     try {
       const { candidateId } = req.params;
       
@@ -14335,7 +14334,7 @@ export function registerRoutes(app: Express) {
 
   // Queue a new QC verification for a candidate (Manual trigger)
   // Visibility rules: Only when stage ∈ {LAB, REVIEW}, qcGatePassed==false or FAILED/INCONCLUSIVE, not in cooldown, budget available
-  app.post("/api/strategy-lab/candidates/:candidateId/qc-verification", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/:candidateId/qc-verification", requireAuth, async (req: Request, res: Response) => {
     try {
       const { candidateId } = req.params;
       const traceId = crypto.randomUUID().slice(0, 8);
@@ -14464,7 +14463,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/strategy-lab/feedback-loops", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/feedback-loops", requireAuth, async (req: Request, res: Response) => {
     try {
       const loops = await getActiveFeedbackLoops();
       return res.json({
@@ -14478,7 +14477,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/strategy-lab/research-stats", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/research-stats", requireAuth, async (req: Request, res: Response) => {
     try {
       const stats = getResearchCycleStats();
       return res.json({
@@ -14491,7 +14490,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/strategy-lab/trigger-research", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/trigger-research", requireAuth, async (req: Request, res: Response) => {
     try {
       const traceId = crypto.randomUUID();
       console.log(`[STRATEGY_LAB] Manual research cycle triggered trace_id=${traceId}`);
@@ -15065,7 +15064,7 @@ export function registerRoutes(app: Express) {
   });
 
   // DIAGNOSTIC: Test which AI providers are configured for Strategy Lab research
-  app.get("/api/strategy-lab/test-providers", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/test-providers", requireAuth, async (req: Request, res: Response) => {
     try {
       const { getStrategyLabProviders } = await import("./ai-strategy-evolution");
       const providers = getStrategyLabProviders();
@@ -15099,7 +15098,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/strategy-lab/state", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/state", requireAuth, async (req: Request, res: Response) => {
     try {
       const { getStrategyLabState, getRecentCandidates, getLastResearchCycleTime, getResearchActivity, initializeStrategyLabFromSettings } = await import("./strategy-lab-engine");
       
@@ -15161,7 +15160,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/strategy-lab/state", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/state", requireAuth, async (req: Request, res: Response) => {
     try {
       const { isPlaying, pauseReason, depth, requireManualApproval, autoPromoteThreshold, autoPromoteTier, perplexityModel, searchRecency, customFocus, costEfficiencyMode, qcDailyLimit, qcWeeklyLimit, qcAutoTriggerEnabled, qcAutoTriggerThreshold, qcAutoTriggerTier, fastTrackEnabled, fastTrackMinTrades, fastTrackMinSharpe, fastTrackMinWinRate, fastTrackMaxDrawdown, trialsAutoPromoteEnabled, trialsMinTrades, trialsMinSharpe, trialsMinWinRate, trialsMaxDrawdown, researchIntervalOverrideMinutes, user_id } = req.body;
       const { setStrategyLabPlaying, setStrategyLabDepth, setStrategyLabManualApproval, setStrategyLabAutoPromoteSettings, setStrategyLabResearchSettings, setStrategyLabCostEfficiencyMode, setStrategyLabQCSettings, getStrategyLabState, getLastResearchCycleTime, runStrategyLabResearchCycle } = await import("./strategy-lab-engine");
@@ -15378,7 +15377,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/strategy-lab/scan-failures", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/scan-failures", requireAuth, async (req: Request, res: Response) => {
     try {
       const traceId = crypto.randomUUID();
       const failures = await scanLabBotsForFailures(traceId);
@@ -15395,7 +15394,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/strategy-lab/process-failures", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/process-failures", requireAuth, async (req: Request, res: Response) => {
     try {
       const traceId = crypto.randomUUID();
       const result = await processLabFailuresAndTriggerResearch(traceId);
@@ -15412,7 +15411,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Strategy Lab Sessions - 501 Not Implemented (requires AI orchestration)
-  app.get("/api/strategy-lab/sessions", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/sessions", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Sessions", [
       "AI/LLM provider integration (OpenAI, Claude, etc.)",
       "Strategy Lab persistence layer",
@@ -15420,14 +15419,14 @@ export function registerRoutes(app: Express) {
     ]);
   });
 
-  app.get("/api/strategy-lab/sessions/:id", async (req: Request, res: Response) => {
+  app.get("/api/strategy-lab/sessions/:id", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Session Details", [
       "AI/LLM provider integration",
       "Strategy Lab persistence layer"
     ]);
   });
 
-  app.post("/api/strategy-lab/sessions", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/sessions", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Session Create", [
       "AI/LLM provider integration",
       "Strategy Lab persistence layer",
@@ -15435,56 +15434,56 @@ export function registerRoutes(app: Express) {
     ]);
   });
 
-  app.post("/api/strategy-lab/sessions/:id/control", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/sessions/:id/control", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Session Control", [
       "AI/LLM provider integration",
       "Strategy Lab state machine"
     ]);
   });
 
-  app.post("/api/strategy-lab/sessions/:id/step", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/sessions/:id/step", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Step", [
       "AI/LLM provider integration",
       "Step execution engine"
     ]);
   });
 
-  app.post("/api/strategy-lab/sessions/:id/phase", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/sessions/:id/phase", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Phase", [
       "AI/LLM provider integration",
       "Phase orchestration engine"
     ]);
   });
 
-  app.post("/api/strategy-lab/sessions/:id/gates", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/sessions/:id/gates", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Gates", [
       "Gate evaluation engine",
       "Backtesting integration"
     ]);
   });
 
-  app.post("/api/strategy-lab/sessions/:id/rename", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/sessions/:id/rename", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Rename", [
       "Strategy Lab persistence layer"
     ]);
   });
 
   // Strategy Lab Candidates - 501 Not Implemented
-  app.post("/api/strategy-lab/candidates/:id/export", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/:id/export", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Candidate Export", [
       "Bot creation workflow",
       "Strategy configuration mapping"
     ]);
   });
 
-  app.post("/api/strategy-lab/candidates/:id/evaluate", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/:id/evaluate", requireAuth, async (req: Request, res: Response) => {
     return send501(res, "Strategy Lab Candidate Evaluate", [
       "Backtesting engine",
       "Gate evaluation engine"
     ]);
   });
 
-  app.post("/api/strategy-lab/candidates/:id/promote", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/:id/promote", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       const { id } = req.params;
@@ -15929,7 +15928,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/strategy-lab/candidates/:id/reject", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/:id/reject", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       const { id } = req.params;
@@ -15965,7 +15964,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Restore a rejected candidate back to PENDING_REVIEW
-  app.post("/api/strategy-lab/candidates/:id/restore", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/:id/restore", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       const { id } = req.params;
@@ -15996,7 +15995,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/strategy-lab/candidates/:id/favorite", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/:id/favorite", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       const { id } = req.params;
@@ -16028,7 +16027,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Recycle a rejected candidate - mark as RECYCLED and trigger new research with context
-  app.post("/api/strategy-lab/candidates/:id/recycle", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/:id/recycle", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       const { id } = req.params;
@@ -16075,7 +16074,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Bulk delete candidates (requires authentication)
-  app.post("/api/strategy-lab/candidates/bulk-delete", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/bulk-delete", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       // Require authentication
@@ -16124,7 +16123,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Save strategy candidate as user-defined archetype
-  app.post("/api/strategy-lab/candidates/:id/save-as-archetype", async (req: Request, res: Response) => {
+  app.post("/api/strategy-lab/candidates/:id/save-as-archetype", requireAuth, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       const { id } = req.params;
