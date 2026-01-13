@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Brain, MessageSquareText, Database, Twitter, Newspaper, TrendingUp, Sparkles, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PROVIDER_CONFIG } from "./LLMProviderBadge";
+import grokLogoSrc from "@assets/grok-logo.png";
 
 interface ResearchSource {
   type: string;
@@ -89,12 +90,20 @@ export function AiResearchProvenancePopover({
           )}
           data-testid={`button-ai-provenance-${normalizedProvider}`}
         >
-          <span className={cn(
-            "font-bold text-white leading-none",
-            compact ? "text-[9px]" : "text-[10px]"
-          )}>
-            {normalizedProvider === "grok" ? "G" : config.abbrev.charAt(0)}
-          </span>
+          {normalizedProvider === "grok" || normalizedProvider === "xai" ? (
+            <img 
+              src={grokLogoSrc} 
+              alt="Grok" 
+              className={cn("object-contain", compact ? "h-2.5 w-2.5" : "h-3 w-3")}
+            />
+          ) : (
+            <span className={cn(
+              "font-bold text-white leading-none",
+              compact ? "text-[9px]" : "text-[10px]"
+            )}>
+              {config.abbrev.charAt(0)}
+            </span>
+          )}
           {!compact && reasoning && (
             <MessageSquareText className="h-3 w-3 text-white/80" />
           )}

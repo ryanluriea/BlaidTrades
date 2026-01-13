@@ -2,6 +2,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { cn } from "@/lib/utils";
 import { PROVIDER_CONFIG } from "./LLMProviderBadge";
 import { AiResearchProvenancePopover } from "./AiResearchProvenancePopover";
+import grokLogoSrc from "@assets/grok-logo.png";
 
 interface ResearchSource {
   type: string;
@@ -19,19 +20,11 @@ interface InlineAiProviderBadgeProps {
 }
 
 const GrokLogo = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className}>
-    <path 
-      d="M12 3C7.03 3 3 7.03 3 12c0 2.76 1.24 5.23 3.19 6.89l-.01.01c.18.15.37.29.56.43L18.89 7.18C17.23 4.74 14.77 3 12 3zm6.81 4.11L6.66 19.26c.17.11.35.21.53.31C8.77 20.47 10.33 21 12 21c4.97 0 9-4.03 9-9 0-1.97-.64-3.78-1.72-5.26l-.47.37z"
-      fill="currentColor"
-    />
-    <path 
-      d="M3 21L21 3" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      fill="none" 
-    />
-  </svg>
+  <img 
+    src={grokLogoSrc} 
+    alt="Grok" 
+    className={cn("object-contain", className)}
+  />
 );
 
 const PerplexityLogo = ({ className }: { className?: string }) => (
@@ -133,9 +126,17 @@ export function InlineAiProviderBadge({
             )}
             data-testid={`badge-ai-provider-${normalizedProvider}`}
           >
-            <span className="text-[9px] font-bold text-white leading-none">
-              {normalizedProvider === "grok" ? "G" : config.abbrev.charAt(0)}
-            </span>
+            {normalizedProvider === "grok" || normalizedProvider === "xai" ? (
+              <img 
+                src={grokLogoSrc} 
+                alt="Grok" 
+                className="h-2.5 w-2.5 object-contain"
+              />
+            ) : (
+              <span className="text-[9px] font-bold text-white leading-none">
+                {config.abbrev.charAt(0)}
+              </span>
+            )}
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
