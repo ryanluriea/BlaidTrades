@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -559,11 +559,26 @@ export function StrategyLabView() {
     genetics_recombination_rate: 0.7,
   });
 
+  // Defer heavy data loading until after first paint
+  const [heavyDataEnabled, setHeavyDataEnabled] = useState(false);
+  
+  useEffect(() => {
+    // Enable heavy hooks after first paint using requestIdleCallback
+    if (!heavyDataEnabled) {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => setHeavyDataEnabled(true), { timeout: 100 });
+      } else {
+        setTimeout(() => setHeavyDataEnabled(true), 50);
+      }
+    }
+  }, [heavyDataEnabled]);
+
   const { data: sessions, isLoading: sessionsLoading } = useStrategyLabSessions();
   const createSession = useCreateSession();
   
   const { data: autonomousState, isLoading: stateLoading } = useStrategyLabAutonomousState();
-  const { data: candidates, isLoading: candidatesLoading, isFetching: candidatesFetching } = useStrategyCandidates(500);
+  // Defer heavy candidates fetch until after first paint - show cached data instantly
+  const { data: candidates, isLoading: candidatesLoading, isFetching: candidatesFetching } = useStrategyCandidates(500, heavyDataEnabled);
   const { data: trialsBotsData } = useTrialsBotsCount();
   const trialsBotsCount = trialsBotsData?.count ?? 0;
   const toggleState = useToggleStrategyLabState();

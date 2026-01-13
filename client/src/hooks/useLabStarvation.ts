@@ -40,7 +40,7 @@ interface LabStarvationResponse {
   bots: LabBotStarvation[];
 }
 
-export function useLabStarvation() {
+export function useLabStarvation(enabled: boolean = true) {
   return useQuery<LabStarvationResponse>({
     queryKey: ["/api/_proof/lab-starvation"],
     queryFn: async () => {
@@ -48,7 +48,8 @@ export function useLabStarvation() {
       if (!res.ok) throw new Error("Failed to fetch LAB starvation data");
       return res.json();
     },
-    refetchInterval: 30_000, // Refresh every 30 seconds
+    enabled,
+    refetchInterval: enabled ? 30_000 : false,
     staleTime: 15_000,
   });
 }

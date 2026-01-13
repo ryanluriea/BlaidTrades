@@ -1,9 +1,18 @@
 import { QueryClient } from "@tanstack/react-query";
 
+/**
+ * Institutional-grade Query Client Configuration
+ * 
+ * Core principle: INSTANT cache reads, silent background refresh
+ * - 5-minute stale time: Show cached data immediately, refresh in background
+ * - 30-minute GC time: Keep data in cache for instant access on navigation
+ * - No window focus refetch: Prevents disruptive data flashing
+ * - Placeholder data: Use stale data while fetching fresh
+ */
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 120 * 1000,
+      staleTime: 5 * 60 * 1000,
       gcTime: 30 * 60 * 1000,
       retry: (failureCount, error: any) => {
         const status = error?.status ?? error?.response?.status;
@@ -20,12 +29,14 @@ export const queryClient = new QueryClient({
         return failureCount < 3;
       },
       retryDelay: (attemptIndex) => {
-        const base = 800;
-        const max = 8_000;
+        const base = 500;
+        const max = 5_000;
         return Math.min(max, base * 2 ** attemptIndex);
       },
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
+      refetchOnMount: false,
+      networkMode: 'offlineFirst',
     },
     mutations: {
       retry: false,

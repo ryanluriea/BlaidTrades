@@ -12,6 +12,7 @@ import { LivePnLProvider } from "@/contexts/LivePnLContext";
 import { StrategyLabDialogProvider } from "@/contexts/StrategyLabDialogContext";
 import { BootProvider } from "@/contexts/BootContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/queryClient";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -65,25 +66,36 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 const IDB_CACHE_KEY = 'blaidagent-query-cache-v2';
 
 let idbAvailable: boolean | null = null;
+let idbCheckPromise: Promise<boolean> | null = null;
 
-async function checkIdbAvailability(): Promise<boolean> {
-  if (idbAvailable !== null) return idbAvailable;
-  try {
-    const testKey = '__idb_test__';
-    await set(testKey, 'test');
-    await del(testKey);
-    idbAvailable = true;
-  } catch {
-    idbAvailable = false;
-  }
-  return idbAvailable;
+function initIdbCheck(): Promise<boolean> {
+  if (idbAvailable !== null) return Promise.resolve(idbAvailable);
+  if (idbCheckPromise) return idbCheckPromise;
+  
+  idbCheckPromise = (async () => {
+    try {
+      const testKey = '__idb_test__';
+      await set(testKey, 'test');
+      await del(testKey);
+      idbAvailable = true;
+    } catch {
+      idbAvailable = false;
+    }
+    return idbAvailable;
+  })();
+  
+  return idbCheckPromise;
+}
+
+if (typeof window !== 'undefined') {
+  initIdbCheck();
 }
 
 let idbFallbackLogged = false;
 
 const idbPersister = {
   persistClient: async (client: any) => {
-    const useIdb = await checkIdbAvailability();
+    const useIdb = idbAvailable ?? await initIdbCheck();
     if (useIdb) {
       try {
         await set(IDB_CACHE_KEY, client);
@@ -101,7 +113,7 @@ const idbPersister = {
     } catch {}
   },
   restoreClient: async () => {
-    const useIdb = await checkIdbAvailability();
+    const useIdb = idbAvailable ?? await initIdbCheck();
     try {
       if (useIdb) {
         const cached = await get(IDB_CACHE_KEY);
@@ -116,7 +128,7 @@ const idbPersister = {
   },
   removeClient: async () => {
     try {
-      const useIdb = await checkIdbAvailability();
+      const useIdb = idbAvailable ?? await initIdbCheck();
       if (useIdb) await del(IDB_CACHE_KEY);
       localStorage.removeItem(IDB_CACHE_KEY);
     } catch {}
@@ -159,6 +171,7 @@ const App = () => (
             <StrategyLabDialogProvider>
             <Toaster />
             <Sonner />
+            <ErrorBoundary>
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <AuthProvider>
               <BootProvider>
@@ -340,6 +353,7 @@ const App = () => (
               </BootProvider>
               </AuthProvider>
             </BrowserRouter>
+            </ErrorBoundary>
             </StrategyLabDialogProvider>
           </LivePnLProvider>
         </TooltipProvider>

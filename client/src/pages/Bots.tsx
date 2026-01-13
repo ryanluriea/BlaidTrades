@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useTransition, startTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,28 +75,45 @@ function getGraduationReadiness(bot: any, perBot: any): number {
 /**
  * /bots page - Uses ONLY useBotsOverview for all data
  * 
- * NO per-row hooks, NO N+1 queries, NO REST dependencies
- * Single batched edge function call returns everything needed
+ * INSTITUTIONAL PERFORMANCE:
+ * - Primary data (overview) loads first - enables instant first paint with cached data
+ * - Secondary data (execution proof, runner jobs, starvation) deferred until after paint
+ * - Never blocks navigation on secondary data loading
  */
 export default function Bots() {
-  // SINGLE DATA SOURCE - everything comes from bots-overview
+  // SINGLE DATA SOURCE - everything comes from bots-overview (PRIORITY 1)
   const { data: overview, isLoading, error, refetch, isFetching, dataUpdatedAt } = useBotsOverview();
+  
+  // Defer secondary data loading until after first paint
+  const [secondaryEnabled, setSecondaryEnabled] = useState(false);
+  
+  useEffect(() => {
+    // Enable secondary hooks after first paint using requestIdleCallback
+    // This ensures main content renders before heavy secondary fetches
+    if (overview?.bots?.length && !secondaryEnabled) {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => setSecondaryEnabled(true), { timeout: 200 });
+      } else {
+        setTimeout(() => setSecondaryEnabled(true), 50);
+      }
+    }
+  }, [overview?.bots?.length, secondaryEnabled]);
   
   // Memoize bot IDs - hooks internally skip fetch when array is empty
   const botIds = useMemo(() => overview?.bots?.map(b => b.id) || [], [overview?.bots]);
   
-  // Execution proof for PAPER/SHADOW/LIVE bots
-  const { data: executionProofResult } = useExecutionProof(botIds);
+  // Execution proof for PAPER/SHADOW/LIVE bots (PRIORITY 2 - deferred)
+  const { data: executionProofResult } = useExecutionProof(secondaryEnabled ? botIds : []);
   const executionProofData = executionProofResult?.data;
   const isExecutionProofDegraded = executionProofResult?.degraded ?? false;
   
-  // Fetch actual runner and jobs data for all bots
-  const { data: runnerJobsData, isLoading: runnerJobsLoading } = useBotRunnerAndJobs(botIds);
+  // Fetch actual runner and jobs data for all bots (PRIORITY 2 - deferred)
+  const { data: runnerJobsData, isLoading: runnerJobsLoading } = useBotRunnerAndJobs(secondaryEnabled ? botIds : []);
   
-  // Fetch LAB starvation data for idle reason + next run display
-  const { data: labStarvationData } = useLabStarvation();
+  // Fetch LAB starvation data for idle reason + next run display (PRIORITY 2 - deferred)
+  const { data: labStarvationData } = useLabStarvation(secondaryEnabled);
   
-  // Market hours for maintenance detection
+  // Market hours for maintenance detection (lightweight - load immediately)
   const { data: marketHours } = useMarketHours();
   const isMaintenanceWindow = marketHours?.sessionType === 'MAINTENANCE';
   

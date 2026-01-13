@@ -1327,7 +1327,7 @@ export function useTrialsBotsCount() {
   });
 }
 
-export function useStrategyCandidates(limit: number = 20) {
+export function useStrategyCandidates(limit: number = 20, enabled: boolean = true) {
   return useQuery<RawStrategyCandidatesResponse, Error, StrategyCandidate[]>({
     queryKey: ["/api/strategy-lab/candidates", limit],
     queryFn: async (): Promise<RawStrategyCandidatesResponse> => {
@@ -1339,7 +1339,8 @@ export function useStrategyCandidates(limit: number = 20) {
       }
       return response.json();
     },
-    refetchInterval: 30000,
+    enabled,
+    refetchInterval: enabled ? 30000 : false,
     select: (response) => response.data.map(mapRawToCandidate),
   });
 }

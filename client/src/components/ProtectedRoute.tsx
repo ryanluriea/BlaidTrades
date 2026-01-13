@@ -6,21 +6,28 @@ interface ProtectedRouteProps {
 }
 
 /**
- * ProtectedRoute - Auth gate with themed skeleton loading
+ * ProtectedRoute - Institutional-grade auth gate
  * 
- * Industry-standard pattern:
- * - Always waits for auth verification before showing protected content
- * - Shows themed skeleton shell during loading (never black screen)
- * - Redirects to login only after auth check confirms no session
+ * Performance-first pattern:
+ * - Trusts cached auth immediately for instant navigation (< 50ms)
+ * - NEVER unmounts children during background verification
+ * - Shows skeleton only on true cold start (no cached session)
+ * - Redirects to login only after verification confirms no session
  * 
- * Security: Never renders children until auth is verified server-side.
+ * Security: Session is verified in background, logout if server rejects.
  */
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, isVerified } = useAuth();
   const location = useLocation();
 
-  // Still loading - show themed skeleton shell (not spinner, not black screen)
-  if (loading) {
+  // Have cached user - render immediately, verify in background
+  // This is the key to instant navigation - trust cache, verify async
+  if (user) {
+    return <>{children}</>;
+  }
+
+  // No cached user but still loading - show skeleton (cold start only)
+  if (loading && !isVerified) {
     return (
       <div className="min-h-screen bg-background">
         <div className="h-14 border-b border-border bg-background" />
@@ -42,11 +49,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // Auth verified - no user means redirect to login
-  if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  // Auth verified with valid user - render protected content
-  return <>{children}</>;
+  // Verified with no user - redirect to login
+  return <Navigate to="/login" state={{ from: location }} replace />;
 }
