@@ -54,7 +54,8 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - **Schema-First Archetype Classification:** Archetypes are stored explicitly on the bots table, eliminating fragile name-based inference.
 - **Loading Performance Optimizations:** Fully optimistic AuthContext, cold/warm start optimizations, 5-minute verification cache, `ProtectedRoute` pattern, disabled `refetchOnWindowFocus`, persistent themed wrapper, and AuthContext session state caching.
 - **Progressive Data Loading:** Primary data loads first, secondary metrics defer via `requestIdleCallback` for Bots and Strategy Lab pages, with configured query client caching and global error boundaries.
-- **Cache Warming Infrastructure:** Background scheduler pre-computes bots-overview data for active users with a 25-second refresh interval, batched parallel processing, and connection pool rebalancing. Also includes Redis-backed cache for `/api/strategy-lab/candidates`.
+- **Cache Warming Infrastructure:** Background scheduler pre-computes bots-overview data for active users with a 3-minute refresh interval (bandwidth-optimized), batched parallel processing, and connection pool rebalancing. Also includes Redis-backed cache for `/api/strategy-lab/candidates`. TTLs: bots-overview (3min fresh/5min stale), strategy-lab (5min fresh/8min stale). User-triggered mutations still invalidate instantly.
+- **Redis Monitoring:** `/api/redis/metrics` endpoint exposes connection status, latency, memory usage, key count, ops/second, and connected clients. Redis section in System Health panel for real-time monitoring.
 - **Institutional Cache Infrastructure (Netflix/Spotify Patterns):**
     - **Schema Versioning:** `CACHE_SCHEMA_VERSION` in `cacheInfrastructure.ts` auto-invalidates IndexedDB cache on structure changes.
     - **Zod Validation Before Hydration:** Validates cached data against schemas before React Query hydration, preventing malformed data from reaching components.
