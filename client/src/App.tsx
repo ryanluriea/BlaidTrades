@@ -38,8 +38,22 @@ const ResearchMonitor = lazy(() => import("@/pages/ResearchMonitor"));
 
 function LazyFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Spinner className="h-8 w-8" />
+    <div className="min-h-screen bg-background">
+      <div className="h-14 border-b border-border bg-background" />
+      <div className="flex">
+        <div className="w-64 border-r border-border bg-background min-h-[calc(100vh-3.5rem)]" />
+        <div className="flex-1 p-6 bg-background">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 w-48 bg-muted rounded" />
+            <div className="h-4 w-96 bg-muted rounded" />
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="h-32 bg-muted rounded" />
+              <div className="h-32 bg-muted rounded" />
+              <div className="h-32 bg-muted rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -148,6 +162,7 @@ const App = () => (
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <AuthProvider>
               <BootProvider>
+            <div className="min-h-screen bg-background text-foreground">
             <Routes>
               <Route path="/login" element={<Login />} />
 
@@ -321,6 +336,7 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
               </Routes>
+            </div>
               </BootProvider>
               </AuthProvider>
             </BrowserRouter>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export interface AuthUser {
@@ -24,13 +24,53 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_CACHE_KEY = 'blaidtrades-auth-state';
+
+function getCachedAuth(): AuthUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem(AUTH_CACHE_KEY);
+    if (cached) {
+      const data = JSON.parse(cached);
+      // Backward compatible: accept old format (userId only) or new format (userId + email)
+      if (data.userId) {
+        return { 
+          id: data.userId, 
+          email: data.email || '', 
+          username: data.username || null 
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function setCachedAuth(user: AuthUser | null) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (user) {
+      localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify({ 
+        userId: user.id, 
+        email: user.email, 
+        username: user.username 
+      }));
+    } else {
+      localStorage.removeItem(AUTH_CACHE_KEY);
+    }
+  } catch {}
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasCheckedAuth = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (hasCheckedAuth.current) return;
+    hasCheckedAuth.current = true;
+
     let mounted = true;
 
     async function checkAuth() {
@@ -50,24 +90,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               user: data.user,
               access_token: "session-based",
             });
-            // Persist auth state for debugBundle to read
-            localStorage.setItem('blaidtrades-auth-state', JSON.stringify({ userId: data.user.id }));
+            setCachedAuth(data.user);
           } else {
             console.log("[Auth] No session");
             setUser(null);
             setSession(null);
-            localStorage.removeItem('blaidtrades-auth-state');
+            setCachedAuth(null);
           }
         } else {
           setUser(null);
           setSession(null);
-          localStorage.removeItem('blaidtrades-auth-state');
+          setCachedAuth(null);
         }
       } catch (error) {
         console.error("[Auth] Check session error", error);
         setUser(null);
         setSession(null);
-        localStorage.removeItem('blaidtrades-auth-state');
+        setCachedAuth(null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -107,8 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: data.user,
       access_token: "session-based",
     });
-    // Persist auth state for debugBundle to read
-    localStorage.setItem('blaidtrades-auth-state', JSON.stringify({ userId: data.user.id }));
+    setCachedAuth(data.user);
     navigate("/dashboard");
   };
 
@@ -131,8 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: data.user,
       access_token: "session-based",
     });
-    // Persist auth state for debugBundle to read
-    localStorage.setItem('blaidtrades-auth-state', JSON.stringify({ userId: data.user.id }));
+    setCachedAuth(data.user);
     navigate("/dashboard");
   };
 
@@ -148,8 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     setUser(null);
     setSession(null);
-    // Clear auth state for debugBundle
-    localStorage.removeItem('blaidtrades-auth-state');
+    setCachedAuth(null);
     navigate("/login");
   };
 
@@ -168,26 +204,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user: data.user,
             access_token: "session-based",
           });
-          // Persist auth state for debugBundle to read
-          localStorage.setItem('blaidtrades-auth-state', JSON.stringify({ userId: data.user.id }));
+          setCachedAuth(data.user);
         } else {
-          // Session expired - clear auth state
           setUser(null);
           setSession(null);
-          localStorage.removeItem('blaidtrades-auth-state');
+          setCachedAuth(null);
         }
       } else {
-        // API error - clear auth state
         setUser(null);
         setSession(null);
-        localStorage.removeItem('blaidtrades-auth-state');
+        setCachedAuth(null);
       }
     } catch (error) {
       console.error("[Auth] Refresh user error", error);
-      // Network error - clear auth state to be safe
       setUser(null);
       setSession(null);
-      localStorage.removeItem('blaidtrades-auth-state');
+      setCachedAuth(null);
     }
   };
 

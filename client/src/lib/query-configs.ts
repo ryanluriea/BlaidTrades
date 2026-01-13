@@ -3,13 +3,17 @@ import { UseQueryOptions } from "@tanstack/react-query";
 /**
  * Query configurations for different refresh requirements
  * Trading platforms require real-time data freshness
+ * 
+ * INDUSTRY-STANDARD: refetchOnWindowFocus is DISABLED globally
+ * This prevents black-screen flicker when returning to the tab.
+ * Data stays visible (stale-while-revalidate pattern) during background refetch.
  */
 
 // Critical trading data - refresh every 15 seconds
 export const TRADING_CRITICAL_CONFIG: Partial<UseQueryOptions> = {
   staleTime: 10 * 1000, // 10 seconds
   refetchInterval: 15 * 1000, // Poll every 15 seconds
-  refetchOnWindowFocus: true,
+  refetchOnWindowFocus: false, // DISABLED - prevents tab-switch flicker
   refetchOnReconnect: true,
   refetchIntervalInBackground: false, // Don't poll when tab is hidden
 };
@@ -18,7 +22,7 @@ export const TRADING_CRITICAL_CONFIG: Partial<UseQueryOptions> = {
 export const REALTIME_DATA_CONFIG: Partial<UseQueryOptions> = {
   staleTime: 3 * 1000, // 3 seconds
   refetchInterval: 5 * 1000, // Poll every 5 seconds
-  refetchOnWindowFocus: true,
+  refetchOnWindowFocus: false, // DISABLED - prevents tab-switch flicker
   refetchOnReconnect: true,
   refetchIntervalInBackground: false,
 };
@@ -27,7 +31,7 @@ export const REALTIME_DATA_CONFIG: Partial<UseQueryOptions> = {
 export const DASHBOARD_CONFIG: Partial<UseQueryOptions> = {
   staleTime: 20 * 1000, // 20 seconds
   refetchInterval: 30 * 1000, // Poll every 30 seconds
-  refetchOnWindowFocus: true,
+  refetchOnWindowFocus: false, // DISABLED - prevents tab-switch flicker
   refetchOnReconnect: true,
   refetchIntervalInBackground: false,
 };
@@ -36,15 +40,15 @@ export const DASHBOARD_CONFIG: Partial<UseQueryOptions> = {
 export const HEALTH_STATUS_CONFIG: Partial<UseQueryOptions> = {
   staleTime: 30 * 1000, // 30 seconds
   refetchInterval: 60 * 1000, // Poll every 60 seconds
-  refetchOnWindowFocus: true,
+  refetchOnWindowFocus: false, // DISABLED - prevents tab-switch flicker
   refetchOnReconnect: true,
   refetchIntervalInBackground: false,
 };
 
-// Settings/Configuration - no auto-refresh, but refresh on focus
+// Settings/Configuration - no auto-refresh
 export const SETTINGS_CONFIG: Partial<UseQueryOptions> = {
   staleTime: 5 * 60 * 1000, // 5 minutes
-  refetchOnWindowFocus: true,
+  refetchOnWindowFocus: false, // DISABLED - prevents tab-switch flicker
   refetchOnReconnect: true,
 };
 
