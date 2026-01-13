@@ -533,6 +533,25 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // DIAGNOSTIC: Check session state for debugging production auth issues
+  app.get("/api/_debug/session-check", (req: Request, res: Response) => {
+    const sessionId = req.session?.id;
+    const userId = req.session?.userId;
+    const hasSession = !!req.session;
+    const cookieHeader = req.headers.cookie;
+    
+    res.json({
+      hasSession,
+      hasSessionId: !!sessionId,
+      hasUserId: !!userId,
+      userIdPreview: userId ? userId.substring(0, 8) + '...' : null,
+      cookiePresent: !!cookieHeader,
+      cookiePreview: cookieHeader ? cookieHeader.substring(0, 50) + '...' : null,
+      timestamp: new Date().toISOString(),
+      buildSha: BUILD_SHA,
+    });
+  });
+
   // DIAGNOSTIC: Check database state for debugging production issues (auth required)
   app.get("/api/_debug/data-check", requireAuth, async (req: Request, res: Response) => {
     try {
