@@ -172,6 +172,47 @@ class MetricsRegistry {
       .replace(/\/\d+/g, '/{id}');
   }
   
+  // Get a summary of current metrics for logging
+  getSummary(): {
+    httpRequests: number;
+    httpErrors: number;
+    cacheHits: number;
+    cacheMisses: number;
+    cacheHitRate: number;
+    activeBots: number;
+    backtestsRunning: number;
+  } {
+    const getCounterTotal = (name: string): number => {
+      const metric = this.metrics.get(name);
+      if (metric && metric.type === 'counter') {
+        return metric.values.reduce((sum, v) => sum + v.value, 0);
+      }
+      return 0;
+    };
+    
+    const getGaugeValue = (name: string): number => {
+      const metric = this.metrics.get(name);
+      if (metric && metric.type === 'gauge' && metric.values.length > 0) {
+        return metric.values.reduce((sum, v) => sum + v.value, 0);
+      }
+      return 0;
+    };
+    
+    const cacheHits = getCounterTotal('cache_hits_total');
+    const cacheMisses = getCounterTotal('cache_misses_total');
+    const cacheTotal = cacheHits + cacheMisses;
+    
+    return {
+      httpRequests: getCounterTotal('http_requests_total'),
+      httpErrors: getCounterTotal('http_request_errors_total'),
+      cacheHits,
+      cacheMisses,
+      cacheHitRate: cacheTotal > 0 ? (cacheHits / cacheTotal) * 100 : 0,
+      activeBots: getGaugeValue('trading_bots_active'),
+      backtestsRunning: getGaugeValue('backtests_running'),
+    };
+  }
+  
   // Export metrics in Prometheus format
   toPrometheusFormat(): string {
     const lines: string[] = [];
@@ -213,6 +254,36 @@ class MetricsRegistry {
 
 // Singleton instance
 export const metricsRegistry = new MetricsRegistry();
+
+/**
+ * Log metrics summary to structured logs
+ * Call this periodically (e.g., every 60 seconds) for observability
+ */
+export function logMetricsSummary(): void {
+  const summary = metricsRegistry.getSummary();
+  console.log(`[METRICS] http_requests=${summary.httpRequests} http_errors=${summary.httpErrors} cache_hits=${summary.cacheHits} cache_misses=${summary.cacheMisses} hit_rate=${summary.cacheHitRate.toFixed(2)}% active_bots=${summary.activeBots} backtests_running=${summary.backtestsRunning}`);
+}
+
+/**
+ * Start periodic metrics logging (every 60 seconds)
+ */
+let metricsLogInterval: NodeJS.Timeout | null = null;
+
+export function startMetricsLogging(intervalMs: number = 60000): void {
+  if (metricsLogInterval) {
+    clearInterval(metricsLogInterval);
+  }
+  metricsLogInterval = setInterval(logMetricsSummary, intervalMs);
+  console.log(`[METRICS] Started periodic logging every ${intervalMs / 1000}s`);
+}
+
+export function stopMetricsLogging(): void {
+  if (metricsLogInterval) {
+    clearInterval(metricsLogInterval);
+    metricsLogInterval = null;
+    console.log(`[METRICS] Stopped periodic logging`);
+  }
+}
 
 /**
  * Middleware to record HTTP request metrics

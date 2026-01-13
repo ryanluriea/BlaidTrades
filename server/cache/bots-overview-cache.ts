@@ -16,6 +16,7 @@
  */
 
 import { getRedisClient } from '../redis';
+import { metricsRegistry } from '../observability/metrics';
 
 const CACHE_KEY_PREFIX = 'bots-overview:';
 const FRESH_TTL_SECONDS = 30;
@@ -47,6 +48,7 @@ export async function getCachedBotsOverview(userId: string): Promise<CacheResult
   try {
     const client = await getRedisClient();
     if (!client) {
+      metricsRegistry.recordCacheMiss('bots-overview');
       return { hit: false, fresh: false, stale: false, data: null, ageSeconds: null };
     }
 
@@ -54,6 +56,7 @@ export async function getCachedBotsOverview(userId: string): Promise<CacheResult
     const cached = await client.get(key);
     
     if (!cached) {
+      metricsRegistry.recordCacheMiss('bots-overview');
       return { hit: false, fresh: false, stale: false, data: null, ageSeconds: null };
     }
 
@@ -61,20 +64,26 @@ export async function getCachedBotsOverview(userId: string): Promise<CacheResult
     const ageSeconds = Math.floor((Date.now() - parsed.cachedAt) / 1000);
     
     if (ageSeconds < FRESH_TTL_SECONDS) {
+      metricsRegistry.recordCacheHit('bots-overview');
       return { hit: true, fresh: true, stale: false, data: parsed, ageSeconds };
     }
     
     if (ageSeconds < STALE_TTL_SECONDS) {
+      metricsRegistry.recordCacheHit('bots-overview');
       return { hit: true, fresh: false, stale: true, data: parsed, ageSeconds };
     }
     
     if (ageSeconds < MAX_TTL_SECONDS) {
+      metricsRegistry.recordCacheHit('bots-overview');
       return { hit: true, fresh: false, stale: true, data: parsed, ageSeconds };
     }
     
+    // Expired - count as miss
+    metricsRegistry.recordCacheMiss('bots-overview');
     return { hit: false, fresh: false, stale: false, data: null, ageSeconds };
   } catch (err) {
     console.warn('[BOTS_CACHE] Get failed:', err);
+    metricsRegistry.recordCacheMiss('bots-overview');
     return { hit: false, fresh: false, stale: false, data: null, ageSeconds: null };
   }
 }

@@ -84,3 +84,9 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 **Phase 4 - Security & Documentation:**
 - Input sanitization module (`server/security/input-sanitizer.ts`)
 - API reference documentation (`docs/api-reference.md`)
+- Operations runbook (`docs/operations-runbook.md`)
+
+**Lightweight Monitoring (Added Jan 2026):**
+- Periodic metrics logging every 60 seconds with cache hit rates, request counts, error counts
+- Cache metrics wired to bots-overview Redis cache (hit/miss tracking)
+- Health endpoints: `/healthz` (liveness), `/readyz` (readiness with DB/Redis check), `/api/health` (detailed)

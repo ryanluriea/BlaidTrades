@@ -243,6 +243,13 @@ if (isWorkerOnlyMode) {
     server.listen(port, "0.0.0.0", () => {
       log(`serving on port ${port}`);
       
+      // Start periodic metrics logging (every 60 seconds)
+      import("./observability/metrics").then(({ startMetricsLogging }) => {
+        startMetricsLogging(60000);
+      }).catch(err => {
+        log(`[STARTUP] Failed to start metrics logging: ${err.message}`);
+      });
+      
       // Register WebSocket metrics with observability dashboard
       import("./ops/observabilityDashboard").then(({ registerWebSocketMetricsProvider }) => {
         registerWebSocketMetricsProvider(() => livePnLWebSocket.getMetrics());
