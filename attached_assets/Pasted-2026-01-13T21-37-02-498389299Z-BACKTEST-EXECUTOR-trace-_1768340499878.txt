@@ -1,0 +1,50 @@
+2026-01-13T21:37:02.498389299Z [BACKTEST_EXECUTOR] trace_id=113f1004-6a26-497c-87ec-7a586a052be9 using_real_strategy version=1.0.0 rules=MES Mean Reversion rules_hash=2ed0d477dd805d09
+2026-01-13T21:37:02.508545479Z [BACKTEST_EXECUTOR] trace_id=113f1004-6a26-497c-87ec-7a586a052be9 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-13T21:37:02.508559489Z [BACKTEST_EXECUTOR] trace_id=113f1004-6a26-497c-87ec-7a586a052be9 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-13T21:37:02.513630634Z [SESSION_CHECK] UTC=2021-01-14T20:50:00.000Z ET_hour=15 ET_min=50 ET_day=4 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-13T21:37:09.931355495Z [STRATEGY_EXECUTOR] bars=70156 valid_bars=70156 session_bars=15907 outside_session=51110 no_trade_window=3089 entry_signals=69 trades=69
+2026-01-13T21:37:09.931467418Z [BACKTEST_EXECUTOR] trace_id=113f1004-6a26-497c-87ec-7a586a052be9 REAL_EXECUTION trades=69 pnl=-1249.31 win_rate=34.8%
+2026-01-13T21:37:09.931483418Z [TX:113f1004-6a26-497c-87ec-7a586a052be9] BACKTEST_TRADES:872eea48 START
+2026-01-13T21:37:09.936015152Z [QC_THRESHOLD_RECOVERY] trace_id=f121df0f Scanning for DIVERGENT verifications eligible for re-run...
+2026-01-13T21:37:10.055298165Z [QC_THRESHOLD_RECOVERY] trace_id=f121df0f No DIVERGENT verifications eligible for threshold re-run
+2026-01-13T21:37:10.129043895Z [TX:113f1004-6a26-497c-87ec-7a586a052be9] BACKTEST_TRADES:872eea48 COMMITTED
+2026-01-13T21:37:10.141839695Z [BACKTEST_EXECUTOR] trace_id=113f1004-6a26-497c-87ec-7a586a052be9 updated generation performanceSnapshot gen_id=724f4569-46c2-407f-9519-4142a380fb2f
+2026-01-13T21:37:10.143748791Z [BACKTEST_EXECUTOR] trace_id=113f1004-6a26-497c-87ec-7a586a052be9 LAB_BASELINE gen_id=724f4569-46c2-407f-9519-4142a380fb2f valid=true reason=N/A trades=69
+2026-01-13T21:37:10.146072514Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Dormant Ceiling Fade" trace_id=113f1004-6a26-497c-87ec-7a586a052be9
+2026-01-13T21:37:10.146087404Z [BACKTEST_EXECUTOR] trace_id=113f1004-6a26-497c-87ec-7a586a052be9 session_id=872eea48-ea44-414e-bda6-1d585e22cbd2 completed trades=69 pnl=-1249.31
+2026-01-13T21:37:11.574447448Z [BACKTEST_WORKER] trace_id=41da606c-5b1b-4743-8324-026696568ce0 processing_jobs=1
+2026-01-13T21:37:11.581609422Z [BACKTEST_EXECUTOR] trace_id=41da606c-5b1b-4743-8324-026696568ce0 bot_id=3a887040-5f27-4376-9555-0eb32b2598ea FORCE_NEW: bypassing valid baseline (40 trades) reason=PROMOTION_GUARD: Need 50+ trades (have 40), queueing full 5-year backtest
+2026-01-13T21:37:11.581623662Z [BACKTEST_EXECUTOR] trace_id=41da606c-5b1b-4743-8324-026696568ce0 bot_id=3a887040-5f27-4376-9555-0eb32b2598ea queueing_5year_backtest days=1825 start=2021-01-14T00:00:00.000Z end=2026-01-13T00:00:00.000Z
+2026-01-13T21:37:11.587290228Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest queued for Complacency Band Fade" trace_id=41da606c-5b1b-4743-8324-026696568ce0
+2026-01-13T21:37:11.590416416Z [BACKTEST_EXECUTOR] trace_id=41da606c-5b1b-4743-8324-026696568ce0 queued_baseline session_id=283d792b-4c18-4b3c-bb3b-de0d2bfe5d46 bot_id=3a887040-5f27-4376-9555-0eb32b2598ea
+2026-01-13T21:37:11.590428907Z [BACKTEST_WORKER] trace_id=41da606c-5b1b-4743-8324-026696568ce0 bot_id=3a887040-5f27-4376-9555-0eb32b2598ea PROMOTION_GUARD: created new session 283d792b-4c18-4b3c-bb3b-de0d2bfe5d46
+2026-01-13T21:37:11.590432197Z [BACKTEST_WORKER] trace_id=41da606c-5b1b-4743-8324-026696568ce0 bot_id=3a887040-5f27-4376-9555-0eb32b2598ea created_session=283d792b-4c18-4b3c-bb3b-de0d2bfe5d46 - will now execute
+2026-01-13T21:37:11.592046547Z [BACKTEST_EXECUTOR] trace_id=41da606c-5b1b-4743-8324-026696568ce0 session_id=283d792b-4c18-4b3c-bb3b-de0d2bfe5d46 bot_id=3a887040-5f27-4376-9555-0eb32b2598ea starting
+2026-01-13T21:37:11.595492362Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Complacency Band Fade" trace_id=41da606c-5b1b-4743-8324-026696568ce0
+2026-01-13T21:37:11.595522772Z [BACKTEST_EXECUTOR] trace_id=41da606c-5b1b-4743-8324-026696568ce0 using REAL Databento data for MES via BAR_CACHE
+2026-01-13T21:37:11.595540602Z [BACKTEST_EXECUTOR] trace_id=41da606c-5b1b-4743-8324-026696568ce0 loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-13T21:37:11.595796927Z [BAR_CACHE] trace_id=41da606c-5b1b-4743-8324-026696568ce0 symbol=MES cold_storage_empty
+2026-01-13T21:37:11.595826508Z [BACKTEST_EXECUTOR] trace_id=41da606c-5b1b-4743-8324-026696568ce0 cold_storage_empty falling_back_to_redis_cache
+2026-01-13T21:37:11.60023133Z [BARS_CACHE] trace_id=41da606c-5b1b-4743-8324-026696568ce0 instance=c4e35e56 lock_acquired fetching_from_provider
+2026-01-13T21:37:11.603597783Z [INTEGRATION_USAGE] trace_id=41da606c-5b1b-4743-8324-026696568ce0 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-13T21:37:11.603622404Z [DATABENTO] trace_id=41da606c-5b1b-4743-8324-026696568ce0 CME_LICENSE_CAP: Requested end=2026-01-13T21:37:11.590Z capped to 2026-01-12T19:37:11.603Z (26h buffer for license-free window)
+2026-01-13T21:37:11.603627774Z [DATABENTO] trace_id=41da606c-5b1b-4743-8324-026696568ce0 fetching symbol=MES.c.0 start=2025-12-14T21:37:11.590Z end=2026-01-12T19:37:11.603Z schema=ohlcv-1m
+2026-01-13T21:37:21.419330874Z [METRICS] http_requests=0 http_errors=0 cache_hits=3 cache_misses=0 hit_rate=100.00% active_bots=0 backtests_running=0
+2026-01-13T21:37:21.569820101Z [BACKTEST_WORKER] trace_id=31ed9c39-37ca-4a4f-8704-42c9dcd85a51 at_concurrency_limit=1
+2026-01-13T21:37:21.599790062Z [QC_WORKER] trace_id=6d7cd0b2 starting_cycle
+2026-01-13T21:37:21.604208354Z [QC_WORKER] trace_id=6d7cd0b2 queued_jobs=0 running=0/2
+2026-01-13T21:37:21.699586569Z [AUTONOMY_LOOP] trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be starting evaluation cycle
+2026-01-13T21:37:21.737876176Z [AUTONOMY_LOOP] trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be market_data_proof: databento_ok_24h=4185 verified=true
+2026-01-13T21:37:22.361079319Z [AUTONOMY_LOOP] trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be bot_id=d9857268-8530-4607-a7d2-55d2201cf6e8 SKIP_EVOLUTION: Promotion gates passed via LATEST_BACKTEST (mode=AUTO), preserving metrics for promotion
+2026-01-13T21:37:22.366886838Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Pulse Fade Trap: Evolving" trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be
+2026-01-13T21:37:22.366921338Z [AUTONOMY_LOOP] trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be bot_id=d9857268-8530-4607-a7d2-55d2201cf6e8 HOLD failed_gates=rolling_metrics_consistency
+2026-01-13T21:37:22.375646462Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Hype Gap Reversal: Evolving" trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be
+2026-01-13T21:37:22.375683032Z [AUTONOMY_LOOP] trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be bot_id=360c01f3-54a6-4984-9884-2ee7f1eca5eb HOLD failed_gates=profitable,max_drawdown,win_rate,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T21:37:22.385251771Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Dormancy Band Fade: Evolving" trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be
+2026-01-13T21:37:22.385273012Z [AUTONOMY_LOOP] trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be bot_id=7a5ccc1a-e068-4b8a-b598-5cc7e3113092 HOLD failed_gates=min_trades,rolling_metrics_consistency
+2026-01-13T21:37:22.427156416Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Hush Gap Reversal: Evolving" trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be
+2026-01-13T21:37:22.427180756Z [AUTONOMY_LOOP] trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be bot_id=e21e9b8c-6141-4ae5-8bba-d101df2670b7 HOLD failed_gates=profitable,win_rate,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T21:37:22.438970747Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="VWAP Lull Bounce: Evolving" trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be
+2026-01-13T21:37:22.438985937Z [AUTONOMY_LOOP] trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be bot_id=a24b5ccf-8466-4d37-aa61-ea5b17f2de10 HOLD failed_gates=min_trades,profitable,win_rate,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency
+2026-01-13T21:37:22.449197028Z [ACTIVITY_EVENT] type=AUTONOMY_TIER_CHANGED severity=INFO title="Quiescent Band Fade: Evolving" trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be
+2026-01-13T21:37:22.449211328Z [AUTONOMY_LOOP] trace_id=5a922801-bd0c-4cf9-a9db-65886c5b95be bot_id=c4fe4576-ddfd-4a51-bbd7-b6dc7af90281 HOLD failed_gates=profitable,profit_factor,expectancy,sharpe_ratio,rolling_metrics_consistency

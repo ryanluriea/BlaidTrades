@@ -10,6 +10,8 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  errorStack: string | null;
+  errorInfo: string | null;
 }
 
 /**
@@ -17,23 +19,59 @@ interface State {
  * 
  * Industry standard: Always show themed content, never a blank/white screen.
  * Catches React render errors and shows a graceful degradation UI.
+ * Now includes structured error logging for production debugging.
  */
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorStack: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    return { 
+      hasError: true, 
+      error,
+      errorStack: error?.stack || null,
+    };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("[ErrorBoundary] Caught error:", error, errorInfo);
+    // Structured logging for production debugging
+    const errorDetails = {
+      name: error?.name || 'Unknown',
+      message: error?.message || 'No message',
+      stack: error?.stack || 'No stack trace',
+      componentStack: errorInfo?.componentStack || 'No component stack',
+      url: typeof window !== 'undefined' ? window.location.href : 'unknown',
+      timestamp: new Date().toISOString(),
+    };
+    
+    // Log to console with full details
+    console.error("[ErrorBoundary] CRASH DETECTED:", JSON.stringify(errorDetails, null, 2));
+    console.error("[ErrorBoundary] Error object:", error);
+    console.error("[ErrorBoundary] Component stack:", errorInfo?.componentStack);
+    
+    // Store for display in dev mode
+    this.setState({ 
+      errorInfo: errorInfo?.componentStack || null,
+      errorStack: error?.stack || null,
+    });
+    
+    // Attempt to send to server for telemetry (fire and forget)
+    try {
+      fetch('/api/client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(errorDetails),
+        credentials: 'include',
+      }).catch(() => { /* ignore telemetry failures */ });
+    } catch {
+      // Telemetry is best-effort
+    }
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, errorStack: null, errorInfo: null });
   };
 
   render() {
@@ -67,12 +105,28 @@ export class ErrorBoundary extends Component<Props, State> {
                 Reload Page
               </Button>
             </div>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mt-4 p-3 bg-muted rounded-md text-left">
-                <p className="text-xs font-mono text-muted-foreground break-all">
-                  {this.state.error.message}
-                </p>
-              </div>
+            {/* Always show error details in expandable section for debugging */}
+            {this.state.error && (
+              <details className="mt-4 text-left">
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                  Show error details
+                </summary>
+                <div className="mt-2 p-3 bg-muted rounded-md space-y-2 max-h-60 overflow-auto">
+                  <p className="text-xs font-mono text-destructive break-all">
+                    {this.state.error.name}: {this.state.error.message}
+                  </p>
+                  {this.state.errorStack && (
+                    <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap break-all">
+                      {this.state.errorStack}
+                    </pre>
+                  )}
+                  {this.state.errorInfo && (
+                    <pre className="text-[10px] font-mono text-muted-foreground/70 whitespace-pre-wrap break-all border-t border-border pt-2 mt-2">
+                      {this.state.errorInfo}
+                    </pre>
+                  )}
+                </div>
+              </details>
             )}
           </div>
         </div>

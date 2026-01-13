@@ -259,15 +259,26 @@ const App = () => (
         shouldDehydrateQuery: (query) => {
           const queryKey = query.queryKey[0];
           if (typeof queryKey === 'string') {
+            // IMPORTANT: Strategy Lab queries are EXCLUDED from persistence
+            // to prevent black-screen crashes on tab return due to malformed cached data.
+            // The complex nested objects (scores, blueprint, regimeAdjustment) can become
+            // corrupted in IndexedDB and crash the UI when rehydrated.
+            const excludedKeys = [
+              '/api/strategy-lab',
+              'strategy-candidates', 
+              'strategy-lab-sessions',
+              'strategy-lab',
+            ];
+            if (excludedKeys.some(key => queryKey.includes(key))) {
+              return false;
+            }
+            
             const persistableKeys = [
               'bots-overview',
               'app_settings',
               '/api/accounts',
               '/api/bots',
               '/api/settings',
-              '/api/strategy-lab',
-              'strategy-candidates',
-              'strategy-lab-sessions',
             ];
             return persistableKeys.some(key => queryKey.includes(key) || queryKey === key);
           }
