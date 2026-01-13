@@ -93,6 +93,84 @@ if (typeof window !== 'undefined') {
 
 let idbFallbackLogged = false;
 
+function isEmptyObject(obj: any): boolean {
+  return obj && typeof obj === 'object' && Object.keys(obj).length === 0;
+}
+
+function normalizeRegimeAdjustment(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj !== 'object') return null;
+  if (isEmptyObject(obj)) return null;
+  const regimeMatch = obj.regimeMatch ?? obj.regime_match;
+  if (regimeMatch === undefined || regimeMatch === null) return null;
+  return {
+    originalScore: obj.originalScore ?? obj.original_score ?? 0,
+    adjustedScore: obj.adjustedScore ?? obj.adjusted_score ?? 0,
+    regimeBonus: obj.regimeBonus ?? obj.regime_bonus ?? 0,
+    regimeMatch: regimeMatch,
+    reason: obj.reason ?? '',
+    currentRegime: obj.currentRegime ?? obj.current_regime ?? 'UNKNOWN',
+  };
+}
+
+function normalizeCandidate(candidate: any): any {
+  if (!candidate || typeof candidate !== 'object') return candidate;
+  const clone = { ...candidate };
+  if ('regimeAdjustment' in clone) {
+    clone.regimeAdjustment = normalizeRegimeAdjustment(clone.regimeAdjustment);
+  }
+  if ('regime_adjustment' in clone) {
+    clone.regime_adjustment = normalizeRegimeAdjustment(clone.regime_adjustment);
+  }
+  return clone;
+}
+
+function normalizeCandidateArray(arr: any): any[] {
+  if (!Array.isArray(arr)) return arr;
+  return arr.map(normalizeCandidate);
+}
+
+function normalizeCacheData(client: any): any {
+  if (!client?.clientState?.queries) return client;
+  
+  try {
+    const clonedClient = JSON.parse(JSON.stringify(client));
+    
+    for (const query of clonedClient.clientState.queries) {
+      const keyFirst = query?.queryKey?.[0];
+      const isStrategyLabQuery = 
+        (typeof keyFirst === 'string' && (keyFirst.includes('strategy-lab') || keyFirst.includes('strategy-candidates'))) ||
+        (Array.isArray(query?.queryKey) && query.queryKey.some((k: any) => 
+          typeof k === 'string' && (k.includes('strategy-lab') || k.includes('strategy-candidates'))
+        ));
+      
+      if (!isStrategyLabQuery) continue;
+      
+      const stateData = query?.state?.data;
+      if (!stateData) continue;
+      
+      if (Array.isArray(stateData)) {
+        query.state.data = normalizeCandidateArray(stateData);
+      } else if (stateData?.pages && Array.isArray(stateData.pages)) {
+        query.state.data.pages = stateData.pages.map((page: any) => {
+          if (Array.isArray(page)) return normalizeCandidateArray(page);
+          if (page?.data && Array.isArray(page.data)) {
+            return { ...page, data: normalizeCandidateArray(page.data) };
+          }
+          return page;
+        });
+      } else if (stateData?.data && Array.isArray(stateData.data)) {
+        query.state.data.data = normalizeCandidateArray(stateData.data);
+      } else if (typeof stateData === 'object') {
+        query.state.data = normalizeCandidate(stateData);
+      }
+    }
+    return clonedClient;
+  } catch {
+    return client;
+  }
+}
+
 const idbPersister = {
   persistClient: async (client: any) => {
     const useIdb = idbAvailable ?? await initIdbCheck();
@@ -115,13 +193,15 @@ const idbPersister = {
   restoreClient: async () => {
     const useIdb = idbAvailable ?? await initIdbCheck();
     try {
+      let cached;
       if (useIdb) {
-        const cached = await get(IDB_CACHE_KEY);
-        if (cached) return cached;
+        cached = await get(IDB_CACHE_KEY);
       }
-      const lsData = localStorage.getItem(IDB_CACHE_KEY);
-      if (lsData) return JSON.parse(lsData);
-      return undefined;
+      if (!cached) {
+        const lsData = localStorage.getItem(IDB_CACHE_KEY);
+        if (lsData) cached = JSON.parse(lsData);
+      }
+      return cached ? normalizeCacheData(cached) : undefined;
     } catch {
       return undefined;
     }

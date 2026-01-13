@@ -1236,52 +1236,79 @@ export function StrategyCandidateTableRow({
                       Backtest bonus: +{auditData.backtestValidation.validationBonus} pts
                     </div>
                   )}
-                  {/* Regime Adjustment Section - Defensive: check regimeMatch exists to avoid rendering empty objects */}
-                  {candidate.regimeAdjustment && candidate.regimeAdjustment.regimeMatch && (
-                    <div className="pt-2 border-t border-border/50 mt-2 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-medium text-muted-foreground">Live Regime Adjustment</span>
-                        <Badge 
-                          variant="outline" 
-                          className={cn(
-                            "text-[8px] px-1.5 py-0",
-                            candidate.regimeAdjustment.regimeMatch === "OPTIMAL" && "border-emerald-500/50 text-emerald-400 bg-emerald-500/10",
-                            candidate.regimeAdjustment.regimeMatch === "FAVORABLE" && "border-blue-500/50 text-blue-400 bg-blue-500/10",
-                            candidate.regimeAdjustment.regimeMatch === "NEUTRAL" && "border-zinc-500/50 text-zinc-400 bg-zinc-500/10",
-                            candidate.regimeAdjustment.regimeMatch === "UNFAVORABLE" && "border-rose-500/50 text-rose-400 bg-rose-500/10"
-                          )}
-                        >
-                          {candidate.regimeAdjustment.regimeMatch}
-                        </Badge>
+                  {/* Regime Adjustment Section - Safe accessor helper */}
+                  {(() => {
+                    const ra = candidate.regimeAdjustment;
+                    const hasValidData = ra && typeof ra === 'object' && Object.keys(ra).length > 0 && typeof ra.regimeMatch === 'string';
+                    
+                    if (!ra || Object.keys(ra).length === 0) return null;
+                    
+                    if (!hasValidData) {
+                      return (
+                        <div className="pt-2 border-t border-border/50 mt-2">
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
+                            <Activity className="h-3 w-3" />
+                            <span>Regime signal unavailable—refresh to recompute</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    const regimeMatch = ra.regimeMatch ?? 'NEUTRAL';
+                    const originalScore = ra.originalScore ?? 0;
+                    const adjustedScore = ra.adjustedScore ?? 0;
+                    const regimeBonus = ra.regimeBonus ?? 0;
+                    const reason = ra.reason ?? '';
+                    const currentRegime = ra.currentRegime ?? 'Unknown';
+                    
+                    return (
+                      <div className="pt-2 border-t border-border/50 mt-2 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-medium text-muted-foreground">Live Regime Adjustment</span>
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-[8px] px-1.5 py-0",
+                              regimeMatch === "OPTIMAL" && "border-emerald-500/50 text-emerald-400 bg-emerald-500/10",
+                              regimeMatch === "FAVORABLE" && "border-blue-500/50 text-blue-400 bg-blue-500/10",
+                              regimeMatch === "NEUTRAL" && "border-zinc-500/50 text-zinc-400 bg-zinc-500/10",
+                              regimeMatch === "UNFAVORABLE" && "border-rose-500/50 text-rose-400 bg-rose-500/10"
+                            )}
+                          >
+                            {regimeMatch}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <span className="text-muted-foreground">Base:</span>
+                          <span className="font-mono font-medium">{originalScore}</span>
+                          <span className="text-muted-foreground/60">→</span>
+                          <span className="text-muted-foreground">Adj:</span>
+                          <span className={cn(
+                            "font-mono font-bold",
+                            getConfidenceColorStatic(adjustedScore)
+                          )}>
+                            {adjustedScore}
+                          </span>
+                          <span className={cn(
+                            "font-mono font-semibold",
+                            regimeBonus > 0 ? "text-emerald-400" : 
+                            regimeBonus < 0 ? "text-rose-400" : "text-zinc-400"
+                          )}>
+                            ({regimeBonus > 0 ? "+" : ""}{regimeBonus} pts)
+                          </span>
+                        </div>
+                        {reason && (
+                          <div className="text-[9px] text-muted-foreground/70">
+                            {reason}
+                          </div>
+                        )}
+                        <div className="text-[8px] text-muted-foreground/50 flex items-center gap-1">
+                          <Activity className="h-2.5 w-2.5" />
+                          Current: {String(currentRegime).replace(/_/g, " ")}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px]">
-                        <span className="text-muted-foreground">Base:</span>
-                        <span className="font-mono font-medium">{candidate.regimeAdjustment.originalScore ?? 0}</span>
-                        <span className="text-muted-foreground/60">→</span>
-                        <span className="text-muted-foreground">Adj:</span>
-                        <span className={cn(
-                          "font-mono font-bold",
-                          getConfidenceColorStatic(candidate.regimeAdjustment.adjustedScore ?? 0)
-                        )}>
-                          {candidate.regimeAdjustment.adjustedScore ?? 0}
-                        </span>
-                        <span className={cn(
-                          "font-mono font-semibold",
-                          (candidate.regimeAdjustment.regimeBonus ?? 0) > 0 ? "text-emerald-400" : 
-                          (candidate.regimeAdjustment.regimeBonus ?? 0) < 0 ? "text-rose-400" : "text-zinc-400"
-                        )}>
-                          ({(candidate.regimeAdjustment.regimeBonus ?? 0) > 0 ? "+" : ""}{candidate.regimeAdjustment.regimeBonus ?? 0} pts)
-                        </span>
-                      </div>
-                      <div className="text-[9px] text-muted-foreground/70">
-                        {candidate.regimeAdjustment.reason ?? ""}
-                      </div>
-                      <div className="text-[8px] text-muted-foreground/50 flex items-center gap-1">
-                        <Activity className="h-2.5 w-2.5" />
-                        Current: {candidate.regimeAdjustment.currentRegime?.replace(/_/g, " ") || "Unknown"}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                   
                   {/* Expected Performance Stats */}
                   <div className="pt-2 border-t border-border/50 mt-2">
