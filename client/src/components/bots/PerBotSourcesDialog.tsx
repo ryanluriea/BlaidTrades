@@ -6,6 +6,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +21,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Activity, TrendingUp, Database, Newspaper, Calendar, Loader2, Check, AlertTriangle, Sparkles, Lock, Clock } from "lucide-react";
+import { Activity, TrendingUp, Database, Newspaper, Calendar, Loader2, Check, AlertTriangle, Sparkles, Lock, Clock, History, X, CheckCircle2, XCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { loadSourcesSettings, type SignalSourceConfig } from "./SourcesSettingsDropdown";
@@ -46,6 +48,49 @@ interface AdaptiveWeightsData {
   lastOptimized: string;
   confidence: number;
   regime: string;
+}
+
+interface SourceUsageLog {
+  id: string;
+  sourceType: 'OPTIONS_FLOW' | 'MACRO' | 'NEWS';
+  sourceName: string;
+  provider: string;
+  symbol?: string;
+  seriesIds?: string[];
+  keywords?: string;
+  recordsReturned?: number;
+  latencyMs?: number;
+  success: boolean;
+  errorCode?: string;
+  errorMessage?: string;
+  createdAt: string;
+}
+
+interface SourceUsageStats {
+  totalCalls: number;
+  successfulCalls: number;
+  avgLatencyMs: number;
+  lastUsed: string | null;
+}
+
+interface SourceUsageResponse {
+  success: boolean;
+  data: {
+    logs: SourceUsageLog[];
+    proofs: Array<{
+      id: string;
+      title: string;
+      summary: string;
+      provider: string;
+      payload: Record<string, unknown>;
+      createdAt: string;
+    }>;
+    stats: {
+      optionsFlow: SourceUsageStats;
+      macro: SourceUsageStats;
+      news: SourceUsageStats;
+    };
+  };
 }
 
 interface PerBotSourcesDialogProps {
@@ -152,7 +197,21 @@ export function PerBotSourcesDialog({
     staleTime: 60000,
   });
 
+  const { data: sourceUsage, isLoading: usageLoading } = useQuery<SourceUsageResponse>({
+    queryKey: ["/api/bots", botId, "source-usage"],
+    queryFn: async () => {
+      const response = await fetch(`/api/bots/${botId}/source-usage?limit=50`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch source usage");
+      return response.json();
+    },
+    staleTime: 30000,
+    enabled: open,
+  });
+
   const integrations = integrationStatus?.data?.integrations || [];
+  const usageStats = sourceUsage?.data?.stats;
+  const usageLogs = sourceUsage?.data?.logs || [];
+  const usageProofs = sourceUsage?.data?.proofs || [];
 
   const isProviderConfigured = (providerList: string): boolean => {
     const providers = providerList.split(",").map(p => p.trim());
@@ -260,7 +319,7 @@ export function PerBotSourcesDialog({
           )}
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className="sm:max-w-[580px] max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-blue-400" />
@@ -271,8 +330,21 @@ export function PerBotSourcesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="flex items-center justify-between gap-4 p-3 bg-muted/30 rounded-md">
+        <Tabs defaultValue="settings" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="settings" className="flex items-center gap-1.5" data-testid="tab-sources-settings">
+              <Sparkles className="h-3.5 w-3.5" />
+              Settings
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-1.5" data-testid="tab-sources-history">
+              <History className="h-3.5 w-3.5" />
+              Usage History
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="settings" className="flex-1 overflow-auto mt-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 p-3 bg-muted/30 rounded-md">
             <div className="flex-1">
               <Label htmlFor="use-global" className="text-sm font-medium">
                 Use Global Settings
@@ -525,9 +597,190 @@ export function PerBotSourcesDialog({
               </div>
             </>
           )}
-        </div>
+            </div>
+          </TabsContent>
 
-        <div className="flex justify-end gap-2">
+          <TabsContent value="history" className="flex-1 overflow-hidden mt-4">
+            <div className="space-y-4 h-full">
+              {usageLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : usageLogs.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <History className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No source usage history yet</p>
+                  <p className="text-xs mt-1">Data sources will appear here once the bot starts trading</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-2 rounded-md bg-green-500/10 border border-green-500/20">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <TrendingUp className="h-3.5 w-3.5 text-green-400" />
+                        <span className="text-[10px] font-medium text-green-400">Options Flow</span>
+                      </div>
+                      <div className="text-xs space-y-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Calls:</span>
+                          <span className="font-mono">{usageStats?.optionsFlow.totalCalls || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Success:</span>
+                          <span className="font-mono text-green-400">{usageStats?.optionsFlow.successfulCalls || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Avg ms:</span>
+                          <span className="font-mono">{usageStats?.optionsFlow.avgLatencyMs || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Database className="h-3.5 w-3.5 text-amber-400" />
+                        <span className="text-[10px] font-medium text-amber-400">Macro</span>
+                      </div>
+                      <div className="text-xs space-y-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Calls:</span>
+                          <span className="font-mono">{usageStats?.macro.totalCalls || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Success:</span>
+                          <span className="font-mono text-green-400">{usageStats?.macro.successfulCalls || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Avg ms:</span>
+                          <span className="font-mono">{usageStats?.macro.avgLatencyMs || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-md bg-cyan-500/10 border border-cyan-500/20">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Newspaper className="h-3.5 w-3.5 text-cyan-400" />
+                        <span className="text-[10px] font-medium text-cyan-400">News</span>
+                      </div>
+                      <div className="text-xs space-y-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Calls:</span>
+                          <span className="font-mono">{usageStats?.news.totalCalls || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Success:</span>
+                          <span className="font-mono text-green-400">{usageStats?.news.successfulCalls || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Avg ms:</span>
+                          <span className="font-mono">{usageStats?.news.avgLatencyMs || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {usageProofs.length > 0 && (
+                    <>
+                      <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Integration Proofs ({usageProofs.length})
+                      </div>
+                      <div className="space-y-1.5">
+                        {usageProofs.slice(0, 3).map((proof) => (
+                          <div 
+                            key={proof.id} 
+                            className="p-2 rounded-md border bg-purple-500/5 border-purple-500/20 text-xs"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium text-purple-400">{proof.title}</span>
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {formatLastOptimized(proof.createdAt)}
+                              </span>
+                            </div>
+                            {proof.summary && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                {proof.summary}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <Separator />
+                    </>
+                  )}
+
+                  <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <History className="h-3.5 w-3.5" />
+                    Recent API Calls ({usageLogs.length})
+                  </div>
+
+                  <ScrollArea className="h-[220px] pr-2">
+                    <div className="space-y-2">
+                      {usageLogs.map((log) => (
+                        <div 
+                          key={log.id} 
+                          className={cn(
+                            "p-2 rounded-md border text-xs",
+                            log.success 
+                              ? "bg-card/50 border-border" 
+                              : "bg-red-500/5 border-red-500/20"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-1.5">
+                              {log.sourceType === 'OPTIONS_FLOW' && <TrendingUp className="h-3 w-3 text-green-400" />}
+                              {log.sourceType === 'MACRO' && <Database className="h-3 w-3 text-amber-400" />}
+                              {log.sourceType === 'NEWS' && <Newspaper className="h-3 w-3 text-cyan-400" />}
+                              <span className="font-medium">{log.sourceName}</span>
+                              {log.success ? (
+                                <CheckCircle2 className="h-3 w-3 text-green-400" />
+                              ) : (
+                                <XCircle className="h-3 w-3 text-red-400" />
+                              )}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {formatLastOptimized(log.createdAt)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Zap className="h-2.5 w-2.5" />
+                              {log.provider}
+                            </span>
+                            {log.symbol && (
+                              <span className="font-mono bg-muted px-1 rounded">
+                                {log.symbol}
+                              </span>
+                            )}
+                            {log.recordsReturned !== undefined && log.recordsReturned !== null && (
+                              <span>
+                                {log.recordsReturned} records
+                              </span>
+                            )}
+                            {log.latencyMs !== undefined && (
+                              <span>
+                                {log.latencyMs}ms
+                              </span>
+                            )}
+                          </div>
+                          {!log.success && log.errorMessage && (
+                            <div className="mt-1 text-[10px] text-red-400 truncate">
+                              {log.errorMessage}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex justify-end gap-2 pt-2 border-t">
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>

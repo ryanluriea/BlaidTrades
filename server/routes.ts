@@ -10058,6 +10058,176 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // =========== BOT SOURCE USAGE HISTORY ENDPOINT ===========
+  // GET /api/bots/:botId/source-usage
+  // Returns actual integration request logs for the bot showing what each source fetched
+  app.get("/api/bots/:botId/source-usage", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { botId } = req.params;
+      const rawLimit = parseInt(req.query.limit as string);
+      const limit = Number.isNaN(rawLimit) || rawLimit <= 0 ? 50 : Math.min(rawLimit, 200);
+      
+      // Validate bot exists and belongs to user
+      const userId = req.session?.userId as string;
+      const bot = await storage.getBot(botId);
+      if (!bot) {
+        return res.status(404).json({ error: "Bot not found" });
+      }
+      if (bot.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Use UNION ALL to fetch all source logs in a single query, properly sorted and limited
+      const unifiedLogs = await db.execute(sql`
+        (
+          SELECT 
+            id,
+            'OPTIONS_FLOW' as source_type,
+            'Options Flow' as source_name,
+            COALESCE(provider, 'Unusual Whales') as provider,
+            symbol,
+            NULL::text[] as series_ids,
+            NULL as keywords,
+            records_returned,
+            latency_ms,
+            success,
+            error_code,
+            error_message,
+            created_at
+          FROM options_flow_requests
+          WHERE bot_id = ${botId}::uuid
+        )
+        UNION ALL
+        (
+          SELECT 
+            id,
+            'MACRO' as source_type,
+            'Macro Indicators' as source_name,
+            COALESCE(provider, 'FRED') as provider,
+            NULL as symbol,
+            series_ids,
+            NULL as keywords,
+            records_returned,
+            latency_ms,
+            success,
+            error_code,
+            error_message,
+            created_at
+          FROM macro_requests
+          WHERE bot_id = ${botId}::uuid
+        )
+        UNION ALL
+        (
+          SELECT 
+            id,
+            'NEWS' as source_type,
+            'News Sentiment' as source_name,
+            provider,
+            symbol,
+            NULL::text[] as series_ids,
+            keywords,
+            records_returned,
+            latency_ms,
+            success,
+            error_code,
+            error_message,
+            created_at
+          FROM news_requests
+          WHERE bot_id = ${botId}::uuid
+        )
+        ORDER BY created_at DESC
+        LIMIT ${limit}
+      `);
+      
+      // Also fetch INTEGRATION_PROOF activity events for richer context
+      const integrationProofs = await db.execute(sql`
+        SELECT 
+          id,
+          title,
+          summary,
+          payload,
+          provider,
+          created_at
+        FROM activity_events
+        WHERE bot_id = ${botId}::uuid
+          AND event_type = 'INTEGRATION_PROOF'
+        ORDER BY created_at DESC
+        LIMIT ${Math.floor(limit / 2)}
+      `);
+      
+      // Format unified logs
+      const formattedLogs = unifiedLogs.rows.map((row: any) => ({
+        id: row.id,
+        sourceType: row.source_type,
+        sourceName: row.source_name,
+        provider: row.provider,
+        symbol: row.symbol,
+        seriesIds: row.series_ids,
+        keywords: row.keywords,
+        recordsReturned: row.records_returned,
+        latencyMs: row.latency_ms,
+        success: row.success,
+        errorCode: row.error_code,
+        errorMessage: row.error_message,
+        createdAt: row.created_at,
+      }));
+      
+      // Format integration proofs
+      const proofs = integrationProofs.rows.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        summary: row.summary,
+        provider: row.provider,
+        payload: row.payload,
+        createdAt: row.created_at,
+      }));
+      
+      // Compute stats from the unified dataset
+      const optionsFlowLogs = formattedLogs.filter(l => l.sourceType === 'OPTIONS_FLOW');
+      const macroLogs = formattedLogs.filter(l => l.sourceType === 'MACRO');
+      const newsLogs = formattedLogs.filter(l => l.sourceType === 'NEWS');
+      
+      const stats = {
+        optionsFlow: {
+          totalCalls: optionsFlowLogs.length,
+          successfulCalls: optionsFlowLogs.filter(r => r.success).length,
+          avgLatencyMs: optionsFlowLogs.length > 0 
+            ? Math.round(optionsFlowLogs.reduce((sum, r) => sum + (r.latencyMs || 0), 0) / optionsFlowLogs.length)
+            : 0,
+          lastUsed: optionsFlowLogs[0]?.createdAt || null,
+        },
+        macro: {
+          totalCalls: macroLogs.length,
+          successfulCalls: macroLogs.filter(r => r.success).length,
+          avgLatencyMs: macroLogs.length > 0 
+            ? Math.round(macroLogs.reduce((sum, r) => sum + (r.latencyMs || 0), 0) / macroLogs.length)
+            : 0,
+          lastUsed: macroLogs[0]?.createdAt || null,
+        },
+        news: {
+          totalCalls: newsLogs.length,
+          successfulCalls: newsLogs.filter(r => r.success).length,
+          avgLatencyMs: newsLogs.length > 0 
+            ? Math.round(newsLogs.reduce((sum, r) => sum + (r.latencyMs || 0), 0) / newsLogs.length)
+            : 0,
+          lastUsed: newsLogs[0]?.createdAt || null,
+        },
+      };
+      
+      res.json({
+        success: true,
+        data: {
+          logs: formattedLogs,
+          proofs,
+          stats,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching bot source usage:", error);
+      res.status(500).json({ error: "Failed to fetch bot source usage" });
+    }
+  });
+
   app.get("/api/system-events", async (req: Request, res: Response) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
