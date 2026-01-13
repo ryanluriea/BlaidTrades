@@ -1511,6 +1511,8 @@ async function promoteCandidate(candidateId: string, traceId: string): Promise<{
     name: candidate.strategyName,
     stage: "TRIALS",
     symbol,
+    // SCHEMA-FIRST: Explicit archetypeName on bot (industry standard)
+    archetypeName: validArchetype,
     strategyConfig,
     riskConfig: effectiveRiskConfig,
     healthScore: 100,
@@ -2215,6 +2217,8 @@ async function createLabBotFromCandidate(
       evolutionStatus: "untested",
       stage: "TRIALS",
       archetypeId: candidate.archetypeId || null,
+      // SCHEMA-FIRST: Explicit archetypeName on bot (industry standard)
+      archetypeName: validatedArchetype || candidate.archetypeName || null,
       strategyConfig,
       riskConfig: riskModel,
       healthScore: 100,

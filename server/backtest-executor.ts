@@ -367,13 +367,17 @@ export async function executeBacktest(
     const archetypes = bot.archetypeId ? await storage.getStrategyArchetypes() : [];
     const archetype = archetypes.find(a => a.id === bot.archetypeId) || null;
     
-    // INFER archetype from bot name if archetypeId is NULL
-    // Bot names follow pattern: "{SYMBOL} {Strategy Type}" e.g., "MES Gap Fade", "MNQ VWAP Bounce"
-    const inferredArchetype = inferArchetypeFromName(bot.name, traceId);
+    // SCHEMA-FIRST APPROACH: Check explicit archetypeName field on bot first (industry standard)
+    // This is the canonical source of truth - no need to infer from name
+    const explicitArchetype = (bot as any).archetypeName || config.archetypeName;
     
-    // Determine raw category with explicit priority: archetype.category > config.archetype > inferredArchetype
+    // FALLBACK: Only infer from bot name if no explicit archetype is stored (legacy data)
+    // Bot names follow pattern: "{SYMBOL} {Strategy Type}" e.g., "MES Gap Fade", "MNQ VWAP Bounce"
+    const inferredArchetype = explicitArchetype ? null : inferArchetypeFromName(bot.name, traceId);
+    
+    // Determine raw category with explicit priority: bot.archetypeName > archetype.category > config.archetype > inferredArchetype
     // FAIL-CLOSED: If no source provides a valid archetype, fail the backtest (no silent breakout default)
-    const rawCategory = archetype?.category || config.archetype || inferredArchetype;
+    const rawCategory = explicitArchetype || archetype?.category || config.archetype || inferredArchetype;
     
     if (!rawCategory) {
       const errorCode = "ARCHETYPE_INFERENCE_FAILED";

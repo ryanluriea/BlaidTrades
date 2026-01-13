@@ -5332,6 +5332,142 @@ async function runGenerationBackfill(traceId: string): Promise<void> {
 }
 
 /**
+ * SCHEMA-FIRST ARCHETYPE BACKFILL
+ * Populates archetypeName on existing bots that have NULL archetype_name.
+ * Uses inference from bot name as a one-time migration - after this, new bots get explicit archetypes.
+ * This is an industry-standard approach to eliminate name-based inference going forward.
+ */
+async function runArchetypeBackfill(): Promise<void> {
+  const traceId = `archetype-backfill-${crypto.randomUUID().slice(0, 8)}`;
+  console.log(`[ARCHETYPE_BACKFILL] trace_id=${traceId} Starting archetype backfill...`);
+  
+  try {
+    const BATCH_SIZE = 500;
+    const MAX_BATCHES = 100; // Safety limit to prevent infinite loops
+    let totalBackfilled = 0;
+    let totalFailed = 0;
+    let batchNumber = 0;
+    const unresolvableBotIds = new Set<string>();
+    
+    // Import the inference function once
+    const { tryNormalizeArchetype } = await import("@shared/strategy-types");
+    
+    // Iterate in batches until no bots remain with NULL archetype_name
+    while (batchNumber < MAX_BATCHES) {
+      batchNumber++;
+      
+      // Find next batch of bots with NULL archetype_name (excluding known unresolvable)
+      const excludeList = Array.from(unresolvableBotIds);
+      const botsNeedingBackfill = excludeList.length > 0
+        ? await db.execute(sql`
+            SELECT id, name, strategy_config
+            FROM bots 
+            WHERE archetype_name IS NULL
+              AND id NOT IN (SELECT unnest(${excludeList}::uuid[]))
+            LIMIT ${BATCH_SIZE}
+          `)
+        : await db.execute(sql`
+            SELECT id, name, strategy_config
+            FROM bots 
+            WHERE archetype_name IS NULL
+            LIMIT ${BATCH_SIZE}
+          `);
+
+      const bots = (botsNeedingBackfill.rows || []) as any[];
+      
+      if (bots.length === 0) {
+        // No more bots to backfill
+        break;
+      }
+      
+      console.log(`[ARCHETYPE_BACKFILL] trace_id=${traceId} batch=${batchNumber} processing ${bots.length} bots`);
+
+      let batchBackfilled = 0;
+      let batchFailed = 0;
+
+      for (const bot of bots) {
+        try {
+          // Try to get archetype from strategyConfig first
+          const configArchetype = bot.strategy_config?.archetypeName || 
+                                  bot.strategy_config?.archetype || 
+                                  null;
+          
+          // If not in config, try to infer from bot name
+          let archetype = configArchetype;
+          if (!archetype) {
+            archetype = tryNormalizeArchetype(bot.name);
+          }
+          
+          if (archetype) {
+            await db.execute(sql`
+              UPDATE bots 
+              SET archetype_name = ${archetype}, updated_at = NOW()
+              WHERE id = ${bot.id}::uuid
+            `);
+            batchBackfilled++;
+            console.log(`[ARCHETYPE_BACKFILL] trace_id=${traceId} bot_id=${bot.id} name="${bot.name}" archetype="${archetype}"`);
+          } else {
+            // Couldn't determine archetype - mark as unresolvable to prevent re-processing
+            unresolvableBotIds.add(bot.id);
+            console.warn(`[ARCHETYPE_BACKFILL] trace_id=${traceId} bot_id=${bot.id} name="${bot.name}" COULD_NOT_INFER`);
+            batchFailed++;
+          }
+        } catch (botError) {
+          console.error(`[ARCHETYPE_BACKFILL] trace_id=${traceId} Failed for bot ${bot.id}:`, botError);
+          unresolvableBotIds.add(bot.id);
+          batchFailed++;
+        }
+      }
+      
+      totalBackfilled += batchBackfilled;
+      totalFailed += batchFailed;
+      
+      console.log(`[ARCHETYPE_BACKFILL] trace_id=${traceId} batch=${batchNumber} complete: backfilled=${batchBackfilled} failed=${batchFailed} total=${totalBackfilled}`);
+      
+      // If no progress made in this batch (all failed), break to prevent infinite loop
+      if (batchBackfilled === 0 && bots.length > 0) {
+        console.warn(`[ARCHETYPE_BACKFILL] trace_id=${traceId} No progress in batch ${batchNumber}, breaking (${unresolvableBotIds.size} unresolvable)`);
+        break;
+      }
+    }
+
+    if (totalBackfilled === 0 && totalFailed === 0) {
+      console.log(`[ARCHETYPE_BACKFILL] trace_id=${traceId} No bots need archetype backfill`);
+      return;
+    }
+
+    console.log(`[ARCHETYPE_BACKFILL] trace_id=${traceId} Complete: backfilled=${totalBackfilled} failed=${totalFailed} batches=${batchNumber}`);
+    
+    if (totalBackfilled > 0) {
+      await logActivityEvent({
+        eventType: "SELF_HEALING_RECOVERY",
+        severity: "INFO",
+        title: `Archetype backfill: ${totalBackfilled} bots updated`,
+        summary: `Schema-first archetype migration: populated archetype_name on existing bots`,
+        payload: { traceId, backfilledCount: totalBackfilled, failedCount: totalFailed, batches: batchNumber, unresolvable: unresolvableBotIds.size },
+        traceId,
+      });
+    }
+    
+    // Safety check: warn if any bots still have NULL after backfill
+    const remaining = await db.execute(sql`
+      SELECT COUNT(*) as count FROM bots WHERE archetype_name IS NULL
+    `);
+    const remainingCount = Number((remaining.rows[0] as any)?.count || 0);
+    if (remainingCount > 0) {
+      console.warn(`[ARCHETYPE_BACKFILL] trace_id=${traceId} WARNING: ${remainingCount} bots still have NULL archetype_name (could not infer)`);
+      // Log the unresolvable bot IDs for manual review
+      if (unresolvableBotIds.size > 0) {
+        console.warn(`[ARCHETYPE_BACKFILL] trace_id=${traceId} Unresolvable bot IDs: ${Array.from(unresolvableBotIds).slice(0, 10).join(', ')}${unresolvableBotIds.size > 10 ? `... and ${unresolvableBotIds.size - 10} more` : ''}`);
+      }
+    }
+
+  } catch (error) {
+    console.error(`[ARCHETYPE_BACKFILL] trace_id=${traceId} Error:`, error);
+  }
+}
+
+/**
  * Startup sweep to detect and handle accounts with negative balance that weren't properly marked as blown
  * This catches edge cases where the blown account detection was missed (e.g., server crash, race conditions)
  */
@@ -8490,6 +8626,15 @@ async function initializeWorkers(): Promise<void> {
       console.error(`[SCHEDULER] Generation backfill failed:`, error);
     }
   }, 8_000);
+  
+  // SCHEMA-FIRST: Run archetype backfill on startup to populate archetypeName on legacy bots
+  setTimeout(async () => {
+    try {
+      await runArchetypeBackfill();
+    } catch (error) {
+      console.error(`[SCHEDULER] Archetype backfill failed:`, error);
+    }
+  }, 10_000);
   
   // AUTONOMOUS: Run Strategy Lab research on startup if it's in playing state
   setTimeout(async () => {
