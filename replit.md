@@ -46,7 +46,16 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - **Testing Infrastructure:** Comprehensive unit tests cover AST rule parser, QC optimization (grid generation, result ranking, parameter sensitivity, walk-forward analysis, verification gates), and QC monitoring.
 - **QC Badge Hydration:** QC verification status is batch-fetched and hydrated directly on strategy candidates during API response.
 - **Redis Integration:** Implements Redis-backed caching for `/api/bots-overview` and rate limiting with memory fallback.
-- **Observability:** Includes Prometheus metrics endpoint, OpenTelemetry-compatible tracing, and structured logging.
+- **Observability:** Includes Prometheus metrics endpoint, OpenTelemetry-compatible tracing, structured logging, and institutional-grade monitoring:
+    - **Latency Tracker:** P50/P90/P95/P99 percentile tracking with Algorithm R reservoir sampling (5-minute window, 10,000 samples per endpoint).
+    - **Event Loop Monitor:** Real-time lag detection with GC pause tracking and reversible hooks.
+    - **WebSocket Latency:** Message-level latency tracking for live P&L streams.
+    - **Memory Leak Detector:** Generational detection with short/medium/long-term growth rate analysis (10s/5min/2h windows).
+    - **RED Metrics Dashboard:** Rate/Errors/Duration per endpoint with trend analysis.
+    - **SLO Compliance:** Error budget tracking with warning/critical thresholds.
+    - **Disaster Recovery Tracker:** RTO/RPO tracking with component-level status.
+    - **Observability Endpoints:** `/api/observability/red-metrics`, `slo-status`, `broker-health`, `event-loop`, `memory-leak`, `dr-status`, `audit-integrity`, `idempotency-stats`.
+- **Idempotency Middleware:** Mutation endpoint protection with 10,000 record cap, 1MB response limit, LRU eviction, and large-response deletion for fail-safe semantics.
 - **Security:** Input sanitization module.
 - **Monitoring:** Periodic metrics logging, health endpoints (`/healthz`, `/readyz`, `/api/health`), and a self-healing health watchdog for cache management.
 - **Fleet Governor:** Automated fleet size management with performance-based demotion to enforce bot cap limits, configurable per-stage caps and demotion settings.
