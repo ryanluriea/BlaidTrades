@@ -1,0 +1,50 @@
+2026-01-13T22:22:22.041096028Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T22:22:22.044147687Z [ADAPTIVE_WEIGHTS] trace_id=f24196d7-54b8-4123-9e22-32b0809ef6a6 bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e insufficient_data sessions=0 using_defaults
+2026-01-13T22:22:22.046078595Z [ADAPTIVE_WEIGHTS] trace_id=f24196d7-54b8-4123-9e22-32b0809ef6a6 bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T22:22:22.048031093Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T22:22:22.04993518Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T22:22:22.05348811Z [ADAPTIVE_WEIGHTS] trace_id=f24196d7-54b8-4123-9e22-32b0809ef6a6 bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 insufficient_data sessions=0 using_defaults
+2026-01-13T22:22:22.055124632Z [ADAPTIVE_WEIGHTS] trace_id=f24196d7-54b8-4123-9e22-32b0809ef6a6 bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T22:22:22.056987538Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T22:22:22.060081449Z [ADAPTIVE_WEIGHTS] trace_id=f24196d7-54b8-4123-9e22-32b0809ef6a6 bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e insufficient_data sessions=0 using_defaults
+2026-01-13T22:22:22.061730701Z [ADAPTIVE_WEIGHTS] trace_id=f24196d7-54b8-4123-9e22-32b0809ef6a6 bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T22:22:22.063780981Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T22:22:22.065561006Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T22:22:22.069926271Z [ADAPTIVE_WEIGHTS] trace_id=f24196d7-54b8-4123-9e22-32b0809ef6a6 bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce insufficient_data sessions=0 using_defaults
+2026-01-13T22:22:22.072403359Z [ADAPTIVE_WEIGHTS] trace_id=f24196d7-54b8-4123-9e22-32b0809ef6a6 bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T22:22:22.074335837Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T22:22:22.076438478Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T22:22:23.922115035Z [DATABENTO] trace_id=66242a17-8615-4434-80c4-014dcda92ffc fetched bars=5088 latency=3543ms
+2026-01-13T22:22:23.924304897Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=66242a17-8615-4434-80c4-014dcda92ffc
+2026-01-13T22:22:23.959208139Z [BARS_CACHE] trace_id=66242a17-8615-4434-80c4-014dcda92ffc instance=c81fde79 cache_set key=bars:v2:MNQ:5m:ALL:1765750940364:1768342940364 bars=5088 compressed_bytes=71556
+2026-01-13T22:22:23.961622066Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc resampling cached bars from 1m to 5m (factor=5)
+2026-01-13T22:22:23.964659265Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc REAL_DATA fetched_bars=1018 provider=databento latency=3592ms
+2026-01-13T22:22:23.96696506Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc bot_name="VWAP Drift Counter" inferred_archetype="none" using="vwap_bounce"
+2026-01-13T22:22:23.966979541Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-13T22:22:23.967276167Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-13T22:22:23.969201414Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc using_real_strategy version=1.0.0 rules=MNQ VWAP rules_hash=18052159e56b7623
+2026-01-13T22:22:23.969446099Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-13T22:22:23.969450809Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc SESSION_MODE=FULL_24x5 SESSION_BYPASS=true timezone=America/New_York
+2026-01-13T22:22:23.973529898Z [STRATEGY_EXECUTOR] bars=1018 valid_bars=1018 session_bars=968 outside_session=0 no_trade_window=0 entry_signals=108 trades=108
+2026-01-13T22:22:23.973545319Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc REAL_EXECUTION trades=108 pnl=-976.92 win_rate=14.8%
+2026-01-13T22:22:23.973549279Z [TX:66242a17-8615-4434-80c4-014dcda92ffc] BACKTEST_TRADES:99622c05 START
+2026-01-13T22:22:24.097989488Z [TX:66242a17-8615-4434-80c4-014dcda92ffc] BACKTEST_TRADES:99622c05 COMMITTED
+2026-01-13T22:22:24.112621214Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc updated generation performanceSnapshot gen_id=1827de93-4110-410e-870a-a2a65298a647
+2026-01-13T22:22:24.114765036Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc LAB_BASELINE gen_id=1827de93-4110-410e-870a-a2a65298a647 valid=true reason=N/A trades=108
+2026-01-13T22:22:24.116646333Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for VWAP Drift Counter" trace_id=66242a17-8615-4434-80c4-014dcda92ffc
+2026-01-13T22:22:24.116654953Z [BACKTEST_EXECUTOR] trace_id=66242a17-8615-4434-80c4-014dcda92ffc session_id=99622c05-dd3f-4bcd-904e-2cc515fbe3be completed trades=108 pnl=-976.92
+2026-01-13T22:22:30.299980692Z [BACKTEST_WORKER] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b processing_jobs=1
+2026-01-13T22:22:30.301062603Z [EVOLUTION_WORKER] trace_id=0f759f6f-4e14-4242-b536-76aac649405b processing_jobs=1
+2026-01-13T22:22:30.302220476Z [BACKTEST_WORKER] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b processing MATRIX_RUN id=c91a0fcb-df21-4202-8700-ee8ee0dfb2ea
+2026-01-13T22:22:30.302758946Z [MATRIX_WORKER] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b starting matrix run c91a0fcb-df21-4202-8700-ee8ee0dfb2ea
+2026-01-13T22:22:30.306768104Z [MATRIX_WORKER] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b matrix_run=c91a0fcb-df21-4202-8700-ee8ee0dfb2ea total_cells=6 pending=6
+2026-01-13T22:22:30.316750939Z [BACKTEST_EXECUTOR] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b session_id=c6befb2f-ef25-41fe-84a2-6acd4256ad4a bot_id=ee21d879-6a72-49f6-90c1-ab69b3deea69 starting
+2026-01-13T22:22:30.320770208Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Dormant Ceiling Fade" trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b
+2026-01-13T22:22:30.320795288Z [BACKTEST_EXECUTOR] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b using REAL Databento data for MES via BAR_CACHE
+2026-01-13T22:22:30.320802138Z [BACKTEST_EXECUTOR] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-13T22:22:30.321032643Z [BAR_CACHE] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b symbol=MES cold_storage_empty
+2026-01-13T22:22:30.321058593Z [BACKTEST_EXECUTOR] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b cold_storage_empty falling_back_to_redis_cache
+2026-01-13T22:22:30.32600804Z [BARS_CACHE] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b instance=c81fde79 lock_acquired fetching_from_provider
+2026-01-13T22:22:30.328922497Z [INTEGRATION_USAGE] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-13T22:22:30.329034029Z [DATABENTO] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b CME_LICENSE_CAP: Requested end=2026-01-13T22:22:30.310Z capped to 2026-01-12T20:22:30.328Z (26h buffer for license-free window)
+2026-01-13T22:22:30.329041419Z [DATABENTO] trace_id=da7cd7b9-1755-4428-a038-f6716aa3800b fetching symbol=MES.c.0 start=2025-12-14T22:22:30.310Z end=2026-01-12T20:22:30.328Z schema=ohlcv-1m
