@@ -50,19 +50,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               user: data.user,
               access_token: "session-based",
             });
+            // Persist auth state for debugBundle to read
+            localStorage.setItem('blaidtrades-auth-state', JSON.stringify({ userId: data.user.id }));
           } else {
             console.log("[Auth] No session");
             setUser(null);
             setSession(null);
+            localStorage.removeItem('blaidtrades-auth-state');
           }
         } else {
           setUser(null);
           setSession(null);
+          localStorage.removeItem('blaidtrades-auth-state');
         }
       } catch (error) {
         console.error("[Auth] Check session error", error);
         setUser(null);
         setSession(null);
+        localStorage.removeItem('blaidtrades-auth-state');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -102,6 +107,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: data.user,
       access_token: "session-based",
     });
+    // Persist auth state for debugBundle to read
+    localStorage.setItem('blaidtrades-auth-state', JSON.stringify({ userId: data.user.id }));
     navigate("/dashboard");
   };
 
@@ -124,6 +131,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: data.user,
       access_token: "session-based",
     });
+    // Persist auth state for debugBundle to read
+    localStorage.setItem('blaidtrades-auth-state', JSON.stringify({ userId: data.user.id }));
     navigate("/dashboard");
   };
 
@@ -139,6 +148,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     setUser(null);
     setSession(null);
+    // Clear auth state for debugBundle
+    localStorage.removeItem('blaidtrades-auth-state');
     navigate("/login");
   };
 
@@ -157,10 +168,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user: data.user,
             access_token: "session-based",
           });
+          // Persist auth state for debugBundle to read
+          localStorage.setItem('blaidtrades-auth-state', JSON.stringify({ userId: data.user.id }));
+        } else {
+          // Session expired - clear auth state
+          setUser(null);
+          setSession(null);
+          localStorage.removeItem('blaidtrades-auth-state');
         }
+      } else {
+        // API error - clear auth state
+        setUser(null);
+        setSession(null);
+        localStorage.removeItem('blaidtrades-auth-state');
       }
     } catch (error) {
       console.error("[Auth] Refresh user error", error);
+      // Network error - clear auth state to be safe
+      setUser(null);
+      setSession(null);
+      localStorage.removeItem('blaidtrades-auth-state');
     }
   };
 

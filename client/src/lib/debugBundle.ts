@@ -94,18 +94,18 @@ export function createDebugBundle(context?: {
   failingError?: string;
   failingRequestId?: string;
 }): DebugBundle {
-  // Try to get user info from localStorage (non-sensitive parts only)
+  // Try to get user info from localStorage (set by AuthContext on login/session check)
   let userId: string | undefined;
   let sessionId: string | undefined;
   let isAuthenticated = false;
   
   try {
-    const authData = localStorage.getItem('sb-oxkjdoltkazipawcgmtg-auth-token');
-    if (authData) {
-      const parsed = JSON.parse(authData);
-      userId = parsed?.user?.id;
-      sessionId = parsed?.session?.access_token?.slice(-8); // Just last 8 chars
-      isAuthenticated = !!parsed?.user;
+    // Check for Express session auth state (set by AuthContext)
+    const authState = localStorage.getItem('blaidtrades-auth-state');
+    if (authState) {
+      const parsed = JSON.parse(authState);
+      userId = parsed?.userId;
+      isAuthenticated = !!parsed?.userId;
     }
   } catch {
     // Ignore

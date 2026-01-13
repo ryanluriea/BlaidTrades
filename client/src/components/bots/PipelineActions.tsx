@@ -230,13 +230,8 @@ export function PipelineActions({
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative" data-testid="button-pipeline-menu">
+              <Button variant="ghost" size="icon" data-testid="button-pipeline-menu">
                 <MoreVertical className="h-4 w-4" />
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 text-[10px] font-medium rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>

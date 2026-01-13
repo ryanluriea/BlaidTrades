@@ -5445,23 +5445,30 @@ export function registerRoutes(app: Express) {
       const bots = await storage.getBots(userId);
       
       // BATCHED botNow computation (no N+1 queries)
-      const botNowMap = await computeBotsNow(bots.map(b => ({
-        id: b.id,
-        stage: b.stage,
-        mode: b.mode,
-        healthState: b.healthState,
-        healthScore: b.healthScore,
-        healthReasonCode: b.healthReasonCode,
-        healthReasonDetail: b.healthReasonDetail,
-        killedAt: b.killedAt,
-        killReason: b.killReason,
-        isTradingEnabled: b.isTradingEnabled,
-        evolutionMode: b.evolutionMode,
-        createdAt: b.createdAt,
-        stageUpdatedAt: b.stageUpdatedAt,
-        stageReasonCode: b.stageReasonCode,
-        promotionMode: b.promotionMode,
-      })), userId);
+      // Wrap in try-catch for graceful degradation - return bots without botNow on error
+      let botNowMap: Map<string, any> = new Map();
+      try {
+        botNowMap = await computeBotsNow(bots.map(b => ({
+          id: b.id,
+          stage: b.stage,
+          mode: b.mode,
+          healthState: b.healthState,
+          healthScore: b.healthScore,
+          healthReasonCode: b.healthReasonCode,
+          healthReasonDetail: b.healthReasonDetail,
+          killedAt: b.killedAt,
+          killReason: b.killReason,
+          isTradingEnabled: b.isTradingEnabled,
+          evolutionMode: b.evolutionMode,
+          createdAt: b.createdAt,
+          stageUpdatedAt: b.stageUpdatedAt,
+          stageReasonCode: b.stageReasonCode,
+          promotionMode: b.promotionMode,
+        })), userId);
+      } catch (botNowErr) {
+        console.warn("[/api/bots] computeBotsNow failed, continuing without botNow:", botNowErr);
+        // Continue with empty map - bots will have null botNow
+      }
       
       const botsWithNow = bots.map(bot => ({
         ...bot,
