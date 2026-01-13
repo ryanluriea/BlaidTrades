@@ -63,3 +63,24 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 -   **Broker APIs:** Live trading execution (Ironbeam, Tradovate).
 -   **Redis:** Optional cache for performance enhancements.
 -   **Google Drive API:** Used for cloud backup and restore functionality.
+
+## Industry Standards Infrastructure (Added Jan 2026)
+
+**Phase 1 - Production Stability:**
+- Redis-backed caching for `/api/bots-overview` with stale-while-revalidate semantics (30s fresh, 120s stale, 300s max TTL)
+- Redis-backed rate limiting with memory fallback (`server/cache/redis-rate-limiter.ts`)
+- Integration tests for bots-overview endpoint (`server/tests/integration/bots-overview.test.ts`)
+
+**Phase 2 - Code Quality:**
+- Correlation ID middleware for request tracing (`server/middleware/correlation-id.ts`)
+- Validation middleware with Zod schemas (`server/middleware/validation.ts`)
+- Structured logging with request completion tracking
+
+**Phase 3 - Observability:**
+- Prometheus metrics endpoint with RED metrics (`server/observability/metrics.ts`)
+- OpenTelemetry-compatible tracing (`server/observability/tracing.ts`)
+- CI/CD pipeline configuration (`.github/workflows/ci.yml`)
+
+**Phase 4 - Security & Documentation:**
+- Input sanitization module (`server/security/input-sanitizer.ts`)
+- API reference documentation (`docs/api-reference.md`)

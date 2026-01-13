@@ -10,6 +10,8 @@ import { checkRequiredIntegrations, INTEGRATION_REGISTRY, isIntegrationConfigure
 import { resolveLiveStackStatus } from "./live-stack-resolver";
 import { encryptSecret, decryptSecret, isEncryptionConfigured } from "./crypto-utils";
 import { checkRateLimit, resetRateLimit, getRateLimitKey } from "./rate-limiter";
+import { checkRateLimitRedis, resetRateLimitRedis, buildRateLimitKey } from "./cache/redis-rate-limiter";
+import { getCachedBotsOverview, setCachedBotsOverview } from "./cache/bots-overview-cache";
 import { consumeTempToken, validateTempToken } from "./auth";
 import { requireAuth, tradingRateLimit, adminRateLimit, twoFactorRateLimit, csrfProtection } from "./security-middleware";
 import { sendSms, verifyAwsConfig, maskPhoneNumber } from "./providers/sms/awsSns";
@@ -4699,6 +4701,57 @@ export function registerRoutes(app: Express) {
         return res.status(401).json({ error: "Authentication required" });
       }
       
+      // FAST PATH: Check Redis cache first
+      const cacheResult = await getCachedBotsOverview(userId);
+      if (cacheResult.hit && cacheResult.fresh && cacheResult.data) {
+        clearTimeout(timeoutHandle);
+        const cacheMs = Date.now() - requestStart;
+        console.log(`[bots-overview] CACHE_HIT fresh=true age=${cacheResult.ageSeconds}s latency=${cacheMs}ms`);
+        res.setHeader("x-cache", "HIT");
+        res.setHeader("x-cache-age", String(cacheResult.ageSeconds));
+        // Return canonical response format with all required fields
+        return res.json({
+          success: true,
+          data: cacheResult.data.data,
+          serverTime: new Date().toISOString(),
+          snapshotId: cacheResult.data.snapshotId,
+          determinism: "VERIFIED",
+          degraded: cacheResult.data.degraded,
+          degradedPhases: cacheResult.data.degradedPhases,
+          generatedAt: cacheResult.data.generatedAt,
+          freshnessContract: cacheResult.data.freshnessContract,
+          cacheHit: true,
+          cacheAgeSeconds: cacheResult.ageSeconds,
+        });
+      }
+      
+      // STALE PATH: Return stale data immediately (no background refresh - rely on TTL expiry)
+      if (cacheResult.hit && cacheResult.stale && cacheResult.data) {
+        clearTimeout(timeoutHandle);
+        const cacheMs = Date.now() - requestStart;
+        console.log(`[bots-overview] CACHE_HIT stale=true age=${cacheResult.ageSeconds}s latency=${cacheMs}ms`);
+        res.setHeader("x-cache", "STALE");
+        res.setHeader("x-cache-age", String(cacheResult.ageSeconds));
+        // Return canonical response format with stale indicator
+        return res.json({
+          success: true,
+          data: cacheResult.data.data,
+          serverTime: new Date().toISOString(),
+          snapshotId: cacheResult.data.snapshotId,
+          determinism: "VERIFIED",
+          degraded: cacheResult.data.degraded,
+          degradedPhases: cacheResult.data.degradedPhases,
+          generatedAt: cacheResult.data.generatedAt,
+          freshnessContract: cacheResult.data.freshnessContract,
+          cacheHit: true,
+          cacheAgeSeconds: cacheResult.ageSeconds,
+          stale: true,
+        });
+      }
+      
+      // COLD PATH: No cache or expired, compute fresh data
+      console.log(`[bots-overview] CACHE_MISS computing fresh data`);
+      
       // PHASE 1: Fetch bots overview
       const phase1Start = Date.now();
       const bots = await storage.getBotsOverview(userId);
@@ -5254,7 +5307,10 @@ export function registerRoutes(app: Express) {
       res.setHeader("x-snapshot-id", snapshotId);
       res.setHeader("x-generated-at", generatedAt);
       res.setHeader("x-total-ms", totalMs.toString());
-      res.json({ 
+      res.setHeader("x-cache", "MISS");
+      
+      // Build the response payload
+      const responsePayload = { 
         success: true, 
         data: botsWithNow, 
         serverTime: generatedAt,
@@ -5277,7 +5333,19 @@ export function registerRoutes(app: Express) {
           autonomyAllowed: dataSourceStatus.autonomyAllowed,
           displayAllowed, // Frontend must check this - if false, do not render P&L
         },
-      });
+      };
+      
+      // CACHE: Store the response for future fast-path requests (non-blocking)
+      setCachedBotsOverview(userId, {
+        data: botsWithNow,
+        generatedAt,
+        snapshotId,
+        degraded: isDegraded,
+        degradedPhases,
+        freshnessContract: responsePayload.freshnessContract,
+      }).catch(err => console.warn('[bots-overview] Cache set failed:', err));
+      
+      res.json(responsePayload);
     } catch (error) {
       clearTimeout(timeoutHandle);
       if (shouldAbort()) return;
