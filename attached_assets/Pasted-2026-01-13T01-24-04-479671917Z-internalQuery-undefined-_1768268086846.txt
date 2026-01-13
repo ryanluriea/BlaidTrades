@@ -1,0 +1,50 @@
+2026-01-13T01:24:04.479671917Z     internalQuery: undefined,
+2026-01-13T01:24:04.479674117Z     where: undefined,
+2026-01-13T01:24:04.479676226Z     schema: undefined,
+2026-01-13T01:24:04.479678307Z     table: undefined,
+2026-01-13T01:24:04.479680367Z     column: undefined,
+2026-01-13T01:24:04.479682417Z     dataType: undefined,
+2026-01-13T01:24:04.479684467Z     constraint: undefined,
+2026-01-13T01:24:04.479686567Z     file: 'plancat.c',
+2026-01-13T01:24:04.479688647Z     line: '958',
+2026-01-13T01:24:04.479694507Z     routine: 'infer_arbiter_indexes'
+2026-01-13T01:24:04.479696757Z   }
+2026-01-13T01:24:04.479698917Z }
+2026-01-13T01:24:04.480583632Z [EVOLUTION_WORKER] trace_id=8e13d7cf-33d6-461e-a7ff-1ba982b07f07 job_id=8c83b369-679f-42d8-ad34-c71a0c44a7df CRITICAL no generation id for gen=2
+2026-01-13T01:24:05.38659659Z [IRONBEAM_LIVE] trace_id=46dc8f37 message_count=700 raw_data_preview={"q":[{"s":"XCME:MES.H26","l":7003.75,"sz":1,"ch":-12.75,"op":7012.5,"hi":7014.25,"lo":7001.5,"ags":2,"td":1,"stt":7016.5,"stts":"20260112","sttst":1768156236336,"pstt":7005,"pstts":"20260109","sttch"
+2026-01-13T01:24:05.805768728Z [EVOLUTION_WORKER] trace_id=8e13d7cf-33d6-461e-a7ff-1ba982b07f07 job_id=1812d23f-be10-4c76-8178-12000b0d754c IMPROVING bot=c67571aa-96e2-43ae-b162-ef73fc7030eb
+2026-01-13T01:24:05.814653302Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Improvement cycle 5 complete" trace_id=8e13d7cf-33d6-461e-a7ff-1ba982b07f07
+2026-01-13T01:24:05.816079847Z [EVOLUTION_WORKER] trace_id=8e13d7cf-33d6-461e-a7ff-1ba982b07f07 bot=c67571aa-96e2-43ae-b162-ef73fc7030eb matrix_skipped reason=Matrix run already RUNNING
+2026-01-13T01:24:07.117914918Z [EVOLUTION_WORKER] trace_id=8e13d7cf-33d6-461e-a7ff-1ba982b07f07 job_id=6fa83336-3018-404b-a19d-b037e577b114 EVOLVING bot=3c0eb906-0e59-440b-a28f-e249dd5e0637
+2026-01-13T01:24:07.120563424Z [EVOLUTION_WORKER] trace_id=8e13d7cf-33d6-461e-a7ff-1ba982b07f07 job_id=6fa83336-3018-404b-a19d-b037e577b114 AI_EVOLUTION calling LLM for Dormancy Range Fade
+2026-01-13T01:24:07.122764052Z [AI_EVOLUTION] cascade_mode=QUALITY_FIRST providers=anthropic→openai→groq→gemini→xai
+2026-01-13T01:24:07.124316589Z [AI_EVOLUTION] trace_id=8e13d7cf-33d6-461e-a7ff-1ba982b07f07 bot=Dormancy Range Fade provider=anthropic
+2026-01-13T01:24:07.296116614Z [DATABENTO] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 fetched bars=24130 latency=4214ms
+2026-01-13T01:24:07.301306264Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02
+2026-01-13T01:24:07.372293763Z [BARS_CACHE] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 instance=53bbca60 cache_set key=bars:v2:MES:1m:ALL:1765675443064:1768267443064 bars=24130 compressed_bytes=230680
+2026-01-13T01:24:07.378819716Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 REAL_DATA fetched_bars=24130 provider=databento latency=4300ms
+2026-01-13T01:24:07.386787394Z [STRATEGY_INFERENCE] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 bot_name="Hush Gap Reversal" inferred_archetype="reversal"
+2026-01-13T01:24:07.386803344Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 bot_name="Hush Gap Reversal" inferred_archetype="reversal" using="reversal"
+2026-01-13T01:24:07.386808474Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 archetype=reversal mapped_to=reversal
+2026-01-13T01:24:07.387073679Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 TRIALS_SESSION_WIDENING original=10:00-15:30 widened=09:35-15:55
+2026-01-13T01:24:07.389419729Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 using_real_strategy version=1.0.0 rules=MES Reversal rules_hash=9c87edebbb7e4eaa
+2026-01-13T01:24:07.393885007Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-13T01:24:07.393902537Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 SESSION_MODE=FULL_24x5 SESSION_BYPASS=true timezone=America/New_York
+2026-01-13T01:24:07.440433083Z [STRATEGY_EXECUTOR] bars=24130 valid_bars=24130 session_bars=24080 outside_session=0 no_trade_window=0 entry_signals=538 trades=538
+2026-01-13T01:24:07.440519324Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 REAL_EXECUTION trades=538 pnl=-2120.87 win_rate=42.4%
+2026-01-13T01:24:07.440545875Z [TX:6cc5afea-2013-49d3-bc83-24ffd7092a02] BACKTEST_TRADES:ef78aa1c START
+2026-01-13T01:24:08.040063695Z [TX:6cc5afea-2013-49d3-bc83-24ffd7092a02] BACKTEST_TRADES:ef78aa1c COMMITTED
+2026-01-13T01:24:08.063385189Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 updated generation performanceSnapshot gen_id=3486786d-42d8-40be-8a5c-630c80066615
+2026-01-13T01:24:08.065602268Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 LAB_BASELINE gen_id=3486786d-42d8-40be-8a5c-630c80066615 valid=true reason=N/A trades=538
+2026-01-13T01:24:08.06807207Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Hush Gap Reversal" trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02
+2026-01-13T01:24:08.068084681Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 session_id=ef78aa1c-9d3c-440e-9d69-6f9d6bc9e988 completed trades=538 pnl=-2120.87
+2026-01-13T01:24:08.089795067Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 session_id=648e1d2b-c409-4964-9e60-428e9e7dcb34 bot_id=e21e9b8c-6141-4ae5-8bba-d101df2670b7 starting
+2026-01-13T01:24:08.094437757Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Hush Gap Reversal" trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02
+2026-01-13T01:24:08.094452867Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 using REAL Databento data for MES via BAR_CACHE
+2026-01-13T01:24:08.094462657Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 loading_5year_history symbol=MES days=90 source=COLD_STORAGE
+2026-01-13T01:24:08.094688841Z [BAR_CACHE] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 symbol=MES cold_storage_empty
+2026-01-13T01:24:08.094710762Z [BACKTEST_EXECUTOR] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 cold_storage_empty falling_back_to_redis_cache
+2026-01-13T01:24:08.097596652Z [BARS_CACHE] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 instance=53bbca60 lock_acquired fetching_from_provider
+2026-01-13T01:24:08.101081902Z [INTEGRATION_USAGE] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-13T01:24:08.101114412Z [DATABENTO] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 CME_LICENSE_CAP: Requested end=2026-01-13T01:24:08.083Z capped to 2026-01-11T23:24:08.101Z (26h buffer for license-free window)
+2026-01-13T01:24:08.101121283Z [DATABENTO] trace_id=6cc5afea-2013-49d3-bc83-24ffd7092a02 fetching symbol=MES.c.0 start=2025-10-15T01:24:08.083Z end=2026-01-11T23:24:08.101Z schema=ohlcv-1m

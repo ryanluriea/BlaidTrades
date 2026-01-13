@@ -186,7 +186,7 @@ export async function setupAuth(app: Express) {
         secure: isProduction, // Enforce HTTPS in production
         httpOnly: true,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        sameSite: isProduction ? "strict" : "lax", // Stricter in production
+        sameSite: "lax", // Use lax for cross-origin navigation compatibility (Render proxy)
       },
     })
   );
