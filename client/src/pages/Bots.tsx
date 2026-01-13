@@ -90,14 +90,15 @@ export default function Bots() {
   useEffect(() => {
     // Enable secondary hooks after first paint using requestIdleCallback
     // This ensures main content renders before heavy secondary fetches
-    if (overview?.bots?.length && !secondaryEnabled) {
+    // FIX: Enable regardless of bots count to handle empty initial responses
+    if (!secondaryEnabled && !isLoading) {
       if ('requestIdleCallback' in window) {
         (window as any).requestIdleCallback(() => setSecondaryEnabled(true), { timeout: 200 });
       } else {
         setTimeout(() => setSecondaryEnabled(true), 50);
       }
     }
-  }, [overview?.bots?.length, secondaryEnabled]);
+  }, [isLoading, secondaryEnabled]);
   
   // Memoize bot IDs - hooks internally skip fetch when array is empty
   const botIds = useMemo(() => overview?.bots?.map(b => b.id) || [], [overview?.bots]);

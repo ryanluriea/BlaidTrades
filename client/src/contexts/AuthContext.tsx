@@ -83,8 +83,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(
     cachedUser ? { user: cachedUser, access_token: "session-based" } : null
   );
-  const [loading, setLoading] = useState(!isFreshCache);
-  const [isVerified, setIsVerified] = useState(!!isFreshCache);
+  // NEVER block on loading - ALWAYS set false immediately for instant rendering
+  // Background verification updates user state without blocking
+  const [loading, setLoading] = useState(false);
+  // OPTIMISTIC: Always mark as verified immediately - we verify in background
+  // This prevents any blocking of navigation for both cold and warm starts
+  const [isVerified, setIsVerified] = useState(true);
   const hasCheckedAuth = useRef(false);
   const navigate = useNavigate();
 
@@ -97,6 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // If we have cached user but stale cache, verify in background WITHOUT blocking
+    // The UI already shows content optimistically
     let mounted = true;
 
     async function checkAuth() {
@@ -117,32 +123,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               access_token: "session-based",
             });
             setCachedAuth(data.user);
-            setIsVerified(true);
           } else {
             console.log("[Auth] No session from server");
             setUser(null);
             setSession(null);
             setCachedAuth(null);
-            setIsVerified(true);
           }
         } else {
           console.log("[Auth] Server rejected session");
           setUser(null);
           setSession(null);
           setCachedAuth(null);
-          setIsVerified(true);
         }
       } catch (error) {
         console.error("[Auth] Check session error - keeping cached state", error);
-        if (cachedUser) {
-          setIsVerified(true);
-        } else {
-          setUser(null);
-          setSession(null);
+        // Keep existing state on network error
+      } finally {
+        if (mounted) {
+          setLoading(false);
           setIsVerified(true);
         }
-      } finally {
-        if (mounted) setLoading(false);
       }
     }
 
