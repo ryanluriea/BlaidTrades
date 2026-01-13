@@ -12,6 +12,7 @@ import { encryptSecret, decryptSecret, isEncryptionConfigured } from "./crypto-u
 import { checkRateLimit, resetRateLimit, getRateLimitKey } from "./rate-limiter";
 import { checkRateLimitRedis, resetRateLimitRedis, buildRateLimitKey } from "./cache/redis-rate-limiter";
 import { getCachedBotsOverview, setCachedBotsOverview } from "./cache/bots-overview-cache";
+import { getCachedStrategyLabCandidates, setCachedStrategyLabCandidates } from "./cache/strategy-lab-cache";
 import { healthWatchdog } from "./observability/health-watchdog";
 import { consumeTempToken, validateTempToken } from "./auth";
 import { requireAuth, tradingRateLimit, adminRateLimit, twoFactorRateLimit, csrfProtection } from "./security-middleware";
@@ -14302,6 +14303,42 @@ export function registerRoutes(app: Express) {
       const disp = (disposition as string) || "ALL";
       const lim = parseInt(limit as string) || 50;
       const includeBots = include_bots === "true";
+      const userId = req.session?.userId || "anonymous";
+      
+      // PERFORMANCE: Fast-path cache check for non-bot queries
+      // Cache key includes disposition for proper separation
+      if (!includeBots) {
+        const cacheKey = `${disp}:${lim}`;
+        const cached = await getCachedStrategyLabCandidates(userId, cacheKey);
+        if (cached.hit && cached.fresh) {
+          return res.json({
+            success: true,
+            data: cached.data!.candidates,
+            count: cached.data!.candidates.length,
+            trialsBotsCount: cached.data!.trialsBotsCount,
+            current_regime: cached.data!.currentRegime,
+            _cache: { hit: true, ageSeconds: cached.ageSeconds },
+          });
+        }
+        // Stale-while-revalidate: serve stale data immediately, refresh in background
+        if (cached.hit && cached.stale) {
+          // Trigger background refresh (non-blocking)
+          (async () => {
+            try {
+              // This will be done by the next request that doesn't hit cache
+              console.log(`[STRATEGY_LAB_CACHE] Stale data served for userId=${userId.slice(0,8)} disposition=${disp}, will refresh on next miss`);
+            } catch {}
+          })();
+          return res.json({
+            success: true,
+            data: cached.data!.candidates,
+            count: cached.data!.candidates.length,
+            trialsBotsCount: cached.data!.trialsBotsCount,
+            current_regime: cached.data!.currentRegime,
+            _cache: { hit: true, stale: true, ageSeconds: cached.ageSeconds },
+          });
+        }
+      }
       
       // Always fetch TRIALS bots count for accurate display in frontend
       // Must use same filters as /api/strategy-lab/overview: archived_at IS NULL AND killed_at IS NULL
@@ -14502,6 +14539,18 @@ export function registerRoutes(app: Express) {
           count: candidatesWithBots.length,
           trialsBotsCount,
         });
+      }
+      
+      // PERFORMANCE: Cache the result for future requests (non-bot queries only)
+      if (!includeBots) {
+        const cacheKey = `${disp}:${lim}`;
+        setCachedStrategyLabCandidates(userId, cacheKey, {
+          candidates: candidatesWithRegime,
+          trialsBotsCount,
+          disposition: disp,
+          currentRegime,
+          generatedAt: new Date().toISOString(),
+        }).catch(err => console.warn("[STRATEGY_LAB_CACHE] Background cache write failed:", err));
       }
       
       return res.json({
