@@ -101,4 +101,4 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - Demotion settings: Grace period (1-168 hours), minimum observation trades (5-100), policy (ARCHIVE/RECYCLE)
 - UI: Fleet Governor popover in Strategy Lab header with settings for all caps and demotion parameters
 - Backend: `setFleetGovernorSettings()` in strategy-lab-engine.ts with database persistence via app_settings
-- Designed for autonomous cost optimization - disabled by default (opt-in feature)
+- Designed for autonomous cost optimization - enabled by default

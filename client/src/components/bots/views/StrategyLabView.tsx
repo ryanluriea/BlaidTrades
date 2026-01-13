@@ -648,7 +648,7 @@ export function StrategyLabView() {
   const [researchIntervalOverrideMinutes, setResearchIntervalOverrideMinutes] = useState(0);
   
   // Fleet Governor settings (automated fleet size management)
-  const [fleetGovernorEnabled, setFleetGovernorEnabled] = useState(false);
+  const [fleetGovernorEnabled, setFleetGovernorEnabled] = useState(true);
   const [fleetGovernorGlobalCap, setFleetGovernorGlobalCap] = useState(100);
   const [fleetGovernorTrialsCap, setFleetGovernorTrialsCap] = useState(50);
   const [fleetGovernorPaperCap, setFleetGovernorPaperCap] = useState(25);

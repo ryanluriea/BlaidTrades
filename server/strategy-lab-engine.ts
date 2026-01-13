@@ -747,7 +747,7 @@ let strategyLabState: StrategyLabState = {
   // Research interval override (0 = use adaptive)
   researchIntervalOverrideMinutes: 0,
   // Fleet Governor defaults (automated fleet size management)
-  fleetGovernorEnabled: false, // Off by default - opt-in feature
+  fleetGovernorEnabled: true, // Enabled by default for autonomous cost optimization
   fleetGovernorGlobalCap: 100, // Total active bots across all stages
   fleetGovernorTrialsCap: 50, // Max TRIALS stage bots
   fleetGovernorPaperCap: 25, // Max PAPER stage bots
