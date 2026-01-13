@@ -4711,9 +4711,18 @@ export function registerRoutes(app: Express) {
       // Fetch bot instances filtered by bot IDs (security: only this user's bots)
       const botIds = bots.map(b => b.id);
       
+      // GRACEFUL DEGRADATION: Track which phases failed for observability
+      const degradedPhases: string[] = [];
+      
       // PHASE 2: Fetch accounts (single query)
       const phase2Start = Date.now();
-      const accounts = await storage.getAccounts(userId);
+      let accounts: any[] = [];
+      try {
+        accounts = await storage.getAccounts(userId);
+      } catch (err) {
+        console.warn('[bots-overview] PHASE2_ACCOUNTS FAILED - returning empty array:', err);
+        degradedPhases.push('accounts');
+      }
       const phase2Ms = Date.now() - phase2Start;
       console.log(`[bots-overview] PHASE2_ACCOUNTS count=${accounts.length} elapsed=${phase2Ms}ms`);
       if (shouldAbort()) return;
@@ -4724,10 +4733,15 @@ export function registerRoutes(app: Express) {
       const phase3Start = Date.now();
       let flatInstances: any[] = [];
       if (botIds.length > 0) {
-        const instanceResults = await db.execute(sql`
-          SELECT * FROM bot_instances WHERE bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
-        `);
-        flatInstances = instanceResults.rows as any[];
+        try {
+          const instanceResults = await db.execute(sql`
+            SELECT * FROM bot_instances WHERE bot_id = ANY(ARRAY[${buildUuidArrayRaw(botIds)}]::uuid[])
+          `);
+          flatInstances = instanceResults.rows as any[];
+        } catch (err) {
+          console.warn('[bots-overview] PHASE3_INSTANCES FAILED - returning empty array:', err);
+          degradedPhases.push('instances');
+        }
       }
       const phase3Ms = Date.now() - phase3Start;
       console.log(`[bots-overview] PHASE3_INSTANCES count=${flatInstances.length} elapsed=${phase3Ms}ms`);
@@ -4776,6 +4790,7 @@ export function registerRoutes(app: Express) {
           }
         } catch (trendError) {
           console.warn('[bots-overview] Trend data fetch failed:', trendError);
+          degradedPhases.push('trend');
         }
       }
       const phase4Ms = Date.now() - phase4Start;
@@ -4784,27 +4799,33 @@ export function registerRoutes(app: Express) {
       
       // PHASE 5: Compute botNow for all bots
       const phase5Start = Date.now();
-      const botNowMap = await computeBotsNow(bots.map(b => ({
-        id: b.id,
-        stage: b.stage,
-        mode: b.mode,
-        healthState: (b as any).healthState || 'OK',
-        healthScore: (b as any).healthScore ?? 100,
-        healthReasonCode: (b as any).healthReasonCode || null,
-        healthReasonDetail: (b as any).healthReasonDetail || null,
-        killedAt: (b as any).killedAt || null,
-        killReason: (b as any).killReason || null,
-        isTradingEnabled: (b as any).isTradingEnabled ?? true,
-        evolutionMode: (b as any).evolutionMode || null,
-        createdAt: (b as any).createdAt || null,
-        stageUpdatedAt: (b as any).stageUpdatedAt || null,
-        stageReasonCode: (b as any).stageReasonCode || null,
-        promotionMode: (b as any).promotionMode || null,
-        // Generation tracking (backend truth)
-        currentGeneration: (b as any).current_generation ?? (b as any).currentGeneration ?? 1,
-        generationUpdatedAt: (b as any).generation_updated_at ?? (b as any).generationUpdatedAt ?? null,
-        generationReasonCode: (b as any).generation_reason_code ?? (b as any).generationReasonCode ?? null,
-      })), userId);
+      let botNowMap = new Map<string, any>();
+      try {
+        botNowMap = await computeBotsNow(bots.map(b => ({
+          id: b.id,
+          stage: b.stage,
+          mode: b.mode,
+          healthState: (b as any).healthState || 'OK',
+          healthScore: (b as any).healthScore ?? 100,
+          healthReasonCode: (b as any).healthReasonCode || null,
+          healthReasonDetail: (b as any).healthReasonDetail || null,
+          killedAt: (b as any).killedAt || null,
+          killReason: (b as any).killReason || null,
+          isTradingEnabled: (b as any).isTradingEnabled ?? true,
+          evolutionMode: (b as any).evolutionMode || null,
+          createdAt: (b as any).createdAt || null,
+          stageUpdatedAt: (b as any).stageUpdatedAt || null,
+          stageReasonCode: (b as any).stageReasonCode || null,
+          promotionMode: (b as any).promotionMode || null,
+          // Generation tracking (backend truth)
+          currentGeneration: (b as any).current_generation ?? (b as any).currentGeneration ?? 1,
+          generationUpdatedAt: (b as any).generation_updated_at ?? (b as any).generationUpdatedAt ?? null,
+          generationReasonCode: (b as any).generation_reason_code ?? (b as any).generationReasonCode ?? null,
+        })), userId);
+      } catch (err) {
+        console.warn('[bots-overview] PHASE5_BOTNOW FAILED - returning empty map:', err);
+        degradedPhases.push('botNow');
+      }
       const phase5Ms = Date.now() - phase5Start;
       console.log(`[bots-overview] PHASE5_BOTNOW elapsed=${phase5Ms}ms`);
       if (shouldAbort()) return;
@@ -4915,6 +4936,7 @@ export function registerRoutes(app: Express) {
           }
         } catch (err) {
           console.warn('[bots-overview] Matrix aggregate fetch skipped:', err);
+          degradedPhases.push('matrixAggregates');
         }
       }
       const phase6Ms = Date.now() - phase5Start - phase5Ms;
@@ -4964,6 +4986,7 @@ export function registerRoutes(app: Express) {
           }
         } catch (err) {
           console.warn('[bots-overview] Matrix run status fetch skipped:', err);
+          degradedPhases.push('matrixRunStatus');
         }
       }
 
@@ -4984,6 +5007,7 @@ export function registerRoutes(app: Express) {
           }
         } catch (err) {
           console.warn('[bots-overview] Alert counts fetch skipped:', err);
+          degradedPhases.push('alertCounts');
         }
       }
 
@@ -5044,6 +5068,7 @@ export function registerRoutes(app: Express) {
           }
         } catch (err) {
           console.warn('[bots-overview] LLM cost aggregates fetch skipped:', err);
+          degradedPhases.push('llmCosts');
         }
       }
 
@@ -5062,6 +5087,7 @@ export function registerRoutes(app: Express) {
           }
         } catch (err) {
           console.warn('[bots-overview] Latest generation fetch skipped:', err);
+          degradedPhases.push('latestGeneration');
         }
       }
 
@@ -5075,12 +5101,24 @@ export function registerRoutes(app: Express) {
       // BULLETPROOF: Get paper trade metrics from DATABASE (runner-independent)
       // This is the single source of truth for PAPER+ stage metrics
       const paperPlusBotIds = bots.filter(b => b.stage && b.stage !== 'TRIALS').map(b => b.id);
-      const dbPaperMetrics = paperPlusBotIds.length > 0 
-        ? await storage.getPaperTradeMetrics(paperPlusBotIds)
-        : new Map();
+      let dbPaperMetrics = new Map<string, any>();
+      try {
+        dbPaperMetrics = paperPlusBotIds.length > 0 
+          ? await storage.getPaperTradeMetrics(paperPlusBotIds)
+          : new Map();
+      } catch (err) {
+        console.warn('[bots-overview] PAPER_METRICS FAILED - returning empty map:', err);
+        degradedPhases.push('paperMetrics');
+      }
       
       // Also fetch live runner data for real-time unrealized PnL (requires active runner)
-      const livePnlMap = await paperRunnerService.getAllLivePnL();
+      let livePnlMap = new Map<string, any>();
+      try {
+        livePnlMap = await paperRunnerService.getAllLivePnL();
+      } catch (err) {
+        console.warn('[bots-overview] LIVE_PNL FAILED - returning empty map:', err);
+        degradedPhases.push('livePnl');
+      }
       
       const botsWithNow = bots.map(bot => {
         const accountData = botAccountMap.get(bot.id);
@@ -5208,7 +5246,8 @@ export function registerRoutes(app: Express) {
       if (shouldAbort()) return;
       
       const totalMs = Date.now() - requestStart;
-      console.log(`[bots-overview] COMPLETE bots=${bots.length} totalMs=${totalMs}`);
+      const isDegraded = degradedPhases.length > 0;
+      console.log(`[bots-overview] COMPLETE bots=${bots.length} totalMs=${totalMs} degraded=${isDegraded} phases=${degradedPhases.join(',') || 'none'}`);
       
       res.setHeader("x-db-ms", dbMs.toString());
       res.setHeader("x-row-count", bots.length.toString());
@@ -5221,6 +5260,9 @@ export function registerRoutes(app: Express) {
         serverTime: generatedAt,
         snapshotId,
         determinism: "VERIFIED",
+        // GRACEFUL DEGRADATION: Report which phases failed (always include array for frontend contract)
+        degraded: isDegraded,
+        degradedPhases: degradedPhases,
         // FRESHNESS CONTRACT: Frontend must validate age
         generatedAt,
         freshnessContract: {
