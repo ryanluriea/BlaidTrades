@@ -208,6 +208,9 @@ export const bots = pgTable("bots", {
   stage: text("stage").default("TRIALS"),
   currentGenerationId: uuid("current_generation_id"),
   archetypeId: uuid("archetype_id"),
+  // Explicit archetype name (canonical value from STRATEGY_ARCHETYPES)
+  // This is the source of truth - no more inferring from bot name
+  archetypeName: text("archetype_name"),
   strategyConfig: jsonb("strategy_config").default({}),
   riskConfig: jsonb("risk_config").default({}),
   healthScore: real("health_score").default(100),
