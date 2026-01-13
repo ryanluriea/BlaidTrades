@@ -111,3 +111,13 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - Example: Mean reversion bots resurrected when regime shifts to RANGE_BOUND
 - Runs every 60 minutes, resurrects up to 5 matching bots per scan
 - Resurrected bots return to TRIALS stage for re-evaluation
+
+**Schema-First Archetype Classification (Added Jan 2026):**
+- Industry-standard approach: archetypes now stored explicitly on bots table (`archetype_name` column)
+- Eliminates fragile name-based inference during backtest execution
+- Priority order: explicit archetypeName > strategyConfig.archetype > name inference (legacy fallback)
+- Automated backfill on startup populates legacy bots (239 bots migrated successfully)
+- Backfill features: batching (500/batch), unresolvable tracking, MAX_BATCHES safety limit
+- Bot creation paths in strategy-lab-engine now set archetypeName explicitly at creation time
+- Backtest executor checks bot.archetypeName first before falling back to inference
+- Files: `server/scheduler.ts` (runArchetypeBackfill), `server/backtest-executor.ts`, `server/strategy-lab-engine.ts`
