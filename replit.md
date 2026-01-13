@@ -55,6 +55,14 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - **Loading Performance Optimizations:** Fully optimistic AuthContext, cold/warm start optimizations, 5-minute verification cache, `ProtectedRoute` pattern, disabled `refetchOnWindowFocus`, persistent themed wrapper, and AuthContext session state caching.
 - **Progressive Data Loading:** Primary data loads first, secondary metrics defer via `requestIdleCallback` for Bots and Strategy Lab pages, with configured query client caching and global error boundaries.
 - **Cache Warming Infrastructure:** Background scheduler pre-computes bots-overview data for active users with a 25-second refresh interval, batched parallel processing, and connection pool rebalancing. Also includes Redis-backed cache for `/api/strategy-lab/candidates`.
+- **Institutional Cache Infrastructure (Netflix/Spotify Patterns):**
+    - **Schema Versioning:** `CACHE_SCHEMA_VERSION` in `cacheInfrastructure.ts` auto-invalidates IndexedDB cache on structure changes.
+    - **Zod Validation Before Hydration:** Validates cached data against schemas before React Query hydration, preventing malformed data from reaching components.
+    - **Cache Metrics Tracking:** Hit/miss/failure rates, hydration latency tracked via `window.__cacheInfra` for production debugging.
+    - **Quarantine Queue:** Failed hydrations stored for debugging without crashing the application.
+    - **Remote Kill-Switch:** `GET/POST /api/system/cache-control` allows Ops to disable client caching without redeploy. Durable persistence via PostgreSQL `system_settings` table with Redis cache layer.
+    - **Fail-Closed Behavior:** Database unavailability returns HTTP 503, triggering client-side fail-safe that skips IndexedDB hydration.
+    - **Strategy Lab Cache Exclusion:** Strategy Lab queries excluded from IndexedDB persistence to prevent black-screen crashes from stale cached data.
 - **Bot Generations Unique Constraint:** Added unique constraint on `(bot_id, generation_number)` to `bot_generations` table for `ON CONFLICT` inserts.
 - **CSP Google Fonts Fix:** Added `https://fonts.googleapis.com` to CSP `style-src` directive for proper font loading.
 

@@ -20,7 +20,7 @@ import { sendSms, verifyAwsConfig, maskPhoneNumber } from "./providers/sms/awsSn
 import { sendDiscord, verifyDiscordConfig, verifyDiscordConnection, VALID_CHANNELS, VALID_SEVERITIES } from "./providers/notify/discordWebhook";
 import { logActivityEvent, logDiscordNotification, logBotPromotion, logBotDemotion, logRunnerStarted, logRunnerRestarted, logJobTimeout } from "./activity-logger";
 import { activityEvents, strategyArchetypes, auditReports, backtestSessions, matrixRuns, matrixCells, botJobs, strategyCandidates, grokInjections, aiRequests } from "@shared/schema";
-import { pingRedis, isRedisConfigured } from "./redis";
+import { pingRedis, isRedisConfigured, getRedisClient } from "./redis";
 import { eq, desc, and, or, ilike, sql as drizzleSql, gte, lte, inArray } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { computeBotsNow, computeBotNow } from "./compute-bot-now";
@@ -620,6 +620,183 @@ export function registerRoutes(app: Express) {
       });
     } catch (err) {
       res.status(500).json({ error: "Failed to clear cache" });
+    }
+  });
+
+  // Remote cache kill-switch control - disable client caching without redeploy
+  // Durable persistence: PostgreSQL (primary), Redis (fast cache), memory (fallback)
+  // FAIL-SAFE: Return 503 when all stores unavailable so client activates fail-safe
+  const CACHE_KILL_SWITCH_KEY = "blaidagent:cache:kill-switch";
+  const CACHE_KILL_SWITCH_CATEGORY = "cache";
+  const CACHE_KILL_SWITCH_DB_KEY = "client_cache_disabled";
+  let cacheKillSwitchMemory: boolean | null = null; // null = never confirmed
+
+  // Helper: Read from database (most durable)
+  // Returns: { value: boolean, error: false } on success
+  //          { value: null, error: false } if no record exists
+  //          { value: null, error: true } on database error (MUST trigger fail-safe)
+  async function getKillSwitchFromDb(): Promise<{ value: boolean | null; error: boolean }> {
+    try {
+      const result = await db
+        .select({ value: schema.systemSettings.value })
+        .from(schema.systemSettings)
+        .where(
+          and(
+            eq(schema.systemSettings.category, CACHE_KILL_SWITCH_CATEGORY),
+            eq(schema.systemSettings.key, CACHE_KILL_SWITCH_DB_KEY)
+          )
+        )
+        .limit(1);
+      if (result.length > 0 && result[0].value !== null) {
+        return { value: (result[0].value as { enabled: boolean }).enabled === true, error: false };
+      }
+      return { value: null, error: false };
+    } catch (err) {
+      console.error("[CACHE_CONTROL] Database read FAILED - will trigger fail-safe:", err);
+      return { value: null, error: true };
+    }
+  }
+
+  // Helper: Write to database
+  async function setKillSwitchInDb(enabled: boolean, userId: string): Promise<boolean> {
+    try {
+      await db
+        .insert(schema.systemSettings)
+        .values({
+          category: CACHE_KILL_SWITCH_CATEGORY,
+          key: CACHE_KILL_SWITCH_DB_KEY,
+          value: { enabled },
+          description: "Client-side cache kill switch for emergency cache bypass",
+          lastUpdatedBy: userId,
+        })
+        .onConflictDoUpdate({
+          target: [schema.systemSettings.category, schema.systemSettings.key],
+          set: {
+            value: { enabled },
+            lastUpdatedAt: new Date(),
+            lastUpdatedBy: userId,
+          },
+        });
+      return true;
+    } catch (err) {
+      console.error("[CACHE_CONTROL] Database write failed:", err);
+      return false;
+    }
+  }
+
+  app.get("/api/system/cache-control", async (_req: Request, res: Response) => {
+    try {
+      let killSwitch = false;
+      let source = "default";
+      
+      // 1. Try database first (most durable)
+      const dbResult = await getKillSwitchFromDb();
+      
+      if (dbResult.error) {
+        // FAIL-CLOSED: Database unavailable - return 503 so client activates fail-safe
+        console.error("[CACHE_CONTROL] Database error - returning 503 fail-safe");
+        return res.status(503).json({ 
+          killSwitch: true, 
+          source: "fail-closed-db-error",
+          message: "Durable store unavailable - client must skip hydration",
+          timestamp: new Date().toISOString() 
+        });
+      }
+      
+      if (dbResult.value !== null) {
+        killSwitch = dbResult.value;
+        source = "database";
+        cacheKillSwitchMemory = killSwitch;
+      } else {
+        // 2. No value in database yet - try Redis as fallback (for backwards compat)
+        try {
+          const redis = await getRedisClient();
+          if (redis) {
+            const redisValue = await redis.get(CACHE_KILL_SWITCH_KEY);
+            if (redisValue !== null) {
+              killSwitch = redisValue === "true";
+              source = "redis";
+              cacheKillSwitchMemory = killSwitch;
+            } else if (cacheKillSwitchMemory !== null) {
+              // 3. Use memory if available
+              killSwitch = cacheKillSwitchMemory;
+              source = "memory";
+            }
+          }
+        } catch {
+          // Redis failed, but database succeeded - use memory or default
+          if (cacheKillSwitchMemory !== null) {
+            killSwitch = cacheKillSwitchMemory;
+            source = "memory-fallback";
+          }
+        }
+      }
+      
+      res.json({ 
+        killSwitch, 
+        source, 
+        timestamp: new Date().toISOString() 
+      });
+    } catch (err) {
+      console.error("[CACHE_CONTROL] Total failure:", err);
+      // FAIL-CLOSED: Any unexpected error triggers fail-safe
+      res.status(503).json({ 
+        killSwitch: true, 
+        source: "fail-closed-503",
+        message: "Cache control unavailable - client must skip hydration",
+        timestamp: new Date().toISOString() 
+      });
+    }
+  });
+
+  app.post("/api/system/cache-control", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { killSwitch } = req.body || {};
+      if (typeof killSwitch !== "boolean") {
+        return res.status(400).json({ error: "killSwitch must be a boolean" });
+      }
+      
+      const userId = req.session?.userId || "system";
+      
+      // MUST persist to database (durable store) - fail if database write fails
+      const dbPersisted = await setKillSwitchInDb(killSwitch, userId);
+      
+      if (!dbPersisted) {
+        console.error("[CACHE_CONTROL] Database write FAILED - returning 503");
+        return res.status(503).json({ 
+          success: false,
+          error: "Failed to persist kill-switch to durable storage",
+          message: "The kill-switch was NOT saved. Retry or contact support.",
+        });
+      }
+      
+      cacheKillSwitchMemory = killSwitch;
+      
+      // Also persist to Redis for faster reads (optional - database is authoritative)
+      let redisPersisted = false;
+      try {
+        const redis = await getRedisClient();
+        if (redis) {
+          await redis.set(CACHE_KILL_SWITCH_KEY, killSwitch.toString());
+          redisPersisted = true;
+        }
+      } catch (err) {
+        console.warn("[CACHE_CONTROL] Redis persist failed (non-fatal):", err);
+      }
+      
+      console.info(`[CACHE_CONTROL] Kill switch set to ${killSwitch} by ${userId} (db=${dbPersisted}, redis=${redisPersisted})`);
+      res.json({
+        success: true,
+        killSwitch,
+        message: killSwitch 
+          ? "Cache DISABLED - clients will skip IndexedDB on next load"
+          : "Cache ENABLED - clients will resume IndexedDB persistence",
+        persisted: "database",
+        redisCached: redisPersisted,
+      });
+    } catch (err) {
+      console.error("[CACHE_CONTROL] POST error:", err);
+      res.status(500).json({ error: "Failed to update cache control" });
     }
   });
 

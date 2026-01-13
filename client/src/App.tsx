@@ -3,7 +3,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { get, set, del } from "idb-keyval";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -15,6 +14,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/queryClient";
 import { Spinner } from "@/components/ui/spinner";
+import { institutionalPersister, isCacheKillSwitchActive, CACHE_SCHEMA_VERSION } from "@/lib/cacheInfrastructure";
 
 import Login from "@/pages/Login";
 import Bots from "@/pages/Bots";
@@ -63,191 +63,11 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LazyFallback />}>{children}</Suspense>;
 }
 
-const IDB_CACHE_KEY = 'blaidagent-query-cache-v2';
+const persister = typeof window !== "undefined" ? institutionalPersister : undefined;
 
-let idbAvailable: boolean | null = null;
-let idbCheckPromise: Promise<boolean> | null = null;
-
-function initIdbCheck(): Promise<boolean> {
-  if (idbAvailable !== null) return Promise.resolve(idbAvailable);
-  if (idbCheckPromise) return idbCheckPromise;
-  
-  idbCheckPromise = (async () => {
-    try {
-      const testKey = '__idb_test__';
-      await set(testKey, 'test');
-      await del(testKey);
-      idbAvailable = true;
-    } catch {
-      idbAvailable = false;
-    }
-    return idbAvailable;
-  })();
-  
-  return idbCheckPromise;
+if (typeof window !== "undefined") {
+  console.info(`[CACHE_INFRA] Schema version: ${CACHE_SCHEMA_VERSION}, Kill switch: ${isCacheKillSwitchActive() ? "ACTIVE" : "off"}`);
 }
-
-if (typeof window !== 'undefined') {
-  initIdbCheck();
-}
-
-let idbFallbackLogged = false;
-
-function isEmptyObject(obj: any): boolean {
-  return obj && typeof obj === 'object' && Object.keys(obj).length === 0;
-}
-
-function normalizeRegimeAdjustment(obj: any): any {
-  if (obj === null || obj === undefined) return null;
-  if (typeof obj !== 'object') return null;
-  if (isEmptyObject(obj)) return null;
-  const regimeMatch = obj.regimeMatch ?? obj.regime_match;
-  if (regimeMatch === undefined || regimeMatch === null) return null;
-  return {
-    originalScore: obj.originalScore ?? obj.original_score ?? 0,
-    adjustedScore: obj.adjustedScore ?? obj.adjusted_score ?? 0,
-    regimeBonus: obj.regimeBonus ?? obj.regime_bonus ?? 0,
-    regimeMatch: regimeMatch,
-    reason: obj.reason ?? '',
-    currentRegime: obj.currentRegime ?? obj.current_regime ?? 'UNKNOWN',
-  };
-}
-
-function normalizeCandidate(candidate: any): any {
-  if (!candidate || typeof candidate !== 'object') return candidate;
-  const clone = { ...candidate };
-  
-  if ('regimeAdjustment' in clone) {
-    clone.regimeAdjustment = normalizeRegimeAdjustment(clone.regimeAdjustment);
-  }
-  if ('regime_adjustment' in clone) {
-    clone.regime_adjustment = normalizeRegimeAdjustment(clone.regime_adjustment);
-  }
-  
-  const nullableEmptyFields = [
-    'linkedBot', 'linked_bot',
-    'qcVerification', 'qc_verification',
-    'explainersJson', 'explainers_json',
-    'plainLanguageSummaryJson', 'plain_language_summary_json',
-    'reasoning_json', 'reasoningJson',
-    'evidence_json', 'evidenceJson',
-    'capital_sim_json', 'capitalSimJson',
-    'expected_metrics_json', 'expectedMetricsJson',
-    'ai_usage_json', 'aiUsageJson',
-    'genetic_traits', 'geneticTraits',
-  ];
-  
-  for (const field of nullableEmptyFields) {
-    if (field in clone && isEmptyObject(clone[field])) {
-      clone[field] = null;
-    }
-  }
-  
-  if ('scores' in clone && clone.scores && typeof clone.scores === 'object') {
-    if ('aggregate' in clone.scores && isEmptyObject(clone.scores.aggregate)) {
-      clone.scores = { ...clone.scores, aggregate: null };
-    }
-  }
-  if ('blueprint' in clone && clone.blueprint && typeof clone.blueprint === 'object') {
-    if (isEmptyObject(clone.blueprint)) {
-      clone.blueprint = { name: null, archetype: null };
-    }
-  }
-  
-  return clone;
-}
-
-function normalizeCandidateArray(arr: any): any[] {
-  if (!Array.isArray(arr)) return arr;
-  return arr.map(normalizeCandidate);
-}
-
-function normalizeCacheData(client: any): any {
-  if (!client?.clientState?.queries) return client;
-  
-  try {
-    const clonedClient = JSON.parse(JSON.stringify(client));
-    
-    for (const query of clonedClient.clientState.queries) {
-      const keyFirst = query?.queryKey?.[0];
-      const isStrategyLabQuery = 
-        (typeof keyFirst === 'string' && (keyFirst.includes('strategy-lab') || keyFirst.includes('strategy-candidates'))) ||
-        (Array.isArray(query?.queryKey) && query.queryKey.some((k: any) => 
-          typeof k === 'string' && (k.includes('strategy-lab') || k.includes('strategy-candidates'))
-        ));
-      
-      if (!isStrategyLabQuery) continue;
-      
-      const stateData = query?.state?.data;
-      if (!stateData) continue;
-      
-      if (Array.isArray(stateData)) {
-        query.state.data = normalizeCandidateArray(stateData);
-      } else if (stateData?.pages && Array.isArray(stateData.pages)) {
-        query.state.data.pages = stateData.pages.map((page: any) => {
-          if (Array.isArray(page)) return normalizeCandidateArray(page);
-          if (page?.data && Array.isArray(page.data)) {
-            return { ...page, data: normalizeCandidateArray(page.data) };
-          }
-          return page;
-        });
-      } else if (stateData?.data && Array.isArray(stateData.data)) {
-        query.state.data.data = normalizeCandidateArray(stateData.data);
-      } else if (typeof stateData === 'object') {
-        query.state.data = normalizeCandidate(stateData);
-      }
-    }
-    return clonedClient;
-  } catch {
-    return client;
-  }
-}
-
-const idbPersister = {
-  persistClient: async (client: any) => {
-    const useIdb = idbAvailable ?? await initIdbCheck();
-    if (useIdb) {
-      try {
-        await set(IDB_CACHE_KEY, client);
-        return;
-      } catch {
-        idbAvailable = false;
-      }
-    }
-    try {
-      localStorage.setItem(IDB_CACHE_KEY, JSON.stringify(client));
-      if (!idbFallbackLogged && typeof console !== 'undefined') {
-        console.debug('[CACHE] Using localStorage persister (IndexedDB unavailable in this context)');
-        idbFallbackLogged = true;
-      }
-    } catch {}
-  },
-  restoreClient: async () => {
-    const useIdb = idbAvailable ?? await initIdbCheck();
-    try {
-      let cached;
-      if (useIdb) {
-        cached = await get(IDB_CACHE_KEY);
-      }
-      if (!cached) {
-        const lsData = localStorage.getItem(IDB_CACHE_KEY);
-        if (lsData) cached = JSON.parse(lsData);
-      }
-      return cached ? normalizeCacheData(cached) : undefined;
-    } catch {
-      return undefined;
-    }
-  },
-  removeClient: async () => {
-    try {
-      const useIdb = idbAvailable ?? await initIdbCheck();
-      if (useIdb) await del(IDB_CACHE_KEY);
-      localStorage.removeItem(IDB_CACHE_KEY);
-    } catch {}
-  },
-};
-
-const persister = typeof window !== 'undefined' ? idbPersister : undefined;
 
 const App = () => (
   <PersistQueryClientProvider
