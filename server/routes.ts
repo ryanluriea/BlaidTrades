@@ -4182,8 +4182,8 @@ export function registerRoutes(app: Express) {
       // Build query for targeted bots
       let botsQuery;
       if (botIds && Array.isArray(botIds) && botIds.length > 0) {
-        // Format as PostgreSQL array literal
-        const botIdArray = `{${botIds.join(',')}}`;
+        // Format as PostgreSQL array literal with double-quoted UUIDs (required for hyphens)
+        const botIdArray = `{${botIds.map((id: string) => `"${id}"`).join(',')}}`;
         botsQuery = await db.execute(sql`
           SELECT id, name, symbol, stage, metrics_reset_at 
           FROM bots 
@@ -4305,7 +4305,8 @@ export function registerRoutes(app: Express) {
       // Get target bots
       let botsQuery;
       if (botIds && Array.isArray(botIds) && botIds.length > 0) {
-        const botIdArray = `{${botIds.join(',')}}`;
+        // Format as PostgreSQL array literal with double-quoted UUIDs (required for hyphens)
+        const botIdArray = `{${botIds.map((id: string) => `"${id}"`).join(',')}}`;
         botsQuery = await db.execute(sql`
           SELECT id, name, strategy_config 
           FROM bots 
