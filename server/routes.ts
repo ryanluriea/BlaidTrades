@@ -13941,11 +13941,13 @@ export function registerRoutes(app: Express) {
       
       if (candidateIds.length > 0) {
         try {
+          // Format as PostgreSQL array literal with double-quoted UUIDs (required for hyphens)
+          const candidateIdArray = `{${candidateIds.map((id: string) => `"${id}"`).join(',')}}`;
           const qcResult = await db.execute(sql`
             SELECT DISTINCT ON (candidate_id) 
               candidate_id, status, badge_state, qc_score, finished_at
             FROM qc_verifications
-            WHERE candidate_id = ANY(${candidateIds}::uuid[])
+            WHERE candidate_id = ANY(${candidateIdArray}::uuid[])
             ORDER BY candidate_id, queued_at DESC
           `);
           
@@ -14046,6 +14048,8 @@ export function registerRoutes(app: Express) {
         // Batch fetch all bots and metrics in one query
         let botDataMap = new Map<string, any>();
         if (candidateIds.length > 0) {
+          // Format as PostgreSQL array literal with double-quoted UUIDs (required for hyphens)
+          const botIdArray = `{${candidateIds.map((id: string) => `"${id}"`).join(',')}}`;
           const botDataResult = await db.execute(sql`
             SELECT 
               b.id, b.name, b.stage, b.status, b.symbol, b.health_score, b.created_at,
@@ -14059,7 +14063,7 @@ export function registerRoutes(app: Express) {
               ORDER BY updated_at DESC NULLS LAST
               LIMIT 1
             ) bmr ON true
-            WHERE b.id = ANY(${candidateIds}::uuid[])
+            WHERE b.id = ANY(${botIdArray}::uuid[])
           `);
           
           for (const row of botDataResult.rows as any[]) {

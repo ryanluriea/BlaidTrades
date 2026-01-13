@@ -1459,6 +1459,8 @@ class PaperRunnerServiceImpl {
         console.warn(`[PAPER_RUNNER_SERVICE] trace_id=${traceId} RECONCILING ${result.rows.length} open trades for bot=${botId.slice(0,8)} - closing ${result.rows.length - 1} orphans`);
         
         const orphanIds = result.rows.slice(1).map((r: any) => r.id);
+        // Format as PostgreSQL array literal with double-quoted UUIDs (required for hyphens)
+        const orphanIdArray = `{${orphanIds.map((id: string) => `"${id}"`).join(',')}}`;
         await db.execute(sql`
           UPDATE paper_trades
           SET status = 'CLOSED',
@@ -1466,7 +1468,7 @@ class PaperRunnerServiceImpl {
               exit_time = NOW(),
               pnl = 0,
               exit_reason_code = 'ORPHAN_RECONCILE'
-          WHERE id = ANY(${orphanIds}::uuid[])
+          WHERE id = ANY(${orphanIdArray}::uuid[])
         `);
         
         await logActivityEvent({
