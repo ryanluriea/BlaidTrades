@@ -24,12 +24,12 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - Strategy Lab displays Confidence % and Uniqueness % as badges.
 
 **Technical Implementations & System Design:**
-- **Bot Lifecycle Management:** Supports five stages (LAB, PAPER, SHADOW, CANARY, LIVE) with institutional promotion gates and an autonomous promotion engine.
+- **Bot Lifecycle Management:** Supports five stages with institutional promotion gates and an autonomous promotion engine.
 - **Governance & Compliance:** Features a Maker-Checker approval system, immutable audit logs, kill switch functionality, and detailed health monitoring.
 - **Data Management:** PostgreSQL with Drizzle ORM, three-tier persistent bar caching, and real-time P&L infrastructure via WebSockets.
-- **Core Features:** Local session-based authentication with `requireAuth` middleware across all user-data endpoints, `sameSite: "lax"` cookies for proxy compatibility, RESTful API, bot CRUD, asynchronous job queuing, data isolation, Discord notifications, full backtest executor, autonomy loop, signal fusion, and flexible session architecture.
+- **Core Features:** Local session-based authentication, RESTful API, bot CRUD, asynchronous job queuing, data isolation, Discord notifications, full backtest executor, autonomy loop, signal fusion, and flexible session architecture.
 - **Self-Healing Infrastructure:** Incorporates Circuit Breaker Pattern, Self-Healing Worker, recovery policies, Health Watchdog, audit trails, per-job-type timeouts, and startup schema validation, including an AI Cascade Auto-Recovery system.
-- **Production Resilience:** Includes security headers, configurable infrastructure settings, rule parser per-direction fallback with confidence scoring, canonical archetype normalization, memory leak prevention, idempotency key system, graceful degradation with cache fallbacks, circuit breaker for backup services, indicator validation layer, exit conditions pipeline, auto-promotion risk defaults, session mode alias normalization, ensuring fresh QC metrics fetching, bot creation schema alignment, and **graceful degradation for /api/bots-overview** with 11 try/catch-protected phases returning partial data + degradedPhases observability instead of HTTP 500.
+- **Production Resilience:** Includes security headers, configurable infrastructure settings, rule parser per-direction fallback with confidence scoring, canonical archetype normalization, memory leak prevention, idempotency key system, graceful degradation with cache fallbacks, circuit breaker for backup services, indicator validation layer, exit conditions pipeline, auto-promotion risk defaults, session mode alias normalization, ensuring fresh QC metrics fetching, bot creation schema alignment, and graceful degradation for `/api/bots-overview` with partial data and observability.
 - **Autonomous Infrastructure:** Designed for zero-manual-intervention operations including Memory Sentinel, Credential Lifecycle Management, Risk Engine Self-Test, Proof-of-Use Integration Tracking, and a Perplexity Deep Research Engine for autonomous strategy generation.
 - **ML/RL Intelligence Infrastructure:**
     - **Machine Learning Alpha Models:** Feature engineering (32+ technical indicators), Gradient Boosting Classifier, ML Signal Source, Model Retraining Scheduler with drift detection.
@@ -39,12 +39,24 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
     - **Risk Manager:** VaR calculations, Expected Shortfall, Sector Exposure, Concentration Metrics, and dynamic risk limits with an enforcement engine.
 - **Grok Autonomous Learning System:** Closed-loop learning from bot performance feedback for auto-evolution, supported by a Full Spectrum Research Orchestrator for concurrent research.
 - **Cloud Readiness:** Containerized with Docker and includes Terraform configurations for AWS (ECS Fargate, Aurora Serverless v2, ElastiCache Redis, ALB) and Render Blueprint.
-- **Institutional Latency & Execution Infrastructure:** Features a worker thread pool for offloading CPU-intensive tasks, latency tracker for monitoring, FIX Protocol Adapter for industry-standard connectivity, execution quality metrics (TCA, fill ratio, implementation shortfall, market impact), and enhanced TWAP/VWAP execution algorithms.
+- **Institutional Latency & Execution Infrastructure:** Features a worker thread pool, latency tracker, FIX Protocol Adapter, execution quality metrics, and enhanced TWAP/VWAP execution algorithms.
 - **Institutional Tick Data Infrastructure:** Includes a high-performance tick ingestion service with nanosecond precision timestamps, dedicated tables for trade ticks, quote ticks, and order book snapshots, gap detection and logging, and ingestion metrics.
-- **Fail-Fast Validators:** Implements "fail-closed" data integrity patterns with validation severity levels (SEV-0, SEV-1, SEV-2) for risk configuration, promotion metrics, archetypes, session modes, symbols, timeframes, backtest errors, batch metrics, and fallback rates.
-- **Database Migrations:** Utilizes an idempotent pre-deploy migration script (`scripts/migrate-enums.ts`) to safely add missing PostgreSQL enum values.
-- **Testing Infrastructure:** Comprehensive unit tests cover AST rule parser, QC optimization (grid generation, result ranking, parameter sensitivity, walk-forward analysis, verification gates), and QC monitoring (parse method recording, verification gate outcomes, optimization metrics).
-- **QC Badge Hydration:** QC verification status is batch-fetched and hydrated directly on strategy candidates during API response, ensuring TRIALS candidates show QC badges even when older than the 200-verification limit.
+- **Fail-Fast Validators:** Implements "fail-closed" data integrity patterns with validation severity levels (SEV-0, SEV-1, SEV-2) for critical configurations and metrics.
+- **Database Migrations:** Utilizes an idempotent pre-deploy migration script to safely add missing PostgreSQL enum values.
+- **Testing Infrastructure:** Comprehensive unit tests cover AST rule parser, QC optimization (grid generation, result ranking, parameter sensitivity, walk-forward analysis, verification gates), and QC monitoring.
+- **QC Badge Hydration:** QC verification status is batch-fetched and hydrated directly on strategy candidates during API response.
+- **Redis Integration:** Implements Redis-backed caching for `/api/bots-overview` and rate limiting with memory fallback.
+- **Observability:** Includes Prometheus metrics endpoint, OpenTelemetry-compatible tracing, and structured logging.
+- **Security:** Input sanitization module.
+- **Monitoring:** Periodic metrics logging, health endpoints (`/healthz`, `/readyz`, `/api/health`), and a self-healing health watchdog for cache management.
+- **Fleet Governor:** Automated fleet size management with performance-based demotion to enforce bot cap limits, configurable per-stage caps and demotion settings.
+- **Regime Resurrection Detector:** Autonomous service that brings archived bots back to life when market regimes favor their archetype, based on archetype-to-regime affinity mapping.
+- **Schema-First Archetype Classification:** Archetypes are stored explicitly on the bots table, eliminating fragile name-based inference.
+- **Loading Performance Optimizations:** Fully optimistic AuthContext, cold/warm start optimizations, 5-minute verification cache, `ProtectedRoute` pattern, disabled `refetchOnWindowFocus`, persistent themed wrapper, and AuthContext session state caching.
+- **Progressive Data Loading:** Primary data loads first, secondary metrics defer via `requestIdleCallback` for Bots and Strategy Lab pages, with configured query client caching and global error boundaries.
+- **Cache Warming Infrastructure:** Background scheduler pre-computes bots-overview data for active users with a 25-second refresh interval, batched parallel processing, and connection pool rebalancing. Also includes Redis-backed cache for `/api/strategy-lab/candidates`.
+- **Bot Generations Unique Constraint:** Added unique constraint on `(bot_id, generation_number)` to `bot_generations` table for `ON CONFLICT` inserts.
+- **CSP Google Fonts Fix:** Added `https://fonts.googleapis.com` to CSP `style-src` directive for proper font loading.
 
 ## External Dependencies
 -   **PostgreSQL:** Primary database.
@@ -63,99 +75,3 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 -   **Broker APIs:** Live trading execution (Ironbeam, Tradovate).
 -   **Redis:** Optional cache for performance enhancements.
 -   **Google Drive API:** Used for cloud backup and restore functionality.
-
-## Industry Standards Infrastructure (Added Jan 2026)
-
-**Phase 1 - Production Stability:**
-- Redis-backed caching for `/api/bots-overview` with stale-while-revalidate semantics (30s fresh, 120s stale, 300s max TTL)
-- Redis-backed rate limiting with memory fallback (`server/cache/redis-rate-limiter.ts`)
-- Integration tests for bots-overview endpoint (`server/tests/integration/bots-overview.test.ts`)
-
-**Phase 2 - Code Quality:**
-- Correlation ID middleware for request tracing (`server/middleware/correlation-id.ts`)
-- Validation middleware with Zod schemas (`server/middleware/validation.ts`)
-- Structured logging with request completion tracking
-
-**Phase 3 - Observability:**
-- Prometheus metrics endpoint with RED metrics (`server/observability/metrics.ts`)
-- OpenTelemetry-compatible tracing (`server/observability/tracing.ts`)
-- CI/CD pipeline configuration (`.github/workflows/ci.yml`)
-
-**Phase 4 - Security & Documentation:**
-- Input sanitization module (`server/security/input-sanitizer.ts`)
-- API reference documentation (`docs/api-reference.md`)
-- Operations runbook (`docs/operations-runbook.md`)
-
-**Lightweight Monitoring (Added Jan 2026):**
-- Periodic metrics logging every 60 seconds with cache hit rates, request counts, error counts
-- Cache metrics wired to bots-overview Redis cache (hit/miss tracking)
-- Health endpoints: `/healthz` (liveness), `/readyz` (readiness with DB/Redis check), `/api/health` (detailed)
-- Self-healing health watchdog auto-clears cache when hit rate < 30% for 2 consecutive checks
-- Infrastructure Health panel in Systems Status dropdown (DB/Redis/Cache status with color indicators)
-- Manual cache heal button and `/api/system/quick-health` endpoint for UI health data
-
-**Fleet Governor (Added Jan 2026):**
-- Automated fleet size management with performance-based demotion to enforce bot cap limits
-- Per-stage caps: Global (default 100), Trials (50), Paper (25), Live (10)
-- Composite ranking formula: Sharpe + Win Rate + Risk-Adjusted PnL - Drawdown
-- Demotion settings: Grace period (1-168 hours), minimum observation trades (5-100), policy (ARCHIVE/RECYCLE)
-- UI: Fleet Governor popover in Strategy Lab header with settings for all caps and demotion parameters
-- Backend: `setFleetGovernorSettings()` in strategy-lab-engine.ts with database persistence via app_settings
-- Designed for autonomous cost optimization - enabled by default
-- Default demotion policy: RECYCLE (send back for evolution before archiving)
-
-**Regime Resurrection Detector (Added Jan 2026):**
-- Autonomous service that brings archived bots back to life when market regimes favor their archetype
-- Archetype-to-regime affinity mapping for all 24 strategy archetypes
-- Favorable regimes: VOLATILITY_SPIKE, VOLATILITY_COMPRESSION, TRENDING_STRONG, RANGE_BOUND
-- Example: Mean reversion bots resurrected when regime shifts to RANGE_BOUND
-- Runs every 60 minutes, resurrects up to 5 matching bots per scan
-- Resurrected bots return to TRIALS stage for re-evaluation
-
-**Schema-First Archetype Classification (Added Jan 2026):**
-- Industry-standard approach: archetypes now stored explicitly on bots table (`archetype_name` column)
-- Eliminates fragile name-based inference during backtest execution
-- Priority order: explicit archetypeName > strategyConfig.archetype > name inference (legacy fallback)
-- Automated backfill on startup populates legacy bots (239 bots migrated successfully)
-- Backfill features: batching (500/batch), unresolvable tracking, MAX_BATCHES safety limit
-- Bot creation paths in strategy-lab-engine now set archetypeName explicitly at creation time
-- Backtest executor checks bot.archetypeName first before falling back to inference
-- Files: `server/scheduler.ts` (runArchetypeBackfill), `server/backtest-executor.ts`, `server/strategy-lab-engine.ts`
-
-**Loading Performance & Black Screen Fixes (Added Jan 2026):**
-- **Fully Optimistic AuthContext:** Never blocks navigation - `loading=false` and `isVerified=true` immediately
-- **Cold start optimization:** No cached user redirects to login instantly (no skeleton wait)
-- **Warm start optimization:** Cached user renders immediately, server verifies in background
-- **5-minute verification cache:** Fresh sessions skip server round-trip entirely
-- **ProtectedRoute pattern:** Trust cache immediately, only block if explicitly loading
-- Disabled `refetchOnWindowFocus` globally to prevent tab-switch flicker (stale-while-revalidate pattern)
-- Persistent themed wrapper around all routes ensures `bg-background` always visible
-- AuthContext caches session state with SSR-safe localStorage guards and backward-compatible migration
-
-**Progressive Data Loading (Added Jan 2026):**
-- **Bots page:** Primary data (bot overview) loads first, secondary metrics defer 100ms via `requestIdleCallback`
-- **Strategy Lab:** Same pattern - skeleton with cached data immediately, heavy queries deferred
-- **Query client config:** 5-30 minute stale times, instant cache reads, silent background refresh
-- **Error boundaries:** Global ErrorBoundary wraps app for graceful degradation with themed fallback UI
-- Files: `client/src/contexts/AuthContext.tsx`, `client/src/pages/Bots.tsx`, `client/src/components/bots/views/StrategyLabView.tsx`
-
-**Cache Warming Infrastructure (Added Jan 2026):**
-- **Cache Warmer Worker:** Background scheduler pre-computes bots-overview data for ALL users with active bots
-- **25-second refresh interval:** Keeps cache warm before 30s TTL expires, ensuring users never hit cold cache
-- **Batched parallel processing:** Processes users in batches of 10 with Promise.all for efficiency
-- **Skip optimization:** Skips users with cache < 20s old to avoid redundant work
-- **Connection pool rebalancing:** Web pool increased from 6→12 connections, worker pool reduced from 12→8 to prioritize user-facing requests over background jobs
-- **Startup pre-warming:** Runs 3s after startup to warm cache before first user request
-- Files: `server/scheduler.ts` (runCacheWarmerWorker, cacheWarmerInterval), `server/db.ts` (POOL_WEB_MAX, POOL_WORKER_MAX)
-
-**Bot Generations Unique Constraint (Added Jan 2026):**
-- Added unique constraint on `(bot_id, generation_number)` to `bot_generations` table
-- Required for `ON CONFLICT` inserts in evolution worker
-- **PRODUCTION ACTION REQUIRED:** Run this SQL on Neon production database:
-  ```sql
-  ALTER TABLE bot_generations ADD CONSTRAINT bot_generations_bot_id_generation_number_unique UNIQUE (bot_id, generation_number);
-  ```
-
-**CSP Google Fonts Fix (Added Jan 2026):**
-- Added `https://fonts.googleapis.com` to CSP `style-src` directive
-- Allows JetBrains Mono and Inter font stylesheets to load properly
