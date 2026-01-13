@@ -10,6 +10,8 @@
 | `/readyz` | Readiness probe (DB/Redis) | `200` with dependencies status |
 | `/api/health` | Detailed health with memory stats | JSON with memory, uptime, build info |
 | `/api/version` | Build info | JSON with version, buildSha, environment |
+| `/api/system/quick-health` | UI health panel data | JSON with DB/Redis/cache status and self-healing info |
+| `POST /api/system/heal-cache` | Manual cache clear (requires auth) | Clears all bots-overview cache entries |
 
 ### Key Metrics (Logged Every 60 Seconds)
 
@@ -110,4 +112,23 @@ All requests include a correlation ID for tracing:
 To trace a request through logs:
 ```
 grep "correlationId=YOUR_ID" logs
+```
+
+## Self-Healing
+
+The platform includes an automatic self-healing watchdog that:
+- Monitors cache hit rate every 2 minutes
+- Auto-clears cache when hit rate drops below 30% for 2 consecutive checks
+- Logs all healing actions with `[HEALTH_WATCHDOG]` prefix
+
+### Manual Cache Healing
+
+If the dashboard is slow or showing stale data:
+1. Click the Systems Status (CPU icon) in the header
+2. Scroll to "Infrastructure Health" section
+3. Click "Clear Cache" button
+
+Or via API:
+```bash
+curl -X POST https://your-domain/api/system/heal-cache -H "Cookie: your-session-cookie"
 ```

@@ -5,7 +5,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Cpu, Play, Pause, Activity, Zap, Clock, Layers } from "lucide-react";
+import { Cpu, Play, Pause, Activity, Zap, Clock, Layers, Database, Server, RefreshCw, Heart } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -26,6 +26,7 @@ import {
   useSetGrokResearchDepth,
   useTriggerGrokResearch,
 } from "@/hooks/useGrokResearch";
+import { useQuickHealth, useHealCache } from "@/hooks/useQuickHealth";
 
 export function SystemsStatusDropdown({ className }: { className?: string }) {
   const { data: strategyLabState } = useStrategyLabAutonomousState();
@@ -38,6 +39,9 @@ export function SystemsStatusDropdown({ className }: { className?: string }) {
   const setDepth = useSetGrokResearchDepth();
   const triggerResearch = useTriggerGrokResearch();
   const toggleFullSpectrum = useToggleFullSpectrum();
+  
+  const { data: healthData, isLoading: healthLoading } = useQuickHealth();
+  const healCache = useHealCache();
 
   const strategyLabPlaying = strategyLabState?.isPlaying ?? false;
   const adaptiveMode = strategyLabState?.adaptiveMode ?? "BALANCED";
@@ -299,6 +303,89 @@ export function SystemsStatusDropdown({ className }: { className?: string }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </div>
+
+          <div className="border-t border-border/50 my-2" />
+          
+          <div className="px-2 py-1">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Infrastructure Health
+            </span>
+          </div>
+
+          <div className="px-2 py-2 rounded-md border border-border/50 bg-muted/30 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Database className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs">Database</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "w-2 h-2 rounded-full",
+                  healthData?.database.healthy ? "bg-emerald-500" : 
+                  healthData?.database.ok ? "bg-amber-500" : "bg-red-500"
+                )} />
+                <span className="text-[10px] text-muted-foreground">
+                  {healthData?.database.latencyMs ?? "..."}ms
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Server className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs">Redis</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "w-2 h-2 rounded-full",
+                  healthData?.redis.healthy ? "bg-emerald-500" : 
+                  healthData?.redis.ok ? "bg-amber-500" : "bg-zinc-500"
+                )} />
+                <span className="text-[10px] text-muted-foreground">
+                  {healthData?.redis.ok ? `${healthData?.redis.latencyMs}ms` : "N/A"}
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <RefreshCw className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs">Cache Hit Rate</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "w-2 h-2 rounded-full",
+                  healthData?.cache.healthy ? "bg-emerald-500" : "bg-amber-500"
+                )} />
+                <span className="text-[10px] text-muted-foreground">
+                  {healthData?.cache.hitRate ?? "..."}%
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/30">
+              <div className="flex items-center gap-1.5">
+                <Heart className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs">Self-Healing</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 text-[10px] px-2"
+                onClick={() => healCache.mutate()}
+                disabled={healCache.isPending}
+                data-testid="button-heal-cache"
+              >
+                {healCache.isPending ? "Healing..." : "Clear Cache"}
+              </Button>
+            </div>
+
+            {healthData?.selfHealing.lastAction && (
+              <div className="text-[10px] text-muted-foreground">
+                Last: {healthData.selfHealing.lastAction.action} ({new Date(healthData.selfHealing.lastAction.timestamp).toLocaleTimeString()})
+              </div>
+            )}
           </div>
         </div>
       </PopoverContent>

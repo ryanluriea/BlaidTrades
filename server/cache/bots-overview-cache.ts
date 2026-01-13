@@ -140,6 +140,30 @@ export async function invalidateBotsOverviewCache(userId: string): Promise<boole
 }
 
 /**
+ * Invalidate ALL cached bots overview entries (for self-healing)
+ */
+export async function invalidateAllBotsOverviewCache(): Promise<number> {
+  try {
+    const client = await getRedisClient();
+    if (!client) {
+      return 0;
+    }
+
+    const keys = await client.keys(`${CACHE_KEY_PREFIX}*`);
+    if (keys.length === 0) {
+      return 0;
+    }
+
+    await client.del(keys);
+    console.log(`[BOTS_CACHE] Invalidated ALL ${keys.length} cache entries (self-heal)`);
+    return keys.length;
+  } catch (err) {
+    console.warn('[BOTS_CACHE] InvalidateAll failed:', err);
+    return 0;
+  }
+}
+
+/**
  * Check if a background refresh is needed and not already in progress
  */
 const refreshInProgress = new Map<string, boolean>();

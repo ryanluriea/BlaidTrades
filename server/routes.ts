@@ -12,6 +12,7 @@ import { encryptSecret, decryptSecret, isEncryptionConfigured } from "./crypto-u
 import { checkRateLimit, resetRateLimit, getRateLimitKey } from "./rate-limiter";
 import { checkRateLimitRedis, resetRateLimitRedis, buildRateLimitKey } from "./cache/redis-rate-limiter";
 import { getCachedBotsOverview, setCachedBotsOverview } from "./cache/bots-overview-cache";
+import { healthWatchdog } from "./observability/health-watchdog";
 import { consumeTempToken, validateTempToken } from "./auth";
 import { requireAuth, tradingRateLimit, adminRateLimit, twoFactorRateLimit, csrfProtection } from "./security-middleware";
 import { sendSms, verifyAwsConfig, maskPhoneNumber } from "./providers/sms/awsSns";
@@ -532,6 +533,78 @@ export function registerRoutes(app: Express) {
       });
     } catch (err) {
       res.status(500).json({ error: "Failed to get latency stats" });
+    }
+  });
+
+  app.get("/api/system/quick-health", async (_req: Request, res: Response) => {
+    try {
+      const { metricsRegistry } = await import("./observability/metrics");
+      const summary = metricsRegistry.getSummary();
+      
+      const startDb = Date.now();
+      let dbOk = false;
+      try {
+        await db.execute(sql`SELECT 1`);
+        dbOk = true;
+      } catch {}
+      const dbLatencyMs = Date.now() - startDb;
+      
+      let redisOk = false;
+      const startRedis = Date.now();
+      try {
+        redisOk = await pingRedis();
+      } catch {}
+      const redisLatencyMs = Date.now() - startRedis;
+      
+      const cacheHits = summary.cacheHits ?? 0;
+      const cacheMisses = summary.cacheMisses ?? 0;
+      const cacheHitRate = summary.cacheHitRate ?? 0;
+      const cacheHealthy = cacheHitRate >= 50 || (cacheHits + cacheMisses) < 10;
+      const dbHealthy = dbOk && dbLatencyMs < 100;
+      const redisHealthy = redisOk && redisLatencyMs < 50;
+      
+      const overallStatus = dbHealthy && (redisHealthy || !redisOk) && cacheHealthy ? "healthy" : 
+                           dbOk ? "degraded" : "unhealthy";
+      
+      res.json({
+        status: overallStatus,
+        database: { ok: dbOk, latencyMs: dbLatencyMs, healthy: dbHealthy },
+        redis: { ok: redisOk, latencyMs: redisLatencyMs, healthy: redisHealthy },
+        cache: {
+          hits: cacheHits,
+          misses: cacheMisses,
+          hitRate: Math.round(cacheHitRate),
+          healthy: cacheHealthy,
+        },
+        metrics: {
+          httpRequests: summary.httpRequests ?? 0,
+          httpErrors: summary.httpErrors ?? 0,
+          errorRate: (summary.httpRequests ?? 0) > 0 ? Math.round(((summary.httpErrors ?? 0) / (summary.httpRequests ?? 1)) * 100) : 0,
+          activeBots: summary.activeBots ?? 0,
+          backtestsRunning: summary.backtestsRunning ?? 0,
+        },
+        selfHealing: {
+          enabled: true,
+          lastAction: healthWatchdog.getLastAction(),
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[QUICK_HEALTH] Error:", err);
+      res.status(500).json({ error: "Failed to get quick health" });
+    }
+  });
+
+  app.post("/api/system/heal-cache", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const result = await healthWatchdog.clearAllCaches();
+      res.json({ 
+        success: true, 
+        message: "Cache cleared",
+        details: result,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to clear cache" });
     }
   });
 

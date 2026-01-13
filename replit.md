@@ -90,3 +90,6 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - Periodic metrics logging every 60 seconds with cache hit rates, request counts, error counts
 - Cache metrics wired to bots-overview Redis cache (hit/miss tracking)
 - Health endpoints: `/healthz` (liveness), `/readyz` (readiness with DB/Redis check), `/api/health` (detailed)
+- Self-healing health watchdog auto-clears cache when hit rate < 30% for 2 consecutive checks
+- Infrastructure Health panel in Systems Status dropdown (DB/Redis/Cache status with color indicators)
+- Manual cache heal button and `/api/system/quick-health` endpoint for UI health data

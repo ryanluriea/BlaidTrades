@@ -250,6 +250,13 @@ if (isWorkerOnlyMode) {
         log(`[STARTUP] Failed to start metrics logging: ${err.message}`);
       });
       
+      // Start self-healing health watchdog (checks every 2 minutes)
+      import("./observability/health-watchdog").then(({ healthWatchdog }) => {
+        healthWatchdog.start();
+      }).catch(err => {
+        log(`[STARTUP] Failed to start health watchdog: ${err.message}`);
+      });
+      
       // Register WebSocket metrics with observability dashboard
       import("./ops/observabilityDashboard").then(({ registerWebSocketMetricsProvider }) => {
         registerWebSocketMetricsProvider(() => livePnLWebSocket.getMetrics());
