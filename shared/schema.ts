@@ -334,7 +334,9 @@ export const botGenerations = pgTable("bot_generations", {
   baselineBacktestId: uuid("baseline_backtest_id"), // Reference to the baseline backtest session
   baselineMetrics: jsonb("baseline_metrics"), // Snapshot of baseline metrics for comparison
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  botGenerationUnique: unique().on(table.botId, table.generationNumber),
+}));
 
 export const backtestSessions = pgTable("backtest_sessions", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -150,7 +150,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Allow inline scripts for React
-    "style-src 'self' 'unsafe-inline'", // Allow inline styles for CSS-in-JS
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // Allow inline styles for CSS-in-JS + Google Fonts
     "img-src 'self' data: https: blob:",
     "font-src 'self' https://fonts.gstatic.com",
     "connect-src 'self' wss: https:",

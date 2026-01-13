@@ -121,3 +121,22 @@ The platform utilizes a modular monolith architecture with a React frontend (Vit
 - Bot creation paths in strategy-lab-engine now set archetypeName explicitly at creation time
 - Backtest executor checks bot.archetypeName first before falling back to inference
 - Files: `server/scheduler.ts` (runArchetypeBackfill), `server/backtest-executor.ts`, `server/strategy-lab-engine.ts`
+
+**Loading Performance & Black Screen Fixes (Added Jan 2026):**
+- Industry-standard auth pattern: ProtectedRoute shows themed skeleton shell during auth verification, never blocking spinners or black screens
+- Disabled `refetchOnWindowFocus` globally to prevent tab-switch flicker (stale-while-revalidate pattern)
+- Persistent themed wrapper around all routes ensures `bg-background` always visible
+- AuthContext caches session state with SSR-safe localStorage guards and backward-compatible migration
+- Security: Protected content only renders after server confirms valid session
+
+**Bot Generations Unique Constraint (Added Jan 2026):**
+- Added unique constraint on `(bot_id, generation_number)` to `bot_generations` table
+- Required for `ON CONFLICT` inserts in evolution worker
+- **PRODUCTION ACTION REQUIRED:** Run this SQL on Neon production database:
+  ```sql
+  ALTER TABLE bot_generations ADD CONSTRAINT bot_generations_bot_id_generation_number_unique UNIQUE (bot_id, generation_number);
+  ```
+
+**CSP Google Fonts Fix (Added Jan 2026):**
+- Added `https://fonts.googleapis.com` to CSP `style-src` directive
+- Allows JetBrains Mono and Inter font stylesheets to load properly
