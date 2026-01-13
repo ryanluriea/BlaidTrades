@@ -3,14 +3,87 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Trading Bot Platform</title>
-    <meta name="description" content="Algorithmic Trading Bot Management Platform" />
-    <meta property="og:title" content="Trading Bot Platform" />
-    <meta property="og:description" content="Manage autonomous trading bots through multi-stage lifecycle" />
+    <title>BlaidTrades</title>
+    <meta name="description" content="Institutional-Grade Algorithmic Trading Platform" />
+    <meta property="og:title" content="BlaidTrades" />
+    <meta property="og:description" content="Autonomous trading bot management with multi-stage lifecycle" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <style>
+      /* Inline theme colors matching index.css - prevents flash */
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+      }
+      /* Dark theme (default) - matches .dark in index.css */
+      html.dark {
+        background-color: hsl(222, 47%, 6%);
+        color: hsl(210, 40%, 96%);
+      }
+      /* Light theme - matches :root in index.css */
+      html.light {
+        background-color: hsl(220, 20%, 97%);
+        color: hsl(220, 20%, 10%);
+      }
+      #initial-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.15s ease-out;
+      }
+      html.dark #initial-loader {
+        background-color: hsl(222, 47%, 6%);
+      }
+      html.light #initial-loader {
+        background-color: hsl(220, 20%, 97%);
+      }
+      #initial-loader.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .loader-spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(128, 128, 128, 0.3);
+        border-top-color: hsl(217, 91%, 60%);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+    <script>
+      // Apply saved theme class immediately - matches ThemeProvider logic
+      (function() {
+        var root = document.documentElement;
+        try {
+          var theme = localStorage.getItem('blaidagent-theme');
+          if (theme === 'light') {
+            root.classList.add('light');
+          } else if (theme === 'system') {
+            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            root.classList.add(prefersDark ? 'dark' : 'light');
+          } else {
+            root.classList.add('dark');
+          }
+        } catch(e) {
+          root.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
+    <div id="initial-loader">
+      <div class="loader-spinner"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="./src/main.tsx"></script>
   </body>

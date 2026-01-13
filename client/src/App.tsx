@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,32 +10,43 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ServerClockProvider } from "@/contexts/ServerClockContext";
 import { LivePnLProvider } from "@/contexts/LivePnLContext";
 import { StrategyLabDialogProvider } from "@/contexts/StrategyLabDialogContext";
+import { BootProvider } from "@/contexts/BootContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { queryClient } from "@/lib/queryClient";
+import { Spinner } from "@/components/ui/spinner";
 
-// Auth pages
 import Login from "@/pages/Login";
-import Signup from "@/pages/Signup";
-
-// App pages
 import Bots from "@/pages/Bots";
 import BotDetail from "@/pages/BotDetail";
-import BacktestDetail from "@/pages/BacktestDetail";
-import Accounts from "@/pages/Accounts";
-import AccountDetail from "@/pages/AccountDetail";
-import OperationsCenter from "@/pages/OperationsCenter";
-import StrategyLab from "@/pages/StrategyLab";
-import Tournaments from "@/pages/Tournaments";
-import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
-import MLModels from "@/pages/MLModels";
-import RLAgents from "@/pages/RLAgents";
-import Portfolio from "@/pages/Portfolio";
-import ExecutionQuality from "@/pages/ExecutionQuality";
-import AlphaDecay from "@/pages/AlphaDecay";
-import TradeCostAnalysis from "@/pages/TradeCostAnalysis";
-import CorrelationAnalysis from "@/pages/CorrelationAnalysis";
-import ResearchMonitor from "@/pages/ResearchMonitor";
+
+const StrategyLab = lazy(() => import("@/pages/StrategyLab"));
+const Tournaments = lazy(() => import("@/pages/Tournaments"));
+const OperationsCenter = lazy(() => import("@/pages/OperationsCenter"));
+const BacktestDetail = lazy(() => import("@/pages/BacktestDetail"));
+const Accounts = lazy(() => import("@/pages/Accounts"));
+const AccountDetail = lazy(() => import("@/pages/AccountDetail"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const MLModels = lazy(() => import("@/pages/MLModels"));
+const RLAgents = lazy(() => import("@/pages/RLAgents"));
+const Portfolio = lazy(() => import("@/pages/Portfolio"));
+const ExecutionQuality = lazy(() => import("@/pages/ExecutionQuality"));
+const AlphaDecay = lazy(() => import("@/pages/AlphaDecay"));
+const TradeCostAnalysis = lazy(() => import("@/pages/TradeCostAnalysis"));
+const CorrelationAnalysis = lazy(() => import("@/pages/CorrelationAnalysis"));
+const ResearchMonitor = lazy(() => import("@/pages/ResearchMonitor"));
+
+function LazyFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Spinner className="h-8 w-8" />
+    </div>
+  );
+}
+
+function LazyRoute({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<LazyFallback />}>{children}</Suspense>;
+}
 
 const IDB_CACHE_KEY = 'blaidagent-query-cache-v2';
 
@@ -53,7 +65,6 @@ async function checkIdbAvailability(): Promise<boolean> {
   return idbAvailable;
 }
 
-// Track if we've already logged the localStorage fallback (to avoid spamming)
 let idbFallbackLogged = false;
 
 const idbPersister = {
@@ -67,11 +78,8 @@ const idbPersister = {
         idbAvailable = false;
       }
     }
-    // IndexedDB not available (common in embedded iframes/cross-origin contexts)
-    // Gracefully fallback to localStorage - this is expected behavior, not an error
     try {
       localStorage.setItem(IDB_CACHE_KEY, JSON.stringify(client));
-      // Log once per session for debugging if needed, but suppress spam
       if (!idbFallbackLogged && typeof console !== 'undefined') {
         console.debug('[CACHE] Using localStorage persister (IndexedDB unavailable in this context)');
         idbFallbackLogged = true;
@@ -139,11 +147,10 @@ const App = () => (
             <Sonner />
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <AuthProvider>
+              <BootProvider>
             <Routes>
-              {/* Public routes */}
               <Route path="/login" element={<Login />} />
 
-              {/* Protected routes - Bots is the main landing page */}
               <Route path="/" element={<Navigate to="/bots" replace />} />
               <Route path="/dashboard" element={<Navigate to="/bots" replace />} />
               <Route
@@ -163,32 +170,29 @@ const App = () => (
                 }
               />
 
-              {/* Strategy Lab - dedicated research page */}
               <Route
                 path="/strategy-lab"
                 element={
                   <ProtectedRoute>
-                    <StrategyLab />
+                    <LazyRoute><StrategyLab /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
 
-              {/* Tournaments - bot evolution competitions */}
               <Route
                 path="/tournaments"
                 element={
                   <ProtectedRoute>
-                    <Tournaments />
+                    <LazyRoute><Tournaments /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
 
-              {/* Operations Center - unified autonomy, system status, and connections */}
               <Route
                 path="/operations"
                 element={
                   <ProtectedRoute>
-                    <OperationsCenter />
+                    <LazyRoute><OperationsCenter /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -196,7 +200,7 @@ const App = () => (
                 path="/training"
                 element={
                   <ProtectedRoute>
-                    <OperationsCenter />
+                    <LazyRoute><OperationsCenter /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -204,7 +208,7 @@ const App = () => (
                 path="/backtests"
                 element={
                   <ProtectedRoute>
-                    <OperationsCenter />
+                    <LazyRoute><OperationsCenter /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -212,7 +216,7 @@ const App = () => (
                 path="/backtests/:id"
                 element={
                   <ProtectedRoute>
-                    <BacktestDetail />
+                    <LazyRoute><BacktestDetail /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -221,7 +225,7 @@ const App = () => (
                 path="/accounts"
                 element={
                   <ProtectedRoute>
-                    <Accounts />
+                    <LazyRoute><Accounts /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -229,7 +233,7 @@ const App = () => (
                 path="/accounts/:id"
                 element={
                   <ProtectedRoute>
-                    <AccountDetail />
+                    <LazyRoute><AccountDetail /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -241,20 +245,18 @@ const App = () => (
                 path="/settings"
                 element={
                   <ProtectedRoute>
-                    <Settings />
+                    <LazyRoute><Settings /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
 
-              {/* Redirect old /integrations to Operations Center Connections tab */}
               <Route path="/integrations" element={<Navigate to="/operations" replace />} />
 
-              {/* ML/RL Intelligence Pages */}
               <Route
                 path="/ml-models"
                 element={
                   <ProtectedRoute>
-                    <MLModels />
+                    <LazyRoute><MLModels /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -262,7 +264,7 @@ const App = () => (
                 path="/rl-agents"
                 element={
                   <ProtectedRoute>
-                    <RLAgents />
+                    <LazyRoute><RLAgents /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -270,7 +272,7 @@ const App = () => (
                 path="/portfolio"
                 element={
                   <ProtectedRoute>
-                    <Portfolio />
+                    <LazyRoute><Portfolio /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -278,27 +280,25 @@ const App = () => (
                 path="/execution"
                 element={
                   <ProtectedRoute>
-                    <ExecutionQuality />
+                    <LazyRoute><ExecutionQuality /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
 
-              {/* Research Monitor - live AI activity feed */}
               <Route
                 path="/research-monitor"
                 element={
                   <ProtectedRoute>
-                    <ResearchMonitor />
+                    <LazyRoute><ResearchMonitor /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
 
-              {/* Analytics Pages */}
               <Route
                 path="/alpha-decay"
                 element={
                   <ProtectedRoute>
-                    <AlphaDecay />
+                    <LazyRoute><AlphaDecay /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -306,7 +306,7 @@ const App = () => (
                 path="/tca"
                 element={
                   <ProtectedRoute>
-                    <TradeCostAnalysis />
+                    <LazyRoute><TradeCostAnalysis /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
@@ -314,13 +314,14 @@ const App = () => (
                 path="/correlation"
                 element={
                   <ProtectedRoute>
-                    <CorrelationAnalysis />
+                    <LazyRoute><CorrelationAnalysis /></LazyRoute>
                   </ProtectedRoute>
                 }
               />
 
               <Route path="*" element={<NotFound />} />
               </Routes>
+              </BootProvider>
               </AuthProvider>
             </BrowserRouter>
             </StrategyLabDialogProvider>

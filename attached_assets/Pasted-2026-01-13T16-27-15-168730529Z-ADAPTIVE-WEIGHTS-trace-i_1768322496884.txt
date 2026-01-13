@@ -1,0 +1,50 @@
+2026-01-13T16:27:15.168730529Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 insufficient_data sessions=0 using_defaults
+2026-01-13T16:27:15.170847611Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T16:27:15.173120623Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T16:27:15.177349757Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e insufficient_data sessions=0 using_defaults
+2026-01-13T16:27:15.179546904Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T16:27:15.181912541Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T16:27:15.186616694Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 insufficient_data sessions=0 using_defaults
+2026-01-13T16:27:15.188736296Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T16:27:15.191177988Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_DECISION severity=INFO title="Source Enabled" trace_id=none
+2026-01-13T16:27:15.193387976Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_DECISION severity=INFO title="Source Enabled" trace_id=none
+2026-01-13T16:27:15.195526939Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_DECISION severity=WARN title="Source Disabled" trace_id=none
+2026-01-13T16:27:15.20002454Z [SOURCE_GOVERNOR] bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 states_persisted enabled=3
+2026-01-13T16:27:15.200068402Z [AUTONOMY_LOOP] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 SOURCE_GOVERNOR decisions=3
+2026-01-13T16:27:15.204448706Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e insufficient_data sessions=0 using_defaults
+2026-01-13T16:27:15.207183824Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T16:27:15.209607724Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_DECISION severity=WARN title="Source Disabled" trace_id=none
+2026-01-13T16:27:15.211731907Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T16:27:15.213901653Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T16:27:15.218104446Z [SOURCE_GOVERNOR] bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e states_persisted enabled=2
+2026-01-13T16:27:15.218114947Z [AUTONOMY_LOOP] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e SOURCE_GOVERNOR decisions=1
+2026-01-13T16:27:15.222982549Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce insufficient_data sessions=0 using_defaults
+2026-01-13T16:27:15.225580759Z [ADAPTIVE_WEIGHTS] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-13T16:27:15.228077093Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_DECISION severity=WARN title="Source Disabled" trace_id=none
+2026-01-13T16:27:15.230313283Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T16:27:15.233279604Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-13T16:27:15.237886771Z [SOURCE_GOVERNOR] bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce states_persisted enabled=2
+2026-01-13T16:27:15.237897052Z [AUTONOMY_LOOP] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce SOURCE_GOVERNOR decisions=1
+2026-01-13T16:27:15.237899502Z [AUTONOMY_LOOP] trace_id=eb27e56b-ad72-4f16-bb93-d3b4d40bbdac SOURCE_GOVERNOR total_decisions=11
+2026-01-13T16:27:15.325263798Z [IRONBEAM_LIVE] trace_id=81dd44ad message_count=1183 raw_data_preview={"q":[{"s":"XCME:MNQ.H26","l":25854.25,"sz":1,"ch":-102.5,"op":25948,"hi":26046.25,"lo":25806,"ags":2,"td":2,"stt":25956.75,"stts":"20260112","sttst":1768156236446,"pstt":25938.25,"pstts":"20260109","
+2026-01-13T16:27:15.325365074Z [LIVE_DATA_SERVICE] Quote tick symbol=MNQ last=25854.25 bid=25854.25 ask=25854.75 mid=25854.50 quotes_total=1889
+2026-01-13T16:27:18.092851182Z [DATABENTO] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 fetched bars=5017 latency=4605ms
+2026-01-13T16:27:18.096426019Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7
+2026-01-13T16:27:18.146176809Z [BARS_CACHE] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 instance=917c77c9 cache_set key=bars:v2:MNQ:5m:ALL:1765729633471:1768321633471 bars=5017 compressed_bytes=70470
+2026-01-13T16:27:18.147311404Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 resampling cached bars from 1m to 5m (factor=5)
+2026-01-13T16:27:18.151886479Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 REAL_DATA fetched_bars=1004 provider=databento latency=4668ms
+2026-01-13T16:27:18.156794113Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 bot_name="VWAP Lull Bounce" inferred_archetype="none" using="vwap_bounce"
+2026-01-13T16:27:18.156815704Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-13T16:27:18.15725108Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-13T16:27:18.160862878Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 using_real_strategy version=1.0.0 rules=MNQ VWAP rules_hash=18052159e56b7623
+2026-01-13T16:27:18.160923752Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-13T16:27:18.160927562Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 SESSION_MODE=ETH SESSION_BYPASS=false timezone=America/New_York
+2026-01-13T16:27:18.161224139Z [SESSION_CHECK] UTC=2025-12-15T19:50:00.000Z ET_hour=14 ET_min=50 ET_day=1 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-13T16:27:18.348962776Z [STRATEGY_EXECUTOR] bars=1004 valid_bars=1004 session_bars=241 outside_session=713 no_trade_window=0 entry_signals=45 trades=45
+2026-01-13T16:27:18.348986567Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 REAL_EXECUTION trades=45 pnl=-243.30 win_rate=13.3%
+2026-01-13T16:27:18.348989767Z [TX:f19c0fb1-3579-4369-a694-4bf2c1e2a4c7] BACKTEST_TRADES:bac8a6f8 START
+2026-01-13T16:27:18.451740754Z [TX:f19c0fb1-3579-4369-a694-4bf2c1e2a4c7] BACKTEST_TRADES:bac8a6f8 COMMITTED
+2026-01-13T16:27:18.472074421Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 updated generation performanceSnapshot gen_id=4a40cf87-ddec-406c-9ca7-fc920db23d37
+2026-01-13T16:27:18.474491031Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 LAB_BASELINE gen_id=4a40cf87-ddec-406c-9ca7-fc920db23d37 valid=true reason=N/A trades=45
+2026-01-13T16:27:18.477344426Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for VWAP Lull Bounce" trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7
+2026-01-13T16:27:18.477359597Z [BACKTEST_EXECUTOR] trace_id=f19c0fb1-3579-4369-a694-4bf2c1e2a4c7 session_id=bac8a6f8-2901-4bef-bb1e-c0f507e83ea8 completed trades=45 pnl=-243.30
