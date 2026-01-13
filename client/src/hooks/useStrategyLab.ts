@@ -1196,11 +1196,18 @@ interface RawStrategyCandidate {
   ai_provider?: string | null;
   created_by_ai?: string | null;
   ai_provider_badge?: boolean | null;
+  // API returns camelCase, but add snake_case fallback for defensive programming
   qcVerification?: {
     status: string;
     badgeState: string | null;
     qcScore: number | null;
     finishedAt: string | null;
+  } | null;
+  qc_verification?: {
+    status: string;
+    badge_state: string | null;
+    qc_score: number | null;
+    finished_at: string | null;
   } | null;
 }
 
@@ -1283,11 +1290,17 @@ function mapRawToCandidate(raw: RawStrategyCandidate): StrategyCandidate {
     aiProvider: raw.ai_provider || null,
     createdByAi: raw.created_by_ai || null,
     aiProviderBadge: raw.ai_provider_badge ?? null,
+    // Defensive: handle both camelCase (API) and snake_case (potential fallback)
     qcVerification: raw.qcVerification ? {
       status: raw.qcVerification.status,
       badgeState: raw.qcVerification.badgeState,
       qcScore: raw.qcVerification.qcScore,
       finishedAt: raw.qcVerification.finishedAt,
+    } : raw.qc_verification ? {
+      status: raw.qc_verification.status,
+      badgeState: raw.qc_verification.badge_state,
+      qcScore: raw.qc_verification.qc_score,
+      finishedAt: raw.qc_verification.finished_at,
     } : null,
   };
 }

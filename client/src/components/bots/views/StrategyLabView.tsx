@@ -1892,7 +1892,7 @@ export function StrategyLabView() {
         // QC priority order: RUNNING > QUEUED > VERIFIED > DIVERGENT > INCONCLUSIVE > FAILED > NONE
         // Uses hydrated qcVerification from candidate first, falls back to qcVerifications array
         const getQcPriority = (c: StrategyCandidate): number => {
-          const hydratedState = (c as any).qcVerification?.badgeState;
+          const hydratedState = c.qcVerification?.badgeState;
           const state = hydratedState || getCandidateQCBadgeInfo(qcVerifications, c.id).state;
           switch (state) {
             case "RUNNING": return 10;
@@ -2040,7 +2040,7 @@ export function StrategyLabView() {
                           }}
                           qcBudget={showQC && columnId !== "trials" && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
                           qcBadgeState={showQC ? (
-                            (candidate as any).qcVerification?.badgeState as QCBadgeState || 
+                            candidate.qcVerification?.badgeState as QCBadgeState || 
                             getCandidateQCBadgeInfo(qcVerifications, candidate.id).state
                           ) : undefined}
                           qcAttemptCount={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
@@ -2049,7 +2049,7 @@ export function StrategyLabView() {
                           qcStartedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
                           qcProgressPct={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
                           qcScore={showQC ? (
-                            (candidate as any).qcVerification?.qcScore ?? 
+                            candidate.qcVerification?.qcScore ?? 
                             getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore
                           ) : undefined}
                           showQCStatus={showQC}
