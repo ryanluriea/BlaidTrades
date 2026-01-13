@@ -1164,8 +1164,8 @@ export function StrategyCandidateTableRow({
                   <div 
                     className={cn(
                       "flex items-center gap-1.5 px-2 py-0.5 rounded-full cursor-pointer border text-[10px]",
-                      candidate.regimeAdjustment && candidate.regimeAdjustment.regimeBonus !== 0 
-                        ? getConfidenceBgStatic(candidate.regimeAdjustment.adjustedScore)
+                      candidate.regimeAdjustment?.regimeBonus != null && candidate.regimeAdjustment.regimeBonus !== 0 
+                        ? getConfidenceBgStatic(candidate.regimeAdjustment.adjustedScore ?? candidate.confidenceScore)
                         : getConfidenceBgStatic(candidate.confidenceScore)
                     )}
                     data-testid={`candidate-confidence-${candidate.id}`}
@@ -1236,8 +1236,8 @@ export function StrategyCandidateTableRow({
                       Backtest bonus: +{auditData.backtestValidation.validationBonus} pts
                     </div>
                   )}
-                  {/* Regime Adjustment Section */}
-                  {candidate.regimeAdjustment && (
+                  {/* Regime Adjustment Section - Defensive: check regimeMatch exists to avoid rendering empty objects */}
+                  {candidate.regimeAdjustment && candidate.regimeAdjustment.regimeMatch && (
                     <div className="pt-2 border-t border-border/50 mt-2 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-medium text-muted-foreground">Live Regime Adjustment</span>
@@ -1256,25 +1256,25 @@ export function StrategyCandidateTableRow({
                       </div>
                       <div className="flex items-center gap-2 text-[10px]">
                         <span className="text-muted-foreground">Base:</span>
-                        <span className="font-mono font-medium">{candidate.regimeAdjustment.originalScore}</span>
+                        <span className="font-mono font-medium">{candidate.regimeAdjustment.originalScore ?? 0}</span>
                         <span className="text-muted-foreground/60">→</span>
                         <span className="text-muted-foreground">Adj:</span>
                         <span className={cn(
                           "font-mono font-bold",
-                          getConfidenceColorStatic(candidate.regimeAdjustment.adjustedScore)
+                          getConfidenceColorStatic(candidate.regimeAdjustment.adjustedScore ?? 0)
                         )}>
-                          {candidate.regimeAdjustment.adjustedScore}
+                          {candidate.regimeAdjustment.adjustedScore ?? 0}
                         </span>
                         <span className={cn(
                           "font-mono font-semibold",
-                          candidate.regimeAdjustment.regimeBonus > 0 ? "text-emerald-400" : 
-                          candidate.regimeAdjustment.regimeBonus < 0 ? "text-rose-400" : "text-zinc-400"
+                          (candidate.regimeAdjustment.regimeBonus ?? 0) > 0 ? "text-emerald-400" : 
+                          (candidate.regimeAdjustment.regimeBonus ?? 0) < 0 ? "text-rose-400" : "text-zinc-400"
                         )}>
-                          ({candidate.regimeAdjustment.regimeBonus > 0 ? "+" : ""}{candidate.regimeAdjustment.regimeBonus} pts)
+                          ({(candidate.regimeAdjustment.regimeBonus ?? 0) > 0 ? "+" : ""}{candidate.regimeAdjustment.regimeBonus ?? 0} pts)
                         </span>
                       </div>
                       <div className="text-[9px] text-muted-foreground/70">
-                        {candidate.regimeAdjustment.reason}
+                        {candidate.regimeAdjustment.reason ?? ""}
                       </div>
                       <div className="text-[8px] text-muted-foreground/50 flex items-center gap-1">
                         <Activity className="h-2.5 w-2.5" />
