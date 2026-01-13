@@ -217,32 +217,48 @@ export async function setupAuth(app: Express) {
       });
 
       // Security: Regenerate session to prevent session fixation attacks
-      req.session.regenerate((regenerateErr) => {
-        if (regenerateErr) {
-          console.error("Session regeneration error:", regenerateErr);
-          return res.status(500).json({ error: "Failed to create secure session" });
-        }
+      // PRODUCTION FIX: Promisify to ensure async session stores complete before response
+      try {
+        await new Promise<void>((resolve, reject) => {
+          req.session.regenerate((regenerateErr) => {
+            if (regenerateErr) {
+              console.error("[AUTH] Registration session regeneration error:", regenerateErr);
+              reject(regenerateErr);
+            } else {
+              resolve();
+            }
+          });
+        });
         
         req.session.userId = user.id;
         req.session.email = user.email;
         req.session.username = user.username || undefined;
         req.session.csrfToken = crypto.randomBytes(32).toString("hex");
 
-        req.session.save((err) => {
-          if (err) {
-            console.error("Session save error:", err);
-            return res.status(500).json({ error: "Failed to save session" });
-          }
-          res.status(201).json({
-            success: true,
-            user: {
-              id: user.id,
-              email: user.email,
-              username: user.username,
-            },
+        await new Promise<void>((resolve, reject) => {
+          req.session.save((err) => {
+            if (err) {
+              console.error("[AUTH] Registration session save error:", err);
+              reject(err);
+            } else {
+              console.log(`[AUTH] Registration session saved for user ${user.id}`);
+              resolve();
+            }
           });
         });
-      });
+        
+        res.status(201).json({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+          },
+        });
+      } catch (sessionError) {
+        console.error("[AUTH] Registration session operation failed:", sessionError);
+        return res.status(500).json({ error: "Failed to create secure session" });
+      }
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ error: "Failed to register user" });
@@ -298,11 +314,18 @@ export async function setupAuth(app: Express) {
       }
 
       // Security: Regenerate session to prevent session fixation attacks
-      req.session.regenerate((regenerateErr) => {
-        if (regenerateErr) {
-          console.error("Session regeneration error:", regenerateErr);
-          return res.status(500).json({ error: "Failed to create secure session" });
-        }
+      // PRODUCTION FIX: Promisify to ensure async session stores complete before response
+      try {
+        await new Promise<void>((resolve, reject) => {
+          req.session.regenerate((regenerateErr) => {
+            if (regenerateErr) {
+              console.error("[AUTH] Session regeneration error:", regenerateErr);
+              reject(regenerateErr);
+            } else {
+              resolve();
+            }
+          });
+        });
         
         req.session.userId = user.id;
         req.session.email = user.email;
@@ -314,23 +337,32 @@ export async function setupAuth(app: Express) {
           req.session.cookie.maxAge = sessionMaxAge;
         }
 
-        req.session.save((err) => {
-          if (err) {
-            console.error("Session save error:", err);
-            return res.status(500).json({ error: "Failed to save session" });
-          }
-          console.log(`[AUTH] User ${user.id} logged in (rememberMe=${!!rememberMe}, maxAge=${sessionMaxAge / (24 * 60 * 60 * 1000)} days)`);
-          res.json({
-            success: true,
-            requires_2fa: false,
-            user: {
-              id: user.id,
-              email: user.email,
-              username: user.username,
-            },
+        await new Promise<void>((resolve, reject) => {
+          req.session.save((err) => {
+            if (err) {
+              console.error("[AUTH] Session save error:", err);
+              reject(err);
+            } else {
+              console.log(`[AUTH] Session saved successfully for user ${user.id} (sessionId=${req.session.id?.substring(0, 8)}...)`);
+              resolve();
+            }
           });
         });
-      });
+        
+        console.log(`[AUTH] User ${user.id} logged in (rememberMe=${!!rememberMe}, maxAge=${sessionMaxAge / (24 * 60 * 60 * 1000)} days)`);
+        res.json({
+          success: true,
+          requires_2fa: false,
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+          },
+        });
+      } catch (sessionError) {
+        console.error("[AUTH] Session operation failed:", sessionError);
+        return res.status(500).json({ error: "Failed to create secure session" });
+      }
     } catch (error) {
       console.error("Login error:", error);
       // SEV-1: Reopen circuit on database connection errors
