@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -17,7 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -1675,170 +1673,6 @@ export function StrategyLabView() {
         
         {/* Right side - Menu */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Fleet Governor Popover */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className={cn(
-                  "h-7 px-2 text-[10px] gap-1",
-                  fleetGovernorEnabled ? "text-amber-400" : "text-muted-foreground"
-                )}
-                data-testid="button-fleet-governor"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">Governor</span>
-                <Badge variant="outline" className={cn("text-[8px] h-4", fleetGovernorEnabled ? "text-amber-400 border-amber-500/40" : "")}>
-                  {fleetGovernorEnabled ? `${fleetGovernorGlobalCap}` : "Off"}
-                </Badge>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-96 p-3" side="bottom" align="end">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-medium flex items-center gap-1.5">
-                      <Shield className="w-3.5 h-3.5 text-amber-400" />
-                      Fleet Governor
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Automated fleet size management with performance-based demotion
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={fleetGovernorEnabled}
-                    disabled={toggleState.isPending}
-                    onCheckedChange={(checked) => {
-                      setFleetGovernorEnabled(checked);
-                      handleColumnSettingsSave({ fleetGovernorEnabled: checked });
-                    }}
-                    data-testid="switch-fleet-governor"
-                  />
-                </div>
-                
-                <div className={cn("space-y-3", !fleetGovernorEnabled && "opacity-50 pointer-events-none")}>
-                  <div className="h-px bg-border/50" />
-                  
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground mb-1.5 block">Stage Caps</Label>
-                    <div className="grid grid-cols-4 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-[9px] text-muted-foreground">Global</Label>
-                        <Input
-                          type="number" min={10} max={500}
-                          value={fleetGovernorGlobalCap}
-                          onChange={(e) => setFleetGovernorGlobalCap(parseInt(e.target.value) || 100)}
-                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorGlobalCap: parseInt(e.target.value) || 100 })}
-                          className="h-7 text-xs"
-                          disabled={!fleetGovernorEnabled || toggleState.isPending}
-                          data-testid="input-fleet-global-cap"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] text-muted-foreground">Trials</Label>
-                        <Input
-                          type="number" min={5} max={200}
-                          value={fleetGovernorTrialsCap}
-                          onChange={(e) => setFleetGovernorTrialsCap(parseInt(e.target.value) || 50)}
-                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorTrialsCap: parseInt(e.target.value) || 50 })}
-                          className="h-7 text-xs"
-                          disabled={!fleetGovernorEnabled || toggleState.isPending}
-                          data-testid="input-fleet-trials-cap"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] text-muted-foreground">Paper</Label>
-                        <Input
-                          type="number" min={5} max={100}
-                          value={fleetGovernorPaperCap}
-                          onChange={(e) => setFleetGovernorPaperCap(parseInt(e.target.value) || 25)}
-                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorPaperCap: parseInt(e.target.value) || 25 })}
-                          className="h-7 text-xs"
-                          disabled={!fleetGovernorEnabled || toggleState.isPending}
-                          data-testid="input-fleet-paper-cap"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] text-muted-foreground">Live</Label>
-                        <Input
-                          type="number" min={1} max={50}
-                          value={fleetGovernorLiveCap}
-                          onChange={(e) => setFleetGovernorLiveCap(parseInt(e.target.value) || 10)}
-                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorLiveCap: parseInt(e.target.value) || 10 })}
-                          className="h-7 text-xs"
-                          disabled={!fleetGovernorEnabled || toggleState.isPending}
-                          data-testid="input-fleet-live-cap"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="h-px bg-border/50" />
-                  
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground mb-1.5 block">Demotion Settings</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-[9px] text-muted-foreground">Grace (hrs)</Label>
-                        <Input
-                          type="number" min={1} max={168}
-                          value={fleetGovernorGracePeriodHours}
-                          onChange={(e) => setFleetGovernorGracePeriodHours(parseInt(e.target.value) || 24)}
-                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorGracePeriodHours: parseInt(e.target.value) || 24 })}
-                          className="h-7 text-xs"
-                          disabled={!fleetGovernorEnabled || toggleState.isPending}
-                          data-testid="input-fleet-grace-period"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] text-muted-foreground">Min Trades</Label>
-                        <Input
-                          type="number" min={5} max={100}
-                          value={fleetGovernorMinObservationTrades}
-                          onChange={(e) => setFleetGovernorMinObservationTrades(parseInt(e.target.value) || 20)}
-                          onBlur={(e) => handleColumnSettingsSave({ fleetGovernorMinObservationTrades: parseInt(e.target.value) || 20 })}
-                          className="h-7 text-xs"
-                          disabled={!fleetGovernorEnabled || toggleState.isPending}
-                          data-testid="input-fleet-min-trades"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] text-muted-foreground">Policy</Label>
-                        <Select
-                          value={fleetGovernorDemotionPolicy}
-                          disabled={!fleetGovernorEnabled || toggleState.isPending}
-                          onValueChange={(v) => {
-                            const policy = v as "ARCHIVE" | "RECYCLE";
-                            setFleetGovernorDemotionPolicy(policy);
-                            handleColumnSettingsSave({ fleetGovernorDemotionPolicy: policy });
-                          }}
-                        >
-                          <SelectTrigger className="h-7 text-xs" data-testid="select-fleet-demotion-policy">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ARCHIVE">Archive</SelectItem>
-                            <SelectItem value="RECYCLE">Recycle</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="h-px bg-border/50" />
-                  <div className="text-[9px] text-muted-foreground/80 flex items-start gap-1">
-                    <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                    <span>
-                      Uses composite ranking (Sharpe + Win Rate + Risk-Adjusted PnL - Drawdown) 
-                      to demote underperformers when stage caps are exceeded.
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-          
           {/* 3-Dot Menu - Filter, Sort, Bulk Actions, Settings */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2146,11 +1980,11 @@ export function StrategyLabView() {
           
           return (
             <div 
-              className="flex flex-col flex-1 min-h-0 bg-muted/10 rounded-lg border border-border/30 overflow-hidden"
+              className="flex flex-col flex-1 min-h-0 bg-muted/10 rounded-lg border border-border/30"
               data-testid={`column-${columnId}`}
             >
-              {/* Column Content - independently scrollable, hidden scrollbar for clean look */}
-              <ScrollArea className="flex-1 p-2" hideScrollbar>
+              {/* Column Content - independently scrollable with native scroll for performance */}
+              <div className="flex-1 overflow-y-auto p-2 min-h-0">
                 {isLoadingCandidates ? (
                   <div className="space-y-1.5">
                     {[1, 2, 3].map((i) => (
@@ -2171,75 +2005,60 @@ export function StrategyLabView() {
                   </div>
                 ) : candidates.length > 0 ? (
                   <div className="space-y-1.5">
-                    <AnimatePresence mode="popLayout">
-                      {visibleCandidates.map((candidate, index) => (
-                        <motion.div
-                          key={candidate.id}
-                          layoutId={candidate.id}
-                          initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, x: 50, scale: 0.95 }}
-                          transition={{ 
-                            type: "spring", 
-                            stiffness: 400, 
-                            damping: 30,
-                            layout: { type: "spring", stiffness: 350, damping: 28 }
+                    {visibleCandidates.map((candidate, index) => (
+                      <div key={candidate.id}>
+                        <StrategyCandidateTableRow
+                          candidate={candidate}
+                          rowNumber={index + 1}
+                          formatTimeAgo={formatTimeAgo}
+                          onSendToLab={showSendToLab ? handleSendToLab : undefined}
+                          onReject={handleRejectCandidate}
+                          onRestore={handleRestoreCandidate}
+                          onRecycle={handleRecycleCandidate}
+                          onSaveAsArchetype={handleSaveAsArchetype}
+                          onDelete={handleDeleteCandidate}
+                          onFavorite={handleFavoriteCandidate}
+                          isSending={sendingCandidateId === candidate.id}
+                          isRejecting={rejectingCandidateId === candidate.id}
+                          nameColorClass={columnNameColor}
+                          isRestoring={restoringCandidateId === candidate.id}
+                          isRecycling={recyclingCandidateId === candidate.id}
+                          isSavingArchetype={savingArchetypeCandidateId === candidate.id}
+                          isDeleting={deletingCandidateId === candidate.id}
+                          isFavoriting={favoritingCandidateId === candidate.id}
+                          showRejectedActions={false}
+                          showManualPromote={requireManualApproval}
+                          selectable={true}
+                          selected={selectedIds.has(candidate.id)}
+                          onSelectChange={(id, checked) => {
+                            setSelectedIds(prev => {
+                              const next = new Set(prev);
+                              if (checked) next.add(id);
+                              else next.delete(id);
+                              return next;
+                            });
                           }}
-                        >
-                          <StrategyCandidateTableRow
-                            candidate={candidate}
-                            rowNumber={index + 1}
-                            formatTimeAgo={formatTimeAgo}
-                            onSendToLab={showSendToLab ? handleSendToLab : undefined}
-                            onReject={handleRejectCandidate}
-                            onRestore={handleRestoreCandidate}
-                            onRecycle={handleRecycleCandidate}
-                            onSaveAsArchetype={handleSaveAsArchetype}
-                            onDelete={handleDeleteCandidate}
-                            onFavorite={handleFavoriteCandidate}
-                            isSending={sendingCandidateId === candidate.id}
-                            isRejecting={rejectingCandidateId === candidate.id}
-                            nameColorClass={columnNameColor}
-                            isRestoring={restoringCandidateId === candidate.id}
-                            isRecycling={recyclingCandidateId === candidate.id}
-                            isSavingArchetype={savingArchetypeCandidateId === candidate.id}
-                            isDeleting={deletingCandidateId === candidate.id}
-                            isFavoriting={favoritingCandidateId === candidate.id}
-                            showRejectedActions={false}
-                            showManualPromote={requireManualApproval}
-                            selectable={true}
-                            selected={selectedIds.has(candidate.id)}
-                            onSelectChange={(id, checked) => {
-                              setSelectedIds(prev => {
-                                const next = new Set(prev);
-                                if (checked) next.add(id);
-                                else next.delete(id);
-                                return next;
-                              });
-                            }}
-                            qcBudget={showQC && columnId !== "trials" && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
-                            qcBadgeState={showQC ? (
-                              (candidate as any).qcVerification?.badgeState as QCBadgeState || 
-                              getCandidateQCBadgeInfo(qcVerifications, candidate.id).state
-                            ) : undefined}
-                            qcAttemptCount={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
-                            qcMaxAttempts={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
-                            qcQueuedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
-                            qcStartedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
-                            qcProgressPct={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
-                            qcScore={showQC ? (
-                              (candidate as any).qcVerification?.qcScore ?? 
-                              getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore
-                            ) : undefined}
-                            showQCStatus={showQC}
-                            onRunQCVerification={showQC && columnId !== "trials" ? handleRunQCVerification : undefined}
-                            isRunningQC={showQC && columnId !== "trials" && runningQCCandidateId === candidate.id}
-                            compact={true}
-                          />
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                    {/* Invisible sentinel for lazy loading - triggers when scrolled into view */}
+                          qcBudget={showQC && columnId !== "trials" && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
+                          qcBadgeState={showQC ? (
+                            (candidate as any).qcVerification?.badgeState as QCBadgeState || 
+                            getCandidateQCBadgeInfo(qcVerifications, candidate.id).state
+                          ) : undefined}
+                          qcAttemptCount={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
+                          qcMaxAttempts={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
+                          qcQueuedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
+                          qcStartedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
+                          qcProgressPct={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
+                          qcScore={showQC ? (
+                            (candidate as any).qcVerification?.qcScore ?? 
+                            getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore
+                          ) : undefined}
+                          showQCStatus={showQC}
+                          onRunQCVerification={showQC && columnId !== "trials" ? handleRunQCVerification : undefined}
+                          isRunningQC={showQC && columnId !== "trials" && runningQCCandidateId === candidate.id}
+                          compact={true}
+                        />
+                      </div>
+                    ))}
                     {hasMore && sentinelRef && (
                       <div 
                         ref={sentinelRef} 
@@ -2257,7 +2076,7 @@ export function StrategyLabView() {
                     <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">{emptySubMessage}</p>
                   </div>
                 )}
-              </ScrollArea>
+              </div>
             </div>
           );
         };

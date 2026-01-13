@@ -10,6 +10,7 @@ import { UnifiedSystemsDropdown } from "@/components/layout/UnifiedSystemsDropdo
 import { StrategyLabGlobalDialog } from "@/components/layout/StrategyLabGlobalDialog";
 import { SourcesSettingsDropdown } from "@/components/bots/SourcesSettingsDropdown";
 import { CloudBackupButton } from "@/components/backup/CloudBackupButton";
+import { FleetGovernorButton } from "@/components/layout/FleetGovernorButton";
 import {
   Bot,
   Microscope,
@@ -232,6 +233,8 @@ export function AppLayout({ children, title, disableMainScroll, headerContent }:
             
             {/* Right side: Controls - horizontal layout with proper constraints */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Fleet Governor - accessible from all pages */}
+              <FleetGovernorButton />
               {/* Unified AI & Systems dropdown */}
               <UnifiedSystemsDropdown className="hidden sm:flex" />
               <HeaderClockBadge symbol="ES" />
