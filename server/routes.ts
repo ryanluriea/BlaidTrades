@@ -16303,7 +16303,85 @@ export function registerRoutes(app: Express) {
     ]);
   });
 
-  app.post("/api/strategy-lab/candidates/:id/promote", requireAuth, async (req: Request, res: Response) => {
+  // INTERNAL REQUEST BYPASS: Allow QC worker to promote without session auth
+  // Uses HMAC-signed token for secure internal authentication
+  // Token format: INTERNAL_<timestamp>_<hmac_signature>
+  const INTERNAL_AUTH_SECRET = process.env.INTERNAL_AUTH_SECRET || crypto.randomBytes(32).toString('hex');
+  const INTERNAL_TOKEN_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+  
+  const verifyInternalAuth = (req: Request): { valid: boolean; userId?: string } => {
+    const authHeader = req.headers['x-internal-auth'] as string | undefined;
+    const { session_id } = req.body;
+    
+    // Must have both the magic session_id AND a valid internal auth header
+    if (session_id !== "qc_auto_promote" || !authHeader) {
+      return { valid: false };
+    }
+    
+    // Parse token format: INTERNAL_<timestamp>_<signature>
+    const parts = authHeader.split('_');
+    if (parts.length !== 3 || parts[0] !== 'INTERNAL') {
+      return { valid: false };
+    }
+    
+    const timestamp = parseInt(parts[1], 10);
+    const signature = parts[2];
+    
+    // Validate timestamp freshness (prevent replay attacks)
+    if (isNaN(timestamp) || Date.now() - timestamp > INTERNAL_TOKEN_MAX_AGE_MS) {
+      console.log(`[INTERNAL_AUTH] Token expired or invalid timestamp: ${timestamp}`);
+      return { valid: false };
+    }
+    
+    // Verify HMAC signature
+    const expectedSignature = crypto
+      .createHmac('sha256', INTERNAL_AUTH_SECRET)
+      .update(`INTERNAL_${timestamp}`)
+      .digest('hex')
+      .slice(0, 16);
+    
+    if (signature !== expectedSignature) {
+      console.log(`[INTERNAL_AUTH] Invalid signature`);
+      return { valid: false };
+    }
+    
+    return { valid: true };
+  };
+  
+  // Generate internal auth token for QC worker to use
+  const generateInternalAuthToken = (): string => {
+    const timestamp = Date.now();
+    const signature = crypto
+      .createHmac('sha256', INTERNAL_AUTH_SECRET)
+      .update(`INTERNAL_${timestamp}`)
+      .digest('hex')
+      .slice(0, 16);
+    return `INTERNAL_${timestamp}_${signature}`;
+  };
+  
+  // Export for QC worker use (accessed via dynamic import)
+  (globalThis as any).__generateInternalAuthToken = generateInternalAuthToken;
+  
+  app.post("/api/strategy-lab/candidates/:id/promote", async (req: Request, res: Response, next) => {
+    // Check for secure internal auth first
+    const internalAuth = verifyInternalAuth(req);
+    if (internalAuth.valid) {
+      // Fetch BlaidAgent user server-side - never trust user_id from body
+      const systemUsers = await db.select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.username, "BlaidAgent"))
+        .limit(1);
+      
+      if (systemUsers.length > 0) {
+        (req.session as any).userId = systemUsers[0].id;
+        console.log(`[INTERNAL_AUTH] Verified internal request, using BlaidAgent user`);
+        return next();
+      }
+      console.log(`[INTERNAL_AUTH] BlaidAgent user not found - internal auth failed`);
+    }
+    // Otherwise require normal session auth
+    return requireAuth(req, res, next);
+  }, async (req: Request, res: Response) => {
     const traceId = crypto.randomUUID().slice(0, 8);
     try {
       const { id } = req.params;

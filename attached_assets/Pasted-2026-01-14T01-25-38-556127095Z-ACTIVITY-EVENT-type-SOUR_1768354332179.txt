@@ -1,0 +1,50 @@
+2026-01-14T01:25:38.556127095Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.559171497Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.563526061Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=2c17b821-5187-4d6d-b83e-b1d5a299a7b7 insufficient_data sessions=0 using_defaults
+2026-01-14T01:25:38.566034774Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=2c17b821-5187-4d6d-b83e-b1d5a299a7b7 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T01:25:38.568279312Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.570380498Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.574911995Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=b127ee4b-8d4c-438c-a37b-b1fc9e3aae34 insufficient_data sessions=0 using_defaults
+2026-01-14T01:25:38.577442398Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=b127ee4b-8d4c-438c-a37b-b1fc9e3aae34 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T01:25:38.579688037Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.584167343Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 insufficient_data sessions=0 using_defaults
+2026-01-14T01:25:38.586693196Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T01:25:38.588888604Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.591797384Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.596147288Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e insufficient_data sessions=0 using_defaults
+2026-01-14T01:25:38.598670191Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T01:25:38.601598761Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.60446081Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.608901286Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 insufficient_data sessions=0 using_defaults
+2026-01-14T01:25:38.611271796Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T01:25:38.613462224Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.617267989Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e insufficient_data sessions=0 using_defaults
+2026-01-14T01:25:38.619275933Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T01:25:38.62146367Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.623742169Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.627639566Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce insufficient_data sessions=0 using_defaults
+2026-01-14T01:25:38.629507668Z [ADAPTIVE_WEIGHTS] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T01:25:38.631768166Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.634020185Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T01:25:38.634031505Z [AUTONOMY_LOOP] trace_id=9dbc3dde-52ea-4619-928a-a3b7d8177078 SOURCE_GOVERNOR total_decisions=4
+2026-01-14T01:25:38.990619444Z [IRONBEAM_LIVE] trace_id=c8cbb625 message_count=777 raw_data_preview={"q":[{"s":"XCME:ES.H26","l":6999.75,"sz":2,"ch":-2,"op":6998.5,"hi":7002.5,"lo":6996,"ags":1,"td":1,"stt":7001.75,"stts":"20260113","sttst":1766341842378,"pstt":7016.5,"pstts":"20260112","sttch":-14.
+2026-01-14T01:25:40.208410637Z [DATABENTO] trace_id=911ba2b3-e457-489d-b762-129e159ca426 fetched bars=5073 latency=3851ms
+2026-01-14T01:25:40.211291097Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=911ba2b3-e457-489d-b762-129e159ca426
+2026-01-14T01:25:40.237313321Z [BARS_CACHE] trace_id=911ba2b3-e457-489d-b762-129e159ca426 instance=48f3f6cd cache_set key=bars:v2:MES:5m:ALL:1765761936343:1768353936343 bars=5073 compressed_bytes=58081
+2026-01-14T01:25:40.238959599Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 resampling cached bars from 1m to 5m (factor=5)
+2026-01-14T01:25:40.242048632Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 REAL_DATA fetched_bars=1015 provider=databento latency=3888ms
+2026-01-14T01:25:40.244607016Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 bot_name="Dormant Ceiling Fade" inferred_archetype="none" using="mean_reversion"
+2026-01-14T01:25:40.244630386Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 archetype=mean_reversion mapped_to=mean_reversion
+2026-01-14T01:25:40.244766098Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 TRIALS_SESSION_WIDENING original=09:35-15:45 widened=09:35-15:55
+2026-01-14T01:25:40.247085218Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 using_real_strategy version=1.0.0 rules=MES Mean Reversion rules_hash=2ed0d477dd805d09
+2026-01-14T01:25:40.247363843Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-14T01:25:40.247375353Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-14T01:25:40.247899702Z [SESSION_CHECK] UTC=2025-12-15T23:16:00.000Z ET_hour=18 ET_min=16 ET_day=1 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-14T01:25:40.373298393Z [STRATEGY_EXECUTOR] bars=1015 valid_bars=1015 session_bars=212 outside_session=712 no_trade_window=41 entry_signals=1 trades=1
+2026-01-14T01:25:40.373313643Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 REAL_EXECUTION trades=1 pnl=1.26 win_rate=100.0%
+2026-01-14T01:25:40.373325683Z [TX:911ba2b3-e457-489d-b762-129e159ca426] BACKTEST_TRADES:3c15beb7 START
+2026-01-14T01:25:40.386439857Z [TX:911ba2b3-e457-489d-b762-129e159ca426] BACKTEST_TRADES:3c15beb7 COMMITTED
+2026-01-14T01:25:40.39832718Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 updated generation performanceSnapshot gen_id=724f4569-46c2-407f-9519-4142a380fb2f
+2026-01-14T01:25:40.400617579Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 LAB_BASELINE gen_id=724f4569-46c2-407f-9519-4142a380fb2f valid=false reason=INSUFFICIENT_TRADES trades=1
+2026-01-14T01:25:40.402893918Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Dormant Ceiling Fade" trace_id=911ba2b3-e457-489d-b762-129e159ca426
+2026-01-14T01:25:40.402908959Z [BACKTEST_EXECUTOR] trace_id=911ba2b3-e457-489d-b762-129e159ca426 session_id=3c15beb7-fa18-4af2-8018-2fffce96a586 completed trades=1 pnl=1.26

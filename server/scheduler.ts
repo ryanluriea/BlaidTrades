@@ -6381,18 +6381,22 @@ async function runQCVerificationWorker(): Promise<void> {
           }
           
           if (targetStage) {
-            // Get system user for autonomous promotion
-            const systemUsers = await db.select().from(schema.users).where(eq(schema.users.username, "BlaidAgent")).limit(1);
-            const userId = systemUsers.length > 0 ? systemUsers[0].id : null;
-            
-            if (userId) {
-              // Make internal request to promote endpoint with target stage
+            // Generate internal auth token for secure request (BlaidAgent user fetched server-side)
+            const generateToken = (globalThis as any).__generateInternalAuthToken;
+            if (!generateToken) {
+              console.error(`[QC_WORKER] trace_id=${traceId} AUTO_PROMOTE: internal auth not initialized`);
+            } else {
+              const internalAuthToken = generateToken();
+              
+              // Make internal request to promote endpoint with secure auth
               const promoteUrl = `http://localhost:${process.env.PORT || 5000}/api/strategy-lab/candidates/${candidate.id}/promote`;
               const promoteRes = await fetch(promoteUrl, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                  "Content-Type": "application/json",
+                  "X-Internal-Auth": internalAuthToken,
+                },
                 body: JSON.stringify({ 
-                  user_id: userId, 
                   session_id: "qc_auto_promote",
                   target_stage: targetStage, // PAPER for fast-track, TRIALS otherwise
                 }),
@@ -6422,8 +6426,6 @@ async function runQCVerificationWorker(): Promise<void> {
               } else {
                 console.error(`[QC_WORKER] trace_id=${traceId} ${targetStage === "PAPER" ? "FAST_TRACK" : "AUTO_PROMOTE"}: failed status=${promoteRes.status}`);
               }
-            } else {
-              console.error(`[QC_WORKER] trace_id=${traceId} AUTO_PROMOTE: no system user found`);
             }
           }
         } catch (promoteError: any) {
