@@ -577,24 +577,35 @@ export async function ensureArchetypeColumn(): Promise<void> {
 }
 
 /**
- * STARTUP MIGRATION: Ensure tournament_score column exists on bots table
+ * STARTUP MIGRATION: Ensure ALL tournament columns exist on bots table
+ * Adds: tournament_score (real), tournament_rank (integer), tournament_tier (text)
  * Uses ADD COLUMN IF NOT EXISTS to be idempotent - safe for concurrent Render instances
  */
 export async function ensureTournamentScoreColumn(): Promise<void> {
-  console.log('[STARTUP_MIGRATION] Ensuring tournament_score column exists...');
+  console.log('[STARTUP_MIGRATION] Ensuring tournament columns exist...');
   
-  try {
-    await poolWeb.query(`
-      ALTER TABLE bots ADD COLUMN IF NOT EXISTS tournament_score real
-    `);
-    console.log('[STARTUP_MIGRATION] tournament_score column ensured (created or already exists)');
-  } catch (error) {
-    const errMsg = error instanceof Error ? error.message : 'unknown';
-    console.error(`[STARTUP_MIGRATION] Failed to ensure tournament_score column: ${errMsg}`);
-    if (!errMsg.includes('already exists')) {
-      throw error;
+  const columns = [
+    { name: 'tournament_score', type: 'real' },
+    { name: 'tournament_rank', type: 'integer' },
+    { name: 'tournament_tier', type: 'text' }
+  ];
+  
+  for (const col of columns) {
+    try {
+      await poolWeb.query(`
+        ALTER TABLE bots ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}
+      `);
+      console.log(`[STARTUP_MIGRATION] ${col.name} column ensured`);
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'unknown';
+      console.error(`[STARTUP_MIGRATION] Failed to ensure ${col.name} column: ${errMsg}`);
+      if (!errMsg.includes('already exists')) {
+        throw error;
+      }
     }
   }
+  
+  console.log('[STARTUP_MIGRATION] All tournament columns ensured');
 }
 
 /**
