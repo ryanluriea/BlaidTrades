@@ -1,0 +1,50 @@
+2026-01-14T06:54:41.570652326Z [BACKTEST_EXECUTOR] trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9 bot_name="Euphoria Pulse Fade" inferred_archetype="none" using="mean_reversion"
+2026-01-14T06:54:41.570674776Z [BACKTEST_EXECUTOR] trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9 archetype=mean_reversion mapped_to=mean_reversion
+2026-01-14T06:54:41.570867191Z [BACKTEST_EXECUTOR] trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9 TRIALS_SESSION_WIDENING original=09:35-15:45 widened=09:35-15:55
+2026-01-14T06:54:41.572700635Z [BACKTEST_EXECUTOR] trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9 using_real_strategy version=1.0.0 rules=MES Mean Reversion rules_hash=2ed0d477dd805d09
+2026-01-14T06:54:41.572827918Z [BACKTEST_EXECUTOR] trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-14T06:54:41.572832529Z [BACKTEST_EXECUTOR] trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-14T06:54:41.573163187Z [SESSION_CHECK] UTC=2025-12-16T04:45:00.000Z ET_hour=23 ET_min=45 ET_day=1 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-14T06:54:41.649345307Z [STRATEGY_EXECUTOR] bars=1015 valid_bars=1015 session_bars=212 outside_session=711 no_trade_window=42 entry_signals=0 trades=0
+2026-01-14T06:54:41.649370477Z [BACKTEST_EXECUTOR] trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9 REAL_EXECUTION trades=0 pnl=0.00 win_rate=0.0%
+2026-01-14T06:54:41.649381637Z [BACKTEST_EXECUTOR] trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9 FAIL_FAST: ZERO_TRADES_GENERATED - Strategy produced 0 trades over 1015 bars. Check entry conditions or data quality.
+2026-01-14T06:54:41.655022244Z [ACTIVITY_EVENT] type=BACKTEST_FAILED severity=WARN title="Backtest failed: ZERO_TRADES_GENERATED" trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9
+2026-01-14T06:54:41.655104987Z [BACKTEST_WORKER] trace_id=13665993-6c42-434f-9bc9-54b3c1d1bce9 job_id=79dd22c4-37e8-46ee-89c7-b00985f4700b error= Strategy produced 0 trades over 1015 bars. Check entry conditions or data quality.
+2026-01-14T06:54:46.053889718Z [LIVE_DATA_SERVICE] Quote tick symbol=MNQ last=25846.5 bid=25846 ask=25846.5 mid=25846.25 quotes_total=413
+2026-01-14T06:54:46.25578636Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-14T06:54:46.256331164Z [EVENT_LOOP] status=OK current=0.2ms avg=25.9ms p95=1.4ms p99=235.2ms max=7788.4ms samples=477 gc_pauses=0
+2026-01-14T06:54:46.25700486Z [MEMORY_LEAK] status=LEAK heap=311.4MB peak=311.4MB short=3802.0KB/s medium=3802.0KB/s long=3802.0KB/s confidence=100%
+2026-01-14T06:54:48.65382958Z [BACKTEST_WORKER] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c processing_jobs=1
+2026-01-14T06:54:48.666764095Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c bot_id=ee21d879-6a72-49f6-90c1-ab69b3deea69 FORCE_NEW: bypassing valid baseline (43 trades) reason=PROMOTION_GUARD: Need 50+ trades (have 43), queueing full 5-year backtest
+2026-01-14T06:54:48.666798006Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c bot_id=ee21d879-6a72-49f6-90c1-ab69b3deea69 queueing_5year_backtest days=1825 start=2021-01-15T00:00:00.000Z end=2026-01-14T00:00:00.000Z
+2026-01-14T06:54:48.672990436Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest queued for Dormant Ceiling Fade" trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c
+2026-01-14T06:54:48.675345263Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c queued_baseline session_id=349cf781-e86f-477e-8634-322baf1fe336 bot_id=ee21d879-6a72-49f6-90c1-ab69b3deea69
+2026-01-14T06:54:48.675354743Z [BACKTEST_WORKER] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c bot_id=ee21d879-6a72-49f6-90c1-ab69b3deea69 PROMOTION_GUARD: created new session 349cf781-e86f-477e-8634-322baf1fe336
+2026-01-14T06:54:48.675357063Z [BACKTEST_WORKER] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c bot_id=ee21d879-6a72-49f6-90c1-ab69b3deea69 created_session=349cf781-e86f-477e-8634-322baf1fe336 - will now execute
+2026-01-14T06:54:48.677152617Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c session_id=349cf781-e86f-477e-8634-322baf1fe336 bot_id=ee21d879-6a72-49f6-90c1-ab69b3deea69 starting
+2026-01-14T06:54:48.680819546Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Dormant Ceiling Fade" trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c
+2026-01-14T06:54:48.680831286Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c using REAL Databento data for MES via BAR_CACHE
+2026-01-14T06:54:48.680843227Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-14T06:54:48.681034911Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c cold_storage_empty falling_back_to_redis_cache
+2026-01-14T06:54:48.681036451Z [BAR_CACHE] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c symbol=MES cold_storage_empty
+2026-01-14T06:54:48.685989292Z [BARS_CACHE] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c instance=59c82e60 lock_acquired fetching_from_provider
+2026-01-14T06:54:48.689140138Z [INTEGRATION_USAGE] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-14T06:54:48.689164018Z [DATABENTO] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c CME_LICENSE_CAP: Requested end=2026-01-14T06:54:48.675Z capped to 2026-01-13T04:54:48.689Z (26h buffer for license-free window)
+2026-01-14T06:54:48.689173139Z [DATABENTO] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c fetching symbol=MES.c.0 start=2025-12-15T06:54:48.675Z end=2026-01-13T04:54:48.689Z schema=ohlcv-1m
+2026-01-14T06:54:51.282251325Z [DATABENTO] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c fetched bars=5073 latency=2593ms
+2026-01-14T06:54:51.285421142Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c
+2026-01-14T06:54:51.348247588Z [BARS_CACHE] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c instance=59c82e60 cache_set key=bars:v2:MES:5m:ALL:1765781688675:1768373688675 bars=5073 compressed_bytes=58097
+2026-01-14T06:54:51.350911452Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c resampling cached bars from 1m to 5m (factor=5)
+2026-01-14T06:54:51.353983627Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c REAL_DATA fetched_bars=1015 provider=databento latency=2671ms
+2026-01-14T06:54:51.356258392Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c bot_name="Dormant Ceiling Fade" inferred_archetype="none" using="mean_reversion"
+2026-01-14T06:54:51.356340334Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c archetype=mean_reversion mapped_to=mean_reversion
+2026-01-14T06:54:51.356531899Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c TRIALS_SESSION_WIDENING original=09:35-15:45 widened=09:35-15:55
+2026-01-14T06:54:51.358689091Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c using_real_strategy version=1.0.0 rules=MES Mean Reversion rules_hash=2ed0d477dd805d09
+2026-01-14T06:54:51.358897246Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-14T06:54:51.358904426Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-14T06:54:51.35945407Z [SESSION_CHECK] UTC=2025-12-16T04:45:00.000Z ET_hour=23 ET_min=45 ET_day=1 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-14T06:54:51.454479207Z [STRATEGY_EXECUTOR] bars=1015 valid_bars=1015 session_bars=212 outside_session=711 no_trade_window=42 entry_signals=0 trades=0
+2026-01-14T06:54:51.454491978Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c REAL_EXECUTION trades=0 pnl=0.00 win_rate=0.0%
+2026-01-14T06:54:51.454519448Z [BACKTEST_EXECUTOR] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c FAIL_FAST: ZERO_TRADES_GENERATED - Strategy produced 0 trades over 1015 bars. Check entry conditions or data quality.
+2026-01-14T06:54:51.469209765Z [ACTIVITY_EVENT] type=BACKTEST_FAILED severity=WARN title="Backtest failed: ZERO_TRADES_GENERATED" trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c
+2026-01-14T06:54:51.469279067Z [BACKTEST_WORKER] trace_id=a8be7271-203f-44cc-8f6e-48f488028c1c job_id=ae197762-fd2b-4703-a05d-e7b04558f62a error= Strategy produced 0 trades over 1015 bars. Check entry conditions or data quality.
