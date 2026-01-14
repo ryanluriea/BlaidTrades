@@ -26,28 +26,67 @@ const FRESH_TTL_SECONDS = 300; // 5 min - reduced Redis bandwidth (was 60s)
 const STALE_TTL_SECONDS = 480; // 8 min - stale-while-revalidate window
 const MAX_TTL_SECONDS = 600;   // 10 min - absolute expiry
 
-// PERFORMANCE: Global in-memory fallback cache
-// Serves any user when Redis cache misses and DB is slow/saturated
-// This prevents skeleton loaders during cold starts and DB saturation
-let globalFallbackCache: { data: CachedStrategyLabData | null; updatedAt: number } = {
+// PERFORMANCE: Global fallback cache with Redis persistence + in-memory layer
+// Survives Render dyno restarts and prevents skeleton loaders during cold starts
+const GLOBAL_FALLBACK_KEY = 'strategy-lab:global-fallback';
+const GLOBAL_FALLBACK_TTL_SECONDS = 300; // 5 minutes in Redis (survives restarts)
+const GLOBAL_FALLBACK_MEMORY_TTL_MS = 60_000; // 1 minute in-memory (fast path)
+
+// In-memory layer for fast access
+let globalFallbackMemory: { data: CachedStrategyLabData | null; updatedAt: number } = {
   data: null,
   updatedAt: 0,
 };
-const GLOBAL_FALLBACK_TTL_MS = 60_000; // 1 minute - short TTL since it's shared across users
 
-export function getGlobalFallbackCache(): CachedStrategyLabData | null {
-  const age = Date.now() - globalFallbackCache.updatedAt;
-  if (globalFallbackCache.data && age < GLOBAL_FALLBACK_TTL_MS) {
-    return globalFallbackCache.data;
+/**
+ * Get global fallback cache - tries memory first, then Redis
+ * This ensures fast page loads even after cold starts
+ */
+export async function getGlobalFallbackCache(): Promise<CachedStrategyLabData | null> {
+  // Fast path: Check in-memory cache first
+  const memoryAge = Date.now() - globalFallbackMemory.updatedAt;
+  if (globalFallbackMemory.data && memoryAge < GLOBAL_FALLBACK_MEMORY_TTL_MS) {
+    return globalFallbackMemory.data;
   }
+  
+  // Slow path: Try Redis (survives restarts)
+  try {
+    const client = await getRedisClient();
+    if (client) {
+      const cached = await client.get(GLOBAL_FALLBACK_KEY);
+      if (cached) {
+        const parsed: CachedStrategyLabData = JSON.parse(cached);
+        // Update in-memory cache for next request
+        globalFallbackMemory = { data: parsed, updatedAt: Date.now() };
+        console.log(`[STRATEGY_LAB_CACHE] Redis fallback restored, age=${Math.floor((Date.now() - parsed.cachedAt) / 1000)}s`);
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('[STRATEGY_LAB_CACHE] Redis fallback read failed:', err);
+  }
+  
   return null;
 }
 
-export function setGlobalFallbackCache(data: CachedStrategyLabData): void {
-  globalFallbackCache = {
-    data,
-    updatedAt: Date.now(),
-  };
+/**
+ * Set global fallback cache - writes to both memory and Redis
+ */
+export async function setGlobalFallbackCache(data: CachedStrategyLabData): Promise<void> {
+  // Always update in-memory for fast access
+  globalFallbackMemory = { data, updatedAt: Date.now() };
+  
+  // Persist to Redis for durability across restarts
+  try {
+    const client = await getRedisClient();
+    if (client) {
+      await client.set(GLOBAL_FALLBACK_KEY, JSON.stringify(data), {
+        EX: GLOBAL_FALLBACK_TTL_SECONDS,
+      });
+    }
+  } catch (err) {
+    console.warn('[STRATEGY_LAB_CACHE] Redis fallback write failed:', err);
+  }
 }
 
 export interface CachedStrategyLabData {

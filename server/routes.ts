@@ -14532,6 +14532,48 @@ export function registerRoutes(app: Express) {
 
   // Strategy Lab Overview - UNIFIED endpoint for fast page load
   // Combines status, state, and candidate counts in a single request
+  // PERFORMANCE: Redis-backed last-known-good cache for Fleet badge resilience
+  const OVERVIEW_CACHE_KEY = 'strategy-lab:overview:last-known-good';
+  const OVERVIEW_CACHE_TTL_SECONDS = 300; // 5 minutes
+  
+  // In-memory fallback for overview (fast path)
+  let overviewMemoryCache: { data: any; updatedAt: number } | null = null;
+  const OVERVIEW_MEMORY_TTL_MS = 30_000; // 30 seconds
+  
+  async function getOverviewCache(): Promise<any | null> {
+    // Fast path: memory cache
+    if (overviewMemoryCache && (Date.now() - overviewMemoryCache.updatedAt) < OVERVIEW_MEMORY_TTL_MS) {
+      return overviewMemoryCache.data;
+    }
+    // Slow path: Redis
+    try {
+      const client = await getRedisClient();
+      if (client) {
+        const cached = await client.get(OVERVIEW_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          overviewMemoryCache = { data: parsed, updatedAt: Date.now() };
+          return parsed;
+        }
+      }
+    } catch (err) {
+      console.warn('[OVERVIEW_CACHE] Redis read failed:', err);
+    }
+    return null;
+  }
+  
+  async function setOverviewCache(data: any): Promise<void> {
+    overviewMemoryCache = { data, updatedAt: Date.now() };
+    try {
+      const client = await getRedisClient();
+      if (client) {
+        await client.set(OVERVIEW_CACHE_KEY, JSON.stringify(data), { EX: OVERVIEW_CACHE_TTL_SECONDS });
+      }
+    } catch (err) {
+      console.warn('[OVERVIEW_CACHE] Redis write failed:', err);
+    }
+  }
+  
   app.get("/api/strategy-lab/overview", requireAuth, async (req: Request, res: Response) => {
     const overviewStart = Date.now();
     try {
@@ -14614,39 +14656,61 @@ export function registerRoutes(app: Express) {
       const overviewMs = Date.now() - overviewStart;
       console.log(`[STRATEGY_LAB_OVERVIEW] TOTAL: ${overviewMs}ms Fleet: trials=${parseInt(fleet.trials) || 0}, paper=${parseInt(fleet.paper) || 0}, total=${parseInt(fleet.total) || 0}`);
       
+      // Build response data
+      const responseData = {
+        // Autonomous state
+        ...state,
+        lastResearchCycleTime: getLastResearchCycleTime(),
+        researchActivity,
+        // Candidate counts
+        candidateCounts: {
+          pendingReview: parseInt(counts.pending_review) || 0,
+          sentToLab: parseInt(counts.sent_to_lab) || 0,
+          queued: parseInt(counts.queued) || 0,
+          queuedForQc: parseInt(counts.queued_for_qc) || 0,
+          waitlist: parseInt(counts.waitlist) || 0,
+          rejected: parseInt(counts.rejected) || 0,
+          total: parseInt(counts.total) || 0,
+        },
+        trialsBotsCount,
+        // Fleet breakdown by stage (for Governor UI)
+        fleetBreakdown: {
+          trials: parseInt(fleet.trials) || 0,
+          paper: parseInt(fleet.paper) || 0,
+          shadow: parseInt(fleet.shadow) || 0,
+          canary: parseInt(fleet.canary) || 0,
+          live: parseInt(fleet.live) || 0,
+          total: parseInt(fleet.total) || 0,
+        },
+        // Research stats
+        researchStats: researchStats.slice(-5),
+      };
+      
+      // PERFORMANCE: Cache successful response for Fleet badge resilience
+      // This ensures 0/100 doesn't show when DB queries fail
+      setOverviewCache(responseData).catch(err => 
+        console.warn('[OVERVIEW_CACHE] Failed to cache overview:', err)
+      );
+      
       return res.json({
         success: true,
-        data: {
-          // Autonomous state
-          ...state,
-          lastResearchCycleTime: getLastResearchCycleTime(),
-          researchActivity,
-          // Candidate counts
-          candidateCounts: {
-            pendingReview: parseInt(counts.pending_review) || 0,
-            sentToLab: parseInt(counts.sent_to_lab) || 0,
-            queued: parseInt(counts.queued) || 0,
-            queuedForQc: parseInt(counts.queued_for_qc) || 0,
-            waitlist: parseInt(counts.waitlist) || 0,
-            rejected: parseInt(counts.rejected) || 0,
-            total: parseInt(counts.total) || 0,
-          },
-          trialsBotsCount,
-          // Fleet breakdown by stage (for Governor UI)
-          fleetBreakdown: {
-            trials: parseInt(fleet.trials) || 0,
-            paper: parseInt(fleet.paper) || 0,
-            shadow: parseInt(fleet.shadow) || 0,
-            canary: parseInt(fleet.canary) || 0,
-            live: parseInt(fleet.live) || 0,
-            total: parseInt(fleet.total) || 0,
-          },
-          // Research stats
-          researchStats: researchStats.slice(-5),
-        },
+        data: responseData,
       });
     } catch (error: any) {
       console.error("[STRATEGY_LAB] Error getting overview:", error);
+      
+      // RESILIENCE: Return cached data on error instead of 500
+      // This prevents Fleet badge from showing 0/100 during DB issues
+      const cachedOverview = await getOverviewCache();
+      if (cachedOverview) {
+        console.log('[STRATEGY_LAB_OVERVIEW] Serving cached data due to error');
+        return res.json({
+          success: true,
+          data: cachedOverview,
+          _cache: { fallback: true },
+        });
+      }
+      
       return res.status(500).json({ success: false, error: error.message });
     }
   });
@@ -14709,7 +14773,8 @@ export function registerRoutes(app: Express) {
         
         // PERFORMANCE: Global fallback cache - serves any user during DB saturation
         // Prevents skeleton loaders during cold starts and connection pool exhaustion
-        const globalFallback = getGlobalFallbackCache();
+        // Now Redis-backed for durability across Render restarts
+        const globalFallback = await getGlobalFallbackCache();
         if (globalFallback && globalFallback.disposition === disp) {
           console.log(`[STRATEGY_LAB_CACHE] Global fallback served for userId=${userId.slice(0,8)} disposition=${disp}`);
           return res.json({
