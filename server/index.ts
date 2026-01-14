@@ -168,55 +168,48 @@ if (isWorkerOnlyMode) {
   app.use(requestInstrumentationMiddleware);
 
   (async () => {
-    // CRITICAL: Warm up database BEFORE setting up auth
-    // This ensures session store uses PostgreSQL instead of MemoryStore
-    // MemoryStore loses sessions on restart, breaking "Remember Me" functionality
-    // warmupDatabase() has built-in retry logic (3 attempts with exponential backoff)
-    const dbReady = await warmupDatabase();
+    // FAST STARTUP: Start database warmup in background, don't block server
+    // This is critical for Render/Replit cold starts where DB can take 30+ seconds
+    // Circuit breaker pattern will handle graceful degradation
+    log(`[STARTUP] Starting database warmup in background...`);
     
-    if (dbReady) {
-      log(`[STARTUP] Database ready - PostgreSQL session store will be used`);
-      
-      // CRITICAL: Ensure archetype_name column exists BEFORE any bot queries
-      // This auto-migrates production databases on deploy
-      await ensureArchetypeColumn();
-      
-      // Bootstrap admin account on first deploy (when users table is empty)
-      await bootstrapAdminAccount();
-      
-      // CRITICAL: Ensure system user exists for autonomous operations
-      // This is the runtime fallback in case pre-deploy seeding failed
-      // FAIL-CLOSED: Exit if system user cannot be ensured to prevent degraded operation
-      try {
-        const systemUser = await storage.ensureSystemUser();
-        log(`[STARTUP] System user verified: ${systemUser.email} (id=${systemUser.id})`);
-      } catch (err) {
-        log(`[STARTUP] FATAL: Failed to ensure system user - cannot start in degraded mode: ${err instanceof Error ? err.message : 'unknown'}`);
-        process.exit(1);
+    // Non-blocking: warmup runs in background while server starts
+    warmupDatabase().then(async (dbReady) => {
+      if (dbReady) {
+        log(`[STARTUP] Database warmed up - running post-warmup tasks`);
+        
+        // CRITICAL: Ensure archetype_name column exists BEFORE any bot queries
+        await ensureArchetypeColumn().catch(e => log(`[STARTUP] ensureArchetypeColumn failed: ${e}`));
+        
+        // Bootstrap admin account
+        await bootstrapAdminAccount().catch(e => log(`[STARTUP] bootstrapAdminAccount failed: ${e}`));
+        
+        // Ensure system user exists for autonomous operations
+        try {
+          const systemUser = await storage.ensureSystemUser();
+          log(`[STARTUP] System user verified: ${systemUser.email} (id=${systemUser.id})`);
+        } catch (err) {
+          log(`[STARTUP] WARNING: Failed to ensure system user: ${err instanceof Error ? err.message : 'unknown'}`);
+        }
+        
+        // Ensure tick ingestion tables exist
+        await ensureTickTablesExist().catch(e => log(`[STARTUP] ensureTickTablesExist failed: ${e}`));
+        
+        // User consolidation
+        try {
+          await ensureCanonicalUserConsolidation();
+          log(`[STARTUP] User consolidation completed`);
+        } catch (consolidationErr) {
+          log(`[STARTUP] User consolidation failed: ${consolidationErr instanceof Error ? consolidationErr.message : 'unknown'}`);
+        }
+      } else {
+        log(`[STARTUP] Database warmup failed - app running in degraded mode`);
+        log(`[STARTUP] Circuit breaker will retry every 30s`);
       }
-      
-      // INSTITUTIONAL: Ensure tick ingestion tables exist
-      // Creates trade_ticks, quote_ticks, order_book_snapshots if missing
-      // This runs on every startup to handle cases where db:push didn't create them
-      await ensureTickTablesExist();
-      
-      // PRODUCTION FIX: Consolidate all data to canonical user (blaidtrades@gmail.com)
-      // This ensures /api/bots returns data for the logged-in user
-      // CRITICAL: Runs synchronously in startup flow to guarantee execution on Render
-      log(`[STARTUP] Running user consolidation...`);
-      try {
-        await ensureCanonicalUserConsolidation();
-        log(`[STARTUP] User consolidation completed successfully`);
-      } catch (consolidationErr) {
-        log(`[STARTUP] User consolidation failed: ${consolidationErr instanceof Error ? consolidationErr.message : 'unknown'}`);
-        // Non-fatal - continue startup but log the error prominently
-      }
-      
-    } else {
-      log(`[STARTUP] WARNING: Database warmup failed after 3 attempts - sessions will use MemoryStore (not persistent)`);
-    }
+    }).catch(e => log(`[STARTUP] Background warmup error: ${e}`));
     
-    // Now setup auth with database ready (session store will use Redis → PostgreSQL → MemoryStore)
+    // Continue immediately - don't wait for warmup
+    // Auth will use Redis → MemoryStore fallback until DB is ready
     await setupAuth(app);
     registerRoutes(app);
 
@@ -311,7 +304,12 @@ if (isWorkerOnlyMode) {
       registerSchedulerCallbacks(pauseHeavyWorkers, resumeHeavyWorkers);
       
       // Run post-startup tasks only if database is ready
-      if (dbReady) {
+      // Use isDatabaseWarmedUp() which is set by background warmup task
+      import("./db").then(({ isDatabaseWarmedUp }) => {
+        if (!isDatabaseWarmedUp()) {
+          log(`[STARTUP] WARNING: Running in degraded mode - DB-dependent features disabled`);
+          return;
+        }
         log(`[STARTUP] Database ready - running post-startup tasks`);
         
         // Load research orchestrator state from DB early to prevent stale defaults
@@ -413,9 +411,9 @@ if (isWorkerOnlyMode) {
             log(`[STARTUP] Failed to import strategy-lab-engine: ${err.message}`);
           });
         })();
-      } else {
-        log(`[STARTUP] WARNING: Running in degraded mode - DB-dependent features disabled`);
-      }
+      }).catch(err => {
+        log(`[STARTUP] Failed to check DB status: ${err.message}`);
+      });
       
       // Start automated scheduler (has its own retry logic for DB operations)
       // In API mode, we also run the scheduler for backward compatibility

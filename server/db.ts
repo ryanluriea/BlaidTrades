@@ -77,8 +77,10 @@ try {
 // New: web=5, worker=4, writer=2 (11 total) leaves headroom
 const STATEMENT_TIMEOUT_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_WEB_MS || "5000", 10);
 const STATEMENT_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_WORKER_MS || "15000", 10);
-const CONNECTION_TIMEOUT_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WEB_MS || "8000", 10);
-const CONNECTION_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WORKER_MS || "15000", 10);
+// COLD START FIX: Increase connection timeout to 30s for Replit/Render cold starts
+// Database can take 20+ seconds to wake up from idle state
+const CONNECTION_TIMEOUT_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WEB_MS || "30000", 10);
+const CONNECTION_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WORKER_MS || "30000", 10);
 const IDLE_TIMEOUT_MS = parseInt(process.env.DB_IDLE_TIMEOUT_MS || "20000", 10);
 const POOL_WEB_MAX = parseInt(process.env.DB_POOL_WEB_MAX || "5", 10);
 const POOL_WORKER_MAX = parseInt(process.env.DB_POOL_WORKER_MAX || "4", 10);
@@ -255,15 +257,17 @@ export function closeCircuit(): void {
 /**
  * Warm up the database connection with exponential backoff retry
  * Industry-standard implementation with circuit breaker integration
+ * Uses web pool (higher priority) for faster initial connection
  */
 export async function warmupDatabase(): Promise<boolean> {
-  const MAX_RETRIES = 3; // Fail fast - 3 attempts with 10s timeout each = 30s max
-  const INITIAL_DELAY_MS = 2000; // Start with 2s delay
+  const MAX_RETRIES = 5; // 5 attempts with increasing delays
+  const INITIAL_DELAY_MS = 3000; // Start with 3s delay
   
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       console.log(`[DB_WARMUP] Attempt ${attempt}/${MAX_RETRIES} - connecting to database...`);
-      const client = await pool.connect();
+      // Use web pool (higher priority) for warmup to avoid worker queue contention
+      const client = await poolWeb.connect();
       await client.query('SELECT 1');
       client.release();
       console.log(`[DB_WARMUP] Database connection established successfully`);
@@ -271,8 +275,8 @@ export async function warmupDatabase(): Promise<boolean> {
       closeCircuit();
       return true;
     } catch (error) {
-      // Delays: 3s, 6s, 12s, 24s, 48s, 96s, 192s, 384s (caps at 60s due to timeout)
-      const delay = Math.min(INITIAL_DELAY_MS * Math.pow(2, attempt - 1), 60000);
+      // Delays: 3s, 6s, 12s, 24s, 48s (caps at 30s)
+      const delay = Math.min(INITIAL_DELAY_MS * Math.pow(2, attempt - 1), 30000);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.log(`[DB_WARMUP] Attempt ${attempt}/${MAX_RETRIES} failed: ${errorMessage}`);
       

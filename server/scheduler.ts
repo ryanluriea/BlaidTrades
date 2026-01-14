@@ -6735,82 +6735,46 @@ export async function startScheduler(): Promise<void> {
 
 /**
  * INSTITUTIONAL: Clear all worker intervals when losing leadership
+ * Standard setInterval pattern ensures proper lifecycle management
  */
 function clearAllWorkerIntervals(): void {
   console.log("[SCHEDULER] Clearing all worker intervals...");
+  let cleared = 0;
   
-  if (timeoutWorkerInterval) {
-    clearInterval(timeoutWorkerInterval);
-    timeoutWorkerInterval = null;
-  }
-  if (supervisorLoopInterval) {
-    clearInterval(supervisorLoopInterval);
-    supervisorLoopInterval = null;
-  }
-  if (backtestWorkerInterval) {
-    clearInterval(backtestWorkerInterval);
-    backtestWorkerInterval = null;
-  }
-  if (autonomyLoopInterval) {
-    clearInterval(autonomyLoopInterval);
-    autonomyLoopInterval = null;
-  }
-  if (evolutionWorkerInterval) {
-    clearInterval(evolutionWorkerInterval);
-    evolutionWorkerInterval = null;
-  }
-  if (economicCalendarInterval) {
-    clearInterval(economicCalendarInterval);
-    economicCalendarInterval = null;
-  }
-  if (runnerWorkerInterval) {
-    clearInterval(runnerWorkerInterval);
-    runnerWorkerInterval = null;
-  }
-  if (trendConsistencyInterval) {
-    clearInterval(trendConsistencyInterval);
-    trendConsistencyInterval = null;
-  }
-  if (selfHealingInterval) {
-    clearInterval(selfHealingInterval);
-    selfHealingInterval = null;
-  }
-  if (integrationVerificationInterval) {
-    clearInterval(integrationVerificationInterval);
-    integrationVerificationInterval = null;
-  }
-  if (strategyLabResearchInterval) {
-    clearInterval(strategyLabResearchInterval);
-    strategyLabResearchInterval = null;
-  }
-  if (grokResearchInterval) {
-    clearInterval(grokResearchInterval);
-    grokResearchInterval = null;
-  }
-  if (qcVerificationWorkerInterval) {
-    clearInterval(qcVerificationWorkerInterval);
-    qcVerificationWorkerInterval = null;
-  }
-  if (qcErrorRecoveryWorkerInterval) {
-    clearInterval(qcErrorRecoveryWorkerInterval);
-    qcErrorRecoveryWorkerInterval = null;
-  }
-  if (qcEvolutionWorkerInterval) {
-    clearInterval(qcEvolutionWorkerInterval);
-    qcEvolutionWorkerInterval = null;
-  }
-  if (tournamentWorkerInterval) {
-    clearInterval(tournamentWorkerInterval);
-    tournamentWorkerInterval = null;
-  }
-  if (systemAuditInterval) {
-    clearInterval(systemAuditInterval);
-    systemAuditInterval = null;
-  }
-  if (consistencySweepInterval) {
-    clearInterval(consistencySweepInterval);
-    consistencySweepInterval = null;
-  }
+  // Helper to clear and count intervals
+  const clearAndCount = (interval: NodeJS.Timeout | null): null => {
+    if (interval) {
+      clearInterval(interval);
+      cleared++;
+    }
+    return null;
+  };
+  
+  // Clear all worker intervals stored in module-level variables
+  timeoutWorkerInterval = clearAndCount(timeoutWorkerInterval);
+  supervisorLoopInterval = clearAndCount(supervisorLoopInterval);
+  backtestWorkerInterval = clearAndCount(backtestWorkerInterval);
+  autonomyLoopInterval = clearAndCount(autonomyLoopInterval);
+  evolutionWorkerInterval = clearAndCount(evolutionWorkerInterval);
+  economicCalendarInterval = clearAndCount(economicCalendarInterval);
+  runnerWorkerInterval = clearAndCount(runnerWorkerInterval);
+  trendConsistencyInterval = clearAndCount(trendConsistencyInterval);
+  selfHealingInterval = clearAndCount(selfHealingInterval);
+  integrationVerificationInterval = clearAndCount(integrationVerificationInterval);
+  strategyLabResearchInterval = clearAndCount(strategyLabResearchInterval);
+  grokResearchInterval = clearAndCount(grokResearchInterval);
+  qcVerificationWorkerInterval = clearAndCount(qcVerificationWorkerInterval);
+  qcErrorRecoveryWorkerInterval = clearAndCount(qcErrorRecoveryWorkerInterval);
+  qcEvolutionWorkerInterval = clearAndCount(qcEvolutionWorkerInterval);
+  tournamentWorkerInterval = clearAndCount(tournamentWorkerInterval);
+  systemAuditInterval = clearAndCount(systemAuditInterval);
+  consistencySweepInterval = clearAndCount(consistencySweepInterval);
+  promotionWorkerInterval = clearAndCount(promotionWorkerInterval);
+  governanceExpirationInterval = clearAndCount(governanceExpirationInterval);
+  riskEnforcementInterval = clearAndCount(riskEnforcementInterval);
+  resurrectionDetectorInterval = clearAndCount(resurrectionDetectorInterval);
+  cacheWarmerInterval = clearAndCount(cacheWarmerInterval);
+  sentToLabPromotionInterval = clearAndCount(sentToLabPromotionInterval);
   
   // Stop drift detection
   stopScheduledDriftDetection();
@@ -6818,7 +6782,7 @@ function clearAllWorkerIntervals(): void {
   // Stop fleet risk engine
   stopFleetRiskEngine().catch(err => console.error("[SCHEDULER] Fleet risk engine stop error:", err));
   
-  console.log("[SCHEDULER] All worker intervals cleared");
+  console.log(`[SCHEDULER] Cleared ${cleared} worker intervals`);
 }
 
 /**
@@ -8757,7 +8721,7 @@ async function initializeWorkers(): Promise<void> {
     console.error("[SCHEDULER] Failed to check AI providers:", providerError);
   }
   
-  console.log("[SCHEDULER] Starting automated workers with self-healing...");
+  console.log("[SCHEDULER] Starting automated workers with self-healing and jittered intervals...");
   
   const createSelfHealingWorker = (name: string, fn: () => Promise<void>) => {
     return async () => {
@@ -8766,76 +8730,62 @@ async function initializeWorkers(): Promise<void> {
     };
   };
   
-  // Start workers with self-healing wrappers
-  timeoutWorkerInterval = setInterval(createSelfHealingWorker("timeout", runTimeoutWorker), TIMEOUT_WORKER_INTERVAL_MS);
-  console.log(`[SCHEDULER] Timeout worker started (interval: ${TIMEOUT_WORKER_INTERVAL_MS}ms)`);
+  // INDUSTRY STANDARD: Jittered intervals to prevent synchronization over time
+  // Adds ±10% jitter to all worker intervals
+  const jitteredInterval = (baseMs: number): number => {
+    const jitterFactor = 0.1; // ±10% jitter
+    return Math.round(baseMs * (1 + (Math.random() - 0.5) * 2 * jitterFactor));
+  };
   
-  supervisorLoopInterval = setInterval(createSelfHealingWorker("supervisor", runSupervisorLoop), SUPERVISOR_LOOP_INTERVAL_MS);
-  console.log(`[SCHEDULER] Supervisor loop started (interval: ${SUPERVISOR_LOOP_INTERVAL_MS}ms)`);
+  // INSTITUTIONAL: Workers use setInterval with jitter for predictable lifecycle management
+  // Standard setInterval pattern ensures proper cleanup in clearAllWorkerIntervals()
   
-  // MAINTENANCE_MODE: Skip heavy workers if flag is set
+  // High priority workers - essential for system health
+  timeoutWorkerInterval = setInterval(createSelfHealingWorker("timeout", runTimeoutWorker), jitteredInterval(TIMEOUT_WORKER_INTERVAL_MS));
+  supervisorLoopInterval = setInterval(createSelfHealingWorker("supervisor", runSupervisorLoop), jitteredInterval(SUPERVISOR_LOOP_INTERVAL_MS));
+  
+  // Medium priority workers
   if (!heavyWorkersPaused) {
-    backtestWorkerInterval = setInterval(createSelfHealingWorker("backtest", runBacktestWorker), BACKTEST_WORKER_INTERVAL_MS);
-    console.log(`[SCHEDULER] Backtest worker started (interval: ${BACKTEST_WORKER_INTERVAL_MS}ms)`);
-    
-    autonomyLoopInterval = setInterval(createSelfHealingWorker("autonomy", runAutonomyLoop), AUTONOMY_LOOP_INTERVAL_MS);
-    console.log(`[SCHEDULER] Autonomy loop started (interval: ${AUTONOMY_LOOP_INTERVAL_MS}ms)`);
-    
-    evolutionWorkerInterval = setInterval(createSelfHealingWorker("evolution", runEvolutionWorker), EVOLUTION_WORKER_INTERVAL_MS);
-    console.log(`[SCHEDULER] Evolution worker started (interval: ${EVOLUTION_WORKER_INTERVAL_MS}ms)`);
+    backtestWorkerInterval = setInterval(createSelfHealingWorker("backtest", runBacktestWorker), jitteredInterval(BACKTEST_WORKER_INTERVAL_MS));
+    autonomyLoopInterval = setInterval(createSelfHealingWorker("autonomy", runAutonomyLoop), jitteredInterval(AUTONOMY_LOOP_INTERVAL_MS));
+    evolutionWorkerInterval = setInterval(createSelfHealingWorker("evolution", runEvolutionWorker), jitteredInterval(EVOLUTION_WORKER_INTERVAL_MS));
   } else {
     console.log(`[SCHEDULER] MAINTENANCE_MODE: Skipped backtest, autonomy, evolution workers`);
   }
   
-  economicCalendarInterval = setInterval(createSelfHealingWorker("calendar", runEconomicCalendarRefresh), ECONOMIC_CALENDAR_INTERVAL_MS);
-  console.log(`[SCHEDULER] Economic calendar worker started (interval: ${ECONOMIC_CALENDAR_INTERVAL_MS}ms)`);
+  // Low priority workers - can wait
+  economicCalendarInterval = setInterval(createSelfHealingWorker("calendar", runEconomicCalendarRefresh), jitteredInterval(ECONOMIC_CALENDAR_INTERVAL_MS));
   
   // MAINTENANCE_MODE: Skip runner worker - it processes active bots which causes OOM on startup
   if (!heavyWorkersPaused) {
-    runnerWorkerInterval = setInterval(createSelfHealingWorker("runner", runRunnerWorker), RUNNER_WORKER_INTERVAL_MS);
-    console.log(`[SCHEDULER] Runner worker started (interval: ${RUNNER_WORKER_INTERVAL_MS}ms)`);
+    runnerWorkerInterval = setInterval(createSelfHealingWorker("runner", runRunnerWorker), jitteredInterval(RUNNER_WORKER_INTERVAL_MS));
   } else {
     console.log(`[SCHEDULER] MAINTENANCE_MODE: Skipped runner worker (prevents OOM with active bots)`);
   }
   
   // MAINTENANCE_MODE: Also skip trend consistency worker
   if (!heavyWorkersPaused) {
-    trendConsistencyInterval = setInterval(createSelfHealingWorker("trend", runTrendConsistencyWorker), TREND_CONSISTENCY_INTERVAL_MS);
-    console.log(`[SCHEDULER] Trend consistency worker started (interval: ${TREND_CONSISTENCY_INTERVAL_MS}ms)`);
+    trendConsistencyInterval = setInterval(createSelfHealingWorker("trend", runTrendConsistencyWorker), jitteredInterval(TREND_CONSISTENCY_INTERVAL_MS));
   } else {
     console.log(`[SCHEDULER] MAINTENANCE_MODE: Skipped trend consistency worker`);
   }
   
-  selfHealingInterval = setInterval(createSelfHealingWorker("self-healing", runSelfHealingWorker), SELF_HEALING_INTERVAL_MS);
-  console.log(`[SCHEDULER] Self-healing worker started (interval: ${SELF_HEALING_INTERVAL_MS}ms)`);
-  
-  integrationVerificationInterval = setInterval(createSelfHealingWorker("integration-verify", runIntegrationVerificationWorker), INTEGRATION_VERIFICATION_INTERVAL_MS);
-  console.log(`[SCHEDULER] Integration verification worker started (interval: ${INTEGRATION_VERIFICATION_INTERVAL_MS}ms)`);
-  
-  // Run integration verification immediately at startup for instant audit status
-  setTimeout(() => runIntegrationVerificationWorker().catch(err => console.error(`[INTEGRATION_VERIFY] Startup run failed:`, err)), 5000);
+  selfHealingInterval = setInterval(createSelfHealingWorker("self-healing", runSelfHealingWorker), jitteredInterval(SELF_HEALING_INTERVAL_MS));
+  integrationVerificationInterval = setInterval(createSelfHealingWorker("integration-verify", runIntegrationVerificationWorker), jitteredInterval(INTEGRATION_VERIFICATION_INTERVAL_MS));
   
   // AUTONOMOUS: System Audit Worker - runs comprehensive checks for observability dashboard
-  systemAuditInterval = setInterval(createSelfHealingWorker("system-audit", runSystemAuditWorker), SYSTEM_AUDIT_INTERVAL_MS);
-  console.log(`[SCHEDULER] System audit worker started (interval: ${SYSTEM_AUDIT_INTERVAL_MS / 3600_000}h)`);
+  systemAuditInterval = setInterval(createSelfHealingWorker("system-audit", runSystemAuditWorker), jitteredInterval(SYSTEM_AUDIT_INTERVAL_MS));
   
   // RESILIENCY: Consistency sweep worker - drift detection, trade integrity, audit chain verification
   consistencySweepInterval = setInterval(createSelfHealingWorker("consistency-sweep", async () => {
     await runConsistencySweep();
-  }), CONSISTENCY_SWEEP_INTERVAL_MS);
-  console.log(`[SCHEDULER] Consistency sweep worker started (interval: ${CONSISTENCY_SWEEP_INTERVAL_MS / 3600_000}h)`);
+  }), jitteredInterval(CONSISTENCY_SWEEP_INTERVAL_MS));
   
   // Start drift detection (runs alongside consistency sweep with auto-heal enabled)
   startScheduledDriftDetection(CONSISTENCY_SWEEP_INTERVAL_MS);
   
-  // Run system audit immediately on startup (3s delay for DB init)
-  setTimeout(() => runSystemAuditWorker().catch(err => console.error(`[SYSTEM_AUDIT] Startup run failed:`, err)), 3_000);
-  console.log(`[SCHEDULER] System audit will run in 3s on startup`);
-  
-  strategyLabResearchInterval = setInterval(createSelfHealingWorker("strategy-lab", runStrategyLabResearchWorker), STRATEGY_LAB_RESEARCH_INTERVAL_MS);
-  console.log(`[SCHEDULER] Strategy Lab research worker started (check interval: ${STRATEGY_LAB_RESEARCH_INTERVAL_MS / 60000}min, actual run interval by depth)`);
-  
-  grokResearchInterval = setInterval(createSelfHealingWorker("grok-research", runGrokResearchWorker), GROK_RESEARCH_CHECK_INTERVAL_MS);
+  strategyLabResearchInterval = setInterval(createSelfHealingWorker("strategy-lab", runStrategyLabResearchWorker), jitteredInterval(STRATEGY_LAB_RESEARCH_INTERVAL_MS));
+  grokResearchInterval = setInterval(createSelfHealingWorker("grok-research", runGrokResearchWorker), jitteredInterval(GROK_RESEARCH_CHECK_INTERVAL_MS));
   
   // AUTONOMOUS: Auto-enable Grok research on startup if XAI_API_KEY is configured
   // AND Strategy Lab is not paused (Grok Research follows Strategy Lab pause state)
@@ -8865,30 +8815,13 @@ async function initializeWorkers(): Promise<void> {
   }
   console.log(`[SCHEDULER] Grok research worker started (check interval: ${GROK_RESEARCH_CHECK_INTERVAL_MS / 60000}min, enabled=${grokResearchEnabled})`);
   
-  tournamentWorkerInterval = setInterval(createSelfHealingWorker("tournament", runTournamentWorker), 30 * 60_000);
-  console.log(`[SCHEDULER] Tournament worker started (check interval: 30min, incremental: ${TOURNAMENT_INCREMENTAL_INTERVAL_MS / 3600_000}h, major: 11PM ET)`);
+  tournamentWorkerInterval = setInterval(createSelfHealingWorker("tournament", runTournamentWorker), jitteredInterval(30 * 60_000));
   
   // MAINTENANCE_MODE: Skip QC workers (they can queue heavy QuantConnect jobs)
   if (!heavyWorkersPaused) {
-    qcVerificationWorkerInterval = setInterval(createSelfHealingWorker("qc-verification", runQCVerificationWorker), QC_VERIFICATION_WORKER_INTERVAL_MS);
-    console.log(`[SCHEDULER] QC verification worker started (interval: ${QC_VERIFICATION_WORKER_INTERVAL_MS / 1000}s)`);
-    
-    qcErrorRecoveryWorkerInterval = setInterval(createSelfHealingWorker("qc-error-recovery", runQCErrorRecoveryWorker), QC_ERROR_RECOVERY_INTERVAL_MS);
-    console.log(`[SCHEDULER] QC error recovery worker started (interval: ${QC_ERROR_RECOVERY_INTERVAL_MS / 60000}min)`);
-    
-    // Run QC threshold recovery on startup (once) to re-queue DIVERGENT verifications that might now pass
-    setTimeout(() => selfHealingWrapper("qc-threshold-recovery", runQCThresholdRecoveryWorker, startupTraceId).catch(console.error), 45_000);
-    console.log(`[SCHEDULER] QC threshold recovery will run in 45s on startup`);
-    
-    // Run stranded QC_OK backfill on startup (once) to promote candidates that passed QC but weren't auto-promoted
-    // This catches candidates stuck in NEW/READY with QC_OK badges that missed auto-promotion due to disposition check
-    // Run backfill 30s after startup (reduced from 90s for faster recovery)
-    console.log(`[SCHEDULER] Scheduling QC-OK backfill worker to run in 30 seconds`);
-    setTimeout(() => selfHealingWrapper("qc-ok-backfill", runQCOKBackfillWorker, startupTraceId).catch(console.error), 30_000);
-    console.log(`[SCHEDULER] QC_OK stranded backfill will run in 30s on startup`);
-    
-    qcEvolutionWorkerInterval = setInterval(createSelfHealingWorker("qc-evolution", runQCFailureEvolutionWorker), QC_EVOLUTION_SCAN_INTERVAL_MS);
-    console.log(`[SCHEDULER] QC failure evolution worker started (interval: ${QC_EVOLUTION_SCAN_INTERVAL_MS / 60000}min)`);
+    qcVerificationWorkerInterval = setInterval(createSelfHealingWorker("qc-verification", runQCVerificationWorker), jitteredInterval(QC_VERIFICATION_WORKER_INTERVAL_MS));
+    qcErrorRecoveryWorkerInterval = setInterval(createSelfHealingWorker("qc-error-recovery", runQCErrorRecoveryWorker), jitteredInterval(QC_ERROR_RECOVERY_INTERVAL_MS));
+    qcEvolutionWorkerInterval = setInterval(createSelfHealingWorker("qc-evolution", runQCFailureEvolutionWorker), jitteredInterval(QC_EVOLUTION_SCAN_INTERVAL_MS));
   } else {
     console.log(`[SCHEDULER] MAINTENANCE_MODE: Skipped QC workers (verification, error-recovery, evolution)`);
   }
@@ -8897,8 +8830,7 @@ async function initializeWorkers(): Promise<void> {
   // MAINTENANCE_MODE: Also skip this as it queues QC jobs
   if (!heavyWorkersPaused) {
     const QC_AUTO_TRIGGER_INTERVAL_MS = 5 * 60 * 1000;
-    setInterval(createSelfHealingWorker("qc-auto-trigger", runQCAutoTriggerWorker), QC_AUTO_TRIGGER_INTERVAL_MS);
-    console.log(`[SCHEDULER] QC auto-trigger worker started (interval: ${QC_AUTO_TRIGGER_INTERVAL_MS / 60000}min)`);
+    setInterval(createSelfHealingWorker("qc-auto-trigger", runQCAutoTriggerWorker), jitteredInterval(QC_AUTO_TRIGGER_INTERVAL_MS));
   } else {
     console.log(`[SCHEDULER] MAINTENANCE_MODE: Skipped QC auto-trigger worker`);
   }
@@ -8909,39 +8841,24 @@ async function initializeWorkers(): Promise<void> {
     if (result.candidatesPromoted > 0) {
       console.log(`[SCHEDULER] SENT_TO_LAB promotion: ${result.candidatesPromoted} candidates promoted to bots`);
     }
-  }), SENT_TO_LAB_PROMOTION_INTERVAL_MS);
-  console.log(`[SCHEDULER] SENT_TO_LAB promotion worker started (interval: ${SENT_TO_LAB_PROMOTION_INTERVAL_MS / 1000}s)`);
+  }), jitteredInterval(SENT_TO_LAB_PROMOTION_INTERVAL_MS));
   
-  // Run immediately on startup with self-healing
+  // Workers use standard setInterval with jitter for proper lifecycle management
   const startupTraceId = crypto.randomUUID().slice(0, 8);
-  console.log(`[SCHEDULER] trace_id=${startupTraceId} Starting immediate startup workers...`);
+  console.log(`[SCHEDULER] trace_id=${startupTraceId} Workers scheduled with jittered intervals`);
   
-  // MAINTENANCE_MODE: Only run critical workers on startup, skip heavy ones
-  await selfHealingWrapper("timeout", runTimeoutWorker, startupTraceId);
-  console.log(`[SCHEDULER] trace_id=${startupTraceId} timeout worker done`);
-  await selfHealingWrapper("supervisor", runSupervisorLoop, startupTraceId);
-  console.log(`[SCHEDULER] trace_id=${startupTraceId} supervisor done`);
-  // Runner worker is long-running (rehydrates all bots), run in background to not block Fleet Risk Engine startup
-  selfHealingWrapper("runner", runRunnerWorker, startupTraceId).catch(e => console.error(`[SCHEDULER] trace_id=${startupTraceId} runner startup error:`, e));
-  console.log(`[SCHEDULER] trace_id=${startupTraceId} runner worker scheduled (background)`);
-  
+  // Startup tasks that need specific timing
   if (!heavyWorkersPaused) {
-    console.log(`[SCHEDULER] trace_id=${startupTraceId} scheduling heavy workers (background)...`);
-    // Run QC auto-trigger immediately on startup (with 30s delay to let other systems initialize)
-    setTimeout(() => selfHealingWrapper("qc-auto-trigger", runQCAutoTriggerWorker, startupTraceId).catch(console.error), 30_000);
-    // Heavy workers run in background - don't block Fleet Risk Engine startup
-    selfHealingWrapper("backtest", runBacktestWorker, startupTraceId).catch(e => console.error(`[SCHEDULER] trace_id=${startupTraceId} backtest startup error:`, e));
-    selfHealingWrapper("evolution", runEvolutionWorker, startupTraceId).catch(e => console.error(`[SCHEDULER] trace_id=${startupTraceId} evolution startup error:`, e));
-    selfHealingWrapper("trend", runTrendConsistencyWorker, startupTraceId).catch(e => console.error(`[SCHEDULER] trace_id=${startupTraceId} trend startup error:`, e));
-    // Delayed startup tasks
-    setTimeout(() => selfHealingWrapper("calendar", runEconomicCalendarRefresh, startupTraceId), 5_000);
-    setTimeout(() => selfHealingWrapper("autonomy", runAutonomyLoop, startupTraceId), 60_000);
-    console.log(`[SCHEDULER] trace_id=${startupTraceId} heavy workers scheduled (background)`);
-  } else {
-    console.log(`[SCHEDULER] MAINTENANCE_MODE: Skipped immediate startup runs for heavy workers`);
+    // Run QC threshold recovery on startup (once) to re-queue DIVERGENT verifications
+    setTimeout(() => selfHealingWrapper("qc-threshold-recovery", runQCThresholdRecoveryWorker, startupTraceId).catch(console.error), 45_000);
+    
+    // Run stranded QC_OK backfill on startup - promote candidates that passed QC but weren't auto-promoted
+    setTimeout(() => selfHealingWrapper("qc-ok-backfill", runQCOKBackfillWorker, startupTraceId).catch(console.error), 30_000);
+    console.log(`[SCHEDULER] trace_id=${startupTraceId} QC recovery tasks scheduled (30s, 45s)`);
   }
-  setTimeout(() => runBlownAccountStartupSweep().catch(console.error), 10_000);
-  console.log(`[SCHEDULER] trace_id=${startupTraceId} immediate startup configuration complete`);
+  
+  setTimeout(() => runBlownAccountStartupSweep().catch(console.error), 20_000);
+  console.log(`[SCHEDULER] trace_id=${startupTraceId} Startup scheduling complete`);
   
   console.log(`[SCHEDULER] Startup workers completed, continuing to periodic workers...`);
   // AUTONOMOUS: Run candidate reconciliation on startup and periodically
@@ -9015,7 +8932,7 @@ async function initializeWorkers(): Promise<void> {
     if (result.promoted > 0 || result.demoted > 0) {
       console.log(`[PROMOTION_WORKER] Completed: promoted=${result.promoted} demoted=${result.demoted} evaluated=${result.evaluated}`);
     }
-  }), PROMOTION_WORKER_INTERVAL_MS);
+  }), jitteredInterval(PROMOTION_WORKER_INTERVAL_MS));
   console.log(`[SCHEDULER] Promotion worker started (interval: ${PROMOTION_WORKER_INTERVAL_MS / 60_000}min)`);
   
   // AUTONOMOUS: Governance Expiration Worker - marks 24h+ pending requests as EXPIRED
@@ -9024,7 +8941,7 @@ async function initializeWorkers(): Promise<void> {
     if (result.expiredCount > 0) {
       console.log(`[GOVERNANCE_EXPIRATION] Expired ${result.expiredCount} stale requests`);
     }
-  }), GOVERNANCE_EXPIRATION_INTERVAL_MS);
+  }), jitteredInterval(GOVERNANCE_EXPIRATION_INTERVAL_MS));
   console.log(`[SCHEDULER] Governance expiration worker started (interval: ${GOVERNANCE_EXPIRATION_INTERVAL_MS / 60_000}min)`);
   
   // AUTONOMOUS: Risk Enforcement Worker - checks all active bots for risk limit breaches
@@ -9033,7 +8950,7 @@ async function initializeWorkers(): Promise<void> {
     if (result.warnings > 0 || result.softBlocks > 0 || result.hardBlocks > 0 || result.blownAccounts > 0) {
       console.log(`[RISK_ENFORCEMENT] Checked ${result.botsChecked} bots: warnings=${result.warnings} soft=${result.softBlocks} hard=${result.hardBlocks} blown=${result.blownAccounts}`);
     }
-  }), RISK_ENFORCEMENT_INTERVAL_MS);
+  }), jitteredInterval(RISK_ENFORCEMENT_INTERVAL_MS));
   console.log(`[SCHEDULER] Risk enforcement worker started (interval: ${RISK_ENFORCEMENT_INTERVAL_MS / 60_000}min)`);
   
   // AUTONOMOUS: Fleet Risk Engine - fleet-wide exposure limits, cross-bot netting, tiered kill-switch
@@ -9053,29 +8970,12 @@ async function initializeWorkers(): Promise<void> {
     if (result.resurrectedCount > 0) {
       console.log(`[RESURRECTION_DETECTOR] Resurrected ${result.resurrectedCount} bots for ${result.currentRegime} regime`);
     }
-  }), RESURRECTION_DETECTOR_INTERVAL_MS);
+  }), jitteredInterval(RESURRECTION_DETECTOR_INTERVAL_MS));
   console.log(`[SCHEDULER] Resurrection detector worker started (interval: ${RESURRECTION_DETECTOR_INTERVAL_MS / 60_000}min)`);
   
   // PERFORMANCE: Cache Warmer Worker - keeps bots-overview cache warm so users never hit cold cache
-  cacheWarmerInterval = setInterval(createSelfHealingWorker("cache-warmer", runCacheWarmerWorker), CACHE_WARMER_INTERVAL_MS);
+  cacheWarmerInterval = setInterval(createSelfHealingWorker("cache-warmer", runCacheWarmerWorker), jitteredInterval(CACHE_WARMER_INTERVAL_MS));
   console.log(`[SCHEDULER] Cache warmer worker started (interval: ${CACHE_WARMER_INTERVAL_MS / 1000}s)`);
-  
-  // Run cache warmer immediately on startup (3s delay for Redis init)
-  setTimeout(async () => {
-    console.log(`[SCHEDULER] trace_id=${startupTraceId} Running cache warmer on startup...`);
-    await runCacheWarmerWorker();
-  }, 3_000);
-  
-  // AUTONOMOUS: Run SENT_TO_LAB promotion immediately on startup (5s delay for DB init)
-  setTimeout(async () => {
-    console.log(`[SCHEDULER] trace_id=${startupTraceId} Running SENT_TO_LAB promotion on startup...`);
-    const result = await promoteSentToLabCandidates();
-    if (result.candidatesPromoted > 0) {
-      console.log(`[SCHEDULER] trace_id=${startupTraceId} SENT_TO_LAB startup: ${result.candidatesPromoted} candidates promoted to bots`);
-    } else if (result.candidatesEvaluated > 0) {
-      console.log(`[SCHEDULER] trace_id=${startupTraceId} SENT_TO_LAB startup: ${result.candidatesEvaluated} candidates evaluated, ${result.skippedReasons.length} skipped`);
-    }
-  }, 5_000);
   
   // BACKFILL: Run generation backfill on startup for bots missing currentGenerationId
   setTimeout(async () => {
