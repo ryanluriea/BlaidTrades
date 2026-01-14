@@ -6539,8 +6539,8 @@ async function runQCVerificationWorker(): Promise<void> {
 
 /**
  * Cache Warmer Worker
- * PERFORMANCE: Pre-computes bots-overview data so users never hit cold cache
- * Runs every 25 seconds to keep cache fresh before 30s TTL expires
+ * PERFORMANCE: Pre-computes bots-overview and strategy-lab data so users never hit cold cache
+ * Runs every 3 minutes (180s) to keep cache fresh before TTL expires
  * Processes ALL users with active bots in batches for scalability
  */
 async function runCacheWarmerWorker(): Promise<void> {
@@ -6557,7 +6557,8 @@ async function runCacheWarmerWorker(): Promise<void> {
       return;
     }
     
-    let warmed = 0;
+    let warmedBots = 0;
+    let warmedLab = 0;
     let skipped = 0;
     let failed = 0;
     
@@ -6572,34 +6573,75 @@ async function runCacheWarmerWorker(): Promise<void> {
       
       await Promise.all(batch.map(async (userId) => {
         try {
+          // --- BOTS OVERVIEW CACHE ---
           // Check if cache is fresh enough (skip if < 20 seconds old)
           const age = await getCacheAgeSeconds(userId);
           if (age !== null && age < 20) {
             skipped++;
-            return;
+          } else {
+            // Check if already cached and still valid
+            const cached = await getCachedBotsOverview(userId);
+            if (cached.hit && cached.fresh) {
+              skipped++;
+            } else {
+              // Compute and cache bots overview
+              const bots = await storage.getBotsOverview(userId);
+              
+              // Only cache if there are bots
+              if (bots.length > 0) {
+                await setCachedBotsOverview(userId, {
+                  data: bots,
+                  generatedAt: new Date().toISOString(),
+                  snapshotId: crypto.randomUUID(),
+                  degraded: false,
+                  degradedPhases: [],
+                  freshnessContract: { maxAgeSeconds: 30, refreshAfterSeconds: 25 },
+                });
+                warmedBots++;
+              }
+            }
           }
           
-          // Check if already cached and still valid
-          const cached = await getCachedBotsOverview(userId);
-          if (cached.hit && cached.fresh) {
-            skipped++;
-            return;
-          }
+          // --- STRATEGY LAB CACHE ---
+          // INSTITUTIONAL: Warm strategy lab cache with full QC/regime enrichment
+          // Uses same enrichment path as live route for consistent cache shape
+          const { getCachedStrategyLabCandidates, setCachedStrategyLabCandidates, getStrategyLabCacheAge } = await import("./cache/strategy-lab-cache");
+          const { enrichCandidatesWithQCAndRegime, getTrialsBotsCount } = await import("./cache/strategy-lab-enrichment");
+          const dispositions = ["PENDING_REVIEW", "QUEUED_FOR_QC", "SENT_TO_LAB"];
           
-          // Compute and cache bots overview
-          const bots = await storage.getBotsOverview(userId);
-          
-          // Only cache if there are bots
-          if (bots.length > 0) {
-            await setCachedBotsOverview(userId, {
-              data: bots,
-              generatedAt: new Date().toISOString(),
-              snapshotId: crypto.randomUUID(),
-              degraded: false,
-              degradedPhases: [],
-              freshnessContract: { maxAgeSeconds: 30, refreshAfterSeconds: 25 },
-            });
-            warmed++;
+          for (const disp of dispositions) {
+            try {
+              const labAge = await getStrategyLabCacheAge(userId, disp);
+              // Skip if cache is fresh (< 240 seconds old, which is 4 min)
+              if (labAge !== null && labAge < 240) {
+                continue;
+              }
+              
+              const labCached = await getCachedStrategyLabCandidates(userId, disp);
+              if (labCached.hit && labCached.fresh) {
+                continue;
+              }
+              
+              // Fetch fresh candidates
+              const rawCandidates = await storage.getStrategyCandidatesByDisposition(userId, disp as any, 100);
+              if (rawCandidates.length > 0) {
+                // CRITICAL: Apply full QC/regime enrichment before caching
+                // This ensures cached data matches live response shape exactly
+                const { candidates: enrichedCandidates, currentRegime } = await enrichCandidatesWithQCAndRegime(rawCandidates);
+                const trialsBotsCount = await getTrialsBotsCount();
+                
+                await setCachedStrategyLabCandidates(userId, disp, {
+                  candidates: enrichedCandidates,
+                  trialsBotsCount,
+                  disposition: disp,
+                  currentRegime,
+                  generatedAt: new Date().toISOString(),
+                });
+                warmedLab++;
+              }
+            } catch (labErr) {
+              // Non-fatal - continue with other dispositions
+            }
           }
         } catch (err) {
           failed++;
@@ -6611,8 +6653,8 @@ async function runCacheWarmerWorker(): Promise<void> {
     }
     
     const duration = Date.now() - start;
-    if (warmed > 0 || failed > 0) {
-      console.log(`[CACHE_WARMER] trace_id=${traceId} users=${userIds.length} warmed=${warmed} skipped=${skipped} failed=${failed} duration=${duration}ms`);
+    if (warmedBots > 0 || warmedLab > 0 || failed > 0) {
+      console.log(`[CACHE_WARMER] trace_id=${traceId} users=${userIds.length} bots=${warmedBots} lab=${warmedLab} skipped=${skipped} failed=${failed} duration=${duration}ms`);
     }
   } catch (err) {
     console.error(`[CACHE_WARMER] trace_id=${traceId} worker error:`, err);

@@ -181,6 +181,7 @@ function getStatusBadge(status: string) {
     QUEUED: { label: "Queued", color: "text-cyan-400 border-cyan-400/40", Icon: Clock },
     REJECTED: { label: "Rejected", color: "text-red-400 border-red-400/40", Icon: XCircle },
     PENDING_REVIEW: { label: "Review", color: "text-blue-400 border-blue-400/40", Icon: Microscope },
+    WAITLIST: { label: "Waitlist", color: "text-orange-400 border-orange-400/40", Icon: Clock },
   };
   const cfg = configs[status] || { label: status, color: "text-muted-foreground border-border", Icon: Microscope };
   return (
@@ -1857,12 +1858,16 @@ export function StrategyLabView() {
       
       {/* 3-Column Kanban Layout: New → Testing → Trials */}
       {(() => {
-        // New column: QUEUED, PENDING_REVIEW, or any disposition that isn't explicitly handled
+        // New column: QUEUED, PENDING_REVIEW, WAITLIST, or any disposition that isn't explicitly handled
+        // WAITLIST candidates are QC-passed but waiting for fleet capacity - show them prominently
         // This ensures new dispositions default to "New" column
         const pendingCandidates = candidatesList.filter(c => {
           const d = c.disposition;
           return d !== "SENT_TO_LAB" && d !== "REJECTED" && d !== "QUEUED_FOR_QC";
         });
+        // WAITLIST candidates get priority in the New column (they're QC-passed but waiting for fleet capacity)
+        const waitlistCandidates = pendingCandidates.filter(c => c.disposition === "WAITLIST");
+        const nonWaitlistCandidates = pendingCandidates.filter(c => c.disposition !== "WAITLIST");
         const qcTestingCandidates = candidatesList.filter(c => 
           c.disposition === "QUEUED_FOR_QC"
         );
