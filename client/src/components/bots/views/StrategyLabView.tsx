@@ -72,6 +72,7 @@ import { StrategyLabEmptyState, StrategyLabThinkingState } from "./StrategyLabEm
 import { StrategyLabSessionRow } from "@/components/strategy-lab/StrategyLabSessionRow";
 import { StrategyCandidateTableRow } from "../StrategyCandidateTableRow";
 import { useQCBudget, useQCVerifications, useRunQCVerification, getCandidateQCBadgeInfo, type QCBadgeState } from "@/hooks/useQCVerification";
+import { useTournament, type TournamentRanking } from "@/hooks/useTournament";
 import type { PerplexityModel, SearchRecency, AutoPromoteTier } from "@/hooks/useStrategyLab";
 
 const STEP_CONFIG: Record<string, { icon: typeof Brain; label: string; color: string }> = {
@@ -686,6 +687,18 @@ export function StrategyLabView() {
   const { data: qcBudget } = useQCBudget();
   const { data: qcVerifications } = useQCVerifications();
   const runQCVerificationMutation = useRunQCVerification();
+  const { data: tournamentData } = useTournament();
+  
+  // Create lookup map for tournament rankings by botId
+  const tournamentRankingsByBotId = useMemo(() => {
+    const map = new Map<string, TournamentRanking>();
+    if (tournamentData?.standings) {
+      for (const ranking of tournamentData.standings) {
+        map.set(ranking.botId, ranking);
+      }
+    }
+    return map;
+  }, [tournamentData?.standings]);
   
   useEffect(() => {
     // Skip sync if we have pending saves - prevents stale server data from overwriting local changes
@@ -2077,6 +2090,9 @@ export function StrategyLabView() {
                           onRunQCVerification={showQC && columnId !== "trials" ? handleRunQCVerification : undefined}
                           isRunningQC={showQC && columnId !== "trials" && runningQCCandidateId === candidate.id}
                           compact={true}
+                          tournamentTier={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.tier : undefined}
+                          tournamentRank={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.rank : undefined}
+                          tournamentScore={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.score : undefined}
                         />
                       </div>
                     ))}

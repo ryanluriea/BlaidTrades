@@ -30,6 +30,7 @@ import { type QCBadgeState } from "./QCBadge";
 import { QCProofPopup } from "./QCProofPopup";
 import { InlineAiProviderBadge } from "./InlineAiProviderBadge";
 import { StrategyCandidateEliteBadge } from "./InlineEliteBadge";
+import { TournamentBadge, type TournamentTier } from "./TournamentBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +105,9 @@ interface StrategyCandidateTableRowProps {
   showQCStatus?: boolean;
   compact?: boolean;
   nameColorClass?: string;
+  tournamentTier?: TournamentTier;
+  tournamentRank?: number;
+  tournamentScore?: number;
 }
 
 function getShortName(name: string, maxLength: number = 25): string {
@@ -932,6 +936,9 @@ export function StrategyCandidateTableRow({
   showQCStatus = false,
   compact = false,
   nameColorClass,
+  tournamentTier,
+  tournamentRank,
+  tournamentScore,
 }: StrategyCandidateTableRowProps) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState<RejectionReason | "">("");
@@ -1102,6 +1109,15 @@ export function StrategyCandidateTableRow({
                   qcScore={qcScore}
                   onClick={qcBadgeState && qcBadgeState !== "NONE" ? (e) => { e.stopPropagation(); setQcProofOpen(true); } : undefined}
                 />
+                {/* Tournament Tier Badge - Only shown in Trials column for bots with tournament ranking */}
+                {tournamentTier && tournamentTier !== "UNRANKED" && (
+                  <TournamentBadge 
+                    tier={tournamentTier}
+                    rank={tournamentRank}
+                    score={tournamentScore}
+                    size="sm"
+                  />
+                )}
                 {/* Favorite star toggle - always accessible via 3-dot menu, visible indicator when favorited */}
                 {candidate.isFavorite && onFavorite && (
                   <TooltipProvider>

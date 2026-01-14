@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, Info, Bot, Clock } from "lucide-react";
+import { Shield, Info, Bot, Clock, Trophy, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,14 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useStrategyLabOverview, useToggleStrategyLabState } from "@/hooks/useStrategyLab";
+import { useTournament, useRunTournament } from "@/hooks/useTournament";
 import { cn } from "@/lib/utils";
 
 export function FleetGovernorButton() {
   const { data: overviewData } = useStrategyLabOverview();
   const toggleState = useToggleStrategyLabState();
+  const { data: tournamentData } = useTournament();
+  const runTournament = useRunTournament();
   
   // Extract fleet and candidate data from overview
   const fleetBreakdown = overviewData?.fleetBreakdown || { trials: 0, paper: 0, shadow: 0, canary: 0, live: 0, total: 0 };
@@ -281,6 +284,58 @@ export function FleetGovernorButton() {
                   </Select>
                 </div>
               </div>
+            </div>
+            
+            <div className="h-px bg-border/50" />
+            
+            {/* Tournament Section */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Trophy className="w-3 h-3 text-amber-400" />
+                  Fleet Tournament
+                </Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-[10px] gap-1"
+                  onClick={() => runTournament.mutate()}
+                  disabled={runTournament.isPending || !fleetGovernorEnabled}
+                  data-testid="button-run-tournament"
+                >
+                  {runTournament.isPending ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3 h-3" />
+                  )}
+                  Rank
+                </Button>
+              </div>
+              {tournamentData?.tierCounts && (
+                <div className="grid grid-cols-4 gap-1 text-center">
+                  <div className="bg-amber-500/10 rounded px-1 py-1">
+                    <div className="text-[8px] text-amber-400">TOP 10%</div>
+                    <div className="text-xs font-mono text-amber-400">{tournamentData.tierCounts.TOP_10}</div>
+                  </div>
+                  <div className="bg-emerald-500/10 rounded px-1 py-1">
+                    <div className="text-[8px] text-emerald-400">SAFE</div>
+                    <div className="text-xs font-mono text-emerald-400">{tournamentData.tierCounts.SAFE}</div>
+                  </div>
+                  <div className="bg-yellow-500/10 rounded px-1 py-1">
+                    <div className="text-[8px] text-yellow-400">AT RISK</div>
+                    <div className="text-xs font-mono text-yellow-400">{tournamentData.tierCounts.AT_RISK}</div>
+                  </div>
+                  <div className="bg-red-500/10 rounded px-1 py-1">
+                    <div className="text-[8px] text-red-400">CYCLE</div>
+                    <div className="text-xs font-mono text-red-400">{tournamentData.tierCounts.CYCLE_OUT}</div>
+                  </div>
+                </div>
+              )}
+              {tournamentData?.tierCounts?.lastUpdated && (
+                <div className="text-[9px] text-muted-foreground/60 mt-1 text-right">
+                  Last ranked: {new Date(tournamentData.tierCounts.lastUpdated).toLocaleString()}
+                </div>
+              )}
             </div>
             
             <div className="h-px bg-border/50" />
