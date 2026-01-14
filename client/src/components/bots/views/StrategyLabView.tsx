@@ -2072,23 +2072,23 @@ export function StrategyLabView() {
                               return next;
                             });
                           }}
-                          qcBudget={showQC && columnId !== "trials" && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
-                          qcBadgeState={showQC && columnId !== "trials" ? (
+                          qcBudget={showQC && columnId === "trials" && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
+                          qcBadgeState={showQC && columnId === "trials" ? (
                             candidate.qcVerification?.badgeState as QCBadgeState || 
                             getCandidateQCBadgeInfo(qcVerifications, candidate.id).state
                           ) : undefined}
-                          qcAttemptCount={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
-                          qcMaxAttempts={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
-                          qcQueuedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
-                          qcStartedAt={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
-                          qcProgressPct={showQC && columnId !== "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
-                          qcScore={showQC && columnId !== "trials" ? (
+                          qcAttemptCount={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
+                          qcMaxAttempts={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
+                          qcQueuedAt={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
+                          qcStartedAt={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
+                          qcProgressPct={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
+                          qcScore={showQC && columnId === "trials" ? (
                             candidate.qcVerification?.qcScore ?? 
                             getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore
                           ) : undefined}
-                          showQCStatus={showQC && columnId !== "trials"}
-                          onRunQCVerification={showQC && columnId !== "trials" ? handleRunQCVerification : undefined}
-                          isRunningQC={showQC && columnId !== "trials" && runningQCCandidateId === candidate.id}
+                          showQCStatus={showQC && columnId === "trials"}
+                          onRunQCVerification={showQC && columnId === "trials" ? handleRunQCVerification : undefined}
+                          isRunningQC={showQC && columnId === "trials" && runningQCCandidateId === candidate.id}
                           compact={true}
                           tournamentTier={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.tier : undefined}
                           tournamentRank={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.rank : undefined}

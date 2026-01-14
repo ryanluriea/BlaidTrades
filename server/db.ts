@@ -577,6 +577,27 @@ export async function ensureArchetypeColumn(): Promise<void> {
 }
 
 /**
+ * STARTUP MIGRATION: Ensure tournament_score column exists on bots table
+ * Uses ADD COLUMN IF NOT EXISTS to be idempotent - safe for concurrent Render instances
+ */
+export async function ensureTournamentScoreColumn(): Promise<void> {
+  console.log('[STARTUP_MIGRATION] Ensuring tournament_score column exists...');
+  
+  try {
+    await poolWeb.query(`
+      ALTER TABLE bots ADD COLUMN IF NOT EXISTS tournament_score real
+    `);
+    console.log('[STARTUP_MIGRATION] tournament_score column ensured (created or already exists)');
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : 'unknown';
+    console.error(`[STARTUP_MIGRATION] Failed to ensure tournament_score column: ${errMsg}`);
+    if (!errMsg.includes('already exists')) {
+      throw error;
+    }
+  }
+}
+
+/**
  * STARTUP MIGRATION: Ensure tick ingestion tables exist
  * Creates trade_ticks, quote_ticks, order_book_snapshots, tick_sequence_gaps, tick_ingestion_metrics
  * Uses CREATE TABLE IF NOT EXISTS to be idempotent
