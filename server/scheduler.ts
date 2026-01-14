@@ -7205,7 +7205,9 @@ async function runQCOKBackfillWorker(): Promise<void> {
     // 1. Have a COMPLETED QC verification with qcGatePassed=true or badgeState=VERIFIED/QC_PASSED
     // 2. Are still in NEW, READY, or QUEUED_FOR_QC disposition (not promoted; excludes PENDING_REVIEW manual-hold)
     // 3. Don't have a linked bot (createdBotId is null)
-    const strandedCandidates = await db.execute(sql`
+    let strandedCandidates;
+    try {
+      strandedCandidates = await db.execute(sql`
       WITH latest_qc AS (
         SELECT DISTINCT ON (candidate_id)
           candidate_id,
@@ -7240,6 +7242,10 @@ async function runQCOKBackfillWorker(): Promise<void> {
       ORDER BY c.confidence_score DESC NULLS LAST
       LIMIT 50
     `);
+    } catch (mainQueryErr: any) {
+      console.error(`[QC_BACKFILL] trace_id=${traceId} MAIN_QUERY_FAILED: ${mainQueryErr.message?.slice(0, 150) || 'unknown'} - aborting this cycle`);
+      return;
+    }
     
     const stranded = strandedCandidates.rows as any[];
     
