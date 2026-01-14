@@ -1055,10 +1055,20 @@ export interface StrategyLabOverviewData extends StrategyLabAutonomousState {
     pendingReview: number;
     sentToLab: number;
     queued: number;
+    queuedForQc: number;
+    waitlist: number;
     rejected: number;
     total: number;
   };
   trialsBotsCount: number;
+  fleetBreakdown: {
+    trials: number;
+    paper: number;
+    shadow: number;
+    canary: number;
+    live: number;
+    total: number;
+  };
   researchStats: ResearchCycleStats[];
 }
 
@@ -1344,17 +1354,27 @@ function mapRawToCandidate(raw: RawStrategyCandidate): StrategyCandidate {
     aiProvider: raw.ai_provider || null,
     createdByAi: raw.created_by_ai || null,
     aiProviderBadge: raw.ai_provider_badge ?? null,
-    qcVerification: isNonEmptyObject(raw.qcVerification) && raw.qcVerification.status ? {
-      status: raw.qcVerification.status ?? "NONE",
-      badgeState: raw.qcVerification.badgeState ?? null,
-      qcScore: raw.qcVerification.qcScore ?? null,
-      finishedAt: raw.qcVerification.finishedAt ?? null,
-    } : isNonEmptyObject(raw.qc_verification) && raw.qc_verification.status ? {
-      status: raw.qc_verification.status ?? "NONE",
-      badgeState: raw.qc_verification.badge_state ?? null,
-      qcScore: raw.qc_verification.qc_score ?? null,
-      finishedAt: raw.qc_verification.finished_at ?? null,
-    } : null,
+    qcVerification: (() => {
+      const qcv = raw.qcVerification;
+      const qcv_snake = raw.qc_verification;
+      
+      if (isNonEmptyObject(qcv) && qcv.status) {
+        return {
+          status: qcv.status ?? "NONE",
+          badgeState: qcv.badgeState ?? null,
+          qcScore: qcv.qcScore ?? null,
+          finishedAt: qcv.finishedAt ?? null,
+        };
+      } else if (isNonEmptyObject(qcv_snake) && qcv_snake.status) {
+        return {
+          status: qcv_snake.status ?? "NONE",
+          badgeState: qcv_snake.badge_state ?? null,
+          qcScore: qcv_snake.qc_score ?? null,
+          finishedAt: qcv_snake.finished_at ?? null,
+        };
+      }
+      return null;
+    })(),
   };
 }
 
