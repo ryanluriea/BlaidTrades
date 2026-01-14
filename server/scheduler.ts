@@ -6411,28 +6411,41 @@ async function runQCVerificationWorker(): Promise<void> {
               });
               
               if (promoteRes.ok) {
-                const promoteData = await promoteRes.json() as { data?: { botId?: string } };
-                const createdBotId = promoteData.data?.botId;
-                console.log(`[QC_WORKER] trace_id=${traceId} ${targetStage === "PAPER" ? "FAST_TRACK" : "AUTO_PROMOTE"}: success bot_id=${createdBotId} stage=${targetStage}`);
+                const promoteData = await promoteRes.json() as { data?: { botId?: string; queuedForQc?: boolean; alreadyPromoted?: boolean } };
                 
-                await logActivityEvent({
-                  eventType: "PROMOTED",
-                  severity: "INFO",
-                  title: targetStage === "PAPER" ? "Fast-tracked to PAPER after QC" : "Auto-promoted to TRIALS after QC",
-                  summary: `Strategy ${candidate.strategyName} ${targetStage === "PAPER" ? "fast-tracked to PAPER" : "auto-promoted to TRIALS"}. ${promotionReason}`,
-                  botId: createdBotId,
-                  payload: { 
-                    traceId, 
-                    candidateId: candidate.id, 
-                    targetStage,
-                    fastTrack: targetStage === "PAPER",
-                    qcMetrics: { trades: qcTrades, sharpe: qcSharpe, winRate: qcWinRate, drawdown: qcDrawdown },
-                  },
-                  traceId,
-                  provider: "quantconnect",
-                });
+                // Check for soft failures (queued for QC again, already promoted)
+                if (promoteData.data?.queuedForQc) {
+                  console.log(`[QC_WORKER] trace_id=${traceId} AUTO_PROMOTE_QUEUED: candidate re-queued for QC (QC gate check failed in route)`);
+                } else if (promoteData.data?.alreadyPromoted) {
+                  console.log(`[QC_WORKER] trace_id=${traceId} AUTO_PROMOTE_ALREADY: candidate already promoted bot_id=${promoteData.data?.botId}`);
+                } else {
+                  const createdBotId = promoteData.data?.botId;
+                  console.log(`[QC_WORKER] trace_id=${traceId} ${targetStage === "PAPER" ? "FAST_TRACK" : "AUTO_PROMOTE"}: success bot_id=${createdBotId} stage=${targetStage}`);
+                  
+                  await logActivityEvent({
+                    eventType: "PROMOTED",
+                    severity: "INFO",
+                    title: targetStage === "PAPER" ? "Fast-tracked to PAPER after QC" : "Auto-promoted to TRIALS after QC",
+                    summary: `Strategy ${candidate.strategyName} ${targetStage === "PAPER" ? "fast-tracked to PAPER" : "auto-promoted to TRIALS"}. ${promotionReason}`,
+                    botId: createdBotId,
+                    payload: { 
+                      traceId, 
+                      candidateId: candidate.id, 
+                      targetStage,
+                      fastTrack: targetStage === "PAPER",
+                      qcMetrics: { trades: qcTrades, sharpe: qcSharpe, winRate: qcWinRate, drawdown: qcDrawdown },
+                    },
+                    traceId,
+                    provider: "quantconnect",
+                  });
+                }
               } else {
-                console.error(`[QC_WORKER] trace_id=${traceId} ${targetStage === "PAPER" ? "FAST_TRACK" : "AUTO_PROMOTE"}: failed status=${promoteRes.status}`);
+                // Capture full error response for debugging
+                let errorBody = "";
+                try {
+                  errorBody = await promoteRes.text();
+                } catch {}
+                console.error(`[QC_WORKER] trace_id=${traceId} AUTO_PROMOTE_FAILED: status=${promoteRes.status} body=${errorBody.slice(0, 500)}`);
               }
             }
           }
@@ -7306,10 +7319,20 @@ async function runQCOKBackfillWorker(): Promise<void> {
         });
         
         if (promoteRes.ok) {
-          const data = await promoteRes.json() as { data?: { botId?: string } };
-          const botId = data.data?.botId;
-          console.log(`[QC_BACKFILL] trace_id=${traceId} PROMOTED: candidate=${candidate.id.slice(0, 8)} bot=${botId?.slice(0, 8) || 'N/A'} strategy=${candidate.strategy_name}`);
-          promotedCount++;
+          const data = await promoteRes.json() as { data?: { botId?: string; queuedForQc?: boolean; alreadyPromoted?: boolean } };
+          
+          // Check for soft failures
+          if (data.data?.queuedForQc) {
+            console.warn(`[QC_BACKFILL] trace_id=${traceId} REQUEUED_FOR_QC: candidate=${candidate.id.slice(0, 8)} - QC gate check failed in promote route`);
+            failedCount++;
+          } else if (data.data?.alreadyPromoted) {
+            console.log(`[QC_BACKFILL] trace_id=${traceId} ALREADY_PROMOTED: candidate=${candidate.id.slice(0, 8)} bot=${data.data?.botId?.slice(0, 8) || 'N/A'}`);
+            // Not a failure, just skip
+          } else {
+            const botId = data.data?.botId;
+            console.log(`[QC_BACKFILL] trace_id=${traceId} PROMOTED: candidate=${candidate.id.slice(0, 8)} bot=${botId?.slice(0, 8) || 'N/A'} strategy=${candidate.strategy_name}`);
+            promotedCount++;
+          }
         } else {
           const errorText = await promoteRes.text();
           console.warn(`[QC_BACKFILL] trace_id=${traceId} FAILED: candidate=${candidate.id.slice(0, 8)} status=${promoteRes.status} error=${errorText.slice(0, 100)}`);
@@ -8812,8 +8835,10 @@ async function initializeWorkers(): Promise<void> {
     
     // Run stranded QC_OK backfill on startup (once) to promote candidates that passed QC but weren't auto-promoted
     // This catches candidates stuck in NEW/READY with QC_OK badges that missed auto-promotion due to disposition check
-    setTimeout(() => selfHealingWrapper("qc-ok-backfill", runQCOKBackfillWorker, startupTraceId).catch(console.error), 90_000);
-    console.log(`[SCHEDULER] QC_OK stranded backfill will run in 90s on startup`);
+    // Run backfill 30s after startup (reduced from 90s for faster recovery)
+    console.log(`[SCHEDULER] Scheduling QC-OK backfill worker to run in 30 seconds`);
+    setTimeout(() => selfHealingWrapper("qc-ok-backfill", runQCOKBackfillWorker, startupTraceId).catch(console.error), 30_000);
+    console.log(`[SCHEDULER] QC_OK stranded backfill will run in 30s on startup`);
     
     qcEvolutionWorkerInterval = setInterval(createSelfHealingWorker("qc-evolution", runQCFailureEvolutionWorker), QC_EVOLUTION_SCAN_INTERVAL_MS);
     console.log(`[SCHEDULER] QC failure evolution worker started (interval: ${QC_EVOLUTION_SCAN_INTERVAL_MS / 60000}min)`);
