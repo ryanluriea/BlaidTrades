@@ -14643,9 +14643,14 @@ export function registerRoutes(app: Express) {
             COUNT(*) FILTER (WHERE disposition = 'SENT_TO_LAB') as sent_to_lab,
             COUNT(*) FILTER (WHERE disposition = 'QUEUED') as queued,
             COUNT(*) FILTER (WHERE disposition = 'QUEUED_FOR_QC') as queued_for_qc,
-            COUNT(*) FILTER (WHERE disposition = 'WAITLIST') as waitlist,
             COUNT(*) FILTER (WHERE disposition = 'REJECTED') as rejected,
-            COUNT(*) as total
+            COUNT(*) as total,
+            -- Waitlist = READY candidates that passed QC (VERIFIED) but not yet promoted to bots
+            (SELECT COUNT(*) FROM strategy_candidates sc
+             LEFT JOIN qc_verifications qv ON qv.candidate_id = sc.id
+             WHERE sc.disposition = 'READY' 
+               AND qv.badge_state = 'VERIFIED'
+               AND sc.created_bot_id IS NULL) as waitlist
           FROM strategy_candidates
         `),
         // 3. Get fleet breakdown by stage (all active bots)
@@ -25523,6 +25528,87 @@ export function registerRoutes(app: Express) {
     } catch (error: any) {
       console.error(`[RUN_CONSOLIDATION] trace_id=${traceId} error=${error.message}`);
       res.status(500).json({ success: false, trace_id: traceId, error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // FLEET TOURNAMENT API - Bot cycling based on performance ranking
+  // ============================================================================
+
+  // GET /api/fleet/tournament - Get current tournament standings and tier counts
+  app.get("/api/fleet/tournament", requireAuth, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID().slice(0, 8);
+    try {
+      const { getTournamentStandings, getTournamentTierCounts } = await import("./fleet-tournament");
+      
+      const [standings, tierCounts] = await Promise.all([
+        getTournamentStandings(),
+        getTournamentTierCounts(),
+      ]);
+      
+      res.json({
+        success: true,
+        data: {
+          standings,
+          tierCounts,
+        },
+      });
+    } catch (error: any) {
+      console.error(`[FLEET_TOURNAMENT] trace_id=${traceId} error=${error.message}`);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/fleet/tournament/run - Manually trigger tournament ranking
+  app.post("/api/fleet/tournament/run", requireAuth, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID().slice(0, 8);
+    try {
+      console.log(`[FLEET_TOURNAMENT] trace_id=${traceId} Manual tournament run requested`);
+      const { runTournament } = await import("./fleet-tournament");
+      
+      const result = await runTournament(traceId);
+      
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error(`[FLEET_TOURNAMENT] trace_id=${traceId} error=${error.message}`);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/fleet/tournament/cycle - Cycle out underperformers and promote waitlisted
+  // ADMIN-ONLY: This endpoint archives bots and promotes candidates - restricted to BlaidAgent
+  app.post("/api/fleet/tournament/cycle", requireAuth, async (req: Request, res: Response) => {
+    const traceId = crypto.randomUUID().slice(0, 8);
+    try {
+      const sessionUserId = req.session?.userId;
+      
+      const userResult = await db.execute(sql`SELECT username FROM users WHERE id = ${sessionUserId}`);
+      const username = (userResult.rows[0] as any)?.username;
+      
+      if (username !== "BlaidAgent" && username !== "admin") {
+        console.warn(`[FLEET_TOURNAMENT] trace_id=${traceId} Unauthorized cycle attempt by user=${username}`);
+        return res.status(403).json({ 
+          success: false, 
+          error: "Fleet cycling requires administrator privileges" 
+        });
+      }
+      
+      console.log(`[FLEET_TOURNAMENT] trace_id=${traceId} Fleet cycling requested by admin=${username}`);
+      const { cycleFleet } = await import("./fleet-tournament");
+      
+      const maxCycleOut = parseInt(req.body.maxCycleOut) || 10;
+      const result = await cycleFleet(traceId, maxCycleOut);
+      
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error(`[FLEET_TOURNAMENT] trace_id=${traceId} error=${error.message}`);
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 }

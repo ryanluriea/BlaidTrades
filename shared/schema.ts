@@ -273,6 +273,11 @@ export const bots = pgTable("bots", {
   aiResearchSources: jsonb("ai_research_sources"),  // Array of sources: [{type, label, detail}]
   aiReasoning: text("ai_reasoning"),               // Plain-language explanation of why this strategy
   aiResearchDepth: text("ai_research_depth"),      // CONTRARIAN_SCAN, SENTIMENT_BURST, DEEP_REASONING
+  // Tournament System: Fleet cycling based on performance ranking
+  tournamentScore: real("tournament_score"),       // Composite score: 40% Sharpe, 30% Win Rate, 20% PF, 10% Consistency
+  tournamentRank: integer("tournament_rank"),      // Position in fleet ranking (1 = best)
+  tournamentTier: text("tournament_tier"),         // TOP_10, SAFE, AT_RISK, CYCLE_OUT
+  tournamentUpdatedAt: timestamp("tournament_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
