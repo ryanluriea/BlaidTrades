@@ -1,0 +1,50 @@
+2026-01-14T07:28:11.222638248Z [INTEGRATION_USAGE] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-14T07:28:11.22271335Z [DATABENTO] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 CME_LICENSE_CAP: Requested end=2026-01-14T07:28:11.205Z capped to 2026-01-13T05:28:11.222Z (26h buffer for license-free window)
+2026-01-14T07:28:11.22272306Z [DATABENTO] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 fetching symbol=MES.c.0 start=2025-12-15T07:28:11.205Z end=2026-01-13T05:28:11.222Z schema=ohlcv-1m
+2026-01-14T07:28:14.755233447Z [LIVE_DATA_SERVICE] Quote tick symbol=MNQ last=25862.25 bid=25862.25 ask=25862.75 mid=25862.50 quotes_total=279
+2026-01-14T07:28:14.893264724Z [DATABENTO] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 fetched bars=25365 latency=3671ms
+2026-01-14T07:28:14.896648998Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989
+2026-01-14T07:28:14.999958004Z [BARS_CACHE] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 instance=54026d3b cache_set key=bars:v2:MES:1m:ALL:1765783691205:1768375691205 bars=25365 compressed_bytes=243080
+2026-01-14T07:28:15.009041069Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 REAL_DATA fetched_bars=25365 provider=databento latency=3792ms
+2026-01-14T07:28:15.01713715Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 bot_name="VWAP Extremity Bounce" inferred_archetype="none" using="vwap_bounce"
+2026-01-14T07:28:15.01715222Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-14T07:28:15.017241893Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-14T07:28:15.020156575Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 using_real_strategy version=1.0.0 rules=MES VWAP rules_hash=f62984d601fdbce9
+2026-01-14T07:28:15.023066177Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-14T07:28:15.023077187Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 SESSION_MODE=ETH SESSION_BYPASS=false timezone=America/New_York
+2026-01-14T07:28:15.024643466Z [SESSION_CHECK] UTC=2025-12-15T08:19:00.000Z ET_hour=3 ET_min=19 ET_day=1 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-14T07:28:17.380195528Z [STRATEGY_EXECUTOR] bars=25365 valid_bars=25365 session_bars=6697 outside_session=18618 no_trade_window=0 entry_signals=103 trades=103
+2026-01-14T07:28:17.380230388Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 REAL_EXECUTION trades=103 pnl=-566.47 win_rate=50.5%
+2026-01-14T07:28:17.380233658Z [TX:a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989] BACKTEST_TRADES:d522e859 START
+2026-01-14T07:28:17.382268609Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-14T07:28:17.382774121Z [EVENT_LOOP] status=OK current=2286.8ms avg=20.9ms p95=1.5ms p99=117.5ms max=6858.4ms samples=513 gc_pauses=0
+2026-01-14T07:28:17.383360946Z [MEMORY_LEAK] status=LEAK heap=338.4MB peak=338.4MB short=3703.3KB/s medium=3703.3KB/s long=3703.3KB/s confidence=100%
+2026-01-14T07:28:17.534186671Z [TX:a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989] BACKTEST_TRADES:d522e859 COMMITTED
+2026-01-14T07:28:17.546896287Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 updated generation performanceSnapshot gen_id=e2a5b35d-43b0-4af4-a4c8-9bb0310651a8
+2026-01-14T07:28:17.548893706Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 LAB_BASELINE gen_id=e2a5b35d-43b0-4af4-a4c8-9bb0310651a8 valid=true reason=N/A trades=103
+2026-01-14T07:28:17.551530662Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for VWAP Extremity Bounce" trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989
+2026-01-14T07:28:17.551537462Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 session_id=d522e859-13d7-4ba2-a2b8-c7110f03d4d4 completed trades=103 pnl=-566.47
+2026-01-14T07:28:17.567671443Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 session_id=9e46a997-1808-4a16-9532-91470571cf5b bot_id=826f9ccb-1d73-4e07-bce1-3fc042d04837 starting
+2026-01-14T07:28:17.572343299Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for VWAP Extremity Bounce" trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989
+2026-01-14T07:28:17.572354969Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 using REAL Databento data for MES via BAR_CACHE
+2026-01-14T07:28:17.572362309Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 loading_5year_history symbol=MES days=90 source=COLD_STORAGE
+2026-01-14T07:28:17.572551134Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 cold_storage_empty falling_back_to_redis_cache
+2026-01-14T07:28:17.572551714Z [BAR_CACHE] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 symbol=MES cold_storage_empty
+2026-01-14T07:28:17.577172229Z [BARS_CACHE] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 instance=54026d3b lock_acquired fetching_from_provider
+2026-01-14T07:28:17.580134912Z [INTEGRATION_USAGE] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-14T07:28:17.580147093Z [DATABENTO] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 CME_LICENSE_CAP: Requested end=2026-01-14T07:28:17.561Z capped to 2026-01-13T05:28:17.580Z (26h buffer for license-free window)
+2026-01-14T07:28:17.580150193Z [DATABENTO] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 fetching symbol=MES.c.0 start=2025-10-16T07:28:17.561Z end=2026-01-13T05:28:17.580Z schema=ohlcv-1m
+2026-01-14T07:28:20.478382569Z [BACKTEST_WORKER] trace_id=726ae668-f9fe-4a4f-b322-5f9d937d0565 at_concurrency_limit=1
+2026-01-14T07:28:20.792022017Z [QC_WORKER] trace_id=c901010e starting_cycle
+2026-01-14T07:28:20.796908349Z [QC_WORKER] trace_id=c901010e queued_jobs=0 running=0/2
+2026-01-14T07:28:22.006430593Z [DATABENTO] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 fetched bars=82155 latency=4426ms
+2026-01-14T07:28:22.009455398Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989
+2026-01-14T07:28:22.253726383Z [BARS_CACHE] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 instance=54026d3b cache_set key=bars:v2:MES:1m:ALL:1760599697561:1768375697561 bars=82155 compressed_bytes=836706
+2026-01-14T07:28:22.272560291Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 REAL_DATA fetched_bars=82155 provider=databento latency=4694ms
+2026-01-14T07:28:22.295597513Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 bot_name="VWAP Extremity Bounce" inferred_archetype="none" using="vwap_bounce"
+2026-01-14T07:28:22.295659725Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-14T07:28:22.295838279Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-14T07:28:22.298236478Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 using_real_strategy version=1.0.0 rules=MES VWAP rules_hash=f62984d601fdbce9
+2026-01-14T07:28:22.303595152Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-14T07:28:22.303613862Z [BACKTEST_EXECUTOR] trace_id=a684b7ee-5ad1-4d32-bcfa-a9ce0ead2989 SESSION_MODE=ETH SESSION_BYPASS=false timezone=America/New_York
+2026-01-14T07:28:22.308530294Z [SESSION_CHECK] UTC=2025-10-16T08:19:00.000Z ET_hour=4 ET_min=19 ET_day=4 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
