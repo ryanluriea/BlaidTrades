@@ -2436,7 +2436,7 @@ export function registerRoutes(app: Express) {
         FROM backtest_sessions bs
         JOIN bots b ON bs.bot_id = b.id
         WHERE bs.created_at > NOW() - INTERVAL '24 hours'
-          AND bs.stage = 'PAPER'
+          AND UPPER(bs.stage) = 'PAPER'
           AND bs.rules_profile_used = 'LAB_RELAXED'
         ORDER BY bs.created_at DESC
         LIMIT 10
@@ -4012,9 +4012,9 @@ export function registerRoutes(app: Express) {
           backtest_count::int,
           backtest_sharpe,
           CASE 
-            WHEN stage = 'TRIALS' THEN 
+            WHEN UPPER(stage) = 'TRIALS' THEN 
               CASE WHEN backtest_count > 0 THEN 'CORRECT' ELSE 'NO_DATA' END
-            WHEN stage IN ('PAPER', 'SHADOW', 'CANARY', 'LIVE') THEN
+            WHEN UPPER(stage) IN ('PAPER', 'SHADOW', 'CANARY', 'LIVE') THEN
               CASE 
                 WHEN paper_trade_count > 0 THEN 'CORRECT'
                 WHEN backtest_count > 0 THEN 'FALLBACK_BACKTEST'
@@ -4023,15 +4023,15 @@ export function registerRoutes(app: Express) {
             ELSE 'UNKNOWN_STAGE'
           END as source_status,
           CASE 
-            WHEN stage = 'TRIALS' THEN 'BACKTEST'
+            WHEN UPPER(stage) = 'TRIALS' THEN 'BACKTEST'
             ELSE 'PAPER_TRADES'
           END as expected_source
         FROM bot_metrics
         ORDER BY 
           CASE 
-            WHEN stage = 'TRIALS' AND backtest_count = 0 THEN 0
-            WHEN stage != 'TRIALS' AND paper_trade_count = 0 AND backtest_count = 0 THEN 0
-            WHEN stage != 'TRIALS' AND paper_trade_count = 0 THEN 1
+            WHEN UPPER(stage) = 'TRIALS' AND backtest_count = 0 THEN 0
+            WHEN UPPER(stage) != 'TRIALS' AND paper_trade_count = 0 AND backtest_count = 0 THEN 0
+            WHEN UPPER(stage) != 'TRIALS' AND paper_trade_count = 0 THEN 1
             ELSE 2
           END ASC,
           name ASC
