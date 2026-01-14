@@ -14576,6 +14576,23 @@ export function registerRoutes(app: Express) {
   
   app.get("/api/strategy-lab/overview", requireAuth, async (req: Request, res: Response) => {
     const overviewStart = Date.now();
+    const forceRefresh = req.query.refresh === 'true';
+    
+    // DEBUG: Clear cache if force refresh requested
+    if (forceRefresh) {
+      console.log('[STRATEGY_LAB_OVERVIEW] FORCE_REFRESH requested - clearing cache');
+      overviewMemoryCache = null;
+      try {
+        const client = await getRedisClient();
+        if (client) {
+          await client.del(OVERVIEW_CACHE_KEY);
+          console.log('[STRATEGY_LAB_OVERVIEW] Redis cache cleared');
+        }
+      } catch (err) {
+        console.warn('[STRATEGY_LAB_OVERVIEW] Failed to clear Redis cache:', err);
+      }
+    }
+    
     try {
       // INSTITUTIONAL: Use session userId for consistency with bots-overview
       const userId = req.session?.userId as string | undefined;
@@ -14653,9 +14670,10 @@ export function registerRoutes(app: Express) {
       const trialsBotsCount = parseInt(fleet.trials || "0");
       const researchActivity = getResearchActivity();
       
-      // DEBUG: Log fleet breakdown query results and timing
+      // DEBUG: Log fleet breakdown query RAW results for production diagnosis
       const overviewMs = Date.now() - overviewStart;
       console.log(`[STRATEGY_LAB_OVERVIEW] TOTAL: ${overviewMs}ms Fleet: trials=${parseInt(fleet.trials) || 0}, paper=${parseInt(fleet.paper) || 0}, total=${parseInt(fleet.total) || 0}`);
+      console.log(`[STRATEGY_LAB_OVERVIEW] RAW_FLEET_ROW: ${JSON.stringify(fleet)}`);
       
       // Build response data
       const responseData = {
