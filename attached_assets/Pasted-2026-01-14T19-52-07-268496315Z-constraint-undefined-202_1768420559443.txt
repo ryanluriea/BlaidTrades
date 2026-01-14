@@ -1,0 +1,50 @@
+2026-01-14T19:52:07.268496315Z     constraint: undefined,
+2026-01-14T19:52:07.268498375Z     file: 'parse_relation.c',
+2026-01-14T19:52:07.268500425Z     line: '3822',
+2026-01-14T19:52:07.268502685Z     routine: 'errorMissingColumn'
+2026-01-14T19:52:07.268504815Z   }
+2026-01-14T19:52:07.268507005Z }
+2026-01-14T19:52:07.268519675Z [BACKTEST_WORKER] trace_id=19566ee2-de60-4efb-adb9-66013eab4c1f job_id=dff2c441-defa-4f06-9526-6e7f4eff5989 error= Failed to create backtest session
+2026-01-14T19:52:07.273354747Z [BACKTEST_WORKER] trace_id=19566ee2-de60-4efb-adb9-66013eab4c1f error= DrizzleQueryError: Failed query: update "bots" set "last_backtest_at" = $1, "updated_at" = $2 where "bots"."id" = $3 returning "id", "user_id", "name", "symbol", "status", "mode", "evolution_status", "evolution_mode", "stage", "current_generation_id", "archetype_id", "archetype_name", "strategy_config", "risk_config", "health_score", "health_json", "priority_score", "is_candidate", "candidate_score", "candidate_reasons", "last_backtest_at", "last_evolution_at", "last_signal_at", "last_trade_at", "live_pnl", "live_total_trades", "live_win_rate", "sim_pnl", "sim_total_trades", "blocker_code", "blocker_details", "kill_reason", "killed_at", "archived_at", "is_trading_enabled", "default_account_id", "capital_allocated", "health_state", "health_reason_code", "health_reason_detail", "health_degraded_since", "stage_updated_at", "stage_reason_code", "stage_locked_until", "stage_lock_reason", "promotion_mode", "metrics_reset_at", "metrics_reset_reason_code", "metrics_reset_by", "metrics_reset_scope", "current_generation", "generation_updated_at", "generation_reason_code", "session_mode", "session_timezone", "session_start", "session_end", "matrix_aggregate", "matrix_best_cell", "matrix_worst_cell", "matrix_updated_at", "created_by_ai", "ai_provider", "ai_provider_badge", "source_candidate_id", "ai_research_sources", "ai_reasoning", "ai_research_depth", "tournament_score", "tournament_rank", "tournament_tier", "tournament_updated_at", "created_at", "updated_at"
+2026-01-14T19:52:07.273371778Z params: 2026-01-14T19:52:07.268Z,2026-01-14T19:52:07.271Z,91e8afff-eb0f-4275-8d2b-7bceacd9e085
+2026-01-14T19:52:07.273374928Z     at NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:41:15)
+2026-01-14T19:52:07.273377198Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-14T19:52:07.273382178Z     at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:117:22
+2026-01-14T19:52:07.273384958Z     ... 3 lines matching cause stack trace ...
+2026-01-14T19:52:07.273387368Z     at async Timeout._onTimeout (file:///opt/render/project/src/dist/index.js:45907:7) {
+2026-01-14T19:52:07.273390108Z   query: 'update "bots" set "last_backtest_at" = $1, "updated_at" = $2 where "bots"."id" = $3 returning "id", "user_id", "name", "symbol", "status", "mode", "evolution_status", "evolution_mode", "stage", "current_generation_id", "archetype_id", "archetype_name", "strategy_config", "risk_config", "health_score", "health_json", "priority_score", "is_candidate", "candidate_score", "candidate_reasons", "last_backtest_at", "last_evolution_at", "last_signal_at", "last_trade_at", "live_pnl", "live_total_trades", "live_win_rate", "sim_pnl", "sim_total_trades", "blocker_code", "blocker_details", "kill_reason", "killed_at", "archived_at", "is_trading_enabled", "default_account_id", "capital_allocated", "health_state", "health_reason_code", "health_reason_detail", "health_degraded_since", "stage_updated_at", "stage_reason_code", "stage_locked_until", "stage_lock_reason", "promotion_mode", "metrics_reset_at", "metrics_reset_reason_code", "metrics_reset_by", "metrics_reset_scope", "current_generation", "generation_updated_at", "generation_reason_code", "session_mode", "session_timezone", "session_start", "session_end", "matrix_aggregate", "matrix_best_cell", "matrix_worst_cell", "matrix_updated_at", "created_by_ai", "ai_provider", "ai_provider_badge", "source_candidate_id", "ai_research_sources", "ai_reasoning", "ai_research_depth", "tournament_score", "tournament_rank", "tournament_tier", "tournament_updated_at", "created_at", "updated_at"',
+2026-01-14T19:52:07.273403478Z   params: [
+2026-01-14T19:52:07.273406378Z     '2026-01-14T19:52:07.268Z',
+2026-01-14T19:52:07.273408538Z     '2026-01-14T19:52:07.271Z',
+2026-01-14T19:52:07.273410758Z     '91e8afff-eb0f-4275-8d2b-7bceacd9e085'
+2026-01-14T19:52:07.273412909Z   ],
+2026-01-14T19:52:07.273415718Z   cause: error: column "tournament_score" does not exist
+2026-01-14T19:52:07.273418849Z       at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2026-01-14T19:52:07.273421009Z       at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-14T19:52:07.273423099Z       at async targetPool.query (file:///opt/render/project/src/dist/index.js:3329:22)
+2026-01-14T19:52:07.273425219Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:124:18
+2026-01-14T19:52:07.273433559Z       at async NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:39:16)
+2026-01-14T19:52:07.273436109Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:117:22
+2026-01-14T19:52:07.273438319Z       at async DatabaseStorage.updateBot (file:///opt/render/project/src/dist/index.js:23731:27)
+2026-01-14T19:52:07.273440509Z       at async runBacktestWorker (file:///opt/render/project/src/dist/index.js:40571:11)
+2026-01-14T19:52:07.273442619Z       at async selfHealingWrapper (file:///opt/render/project/src/dist/index.js:39744:5)
+2026-01-14T19:52:07.273444789Z       at async Timeout._onTimeout (file:///opt/render/project/src/dist/index.js:45907:7) {
+2026-01-14T19:52:07.273446879Z     length: 118,
+2026-01-14T19:52:07.273449389Z     severity: 'ERROR',
+2026-01-14T19:52:07.273451829Z     code: '42703',
+2026-01-14T19:52:07.273453859Z     detail: undefined,
+2026-01-14T19:52:07.273455939Z     hint: undefined,
+2026-01-14T19:52:07.273458009Z     position: '1333',
+2026-01-14T19:52:07.273460129Z     internalPosition: undefined,
+2026-01-14T19:52:07.273462179Z     internalQuery: undefined,
+2026-01-14T19:52:07.27346425Z     where: undefined,
+2026-01-14T19:52:07.27346633Z     schema: undefined,
+2026-01-14T19:52:07.27346841Z     table: undefined,
+2026-01-14T19:52:07.27347046Z     column: undefined,
+2026-01-14T19:52:07.27347253Z     dataType: undefined,
+2026-01-14T19:52:07.2734746Z     constraint: undefined,
+2026-01-14T19:52:07.27347669Z     file: 'parse_relation.c',
+2026-01-14T19:52:07.27347876Z     line: '3822',
+2026-01-14T19:52:07.27348493Z     routine: 'errorMissingColumn'
+2026-01-14T19:52:07.27348715Z   }
+2026-01-14T19:52:07.27348935Z }
