@@ -6328,7 +6328,15 @@ async function runQCVerificationWorker(): Promise<void> {
       
       // AUTO-PROMOTION WITH FAST-TRACK: Check thresholds and create bots in appropriate stage
       // Use qcGatePassed flag instead of badge state for cleaner logic
-      if (normResult.qcGatePassed && candidate.disposition === "QUEUED_FOR_QC") {
+      // RELAXED ELIGIBILITY: Accept LAB-facing dispositions except PENDING_REVIEW (which is manual-hold)
+      // This allows candidates verified through alternate paths (e.g., Grok research) to auto-promote
+      const eligibleDispositions = ["QUEUED_FOR_QC", "NEW", "READY"];
+      const isEligibleForPromotion = eligibleDispositions.includes(candidate.disposition ?? "");
+      
+      // Log diagnostic info for (qcGatePassed, disposition) pairs to detect mismatches
+      console.log(`[QC_WORKER] trace_id=${traceId} AUTO_PROMOTE_CHECK: qcGatePassed=${normResult.qcGatePassed} disposition=${candidate.disposition} eligible=${isEligibleForPromotion}`);
+      
+      if (normResult.qcGatePassed && isEligibleForPromotion) {
         try {
           // Load Strategy Lab settings for fast-track and auto-promote thresholds
           const { getStrategyLabState } = await import("./strategy-lab-engine");
@@ -6431,15 +6439,19 @@ async function runQCVerificationWorker(): Promise<void> {
         } catch (promoteError: any) {
           console.error(`[QC_WORKER] trace_id=${traceId} AUTO_PROMOTE error:`, promoteError.message);
         }
-      } else if (candidate.disposition === "QUEUED_FOR_QC") {
-        // QC completed but didn't pass gate (DIVERGENT/INCONCLUSIVE) - move back to READY for manual review
-        // This prevents candidates from being stuck in QUEUED_FOR_QC limbo
-        await db
-          .update(schema.strategyCandidates)
-          .set({ disposition: "READY", updatedAt: new Date() })
-          .where(eq(schema.strategyCandidates.id, candidate.id));
-        
-        console.log(`[QC_WORKER] trace_id=${traceId} QC_NOT_PASSED: moved to READY for manual review badge=${normResult.badgeState}`);
+      } else if (isEligibleForPromotion && !normResult.qcGatePassed) {
+        // QC completed but didn't pass gate (DIVERGENT/INCONCLUSIVE) - move to READY for manual review
+        // Only update if currently in QUEUED_FOR_QC to avoid disrupting NEW/READY candidates
+        if (candidate.disposition === "QUEUED_FOR_QC") {
+          await db
+            .update(schema.strategyCandidates)
+            .set({ disposition: "READY", updatedAt: new Date() })
+            .where(eq(schema.strategyCandidates.id, candidate.id));
+          
+          console.log(`[QC_WORKER] trace_id=${traceId} QC_NOT_PASSED: moved to READY for manual review badge=${normResult.badgeState}`);
+        } else {
+          console.log(`[QC_WORKER] trace_id=${traceId} QC_NOT_PASSED: keeping disposition=${candidate.disposition} badge=${normResult.badgeState}`);
+        }
       }
       
     } catch (jobError: any) {
@@ -7114,6 +7126,220 @@ async function runQCThresholdRecoveryWorker(): Promise<void> {
     
   } catch (error) {
     console.error(`[QC_THRESHOLD_RECOVERY] trace_id=${traceId} Failed:`, error);
+  }
+}
+
+/**
+ * QC_OK STRANDED BACKFILL WORKER: Promotes candidates that passed QC but missed auto-promotion
+ * 
+ * This worker catches candidates stuck in NEW/READY/PENDING_REVIEW with verified QC badges
+ * that were never auto-promoted due to the old disposition check (QUEUED_FOR_QC only).
+ * 
+ * Runs once on startup to promote any stranded candidates from before the fix.
+ */
+async function runQCOKBackfillWorker(): Promise<void> {
+  const traceId = `qc-backfill-${crypto.randomUUID().slice(0, 8)}`;
+  
+  try {
+    // Wait for lab settings to initialize before checking fast-track thresholds
+    const { initializeStrategyLabFromSettings, getStrategyLabState } = await import("./strategy-lab-engine");
+    await initializeStrategyLabFromSettings();
+    
+    console.log(`[QC_BACKFILL] trace_id=${traceId} Scanning for stranded QC-verified candidates...`);
+    
+    // Find candidates that:
+    // 1. Have a COMPLETED QC verification with qcGatePassed=true or badgeState=VERIFIED/QC_PASSED
+    // 2. Are still in NEW, READY, or QUEUED_FOR_QC disposition (not promoted; excludes PENDING_REVIEW manual-hold)
+    // 3. Don't have a linked bot (createdBotId is null)
+    const strandedCandidates = await db.execute(sql`
+      WITH latest_qc AS (
+        SELECT DISTINCT ON (candidate_id)
+          candidate_id,
+          status,
+          badge_state,
+          metrics_summary_json,
+          qc_score,
+          queued_at
+        FROM qc_verifications
+        WHERE status = 'COMPLETED'
+        ORDER BY candidate_id, queued_at DESC
+      )
+      SELECT 
+        c.id,
+        c.strategy_name,
+        c.disposition,
+        c.confidence_score,
+        lq.badge_state,
+        lq.qc_score,
+        lq.metrics_summary_json
+      FROM strategy_candidates c
+      JOIN latest_qc lq ON lq.candidate_id = c.id
+      WHERE c.disposition IN ('NEW', 'READY', 'QUEUED_FOR_QC')
+        AND c.created_bot_id IS NULL
+        AND (
+          -- New format: qcGatePassed flag
+          (lq.metrics_summary_json->>'qcGatePassed')::boolean = true
+          OR
+          -- Legacy format: VERIFIED badge state
+          lq.badge_state IN ('VERIFIED', 'QC_PASSED')
+        )
+      ORDER BY c.confidence_score DESC NULLS LAST
+      LIMIT 50
+    `);
+    
+    const stranded = strandedCandidates.rows as any[];
+    
+    if (stranded.length === 0) {
+      console.log(`[QC_BACKFILL] trace_id=${traceId} No stranded QC-verified candidates found`);
+      return;
+    }
+    
+    console.log(`[QC_BACKFILL] trace_id=${traceId} Found ${stranded.length} stranded candidates to promote`);
+    
+    // Generate internal auth token for secure promotion requests
+    const generateToken = (globalThis as any).__generateInternalAuthToken;
+    if (!generateToken) {
+      console.error(`[QC_BACKFILL] trace_id=${traceId} Internal auth not initialized, skipping backfill`);
+      return;
+    }
+    
+    // Load Strategy Lab settings for auto-promote config (already initialized above)
+    const labState = getStrategyLabState();
+    const trialsAutoPromoteEnabled = labState.trialsAutoPromoteEnabled ?? true;
+    
+    if (!trialsAutoPromoteEnabled) {
+      console.log(`[QC_BACKFILL] trace_id=${traceId} Trials auto-promote is disabled, skipping backfill`);
+      return;
+    }
+    
+    let promotedCount = 0;
+    let failedCount = 0;
+    let fastTrackCount = 0;
+    
+    // Fast-track thresholds from lab state
+    const fastTrackEnabled = labState.fastTrackEnabled ?? false;
+    const fastTrackMinTrades = labState.fastTrackMinTrades ?? 50;
+    const fastTrackMinSharpe = labState.fastTrackMinSharpe ?? 1.5;
+    const fastTrackMinWinRate = labState.fastTrackMinWinRate ?? 55;
+    const fastTrackMaxDrawdown = labState.fastTrackMaxDrawdown ?? 15;
+    
+    for (const candidate of stranded) {
+      try {
+        // RACE PROTECTION: Re-fetch candidate to check if already promoted during this loop
+        const freshCandidate = await db.select({ 
+          disposition: schema.strategyCandidates.disposition,
+          createdBotId: schema.strategyCandidates.createdBotId,
+        })
+          .from(schema.strategyCandidates)
+          .where(eq(schema.strategyCandidates.id, candidate.id))
+          .limit(1);
+        
+        if (freshCandidate.length === 0) {
+          console.log(`[QC_BACKFILL] trace_id=${traceId} SKIP: candidate=${candidate.id.slice(0, 8)} not found`);
+          continue;
+        }
+        
+        if (freshCandidate[0].createdBotId || freshCandidate[0].disposition === "SENT_TO_LAB") {
+          console.log(`[QC_BACKFILL] trace_id=${traceId} SKIP: candidate=${candidate.id.slice(0, 8)} already promoted disposition=${freshCandidate[0].disposition}`);
+          continue;
+        }
+        
+        const internalAuthToken = generateToken();
+        
+        // Determine target stage based on QC metrics (same logic as main QC worker)
+        // DEFENSIVE: Only attempt fast-track if all required metrics are present and valid
+        let targetStage: "PAPER" | "TRIALS" = "TRIALS";
+        
+        // Parse metrics_summary_json - handle string (legacy) vs object formats
+        let qcMetrics: Record<string, any> | null = null;
+        if (candidate.metrics_summary_json) {
+          if (typeof candidate.metrics_summary_json === 'string') {
+            try {
+              qcMetrics = JSON.parse(candidate.metrics_summary_json);
+            } catch {
+              qcMetrics = null;
+            }
+          } else if (typeof candidate.metrics_summary_json === 'object') {
+            qcMetrics = candidate.metrics_summary_json as Record<string, any>;
+          }
+        }
+        
+        if (fastTrackEnabled && qcMetrics) {
+          // Check that required metrics exist and are numbers
+          const hasTrades = typeof qcMetrics.totalTrades === 'number';
+          const hasSharpe = typeof qcMetrics.sharpe === 'number';
+          const hasWinRate = typeof qcMetrics.winRate === 'number';
+          const hasDrawdown = typeof qcMetrics.maxDrawdown === 'number';
+          
+          if (hasTrades && hasSharpe && hasWinRate && hasDrawdown) {
+            const qcTrades = qcMetrics.totalTrades;
+            const qcSharpe = qcMetrics.sharpe;
+            const qcWinRate = qcMetrics.winRate;
+            const qcDrawdown = Math.abs(qcMetrics.maxDrawdown);
+            
+            const meetsFastTrack = qcTrades >= fastTrackMinTrades &&
+              qcSharpe >= fastTrackMinSharpe &&
+              qcWinRate >= fastTrackMinWinRate &&
+              qcDrawdown <= fastTrackMaxDrawdown;
+            
+            if (meetsFastTrack) {
+              targetStage = "PAPER";
+              fastTrackCount++;
+              console.log(`[QC_BACKFILL] trace_id=${traceId} FAST_TRACK: candidate=${candidate.id.slice(0, 8)} trades=${qcTrades} sharpe=${qcSharpe} winRate=${qcWinRate} drawdown=${qcDrawdown}`);
+            }
+          } else {
+            console.log(`[QC_BACKFILL] trace_id=${traceId} SKIP_FAST_TRACK: candidate=${candidate.id.slice(0, 8)} missing_metrics hasTrades=${hasTrades} hasSharpe=${hasSharpe} hasWinRate=${hasWinRate} hasDrawdown=${hasDrawdown}`);
+          }
+        }
+        
+        const promoteUrl = `http://localhost:${process.env.PORT || 5000}/api/strategy-lab/candidates/${candidate.id}/promote`;
+        const promoteRes = await fetch(promoteUrl, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "X-Internal-Auth": internalAuthToken,
+          },
+          body: JSON.stringify({ 
+            session_id: "qc_auto_promote",
+            target_stage: targetStage,
+          }),
+        });
+        
+        if (promoteRes.ok) {
+          const data = await promoteRes.json() as { data?: { botId?: string } };
+          const botId = data.data?.botId;
+          console.log(`[QC_BACKFILL] trace_id=${traceId} PROMOTED: candidate=${candidate.id.slice(0, 8)} bot=${botId?.slice(0, 8) || 'N/A'} strategy=${candidate.strategy_name}`);
+          promotedCount++;
+        } else {
+          const errorText = await promoteRes.text();
+          console.warn(`[QC_BACKFILL] trace_id=${traceId} FAILED: candidate=${candidate.id.slice(0, 8)} status=${promoteRes.status} error=${errorText.slice(0, 100)}`);
+          failedCount++;
+        }
+        
+        // Small delay to avoid overwhelming the system
+        await new Promise(r => setTimeout(r, 500));
+        
+      } catch (promoteError: any) {
+        console.error(`[QC_BACKFILL] trace_id=${traceId} ERROR: candidate=${candidate.id.slice(0, 8)} error=${promoteError.message}`);
+        failedCount++;
+      }
+    }
+    
+    console.log(`[QC_BACKFILL] trace_id=${traceId} Backfill complete: promoted=${promotedCount} failed=${failedCount} fastTrack=${fastTrackCount}`);
+    
+    if (promotedCount > 0) {
+      await logActivityEvent({
+        eventType: "SELF_HEALING_RECOVERY",
+        severity: "INFO",
+        title: `QC Backfill: ${promotedCount} stranded candidates promoted`,
+        summary: `Promoted ${promotedCount} QC-verified candidates (${fastTrackCount} fast-tracked to PAPER)`,
+        payload: { traceId, promotedCount, failedCount, fastTrackCount, total: stranded.length },
+        traceId,
+      });
+    }
+    
+  } catch (error) {
+    console.error(`[QC_BACKFILL] trace_id=${traceId} Failed:`, error);
   }
 }
 
@@ -8583,6 +8809,11 @@ async function initializeWorkers(): Promise<void> {
     // Run QC threshold recovery on startup (once) to re-queue DIVERGENT verifications that might now pass
     setTimeout(() => selfHealingWrapper("qc-threshold-recovery", runQCThresholdRecoveryWorker, startupTraceId).catch(console.error), 45_000);
     console.log(`[SCHEDULER] QC threshold recovery will run in 45s on startup`);
+    
+    // Run stranded QC_OK backfill on startup (once) to promote candidates that passed QC but weren't auto-promoted
+    // This catches candidates stuck in NEW/READY with QC_OK badges that missed auto-promotion due to disposition check
+    setTimeout(() => selfHealingWrapper("qc-ok-backfill", runQCOKBackfillWorker, startupTraceId).catch(console.error), 90_000);
+    console.log(`[SCHEDULER] QC_OK stranded backfill will run in 90s on startup`);
     
     qcEvolutionWorkerInterval = setInterval(createSelfHealingWorker("qc-evolution", runQCFailureEvolutionWorker), QC_EVOLUTION_SCAN_INTERVAL_MS);
     console.log(`[SCHEDULER] QC failure evolution worker started (interval: ${QC_EVOLUTION_SCAN_INTERVAL_MS / 60000}min)`);
