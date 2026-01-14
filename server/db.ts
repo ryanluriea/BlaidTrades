@@ -185,6 +185,41 @@ export const db = drizzle(pool, { schema }); // For workers
 
 export { STATEMENT_TIMEOUT_MS, CONNECTION_TIMEOUT_MS };
 
+/**
+ * Get live pool statistics for monitoring connection usage
+ * Critical for diagnosing connection saturation on Render
+ */
+export function getPoolStats(): {
+  web: { total: number; idle: number; waiting: number };
+  worker: { total: number; idle: number; waiting: number };
+  writer: { total: number; idle: number; waiting: number };
+  config: { webMax: number; workerMax: number; writerMax: number; connectionTimeout: number };
+} {
+  return {
+    web: {
+      total: poolWeb.totalCount,
+      idle: poolWeb.idleCount,
+      waiting: poolWeb.waitingCount,
+    },
+    worker: {
+      total: pool.totalCount,
+      idle: pool.idleCount,
+      waiting: pool.waitingCount,
+    },
+    writer: {
+      total: poolWriter.totalCount,
+      idle: poolWriter.idleCount,
+      waiting: poolWriter.waitingCount,
+    },
+    config: {
+      webMax: POOL_WEB_MAX,
+      workerMax: POOL_WORKER_MAX,
+      writerMax: POOL_WRITER_MAX,
+      connectionTimeout: CONNECTION_TIMEOUT_WORKERS_MS,
+    },
+  };
+}
+
 // Database connection state tracking with circuit breaker pattern
 let _dbWarmedUp = false;
 let _circuitOpen = false;

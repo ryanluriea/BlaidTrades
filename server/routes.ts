@@ -1063,6 +1063,30 @@ export function registerRoutes(app: Express) {
       res.status(500).json({ error: "Failed to get database metrics" });
     }
   });
+  
+  // Pool stats endpoint for diagnosing connection saturation
+  app.get("/api/observability/pool-stats", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { getPoolStats } = await import("./db");
+      const stats = getPoolStats();
+      const totalUsed = stats.web.total + stats.worker.total + stats.writer.total;
+      const totalWaiting = stats.web.waiting + stats.worker.waiting + stats.writer.waiting;
+      res.json({ 
+        success: true, 
+        data: {
+          ...stats,
+          summary: {
+            totalConnections: totalUsed,
+            totalWaiting,
+            maxAllowed: stats.config.webMax + stats.config.workerMax + stats.config.writerMax,
+            saturationPct: Math.round((totalUsed / (stats.config.webMax + stats.config.workerMax + stats.config.writerMax)) * 100),
+          }
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to get pool stats" });
+    }
+  });
 
   app.post("/api/observability/load-test", requireAuth, tradingRateLimit, async (req: Request, res: Response) => {
     try {
