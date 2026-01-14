@@ -14547,8 +14547,8 @@ export function registerRoutes(app: Express) {
         }
       }
       
-      // Parallel fetch: state + candidate counts + TRIALS bots count
-      const [state, candidateCounts, trialsBotsResult, researchStats] = await Promise.all([
+      // Parallel fetch: state + candidate counts + fleet breakdown
+      const [state, candidateCounts, fleetBreakdown, researchStats] = await Promise.all([
         // 1. Get autonomous state
         Promise.resolve(getStrategyLabState()),
         // 2. Get candidate counts by disposition (single optimized query)
@@ -14558,18 +14558,31 @@ export function registerRoutes(app: Express) {
             COUNT(*) FILTER (WHERE disposition = 'PENDING_REVIEW') as pending_review,
             COUNT(*) FILTER (WHERE disposition = 'SENT_TO_LAB') as sent_to_lab,
             COUNT(*) FILTER (WHERE disposition = 'QUEUED') as queued,
+            COUNT(*) FILTER (WHERE disposition = 'QUEUED_FOR_QC') as queued_for_qc,
+            COUNT(*) FILTER (WHERE disposition = 'WAITLIST') as waitlist,
             COUNT(*) FILTER (WHERE disposition = 'REJECTED') as rejected,
             COUNT(*) as total
           FROM strategy_candidates
         `),
-        // 3. Get TRIALS bots count
-        db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE stage = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL`),
+        // 3. Get fleet breakdown by stage (all active bots)
+        db.execute(sql`
+          SELECT 
+            COUNT(*) FILTER (WHERE stage = 'TRIALS') as trials,
+            COUNT(*) FILTER (WHERE stage = 'PAPER') as paper,
+            COUNT(*) FILTER (WHERE stage = 'SHADOW') as shadow,
+            COUNT(*) FILTER (WHERE stage = 'CANARY') as canary,
+            COUNT(*) FILTER (WHERE stage = 'LIVE') as live,
+            COUNT(*) as total
+          FROM bots 
+          WHERE archived_at IS NULL AND killed_at IS NULL
+        `),
         // 4. Get research stats (in-memory, fast)
         Promise.resolve(getResearchCycleStats()),
       ]);
       
       const counts = candidateCounts.rows[0] as any || {};
-      const trialsBotsCount = parseInt((trialsBotsResult.rows[0] as any)?.count || "0");
+      const fleet = fleetBreakdown.rows[0] as any || {};
+      const trialsBotsCount = parseInt(fleet.trials || "0");
       const researchActivity = getResearchActivity();
       
       return res.json({
@@ -14584,10 +14597,21 @@ export function registerRoutes(app: Express) {
             pendingReview: parseInt(counts.pending_review) || 0,
             sentToLab: parseInt(counts.sent_to_lab) || 0,
             queued: parseInt(counts.queued) || 0,
+            queuedForQc: parseInt(counts.queued_for_qc) || 0,
+            waitlist: parseInt(counts.waitlist) || 0,
             rejected: parseInt(counts.rejected) || 0,
             total: parseInt(counts.total) || 0,
           },
           trialsBotsCount,
+          // Fleet breakdown by stage (for Governor UI)
+          fleetBreakdown: {
+            trials: parseInt(fleet.trials) || 0,
+            paper: parseInt(fleet.paper) || 0,
+            shadow: parseInt(fleet.shadow) || 0,
+            canary: parseInt(fleet.canary) || 0,
+            live: parseInt(fleet.live) || 0,
+            total: parseInt(fleet.total) || 0,
+          },
           // Research stats
           researchStats: researchStats.slice(-5),
         },

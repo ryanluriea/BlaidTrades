@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, Info } from "lucide-react";
+import { Shield, Info, Bot, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,25 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useStrategyLabAutonomousState, useToggleStrategyLabState } from "@/hooks/useStrategyLab";
+import { useStrategyLabOverview, useToggleStrategyLabState } from "@/hooks/useStrategyLab";
 import { cn } from "@/lib/utils";
 
 export function FleetGovernorButton() {
-  const { data: autonomousState } = useStrategyLabAutonomousState();
+  const { data: overviewData } = useStrategyLabOverview();
   const toggleState = useToggleStrategyLabState();
+  
+  // Extract fleet and candidate data from overview
+  const fleetBreakdown = overviewData?.fleetBreakdown || { trials: 0, paper: 0, shadow: 0, canary: 0, live: 0, total: 0 };
+  const candidateCounts = overviewData?.candidateCounts || { 
+    pendingReview: 0, 
+    sentToLab: 0, 
+    queued: 0, 
+    queuedForQc: 0, 
+    waitlist: 0, 
+    rejected: 0, 
+    total: 0 
+  };
+  const autonomousState = overviewData;
   
   const [fleetGovernorEnabled, setFleetGovernorEnabled] = useState(true);
   const [fleetGovernorGlobalCap, setFleetGovernorGlobalCap] = useState(100);
@@ -67,10 +80,23 @@ export function FleetGovernorButton() {
           data-testid="button-fleet-governor-global"
         >
           <Shield className="w-3.5 h-3.5" />
-          <span className="hidden lg:inline">Governor</span>
-          <Badge variant="outline" className={cn("text-[10px] h-5", fleetGovernorEnabled ? "text-amber-400 border-amber-500/40" : "")}>
-            {fleetGovernorEnabled ? `${fleetGovernorGlobalCap}` : "Off"}
+          <span className="hidden lg:inline">Fleet</span>
+          <Badge variant="outline" className={cn(
+            "text-[10px] h-5 font-mono",
+            fleetGovernorEnabled 
+              ? fleetBreakdown.total >= fleetGovernorGlobalCap 
+                ? "text-red-400 border-red-500/40" 
+                : "text-amber-400 border-amber-500/40" 
+              : ""
+          )}>
+            {fleetGovernorEnabled ? `${fleetBreakdown.total}/${fleetGovernorGlobalCap}` : "Off"}
           </Badge>
+          {candidateCounts.waitlist > 0 && (
+            <Badge variant="outline" className="text-[10px] h-5 text-orange-400 border-orange-500/40">
+              <Clock className="w-2.5 h-2.5 mr-0.5" />
+              {candidateCounts.waitlist}
+            </Badge>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-96 p-3" side="bottom" align="end">
@@ -97,6 +123,58 @@ export function FleetGovernorButton() {
           </div>
           
           <div className={cn("space-y-3", !fleetGovernorEnabled && "opacity-50 pointer-events-none")}>
+            <div className="h-px bg-border/50" />
+            
+            {/* Fleet Status Overview */}
+            <div className="space-y-2">
+              <Label className="text-[10px] text-muted-foreground mb-1.5 block flex items-center gap-1">
+                <Bot className="w-3 h-3" />
+                Active Fleet
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-muted/30 rounded px-2 py-1.5">
+                  <div className="text-[9px] text-muted-foreground">Total Bots</div>
+                  <div className="text-sm font-mono font-bold">
+                    <span className={cn(
+                      fleetBreakdown.total >= fleetGovernorGlobalCap ? "text-red-400" : "text-green-400"
+                    )}>{fleetBreakdown.total}</span>
+                    <span className="text-muted-foreground">/{fleetGovernorGlobalCap}</span>
+                  </div>
+                </div>
+                <div className="bg-muted/30 rounded px-2 py-1.5">
+                  <div className="text-[9px] text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5" />
+                    Waitlist
+                  </div>
+                  <div className="text-sm font-mono font-bold text-orange-400">
+                    {candidateCounts.waitlist || 0}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-1 text-center">
+                <div className="bg-muted/20 rounded px-1 py-1">
+                  <div className="text-[8px] text-muted-foreground">TRIALS</div>
+                  <div className="text-xs font-mono">{fleetBreakdown.trials}</div>
+                </div>
+                <div className="bg-muted/20 rounded px-1 py-1">
+                  <div className="text-[8px] text-muted-foreground">PAPER</div>
+                  <div className="text-xs font-mono">{fleetBreakdown.paper}</div>
+                </div>
+                <div className="bg-muted/20 rounded px-1 py-1">
+                  <div className="text-[8px] text-muted-foreground">SHADOW</div>
+                  <div className="text-xs font-mono">{fleetBreakdown.shadow}</div>
+                </div>
+                <div className="bg-muted/20 rounded px-1 py-1">
+                  <div className="text-[8px] text-muted-foreground">CANARY</div>
+                  <div className="text-xs font-mono">{fleetBreakdown.canary}</div>
+                </div>
+                <div className="bg-muted/20 rounded px-1 py-1">
+                  <div className="text-[8px] text-muted-foreground">LIVE</div>
+                  <div className="text-xs font-mono text-green-400">{fleetBreakdown.live}</div>
+                </div>
+              </div>
+            </div>
+            
             <div className="h-px bg-border/50" />
             
             <div>

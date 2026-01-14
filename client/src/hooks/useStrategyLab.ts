@@ -929,6 +929,25 @@ export interface StrategyLabAutonomousState {
   fleetGovernorGracePeriodHours?: number;
   fleetGovernorMinObservationTrades?: number;
   fleetGovernorDemotionPolicy?: "ARCHIVE" | "RECYCLE";
+  // Candidate counts (from overview endpoint)
+  candidateCounts?: {
+    pendingReview: number;
+    sentToLab: number;
+    queued: number;
+    queuedForQc: number;
+    waitlist: number;
+    rejected: number;
+    total: number;
+  };
+  // Fleet breakdown by stage (from overview endpoint)
+  fleetBreakdown?: {
+    trials: number;
+    paper: number;
+    shadow: number;
+    canary: number;
+    live: number;
+    total: number;
+  };
 }
 
 export interface LinkedBotData {
@@ -1083,8 +1102,9 @@ export function useStrategyLabOverview() {
             adaptiveReason: "Default balanced mode",
             lastStateChange: new Date().toISOString(),
             lastResearchCycleTime: 0,
-            candidateCounts: { pendingReview: 0, sentToLab: 0, queued: 0, rejected: 0, total: 0 },
+            candidateCounts: { pendingReview: 0, sentToLab: 0, queued: 0, queuedForQc: 0, waitlist: 0, rejected: 0, total: 0 },
             trialsBotsCount: 0,
+            fleetBreakdown: { trials: 0, paper: 0, shadow: 0, canary: 0, live: 0, total: 0 },
             researchStats: [],
           } 
         };
