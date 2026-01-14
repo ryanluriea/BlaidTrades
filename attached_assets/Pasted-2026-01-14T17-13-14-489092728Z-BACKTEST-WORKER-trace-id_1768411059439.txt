@@ -1,0 +1,50 @@
+2026-01-14T17:13:14.489092728Z [BACKTEST_WORKER] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 processing_jobs=1
+2026-01-14T17:13:14.497193727Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 bot_id=05011994-02fd-4de6-8a03-8404edb8c1ca already_has_valid_baseline
+2026-01-14T17:13:14.497214177Z [BACKTEST_WORKER] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 bot_id=05011994-02fd-4de6-8a03-8404edb8c1ca created_session=059662da-f9aa-43d2-811c-bef6228f12b1 - will now execute
+2026-01-14T17:13:14.498691776Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 session_id=059662da-f9aa-43d2-811c-bef6228f12b1 bot_id=05011994-02fd-4de6-8a03-8404edb8c1ca starting
+2026-01-14T17:13:14.503595792Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for VWAP Deviation Fade" trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3
+2026-01-14T17:13:14.503613212Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 using REAL Databento data for MES via BAR_CACHE
+2026-01-14T17:13:14.503625083Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-14T17:13:14.503820176Z [BAR_CACHE] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 symbol=MES cold_storage_empty
+2026-01-14T17:13:14.503820286Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 cold_storage_empty falling_back_to_redis_cache
+2026-01-14T17:13:14.508464807Z [BARS_CACHE] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 instance=521e21d1 lock_acquired fetching_from_provider
+2026-01-14T17:13:14.511309393Z [INTEGRATION_USAGE] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-14T17:13:14.511399025Z [DATABENTO] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 CME_LICENSE_CAP: Requested end=2026-01-14T17:13:14.497Z capped to 2026-01-13T15:13:14.511Z (26h buffer for license-free window)
+2026-01-14T17:13:14.511411755Z [DATABENTO] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 fetching symbol=MES.c.0 start=2025-12-15T17:13:14.497Z end=2026-01-13T15:13:14.511Z schema=ohlcv-1m
+2026-01-14T17:13:19.074822678Z [DATABENTO] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 fetched bars=5073 latency=4563ms
+2026-01-14T17:13:19.092001664Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3
+2026-01-14T17:13:19.204348952Z [BARS_CACHE] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 instance=521e21d1 cache_set key=bars:v2:MES:5m:ALL:1765818794497:1768410794497 bars=5073 compressed_bytes=57802
+2026-01-14T17:13:19.206735089Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 resampling cached bars from 1m to 5m (factor=5)
+2026-01-14T17:13:19.210096035Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 REAL_DATA fetched_bars=1015 provider=databento latency=4704ms
+2026-01-14T17:13:19.212537562Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 bot_name="VWAP Deviation Fade" inferred_archetype="none" using="vwap_bounce"
+2026-01-14T17:13:19.212629964Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-14T17:13:19.21295758Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-14T17:13:19.215075252Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 using_real_strategy version=1.0.0 rules=MES VWAP rules_hash=f62984d601fdbce9
+2026-01-14T17:13:19.215309166Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-14T17:13:19.215330917Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-14T17:13:19.215920569Z [SESSION_CHECK] UTC=2025-12-16T15:04:00.000Z ET_hour=10 ET_min=4 ET_day=2 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-14T17:13:19.374637343Z [STRATEGY_EXECUTOR] bars=1015 valid_bars=1015 session_bars=254 outside_session=711 no_trade_window=0 entry_signals=30 trades=30
+2026-01-14T17:13:19.374660374Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 REAL_EXECUTION trades=30 pnl=-485.95 win_rate=33.3%
+2026-01-14T17:13:19.374674554Z [TX:3eef8f1b-672b-4351-a8dd-45ad5e7247c3] BACKTEST_TRADES:059662da START
+2026-01-14T17:13:19.434913322Z [TX:3eef8f1b-672b-4351-a8dd-45ad5e7247c3] BACKTEST_TRADES:059662da COMMITTED
+2026-01-14T17:13:19.453638179Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 updated generation performanceSnapshot gen_id=ba672e3c-513a-4d62-b632-51b7cdb083c4
+2026-01-14T17:13:19.465287857Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 LAB_BASELINE gen_id=ba672e3c-513a-4d62-b632-51b7cdb083c4 valid=true reason=N/A trades=30
+2026-01-14T17:13:19.476249281Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for VWAP Deviation Fade" trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3
+2026-01-14T17:13:19.476260711Z [BACKTEST_EXECUTOR] trace_id=3eef8f1b-672b-4351-a8dd-45ad5e7247c3 session_id=059662da-f9aa-43d2-811c-bef6228f12b1 completed trades=30 pnl=-485.95
+2026-01-14T17:13:20.227789824Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-14T17:13:20.228496147Z [EVENT_LOOP] status=OK current=0.0ms avg=2.4ms p95=1.0ms p99=90.0ms max=166.4ms samples=586 gc_pauses=0
+2026-01-14T17:13:20.229081219Z [MEMORY_LEAK] status=OK heap=135.3MB peak=149.7MB short=-113.4KB/s medium=-113.4KB/s long=-113.4KB/s confidence=0%
+2026-01-14T17:13:22.775341821Z [LIVE_DATA_SERVICE] Quote tick symbol=MNQ last=25498.25 bid=25498.25 ask=25498.5 mid=25498.38 quotes_total=953
+2026-01-14T17:13:23.527058856Z [BACKTEST_WORKER] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 processing_jobs=1
+2026-01-14T17:13:23.543542909Z [BACKTEST_EXECUTOR] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 bot_id=3c0eb906-0e59-440b-a28f-e249dd5e0637 already_has_valid_baseline
+2026-01-14T17:13:23.543562439Z [BACKTEST_WORKER] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 bot_id=3c0eb906-0e59-440b-a28f-e249dd5e0637 created_session=008bc178-9818-457e-8987-b17b3c0cab00 - will now execute
+2026-01-14T17:13:23.545286283Z [BACKTEST_EXECUTOR] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 session_id=008bc178-9818-457e-8987-b17b3c0cab00 bot_id=3c0eb906-0e59-440b-a28f-e249dd5e0637 starting
+2026-01-14T17:13:23.550851532Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Dormancy Range Fade" trace_id=9fe3d135-955e-499a-8ed0-d480559587f2
+2026-01-14T17:13:23.550866002Z [BACKTEST_EXECUTOR] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 using REAL Databento data for MES via BAR_CACHE
+2026-01-14T17:13:23.550876302Z [BACKTEST_EXECUTOR] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-14T17:13:23.551062386Z [BAR_CACHE] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 symbol=MES cold_storage_empty
+2026-01-14T17:13:23.551078886Z [BACKTEST_EXECUTOR] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 cold_storage_empty falling_back_to_redis_cache
+2026-01-14T17:13:23.558188096Z [BARS_CACHE] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 instance=521e21d1 lock_acquired fetching_from_provider
+2026-01-14T17:13:23.561360247Z [INTEGRATION_USAGE] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-14T17:13:23.561393628Z [DATABENTO] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 CME_LICENSE_CAP: Requested end=2026-01-14T17:13:23.543Z capped to 2026-01-13T15:13:23.561Z (26h buffer for license-free window)
+2026-01-14T17:13:23.561402138Z [DATABENTO] trace_id=9fe3d135-955e-499a-8ed0-d480559587f2 fetching symbol=MES.c.0 start=2025-12-15T17:13:23.543Z end=2026-01-13T15:13:23.561Z schema=ohlcv-1m
