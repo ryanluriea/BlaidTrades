@@ -14509,6 +14509,7 @@ export function registerRoutes(app: Express) {
   // Strategy Lab Overview - UNIFIED endpoint for fast page load
   // Combines status, state, and candidate counts in a single request
   app.get("/api/strategy-lab/overview", requireAuth, async (req: Request, res: Response) => {
+    const overviewStart = Date.now();
     try {
       // INSTITUTIONAL: Use session userId for consistency with bots-overview
       const userId = req.session?.userId as string | undefined;
@@ -14585,9 +14586,9 @@ export function registerRoutes(app: Express) {
       const trialsBotsCount = parseInt(fleet.trials || "0");
       const researchActivity = getResearchActivity();
       
-      // DEBUG: Log fleet breakdown query results
-      console.log(`[STRATEGY_LAB_OVERVIEW] Fleet breakdown raw: ${JSON.stringify(fleet)}`);
-      console.log(`[STRATEGY_LAB_OVERVIEW] Fleet parsed: trials=${parseInt(fleet.trials) || 0}, paper=${parseInt(fleet.paper) || 0}, total=${parseInt(fleet.total) || 0}`);
+      // DEBUG: Log fleet breakdown query results and timing
+      const overviewMs = Date.now() - overviewStart;
+      console.log(`[STRATEGY_LAB_OVERVIEW] TOTAL: ${overviewMs}ms Fleet: trials=${parseInt(fleet.trials) || 0}, paper=${parseInt(fleet.paper) || 0}, total=${parseInt(fleet.total) || 0}`);
       
       return res.json({
         success: true,
@@ -14683,25 +14684,27 @@ export function registerRoutes(app: Express) {
         }
       }
       
-      // Always fetch TRIALS bots count for accurate display in frontend
-      // Must use same filters as /api/strategy-lab/overview: archived_at IS NULL AND killed_at IS NULL
-      let trialsBotsCount = 0;
-      try {
-        const trialsBotsResult = await db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE stage = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL`);
-        trialsBotsCount = parseInt((trialsBotsResult.rows[0] as any)?.count || "0");
-      } catch (countError) {
-        console.warn("[STRATEGY_LAB_CANDIDATES] Failed to fetch trials bots count:", countError);
-        // Continue with count=0, frontend will show 0 but won't break
-      }
-      
-      const candidates = await getCandidatesByDisposition(disp as any, lim);
-      
-      // Use cached regime detection (5 min TTL) instead of recalculating on every request
+      // PERFORMANCE: Parallelize independent queries for faster response
+      const queryStart = Date.now();
       const { calculateRegimeAdjustedScore } = await import("./ai-strategy-evolution");
-      const currentRegime = await getCachedRegime();
+      
+      // Run trials count, candidates fetch, and regime detection in parallel
+      const [trialsBotsResult, candidates, currentRegime] = await Promise.all([
+        db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE stage = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL`)
+          .catch((err) => {
+            console.warn("[STRATEGY_LAB_CANDIDATES] Failed to fetch trials bots count:", err);
+            return { rows: [{ count: "0" }] };
+          }),
+        getCandidatesByDisposition(disp as any, lim),
+        getCachedRegime(),
+      ]);
+      
+      const trialsBotsCount = parseInt((trialsBotsResult.rows[0] as any)?.count || "0");
+      console.log(`[STRATEGY_LAB_CANDIDATES] Phase 1 (parallel queries): ${Date.now() - queryStart}ms, candidates=${candidates.length}`);
       
       // INSTITUTIONAL: Batch fetch latest QC verification for each candidate
       // This ensures TRIALS candidates show QC badges even after 200+ new verifications
+      const qcStart = Date.now();
       const candidateIds = candidates.map((c: any) => c.id);
       let qcVerificationMap = new Map<string, { status: string; badgeState: string | null; qcScore: number | null; finishedAt: Date | null }>();
       
@@ -14733,6 +14736,7 @@ export function registerRoutes(app: Express) {
           // Continue without QC data - UI will show NONE state
         }
       }
+      console.log(`[STRATEGY_LAB_CANDIDATES] Phase 2 (QC fetch): ${Date.now() - qcStart}ms, qcMapSize=${qcVerificationMap.size}`);
       
       // Build regime adjustment for each candidate, using stored values as fallback
       // Also attach QC verification status from batch fetch
@@ -14903,6 +14907,9 @@ export function registerRoutes(app: Express) {
           generatedAt: new Date().toISOString(),
         }).catch(err => console.warn("[STRATEGY_LAB_CACHE] Background cache write failed:", err));
       }
+      
+      const totalMs = Date.now() - queryStart;
+      console.log(`[STRATEGY_LAB_CANDIDATES] TOTAL: ${totalMs}ms disposition=${disp} count=${candidatesWithRegime.length} cached=${!includeBots}`);
       
       return res.json({
         success: true,
