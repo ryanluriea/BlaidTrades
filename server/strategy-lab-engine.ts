@@ -2670,7 +2670,7 @@ export async function detectLabBotFailure(
       bg.regime_at_creation
     FROM bots b
     LEFT JOIN bot_generations bg ON b.id = bg.bot_id AND b.current_generation = bg.generation_number
-    WHERE b.id = ${botId}::uuid AND b.stage = 'TRIALS'
+    WHERE b.id = ${botId}::uuid AND UPPER(b.stage) = 'TRIALS'
   `);
   
   if (botResult.rows.length === 0) {
@@ -2864,7 +2864,7 @@ export async function scanLabBotsForFailures(
   traceId: string
 ): Promise<LabFailureDetectionResult[]> {
   const labBotsResult = await db.execute(sql`
-    SELECT id FROM bots WHERE stage = 'TRIALS' AND status != 'ARCHIVED'
+    SELECT id FROM bots WHERE UPPER(stage) = 'TRIALS' AND status != 'ARCHIVED'
   `);
   
   const failures: LabFailureDetectionResult[] = [];

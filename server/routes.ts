@@ -2091,7 +2091,7 @@ export function registerRoutes(app: Express) {
             9999
           ) as minutes_since_last_job
         FROM bots b
-        WHERE b.stage = 'TRIALS' 
+        WHERE UPPER(b.stage) = 'TRIALS' 
           AND b.archived_at IS NULL
           AND b.killed_at IS NULL
         HAVING COALESCE(
@@ -2273,7 +2273,7 @@ export function registerRoutes(app: Express) {
           (SELECT COUNT(*) FROM bot_jobs WHERE bot_id = b.id AND status = 'RUNNING') as running_jobs,
           (SELECT bs.id FROM backtest_sessions bs WHERE bs.bot_id = b.id AND bs.created_at > COALESCE(b.metrics_reset_at, '1970-01-01') AND bs.status = 'completed' AND bs.total_trades > 0 ORDER BY bs.completed_at DESC NULLS LAST, bs.id DESC LIMIT 1) as valid_baseline_id
         FROM bots b
-        WHERE b.stage = 'TRIALS' 
+        WHERE UPPER(b.stage) = 'TRIALS' 
           AND b.archived_at IS NULL
           AND b.killed_at IS NULL
         ORDER BY b.name
@@ -14795,7 +14795,7 @@ export function registerRoutes(app: Express) {
       
       // Run trials count, candidates fetch, and regime detection in parallel
       const [trialsBotsResult, candidates, currentRegime] = await Promise.all([
-        db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE stage = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL`)
+        db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE UPPER(stage) = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL`)
           .catch((err) => {
             console.warn("[STRATEGY_LAB_CANDIDATES] Failed to fetch trials bots count:", err);
             return { rows: [{ count: "0" }] };

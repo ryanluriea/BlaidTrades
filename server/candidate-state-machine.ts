@@ -312,10 +312,10 @@ export async function getFleetCapacity(): Promise<PromotionCapacityResult> {
   `);
   const activeBotsCount = Number((activeBotsResult.rows[0] as any)?.count || 0);
   
-  // Get TRIALS-specific count
+  // Get TRIALS-specific count (use UPPER for case-insensitive matching)
   const trialsBotsResult = await db.execute(sql`
     SELECT COUNT(*) as count FROM bots 
-    WHERE stage = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL
+    WHERE UPPER(stage) = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL
   `);
   const trialsBotsCount = Number((trialsBotsResult.rows[0] as any)?.count || 0);
   

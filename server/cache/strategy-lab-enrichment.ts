@@ -136,7 +136,7 @@ export async function getTrialsBotsCount(): Promise<number> {
   try {
     const result = await db.execute(sql`
       SELECT COUNT(*) as count FROM bots 
-      WHERE stage = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL
+      WHERE UPPER(stage) = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL
     `);
     return parseInt((result.rows[0] as any)?.count || "0");
   } catch (err) {
