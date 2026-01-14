@@ -26,6 +26,30 @@ const FRESH_TTL_SECONDS = 300; // 5 min - reduced Redis bandwidth (was 60s)
 const STALE_TTL_SECONDS = 480; // 8 min - stale-while-revalidate window
 const MAX_TTL_SECONDS = 600;   // 10 min - absolute expiry
 
+// PERFORMANCE: Global in-memory fallback cache
+// Serves any user when Redis cache misses and DB is slow/saturated
+// This prevents skeleton loaders during cold starts and DB saturation
+let globalFallbackCache: { data: CachedStrategyLabData | null; updatedAt: number } = {
+  data: null,
+  updatedAt: 0,
+};
+const GLOBAL_FALLBACK_TTL_MS = 60_000; // 1 minute - short TTL since it's shared across users
+
+export function getGlobalFallbackCache(): CachedStrategyLabData | null {
+  const age = Date.now() - globalFallbackCache.updatedAt;
+  if (globalFallbackCache.data && age < GLOBAL_FALLBACK_TTL_MS) {
+    return globalFallbackCache.data;
+  }
+  return null;
+}
+
+export function setGlobalFallbackCache(data: CachedStrategyLabData): void {
+  globalFallbackCache = {
+    data,
+    updatedAt: Date.now(),
+  };
+}
+
 export interface CachedStrategyLabData {
   candidates: any[];
   trialsBotsCount: number;

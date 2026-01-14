@@ -1,0 +1,380 @@
+MASTER UPGRADE PROMPT — POLYMARKET AGENT PLATFORM (FINAL, LOCKED)
+(Replit handoff | single authoritative spec)
+
+This is NOT a greenfield build.
+This is an UPGRADE + HARDENING of our existing Polymarket agent platform.
+
+Do NOT introduce mock data, placeholders, demo logic, or example flows.
+Do NOT merge analysis and execution paths.
+Do NOT create new pages unless explicitly required.
+Everything must be auditable, deterministic, stateless, and production-aligned.
+
+This prompt supersedes all prior Polymarket-related instructions.
+
+=====================================================
+HIGH-LEVEL GOAL
+=====================================================
+
+Upgrade the platform into a **true agent-first Polymarket intelligence system** by merging:
+
+• Polymarket/agents architectural concepts  
+• MCP-style tool boundaries (agent-native, read-only by default)  
+• Strict separation of READ vs TRADE capabilities  
+• RAG enrichment using market-implied probabilities  
+• Full run-history + audit logging  
+• Explicit agent roles (analysis vs execution)  
+• Future-proof MCP compatibility in spirit (not dependency)
+
+End state:
+Prediction markets function as a **real-time sensory layer for AI agents**, not just another API.
+
+=====================================================
+CORE PRINCIPLES (NON-NEGOTIABLE)
+=====================================================
+
+1) READ ≠ TRADE  
+   - Read-only market access MUST be fully isolated from execution.
+   - No private keys, signing, or transaction logic in read modules.
+
+2) TOOLS, NOT RAW APIS  
+   - Agents interact with Polymarket exclusively via explicit tools.
+   - Each tool has:
+     • single responsibility
+     • strict input schema
+     • normalized output schema
+     • deterministic behavior
+     • stateless execution
+
+3) CANONICAL TOOL SURFACE  
+   - The read layer exposes EXACTLY FOUR tools:
+     • listMarkets
+     • getMarketInfo
+     • getMarketPrices
+     • getMarketHistory
+   - Do NOT add additional read tools unless they are strictly composable from these four.
+
+4) AUDIT EVERYTHING  
+   - Every agent run
+   - Every tool call
+   - Every decision
+   - Every order
+   - Every fill
+   No silent failures. Ever.
+
+5) RAG IS FIRST-CLASS  
+   - Market probabilities are not “extra context”
+   - They are core, quantitative sentiment signals
+
+=====================================================
+ARCHITECTURE OVERVIEW
+=====================================================
+
+We are implementing a Polymarket integration inspired by:
+• Polymarket/agents
+• Model Context Protocol (MCP) design philosophy
+• The Polymarket MCP Server reference implementations
+
+BUT:
+• We are NOT installing a Python MCP server
+• We are NOT using MCP JSON configs
+• We are NOT binding to Claude Desktop or Cursor
+• We ARE implementing the same conceptual boundaries natively
+
+=====================================================
+A) POLYMARKET READ PROVIDER (DEFAULT + SAFE)
+=====================================================
+
+Create:
+server/integrations/polymarket/readProvider.ts
+
+This module MUST be:
+• 100% read-only
+• Stateless
+• Safe for unrestricted agent usage
+• Cache-aware
+• Fully logged
+
+This provider is safe for:
+• discovery agents
+• analysis agents
+• scoring agents
+• RAG ingestion
+• future external copilots
+
+---------------------------------
+CANONICAL READ TOOLS (LOCKED)
+---------------------------------
+
+1) listMarkets
+   Inputs:
+     - status: open | closed | resolved
+     - limit
+     - offset
+     - tags
+     - minLiquidity
+   Output:
+     - Market[]
+
+2) getMarketInfo
+   Inputs:
+     - marketId
+   Output:
+     - Market (question, outcomes, resolution criteria, end date, volume, liquidity)
+
+3) getMarketPrices
+   Inputs:
+     - marketId
+   Output:
+     - Outcome probabilities
+     - implied probabilities
+     - lastUpdated
+
+4) getMarketHistory
+   Inputs:
+     - marketId
+     - timeframe (STRICT ENUM)
+   Allowed timeframe values:
+     - 1d
+     - 7d
+     - 30d
+     - all
+   Output:
+     - price/probability time series
+     - volume over time
+
+---------------------------------
+REQUIREMENTS
+---------------------------------
+
+• Normalize all Gamma API responses into domain models
+• Cache responses (short TTL)
+• Log every call (inputs + outputs + latency)
+• No wallet access anywhere in this module
+• No hidden cursors, pagination state, or implicit continuation
+
+=====================================================
+B) STRUCTURED ERROR HANDLING (MANDATORY)
+=====================================================
+
+ALL tools (read and execution) MUST return structured errors:
+
+Error object MUST include:
+• errorCode (numeric or string)
+• errorType:
+  - NOT_FOUND
+  - RATE_LIMIT
+  - AUTH
+  - TIMEOUT
+  - VALIDATION
+  - UNKNOWN
+• retryable (boolean)
+• message (human-readable)
+
+Agents must be able to reason about:
+• retry vs abort
+• degradation vs failure
+• partial vs terminal errors
+
+=====================================================
+C) POLYMARKET EXECUTION PROVIDER (STRICTLY GATED)
+=====================================================
+
+Create:
+server/integrations/polymarket/executionProvider.ts
+
+This module:
+• Requires explicit wallet configuration
+• Is NEVER accessible to analysis agents
+• Is ONLY callable by execution agents
+• Is always logged
+
+Functions:
+• buildOrder
+• signOrder
+• submitOrder
+• cancelOrder
+• getOpenOrders
+• getFills
+• getPositions
+
+---------------------------------
+EXECUTION GUARDRAILS (REQUIRED)
+---------------------------------
+
+• Limit orders only by default
+• maxPriceImpactBps
+• minLiquidity check
+• timeout-based auto-cancel
+• explicit LIVE enablement per wallet
+• optional paper-mirror mode
+• hard separation between paper and live
+
+Execution agents may ONLY consume:
+• outputs from analysis agents
+• vetted signals
+• explicit user confirmation
+
+=====================================================
+D) TOOL-BASED INTERFACE (AGENT-NATIVE)
+=====================================================
+
+Agents do NOT call providers directly.
+
+Expose Polymarket functionality strictly as TOOLS.
+
+Each tool:
+• wraps provider logic
+• validates inputs
+• returns normalized outputs
+• logs latency + success/failure
+• has no side effects beyond its scope
+
+This mirrors MCP-style design WITHOUT requiring MCP runtime.
+
+=====================================================
+E) DOMAIN MODELS (STRICT + CANONICAL)
+=====================================================
+
+Create:
+server/integrations/polymarket/models.ts
+
+Use strict validation (zod or equivalent) for:
+• Market
+• Event
+• Outcome
+• PriceSnapshot
+• OrderRequest
+• SignedOrder
+• Fill
+• Position
+
+Canonical fields MUST include:
+• implied probability
+• resolution criteria
+• end date
+• liquidity
+• volume
+• outcome token IDs
+
+=====================================================
+F) RAG ENRICHMENT USING MARKET DATA
+=====================================================
+
+Prediction markets are treated as:
+“Financially incentivized, real-time sentiment signals”
+
+For each market, ingest into RAG:
+• market question
+• outcomes
+• current probabilities
+• 7d / 30d probability drift
+• liquidity + volume
+• resolution criteria
+• agent notes / summaries
+
+Create:
+server/rag/vectorStore.ts (interface)
+server/rag/pgvectorStore.ts (default)
+
+RAG must support prompts like:
+“Is sentiment strengthening or weakening based on probability drift and volume?”
+
+=====================================================
+G) AGENT ROLES (ENFORCED)
+=====================================================
+
+Define TWO agent classes:
+
+1) Analysis / Discovery Agents
+   - Read-only Polymarket tools ONLY
+   - No wallet access
+   - Generate:
+     • insights
+     • scores
+     • candidate markets
+     • sentiment summaries
+
+2) Execution Agents
+   - Consume analysis outputs
+   - Require explicit confirmation
+   - Can place/cancel trades
+   - Fully logged and guarded
+
+This separation is mandatory and enforced at code level.
+
+=====================================================
+H) RUN HISTORY & AUDIT LOGGING (POSTGRES)
+=====================================================
+
+Create tables:
+
+1) polymarket_agent_runs
+   - agentId
+   - mode (analysis | execution | paper | live)
+   - marketId
+   - inputs
+   - outputs
+   - status
+   - error
+   - timestamps
+
+2) polymarket_agent_actions
+   - runId
+   - type (MARKET_QUERY | RAG_QUERY | LLM_CALL | ORDER_SUBMIT | RISK_BLOCK)
+   - request
+   - response
+   - latency
+   - success
+
+3) polymarket_orders
+4) polymarket_fills
+
+Every action must be traceable and replayable.
+
+=====================================================
+I) OPTIONAL EXTENSION — WALLET VETTING & COPY INTELLIGENCE
+=====================================================
+
+Once read + execution layers are stable:
+
+• Track watched wallets
+• Store historical trades/fills
+• Compute Copy Viability Scores
+• Enforce paper-mirror first
+• Require explicit opt-in before live copying
+
+This must reuse the same audit + tool architecture.
+
+=====================================================
+WHAT NOT TO DO (ABSOLUTE)
+=====================================================
+
+• Do NOT merge read and trade code
+• Do NOT auto-trade without confirmation
+• Do NOT introduce fake or synthetic data
+• Do NOT expose execution tools to analysis agents
+• Do NOT implement a public MCP server unless explicitly requested
+• Do NOT add ad-hoc tools outside the canonical four
+
+=====================================================
+SUCCESS CRITERIA
+=====================================================
+
+1) Agents can reason safely using read-only tools
+2) Market probabilities enrich RAG and prompts
+3) Execution is deliberate, gated, and auditable
+4) Every decision is replayable
+5) Architecture is MCP-compatible in spirit, not dependent on MCP infrastructure
+
+=====================================================
+FINAL NOTE
+=====================================================
+
+This upgrade transforms the platform from:
+“Bots calling Polymarket APIs”
+→
+“Agent system with a real-time market sensing layer”
+
+Build it clean.
+Build it safely.
+Build it once — the right way.

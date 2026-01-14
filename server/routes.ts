@@ -12,7 +12,7 @@ import { encryptSecret, decryptSecret, isEncryptionConfigured } from "./crypto-u
 import { checkRateLimit, resetRateLimit, getRateLimitKey } from "./rate-limiter";
 import { checkRateLimitRedis, resetRateLimitRedis, buildRateLimitKey } from "./cache/redis-rate-limiter";
 import { getCachedBotsOverview, setCachedBotsOverview } from "./cache/bots-overview-cache";
-import { getCachedStrategyLabCandidates, setCachedStrategyLabCandidates } from "./cache/strategy-lab-cache";
+import { getCachedStrategyLabCandidates, setCachedStrategyLabCandidates, getGlobalFallbackCache, setGlobalFallbackCache } from "./cache/strategy-lab-cache";
 import { healthWatchdog } from "./observability/health-watchdog";
 import { consumeTempToken, validateTempToken } from "./auth";
 import { requireAuth, tradingRateLimit, adminRateLimit, twoFactorRateLimit, csrfProtection } from "./security-middleware";
@@ -14706,6 +14706,21 @@ export function registerRoutes(app: Express) {
             _cache: { hit: true, stale: true, ageSeconds: cached.ageSeconds },
           });
         }
+        
+        // PERFORMANCE: Global fallback cache - serves any user during DB saturation
+        // Prevents skeleton loaders during cold starts and connection pool exhaustion
+        const globalFallback = getGlobalFallbackCache();
+        if (globalFallback && globalFallback.disposition === disp) {
+          console.log(`[STRATEGY_LAB_CACHE] Global fallback served for userId=${userId.slice(0,8)} disposition=${disp}`);
+          return res.json({
+            success: true,
+            data: globalFallback.candidates,
+            count: globalFallback.candidates.length,
+            trialsBotsCount: globalFallback.trialsBotsCount,
+            current_regime: globalFallback.currentRegime,
+            _cache: { hit: true, fallback: true },
+          });
+        }
       }
       
       // PERFORMANCE: Parallelize independent queries for faster response
@@ -14923,13 +14938,19 @@ export function registerRoutes(app: Express) {
       // PERFORMANCE: Cache the result for future requests (non-bot queries only)
       if (!includeBots) {
         const cacheKey = `${disp}:${lim}`;
-        setCachedStrategyLabCandidates(userId, cacheKey, {
+        const cacheData = {
           candidates: candidatesWithRegime,
           trialsBotsCount,
           disposition: disp,
           currentRegime,
           generatedAt: new Date().toISOString(),
-        }).catch(err => console.warn("[STRATEGY_LAB_CACHE] Background cache write failed:", err));
+        };
+        setCachedStrategyLabCandidates(userId, cacheKey, cacheData)
+          .catch(err => console.warn("[STRATEGY_LAB_CACHE] Background cache write failed:", err));
+        
+        // PERFORMANCE: Update global fallback cache for all users
+        // This helps prevent skeleton loaders during cold starts
+        setGlobalFallbackCache({ ...cacheData, cachedAt: Date.now() });
       }
       
       const totalMs = Date.now() - queryStart;
