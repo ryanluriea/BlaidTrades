@@ -71,14 +71,18 @@ try {
 // This prevents background workers from starving user requests
 
 // All pool settings configurable via environment variables for production tuning
+// RENDER FIX: Reduced pool sizes to prevent connection saturation
+// Render Standard databases typically only allow ~20 connections
+// Previous: web=12, worker=8, writer=4 (24 total) caused timeouts
+// New: web=5, worker=4, writer=2 (11 total) leaves headroom
 const STATEMENT_TIMEOUT_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_WEB_MS || "5000", 10);
 const STATEMENT_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_WORKER_MS || "15000", 10);
-const CONNECTION_TIMEOUT_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WEB_MS || "5000", 10);
-const CONNECTION_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WORKER_MS || "10000", 10);
-const IDLE_TIMEOUT_MS = parseInt(process.env.DB_IDLE_TIMEOUT_MS || "30000", 10);
-const POOL_WEB_MAX = parseInt(process.env.DB_POOL_WEB_MAX || "12", 10);
-const POOL_WORKER_MAX = parseInt(process.env.DB_POOL_WORKER_MAX || "8", 10);
-const POOL_WRITER_MAX = parseInt(process.env.DB_POOL_WRITER_MAX || "4", 10);
+const CONNECTION_TIMEOUT_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WEB_MS || "8000", 10);
+const CONNECTION_TIMEOUT_WORKERS_MS = parseInt(process.env.DB_CONNECTION_TIMEOUT_WORKER_MS || "15000", 10);
+const IDLE_TIMEOUT_MS = parseInt(process.env.DB_IDLE_TIMEOUT_MS || "20000", 10);
+const POOL_WEB_MAX = parseInt(process.env.DB_POOL_WEB_MAX || "5", 10);
+const POOL_WORKER_MAX = parseInt(process.env.DB_POOL_WORKER_MAX || "4", 10);
+const POOL_WRITER_MAX = parseInt(process.env.DB_POOL_WRITER_MAX || "2", 10);
 
 console.log(`[DB_POOL] Config: web_max=${POOL_WEB_MAX} worker_max=${POOL_WORKER_MAX} idle_timeout=${IDLE_TIMEOUT_MS}ms`);
 
