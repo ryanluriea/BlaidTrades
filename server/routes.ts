@@ -14585,6 +14585,10 @@ export function registerRoutes(app: Express) {
       const trialsBotsCount = parseInt(fleet.trials || "0");
       const researchActivity = getResearchActivity();
       
+      // DEBUG: Log fleet breakdown query results
+      console.log(`[STRATEGY_LAB_OVERVIEW] Fleet breakdown raw: ${JSON.stringify(fleet)}`);
+      console.log(`[STRATEGY_LAB_OVERVIEW] Fleet parsed: trials=${parseInt(fleet.trials) || 0}, paper=${parseInt(fleet.paper) || 0}, total=${parseInt(fleet.total) || 0}`);
+      
       return res.json({
         success: true,
         data: {
@@ -14767,6 +14771,14 @@ export function registerRoutes(app: Express) {
           } : null,
         };
       });
+      
+      // DEBUG: Log QC data attachment stats
+      const candidatesWithQC = candidatesWithRegime.filter((c: any) => c.qcVerification?.badgeState);
+      const sentToLabCandidates = candidatesWithRegime.filter((c: any) => c.disposition === "SENT_TO_LAB");
+      console.log(`[STRATEGY_LAB_CANDIDATES] disposition=${disp} total=${candidatesWithRegime.length} withQC=${candidatesWithQC.length} sentToLab=${sentToLabCandidates.length} qcMapSize=${qcVerificationMap.size}`);
+      if (sentToLabCandidates.length > 0) {
+        console.log(`[STRATEGY_LAB_CANDIDATES] SENT_TO_LAB sample: id=${sentToLabCandidates[0]?.id?.slice(0,8)} qcVerification=${JSON.stringify(sentToLabCandidates[0]?.qcVerification)}`);
+      }
       
       // Background task: Update stored scores if regime has changed (non-blocking)
       (async () => {
