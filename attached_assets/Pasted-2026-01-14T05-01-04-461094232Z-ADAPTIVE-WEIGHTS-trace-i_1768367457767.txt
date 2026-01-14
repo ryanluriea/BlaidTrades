@@ -1,0 +1,50 @@
+2026-01-14T05:01:04.461094232Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=c4dfb078-7dc6-48df-b643-8acd3313b010 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T05:01:04.463260652Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.465225019Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.494058603Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=2c17b821-5187-4d6d-b83e-b1d5a299a7b7 insufficient_data sessions=0 using_defaults
+2026-01-14T05:01:04.497285604Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=2c17b821-5187-4d6d-b83e-b1d5a299a7b7 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T05:01:04.499541256Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.501692547Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.505718883Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=b127ee4b-8d4c-438c-a37b-b1fc9e3aae34 insufficient_data sessions=0 using_defaults
+2026-01-14T05:01:04.507948575Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=b127ee4b-8d4c-438c-a37b-b1fc9e3aae34 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T05:01:04.509928102Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.513871776Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 insufficient_data sessions=0 using_defaults
+2026-01-14T05:01:04.516268872Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=952653eb-2cf5-43df-88a0-27c3a45fe273 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T05:01:04.518410922Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.521108793Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.526180559Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e insufficient_data sessions=0 using_defaults
+2026-01-14T05:01:04.529225946Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=116cfd38-7941-428a-9ae1-baf0a8a0696e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T05:01:04.531282275Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.533971615Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.538940059Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 insufficient_data sessions=0 using_defaults
+2026-01-14T05:01:04.541970116Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=88f3da67-f991-4084-a21b-6d71f2e91636 built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T05:01:04.544767619Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.550065169Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e insufficient_data sessions=0 using_defaults
+2026-01-14T05:01:04.553265159Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=7a23ecce-f757-48cd-9acb-4a714692d31e built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T05:01:04.55542986Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.558987157Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.563351539Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce insufficient_data sessions=0 using_defaults
+2026-01-14T05:01:04.56603665Z [ADAPTIVE_WEIGHTS] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 bot_id=8177986a-ed84-4a7b-9d10-2e447788d7ce built_snapshots count=4 avg_score=0.0 backtests=0
+2026-01-14T05:01:04.568043078Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.570172118Z [ACTIVITY_EVENT] type=SOURCE_GOVERNOR_BLOCKED severity=WARN title="Source Disable Blocked by Guardrail" trace_id=none
+2026-01-14T05:01:04.570184268Z [AUTONOMY_LOOP] trace_id=9ca6cd3c-6ec2-4736-b7f5-a3565dafd080 SOURCE_GOVERNOR total_decisions=2
+2026-01-14T05:01:04.993739103Z [DATABENTO] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f fetched bars=5073 latency=3448ms
+2026-01-14T05:01:04.996685329Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f
+2026-01-14T05:01:05.098260984Z [BARS_CACHE] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f instance=f4c6e061 cache_set key=bars:v2:MES:5m:ALL:1765774861534:1768366861534 bars=5073 compressed_bytes=58026
+2026-01-14T05:01:05.103057074Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f resampling cached bars from 1m to 5m (factor=5)
+2026-01-14T05:01:05.105716664Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f REAL_DATA fetched_bars=1015 provider=databento latency=3563ms
+2026-01-14T05:01:05.10817106Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f bot_name="Vol Complacency Trap" inferred_archetype="none" using="gap_fade"
+2026-01-14T05:01:05.108221791Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f archetype=gap_fade mapped_to=gap_fade
+2026-01-14T05:01:05.108376024Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f TRIALS_SESSION_WIDENING original=09:30-11:00 widened=09:35-15:55
+2026-01-14T05:01:05.189391551Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f using_real_strategy version=1.0.0 rules=MES Gap Fade rules_hash=2a374c1494c8112d
+2026-01-14T05:01:05.189708288Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-14T05:01:05.189714198Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-14T05:01:05.19035076Z [SESSION_CHECK] UTC=2025-12-16T02:52:00.000Z ET_hour=21 ET_min=52 ET_day=1 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-14T05:01:05.30015074Z [STRATEGY_EXECUTOR] bars=1015 valid_bars=1015 session_bars=252 outside_session=713 no_trade_window=0 entry_signals=52 trades=52
+2026-01-14T05:01:05.30019634Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f REAL_EXECUTION trades=52 pnl=-451.98 win_rate=34.6%
+2026-01-14T05:01:05.300207281Z [TX:1d9ac8f1-e9d7-42f2-957e-77b90a36081f] BACKTEST_TRADES:02395344 START
+2026-01-14T05:01:05.387345183Z [TX:1d9ac8f1-e9d7-42f2-957e-77b90a36081f] BACKTEST_TRADES:02395344 COMMITTED
+2026-01-14T05:01:05.398928152Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f updated generation performanceSnapshot gen_id=53f2417b-5d40-4a34-90a1-13df71bded8e
+2026-01-14T05:01:05.400882859Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f LAB_BASELINE gen_id=53f2417b-5d40-4a34-90a1-13df71bded8e valid=true reason=N/A trades=52
+2026-01-14T05:01:05.403002259Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Vol Complacency Trap" trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f
+2026-01-14T05:01:05.403014559Z [BACKTEST_EXECUTOR] trace_id=1d9ac8f1-e9d7-42f2-957e-77b90a36081f session_id=02395344-145d-4806-ab76-39792150b1b0 completed trades=52 pnl=-451.98
