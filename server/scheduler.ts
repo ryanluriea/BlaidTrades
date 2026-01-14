@@ -7161,40 +7161,44 @@ async function runQCOKBackfillWorker(): Promise<void> {
     console.log(`[QC_BACKFILL] trace_id=${traceId} Scanning for stranded QC-verified candidates...`);
     
     // DEBUG: Log what candidates exist with completed QC to understand filter gaps
-    // Uses same CTE pattern as main query for compatibility
-    const debugQuery = await db.execute(sql`
-      WITH latest_qc AS (
-        SELECT DISTINCT ON (candidate_id)
-          candidate_id,
-          status,
-          badge_state,
-          metrics_summary_json,
-          queued_at
-        FROM qc_verifications
-        WHERE status = 'COMPLETED'
-        ORDER BY candidate_id, queued_at DESC
-      )
-      SELECT 
-        c.id,
-        c.strategy_name,
-        c.disposition,
-        lq.badge_state,
-        lq.metrics_summary_json->>'qcGatePassed' as qc_gate_passed,
-        lq.metrics_summary_json->>'totalTrades' as qc_trades
-      FROM strategy_candidates c
-      JOIN latest_qc lq ON lq.candidate_id = c.id
-      WHERE c.disposition IN ('NEW', 'READY', 'QUEUED_FOR_QC')
-        AND c.created_bot_id IS NULL
-      LIMIT 10
-    `);
-    
-    if (debugQuery.rows.length > 0) {
-      console.log(`[QC_BACKFILL] trace_id=${traceId} DEBUG: Found ${debugQuery.rows.length} candidates with COMPLETED QC (showing first 10):`);
-      for (const row of debugQuery.rows as any[]) {
-        console.log(`[QC_BACKFILL] trace_id=${traceId} DEBUG: candidate=${row.id.slice(0, 8)} strategy="${row.strategy_name}" disposition=${row.disposition} badge_state=${row.badge_state} qcGatePassed=${row.qc_gate_passed} trades=${row.qc_trades}`);
+    // Wrapped in try/catch to prevent DB timeouts from blocking main promotion logic
+    try {
+      const debugQuery = await db.execute(sql`
+        WITH latest_qc AS (
+          SELECT DISTINCT ON (candidate_id)
+            candidate_id,
+            status,
+            badge_state,
+            metrics_summary_json,
+            queued_at
+          FROM qc_verifications
+          WHERE status = 'COMPLETED'
+          ORDER BY candidate_id, queued_at DESC
+        )
+        SELECT 
+          c.id,
+          c.strategy_name,
+          c.disposition,
+          lq.badge_state,
+          lq.metrics_summary_json->>'qcGatePassed' as qc_gate_passed,
+          lq.metrics_summary_json->>'totalTrades' as qc_trades
+        FROM strategy_candidates c
+        JOIN latest_qc lq ON lq.candidate_id = c.id
+        WHERE c.disposition IN ('NEW', 'READY', 'QUEUED_FOR_QC')
+          AND c.created_bot_id IS NULL
+        LIMIT 10
+      `);
+      
+      if (debugQuery.rows.length > 0) {
+        console.log(`[QC_BACKFILL] trace_id=${traceId} DEBUG: Found ${debugQuery.rows.length} candidates with COMPLETED QC (showing first 10):`);
+        for (const row of debugQuery.rows as any[]) {
+          console.log(`[QC_BACKFILL] trace_id=${traceId} DEBUG: candidate=${row.id.slice(0, 8)} strategy="${row.strategy_name}" disposition=${row.disposition} badge_state=${row.badge_state} qcGatePassed=${row.qc_gate_passed} trades=${row.qc_trades}`);
+        }
+      } else {
+        console.log(`[QC_BACKFILL] trace_id=${traceId} DEBUG: No candidates with COMPLETED QC in NEW/READY/QUEUED_FOR_QC disposition`);
       }
-    } else {
-      console.log(`[QC_BACKFILL] trace_id=${traceId} DEBUG: No candidates with COMPLETED QC in NEW/READY/QUEUED_FOR_QC disposition`);
+    } catch (debugErr: any) {
+      console.warn(`[QC_BACKFILL] trace_id=${traceId} DEBUG_QUERY_FAILED: ${debugErr.message?.slice(0, 100) || 'unknown'} - continuing to main query`);
     }
     
     // Find candidates that:
