@@ -14632,13 +14632,14 @@ export function registerRoutes(app: Express) {
           FROM strategy_candidates
         `),
         // 3. Get fleet breakdown by stage (all active bots)
+        // NOTE: Use UPPER() for case-insensitive matching (DB may store lowercase)
         db.execute(sql`
           SELECT 
-            COUNT(*) FILTER (WHERE stage = 'TRIALS') as trials,
-            COUNT(*) FILTER (WHERE stage = 'PAPER') as paper,
-            COUNT(*) FILTER (WHERE stage = 'SHADOW') as shadow,
-            COUNT(*) FILTER (WHERE stage = 'CANARY') as canary,
-            COUNT(*) FILTER (WHERE stage = 'LIVE') as live,
+            COUNT(*) FILTER (WHERE UPPER(stage) = 'TRIALS') as trials,
+            COUNT(*) FILTER (WHERE UPPER(stage) = 'PAPER') as paper,
+            COUNT(*) FILTER (WHERE UPPER(stage) = 'SHADOW') as shadow,
+            COUNT(*) FILTER (WHERE UPPER(stage) = 'CANARY') as canary,
+            COUNT(*) FILTER (WHERE UPPER(stage) = 'LIVE') as live,
             COUNT(*) as total
           FROM bots 
           WHERE archived_at IS NULL AND killed_at IS NULL
