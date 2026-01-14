@@ -7161,24 +7161,29 @@ async function runQCOKBackfillWorker(): Promise<void> {
     console.log(`[QC_BACKFILL] trace_id=${traceId} Scanning for stranded QC-verified candidates...`);
     
     // DEBUG: Log what candidates exist with completed QC to understand filter gaps
+    // Uses same CTE pattern as main query for compatibility
     const debugQuery = await db.execute(sql`
+      WITH latest_qc AS (
+        SELECT DISTINCT ON (candidate_id)
+          candidate_id,
+          status,
+          badge_state,
+          metrics_summary_json,
+          queued_at
+        FROM qc_verifications
+        WHERE status = 'COMPLETED'
+        ORDER BY candidate_id, queued_at DESC
+      )
       SELECT 
         c.id,
         c.strategy_name,
         c.disposition,
-        c.created_bot_id IS NOT NULL as has_bot,
-        qc.status as qc_status,
-        qc.badge_state,
-        qc.metrics_summary_json->>'qcGatePassed' as qc_gate_passed,
-        qc.metrics_summary_json->>'totalTrades' as qc_trades
+        lq.badge_state,
+        lq.metrics_summary_json->>'qcGatePassed' as qc_gate_passed,
+        lq.metrics_summary_json->>'totalTrades' as qc_trades
       FROM strategy_candidates c
-      LEFT JOIN LATERAL (
-        SELECT * FROM qc_verifications v 
-        WHERE v.candidate_id = c.id 
-        ORDER BY v.queued_at DESC LIMIT 1
-      ) qc ON true
-      WHERE qc.status = 'COMPLETED'
-        AND c.disposition IN ('NEW', 'READY', 'QUEUED_FOR_QC')
+      JOIN latest_qc lq ON lq.candidate_id = c.id
+      WHERE c.disposition IN ('NEW', 'READY', 'QUEUED_FOR_QC')
         AND c.created_bot_id IS NULL
       LIMIT 10
     `);
