@@ -6,13 +6,13 @@
 
 import { db } from "../db";
 import { sql } from "drizzle-orm";
-import { getCachedRegime } from "../ai-strategy-evolution";
 
 /**
- * Helper to validate UUID format
+ * Helper to validate UUID format (RFC 4122 compliant - matches routes.ts exactly)
  */
 function isValidUuid(str: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
 }
 
 /**
@@ -50,18 +50,22 @@ export interface EnrichedCandidate {
 /**
  * Enrich candidates with QC verification status and regime adjustments
  * INSTITUTIONAL: Ensures cache-warmed data matches live response shape exactly
+ * IMPORTANT: Always fetches currentRegime even for empty lists (matches route behavior)
  */
 export async function enrichCandidatesWithQCAndRegime(
   candidates: any[]
 ): Promise<{ candidates: EnrichedCandidate[]; currentRegime: string | null }> {
-  if (candidates.length === 0) {
-    return { candidates: [], currentRegime: null };
-  }
-
-  const { calculateRegimeAdjustedScore } = await import("../ai-strategy-evolution");
+  // CRITICAL: Use dynamic import to avoid circular dependencies
+  // This matches the pattern used in routes.ts
+  const { calculateRegimeAdjustedScore, getCachedRegime } = await import("../ai-strategy-evolution");
   
-  // Get cached regime (5 min TTL)
+  // Always get cached regime (5 min TTL) - even for empty arrays
+  // This ensures cache shape matches live responses exactly
   const currentRegime = await getCachedRegime();
+  
+  if (candidates.length === 0) {
+    return { candidates: [], currentRegime };
+  }
   
   // Batch fetch QC verifications for all candidates
   const candidateIds = candidates.map((c: any) => c.id);
