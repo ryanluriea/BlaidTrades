@@ -4,7 +4,7 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { insertBotSchema, insertAccountSchema, insertAlertSchema, insertUserSchema, insertBotJobSchema } from "@shared/schema";
 import crypto from "crypto";
-import { validateBotCreation, validateRiskConfig, formatValidationErrors, type RiskConfig } from "./fail-fast-validators";
+import { validateBotCreation, validateRiskConfig, validateArchetype, formatValidationErrors, type RiskConfig } from "./fail-fast-validators";
 import { execSync } from "child_process";
 import { checkRequiredIntegrations, INTEGRATION_REGISTRY, isIntegrationConfigured, getAllIntegrationsStatus } from "./integration-registry";
 import { resolveLiveStackStatus } from "./live-stack-resolver";
@@ -16815,6 +16815,25 @@ export function registerRoutes(app: Express) {
 
       // Determine symbol from instrument universe
       const symbol = candidate.instrumentUniverse?.[0] || "MES";
+
+      // SEV-0 FAIL-FAST: Validate archetype can be resolved before creating bot
+      // This prevents bots with unmappable names from entering TRIALS and failing backtests
+      const archetypeValidation = validateArchetype({
+        archetypeName: candidate.archetypeName || undefined,
+        strategyName: candidate.strategyName,
+        traceId,
+      });
+      
+      if (!archetypeValidation.valid || !archetypeValidation.inferredArchetype) {
+        console.error(`[STRATEGY_LAB_PROMOTE] trace_id=${traceId} ARCHETYPE_VALIDATION_FAILED name="${candidate.strategyName}"`);
+        return res.status(400).json({
+          success: false,
+          error: "Cannot determine archetype",
+          details: `Strategy name "${candidate.strategyName}" does not match any known archetype pattern. Please rename to include a recognized pattern (e.g., 'breakout', 'reversal', 'momentum', 'fade') or set an explicit archetypeName.`,
+        });
+      }
+      
+      console.log(`[STRATEGY_LAB_PROMOTE] trace_id=${traceId} ARCHETYPE_VALIDATED archetype="${archetypeValidation.inferredArchetype}"`);
 
       // Create the bot using storage.createBot for consistency
       // FAST-TRACK SUPPORT: Use effectiveStage (PAPER for fast-track, TRIALS for standard)

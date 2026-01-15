@@ -301,13 +301,14 @@ export function validateArchetype(input: ArchetypeValidationInput): ValidationRe
     }
   }
   
-  // FAIL-CLOSED: If no archetype could be determined, reject
+  // FAIL-CLOSED: If no archetype could be determined, reject with SEV-0 (hard block)
+  // This prevents bots from being created with unmappable names that will fail backtests
   if (!inferredArchetype) {
     errors.push({
       code: "ARCHETYPE_UNDETERMINABLE",
       field: "archetypeName",
-      message: `Cannot determine archetype for strategy '${strategyName}'. Provide explicit archetypeName or use a strategy name that matches a known archetype pattern.`,
-      severity: "SEV-1",
+      message: `Cannot determine archetype for strategy '${strategyName}'. Provide explicit archetypeName or use a strategy name that matches a known archetype pattern (e.g., 'breakout', 'reversal', 'momentum', 'fade').`,
+      severity: "SEV-0",
     });
   }
   

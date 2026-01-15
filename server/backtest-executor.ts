@@ -369,7 +369,7 @@ export async function executeBacktest(
     
     // SCHEMA-FIRST APPROACH: Check explicit archetypeName field on bot first (industry standard)
     // This is the canonical source of truth - no need to infer from name
-    const explicitArchetype = (bot as any).archetypeName || config.archetypeName;
+    const explicitArchetype = (bot as any).archetypeName || config.archetype;
     
     // FALLBACK: Only infer from bot name if no explicit archetype is stored (legacy data)
     // Bot names follow pattern: "{SYMBOL} {Strategy Type}" e.g., "MES Gap Fade", "MNQ VWAP Bounce"
