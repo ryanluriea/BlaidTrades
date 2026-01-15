@@ -1,0 +1,50 @@
+2026-01-15T02:20:28.463157281Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 session_id=a51e5b00-31bf-4cb6-8e8c-bec56383acb5 bot_id=ffcff1f0-62ce-4ec0-93a6-1a0b76aab4d5 starting
+2026-01-15T02:20:28.469305614Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for VWAP Shadow Rebound" trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3
+2026-01-15T02:20:28.469324964Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 using REAL Databento data for MES via BAR_CACHE
+2026-01-15T02:20:28.469338054Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-15T02:20:28.46958892Z [BAR_CACHE] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 symbol=MES cold_storage_empty
+2026-01-15T02:20:28.469628331Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 cold_storage_empty falling_back_to_redis_cache
+2026-01-15T02:20:28.471655099Z [BARS_CACHE] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 instance=88f731a7 lock_acquired fetching_from_provider
+2026-01-15T02:20:28.474362012Z [INTEGRATION_USAGE] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-15T02:20:28.474452304Z [DATABENTO] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 CME_LICENSE_CAP: Requested end=2026-01-15T02:20:28.460Z capped to 2026-01-14T00:20:28.474Z (26h buffer for license-free window)
+2026-01-15T02:20:28.474462564Z [DATABENTO] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 fetching symbol=MES.c.0 start=2025-12-16T02:20:28.460Z end=2026-01-14T00:20:28.474Z schema=ohlcv-1m
+2026-01-15T02:20:31.99729639Z [DATABENTO] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 fetched bars=5073 latency=3523ms
+2026-01-15T02:20:32.000392403Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3
+2026-01-15T02:20:32.067318103Z [BARS_CACHE] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 instance=88f731a7 cache_set key=bars:v2:MES:5m:ALL:1765851628460:1768443628460 bars=5073 compressed_bytes=57911
+2026-01-15T02:20:32.069553935Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 resampling cached bars from 1m to 5m (factor=5)
+2026-01-15T02:20:32.073391384Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 REAL_DATA fetched_bars=1015 provider=databento latency=3601ms
+2026-01-15T02:20:32.076431245Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 bot_name="VWAP Shadow Rebound" inferred_archetype="none" using="vwap_bounce"
+2026-01-15T02:20:32.076514297Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-15T02:20:32.076687651Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-15T02:20:32.079284152Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 using_real_strategy version=1.0.0 rules=MES VWAP rules_hash=f62984d601fdbce9
+2026-01-15T02:20:32.079674671Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-15T02:20:32.079687961Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-15T02:20:32.080383807Z [SESSION_CHECK] UTC=2025-12-17T00:11:00.000Z ET_hour=19 ET_min=11 ET_day=2 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-15T02:20:32.202417902Z [STRATEGY_EXECUTOR] bars=1015 valid_bars=1015 session_bars=251 outside_session=714 no_trade_window=0 entry_signals=37 trades=37
+2026-01-15T02:20:32.202442773Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 REAL_EXECUTION trades=37 pnl=225.37 win_rate=54.1%
+2026-01-15T02:20:32.202467323Z [TX:384035fa-d2b7-492e-8997-6ceb6291acb3] BACKTEST_TRADES:a51e5b00 START
+2026-01-15T02:20:32.284782162Z [TX:384035fa-d2b7-492e-8997-6ceb6291acb3] BACKTEST_TRADES:a51e5b00 COMMITTED
+2026-01-15T02:20:32.298737618Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 updated generation performanceSnapshot gen_id=f3704b0e-020e-440f-aca8-3b2445d0d45c
+2026-01-15T02:20:32.301033611Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 LAB_BASELINE gen_id=f3704b0e-020e-440f-aca8-3b2445d0d45c valid=true reason=N/A trades=37
+2026-01-15T02:20:32.303912678Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for VWAP Shadow Rebound" trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3
+2026-01-15T02:20:32.303938749Z [BACKTEST_EXECUTOR] trace_id=384035fa-d2b7-492e-8997-6ceb6291acb3 session_id=a51e5b00-31bf-4cb6-8e8c-bec56383acb5 completed trades=37 pnl=225.37
+2026-01-15T02:20:34.413673652Z [QC_WORKER] trace_id=4c81f811 starting_cycle
+2026-01-15T02:20:34.419874377Z [QC_WORKER] trace_id=4c81f811 queued_jobs=0 running=0/2
+2026-01-15T02:20:37.725133411Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-15T02:20:37.72595948Z [EVENT_LOOP] status=OK current=0.2ms avg=2.6ms p95=1.0ms p99=98.2ms max=278.2ms samples=585 gc_pauses=0
+2026-01-15T02:20:37.726761899Z [MEMORY_LEAK] status=OK heap=130MB peak=155MB short=47.0KB/s medium=47.0KB/s long=47.0KB/s confidence=0%
+2026-01-15T02:20:38.566375472Z [BACKTEST_WORKER] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 processing_jobs=1
+2026-01-15T02:20:38.575504055Z [RUNNER_WORKER] trace_id=f3ad870e active_runners=1 newly_started=0 blown_stopped=0 heartbeats_sent=1
+2026-01-15T02:20:38.582925638Z [BACKTEST_EXECUTOR] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 bot_id=1de84f8b-8b35-4494-b0e9-674862be08b5 already_has_valid_baseline
+2026-01-15T02:20:38.582941428Z [BACKTEST_WORKER] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 bot_id=1de84f8b-8b35-4494-b0e9-674862be08b5 created_session=403abebd-68be-4027-9648-87aa376c18fb - will now execute
+2026-01-15T02:20:38.585074198Z [BACKTEST_EXECUTOR] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 session_id=403abebd-68be-4027-9648-87aa376c18fb bot_id=1de84f8b-8b35-4494-b0e9-674862be08b5 starting
+2026-01-15T02:20:38.590804111Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Nasdaq Sentiment Snap" trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863
+2026-01-15T02:20:38.590823402Z [BACKTEST_EXECUTOR] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 using REAL Databento data for MNQ via BAR_CACHE
+2026-01-15T02:20:38.590829962Z [BACKTEST_EXECUTOR] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 loading_5year_history symbol=MNQ days=30 source=COLD_STORAGE
+2026-01-15T02:20:38.591007696Z [BAR_CACHE] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 symbol=MNQ cold_storage_empty
+2026-01-15T02:20:38.591008726Z [BACKTEST_EXECUTOR] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 cold_storage_empty falling_back_to_redis_cache
+2026-01-15T02:20:38.593155086Z [BARS_CACHE] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 instance=88f731a7 lock_acquired fetching_from_provider
+2026-01-15T02:20:38.595631834Z [INTEGRATION_USAGE] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-15T02:20:38.595670875Z [DATABENTO] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 CME_LICENSE_CAP: Requested end=2026-01-15T02:20:38.582Z capped to 2026-01-14T00:20:38.595Z (26h buffer for license-free window)
+2026-01-15T02:20:38.595676565Z [DATABENTO] trace_id=f4e1fbbb-d7c8-4d08-9ee1-2e88921b7863 fetching symbol=MNQ.c.0 start=2025-12-16T02:20:38.582Z end=2026-01-14T00:20:38.595Z schema=ohlcv-1m
+2026-01-15T02:20:39.510054011Z [LIVE_DATA_SERVICE] Quote tick symbol=MNQ last=25615 bid=25615.25 ask=25615.75 mid=25615.50 quotes_total=581
