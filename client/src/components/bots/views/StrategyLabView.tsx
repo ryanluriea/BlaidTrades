@@ -2014,39 +2014,44 @@ export function StrategyLabView() {
           
           return (
             <div 
-              className="flex flex-col flex-1 min-h-0 h-full bg-muted/10 rounded-lg border border-border/30"
+              className="flex flex-col min-h-0 bg-muted/10 rounded-lg border border-border/30"
               data-testid={`column-${columnId}`}
             >
               {/* Column Content - independently scrollable with native scroll for performance */}
-              <div className="flex-1 overflow-y-auto p-2 min-h-0 h-full">
+              <div className="flex-1 overflow-y-auto p-2 min-h-0 flex flex-col">
                 {isLoadingCandidates ? (
-                  <div className="flex flex-col gap-1.5 h-full">
-                    {/* Strategy card skeletons - enough to fill viewport */}
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
-                      <div 
+                  <div className="flex flex-col gap-2 h-full">
+                    {/* Industry-standard card skeletons with shimmer effect */}
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                      <Card 
                         key={i} 
-                        className="p-2.5 rounded-md border border-border/20 bg-card/40 space-y-2 animate-pulse flex-shrink-0"
-                        style={{ opacity: Math.max(0.2, 1 - (i - 1) * 0.07) }}
+                        className="overflow-hidden border-border/40 bg-card/60"
+                        style={{ opacity: Math.max(0.3, 1 - (i - 1) * 0.08) }}
                       >
-                        {/* Row 1: Checkbox, icon, strategy name, badges */}
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-4 rounded" />
-                          <Skeleton className="h-4 w-4 rounded" />
-                          <Skeleton className={`h-4 ${i % 3 === 0 ? 'w-28' : i % 2 === 0 ? 'w-36' : 'w-32'}`} />
-                          <div className="flex-1" />
-                          <Skeleton className="h-5 w-14 rounded" />
-                          <Skeleton className="h-5 w-10 rounded" />
-                        </div>
-                        {/* Row 2: Time ago, archetype, instrument */}
-                        <div className="flex items-center gap-3 pl-10">
-                          <Skeleton className="h-3 w-12" />
-                          <Skeleton className="h-3 w-16" />
-                          <Skeleton className="h-3 w-8" />
-                        </div>
-                      </div>
+                        <CardContent className="p-3 space-y-2.5">
+                          {/* Row 1: Strategy name with badges */}
+                          <div className="flex items-center gap-2">
+                            <Skeleton className="h-4 w-4 rounded-sm" />
+                            <div className="flex-1 space-y-1">
+                              <Skeleton className={`h-4 ${i % 3 === 0 ? 'w-32' : i % 2 === 0 ? 'w-40' : 'w-36'}`} />
+                            </div>
+                            <Skeleton className="h-5 w-12 rounded-full" />
+                            <Skeleton className="h-5 w-10 rounded-full" />
+                          </div>
+                          {/* Row 2: Archetype and metadata */}
+                          <div className="flex items-center gap-3 pl-6">
+                            <Skeleton className="h-3 w-20" />
+                            <Skeleton className="h-3 w-16" />
+                            <Skeleton className="h-3 w-12" />
+                          </div>
+                          {/* Row 3: Confidence bar visualization */}
+                          <div className="flex items-center gap-2 pl-6">
+                            <Skeleton className="h-2 w-24 rounded-full" />
+                            <Skeleton className="h-4 w-8" />
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
-                    {/* Spacer to ensure column background fills remaining space */}
-                    <div className="flex-1 min-h-[100px]" />
                   </div>
                 ) : candidates.length > 0 ? (
                   <div className="space-y-1.5">
@@ -2116,12 +2121,12 @@ export function StrategyLabView() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center p-4">
-                    <div className="rounded-full bg-muted p-2.5 mb-3">
-                      <Icon className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex flex-col items-center justify-center flex-1 text-center p-4">
+                    <div className="rounded-full bg-muted/50 p-3 mb-3">
+                      <Icon className="h-6 w-6 text-muted-foreground/70" />
                     </div>
                     <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">{emptySubMessage}</p>
+                    <p className="text-xs text-muted-foreground mt-1.5 max-w-[200px]">{emptySubMessage}</p>
                   </div>
                 )}
               </div>
@@ -2198,9 +2203,9 @@ export function StrategyLabView() {
               </div>
             )}
             
-            {/* Kanban Body - Independently Scrolling, with spacer to match header */}
-            <div className="flex flex-1 min-h-0 h-full items-stretch gap-3">
-              <div className={cn("flex-1 grid gap-3 min-h-0 h-full", isQcColumnVisible ? "grid-cols-3" : "grid-cols-2")} data-testid="kanban-grid">
+            {/* Kanban Body - Full-height columns with independent scrolling */}
+            <div className="flex flex-1 min-h-0 items-stretch gap-3">
+              <div className={cn("flex-1 grid gap-3 min-h-0", isQcColumnVisible ? "grid-cols-3" : "grid-cols-2")} style={{ gridTemplateRows: '1fr' }} data-testid="kanban-grid">
                 {renderColumnBody(
                   "new",
                   Sparkles,

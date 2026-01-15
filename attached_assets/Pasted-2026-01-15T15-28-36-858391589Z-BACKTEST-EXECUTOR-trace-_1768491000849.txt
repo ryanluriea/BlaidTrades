@@ -1,0 +1,50 @@
+2026-01-15T15:28:36.858391589Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 resampling cached bars from 1m to 5m (factor=5)
+2026-01-15T15:28:36.86763666Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 REAL_DATA fetched_bars=2382 provider=databento latency=34ms
+2026-01-15T15:28:36.870616388Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 bot_name="VWAP Extremity Bounce" inferred_archetype="none" using="vwap_bounce"
+2026-01-15T15:28:36.87070437Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-15T15:28:36.870917496Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-15T15:28:36.903322256Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 using_real_strategy version=1.0.0 rules=MES VWAP rules_hash=f62984d601fdbce9
+2026-01-15T15:28:36.904271104Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-15T15:28:36.904287975Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 SESSION_MODE=ETH SESSION_BYPASS=false timezone=America/New_York
+2026-01-15T15:28:36.905000816Z [SESSION_CHECK] UTC=2026-01-02T03:10:00.000Z ET_hour=22 ET_min=10 ET_day=4 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-15T15:28:37.264813134Z [STRATEGY_EXECUTOR] bars=2382 valid_bars=2382 session_bars=616 outside_session=1716 no_trade_window=0 entry_signals=27 trades=27
+2026-01-15T15:28:37.264833394Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 REAL_EXECUTION trades=27 pnl=-260.98 win_rate=48.1%
+2026-01-15T15:28:37.264838095Z [TX:16362dbf-388c-4ca0-9d90-099d68a88320] BACKTEST_TRADES:3864bbaa START
+2026-01-15T15:28:37.266070151Z [EVENT_LOOP] CRITICAL LAG DETECTED lag=302.0ms avg=3.1ms p99=115.4ms
+2026-01-15T15:28:37.333766966Z [TX:16362dbf-388c-4ca0-9d90-099d68a88320] BACKTEST_TRADES:3864bbaa COMMITTED
+2026-01-15T15:28:37.345282533Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 updated generation performanceSnapshot gen_id=a640573a-9c6c-4251-ae2e-772565c3d92c
+2026-01-15T15:28:37.347363304Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 LAB_BASELINE gen_id=a640573a-9c6c-4251-ae2e-772565c3d92c valid=true reason=N/A trades=27
+2026-01-15T15:28:37.350083084Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for VWAP Extremity Bounce" trace_id=16362dbf-388c-4ca0-9d90-099d68a88320
+2026-01-15T15:28:37.350094004Z [BACKTEST_EXECUTOR] trace_id=16362dbf-388c-4ca0-9d90-099d68a88320 session_id=3864bbaa-3045-424f-a80e-73b0ab7a2c24 completed trades=27 pnl=-260.98
+2026-01-15T15:28:42.09573166Z [QC_WORKER] trace_id=07dc5878 starting_cycle
+2026-01-15T15:28:42.100773357Z [QC_WORKER] trace_id=07dc5878 queued_jobs=0 running=0/2
+2026-01-15T15:28:45.423718035Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-15T15:28:45.424273571Z [EVENT_LOOP] status=OK current=0.0ms avg=2.7ms p95=1.0ms p99=115.4ms max=302.0ms samples=584 gc_pauses=0
+2026-01-15T15:28:45.424895699Z [MEMORY_LEAK] status=OK heap=130.8MB peak=192.6MB short=-449.6KB/s medium=-449.6KB/s long=-449.6KB/s confidence=0%
+2026-01-15T15:28:47.074614893Z [BACKTEST_WORKER] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d processing_jobs=1
+2026-01-15T15:28:47.091549409Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d bot_id=13a66c8b-41fd-4397-970f-fb426ffbf899 already_has_valid_baseline
+2026-01-15T15:28:47.09157051Z [BACKTEST_WORKER] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d bot_id=13a66c8b-41fd-4397-970f-fb426ffbf899 created_session=a3ae7039-b62c-47d7-9560-81a0bb7fff8f - will now execute
+2026-01-15T15:28:47.093760594Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d session_id=a3ae7039-b62c-47d7-9560-81a0bb7fff8f bot_id=13a66c8b-41fd-4397-970f-fb426ffbf899 starting
+2026-01-15T15:28:47.099257015Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Lull Band Fade" trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d
+2026-01-15T15:28:47.099273156Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d using REAL Databento data for MES via BAR_CACHE
+2026-01-15T15:28:47.099322647Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-15T15:28:47.110830825Z [BAR_CACHE] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d symbol=MES loaded_from_cold_storage bars=11908
+2026-01-15T15:28:47.11818766Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d resampling cached bars from 1m to 5m (factor=5)
+2026-01-15T15:28:47.122238949Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d REAL_DATA fetched_bars=2382 provider=databento latency=20ms
+2026-01-15T15:28:47.125087073Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d bot_name="Lull Band Fade" inferred_archetype="none" using="mean_reversion"
+2026-01-15T15:28:47.125117023Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d archetype=mean_reversion mapped_to=mean_reversion
+2026-01-15T15:28:47.125242637Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d TRIALS_SESSION_WIDENING original=09:35-15:45 widened=09:35-15:55
+2026-01-15T15:28:47.127307548Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d using_real_strategy version=1.0.0 rules=MES Mean Reversion rules_hash=2ed0d477dd805d09
+2026-01-15T15:28:47.127594516Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-15T15:28:47.127600546Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-15T15:28:47.128136182Z [SESSION_CHECK] UTC=2026-01-02T03:10:00.000Z ET_hour=22 ET_min=10 ET_day=4 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-15T15:28:47.334997787Z [STRATEGY_EXECUTOR] bars=2382 valid_bars=2382 session_bars=512 outside_session=1716 no_trade_window=104 entry_signals=3 trades=3
+2026-01-15T15:28:47.335082759Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d REAL_EXECUTION trades=3 pnl=-117.47 win_rate=33.3%
+2026-01-15T15:28:47.33511075Z [TX:e0f028dd-2cee-4e7d-b32e-f9811dc5be4d] BACKTEST_TRADES:a3ae7039 START
+2026-01-15T15:28:47.384152668Z [TX:e0f028dd-2cee-4e7d-b32e-f9811dc5be4d] BACKTEST_TRADES:a3ae7039 COMMITTED
+2026-01-15T15:28:47.396559271Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d updated generation performanceSnapshot gen_id=362e9fb1-06bc-449d-9139-39c67fc5a1cd
+2026-01-15T15:28:47.39858476Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d LAB_BASELINE gen_id=362e9fb1-06bc-449d-9139-39c67fc5a1cd valid=false reason=INSUFFICIENT_TRADES trades=3
+2026-01-15T15:28:47.400674232Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Lull Band Fade" trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d
+2026-01-15T15:28:47.400690252Z [BACKTEST_EXECUTOR] trace_id=e0f028dd-2cee-4e7d-b32e-f9811dc5be4d session_id=a3ae7039-b62c-47d7-9560-81a0bb7fff8f completed trades=3 pnl=-117.47
+2026-01-15T15:28:48.586923878Z [LIVE_DATA_SERVICE] Quote tick symbol=NQ last=25852.5 bid=25851.75 ask=25852.5 mid=25852.13 quotes_total=945
+2026-01-15T15:28:49.60926872Z [RUNNER_WORKER] trace_id=87935d7d active_runners=2 newly_started=0 blown_stopped=0 heartbeats_sent=1
