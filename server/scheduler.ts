@@ -4995,7 +4995,8 @@ async function runSelfHealingWorker(): Promise<void> {
       }
       
       // Auto-resolve INTEGRATION alerts for integrations that now have successful verification
-      // Must correlate by provider: entity_id stores the provider name, or check payload_json->'provider'
+      // Must correlate by provider: payload_json->'provider' stores the provider name
+      // Note: entity_id is UUID type, integration name is stored in payload_json->>'provider'
       const healedIntegrationAlerts = await db.execute(sql`
         UPDATE alerts 
         SET 
@@ -5009,12 +5010,7 @@ async function runSelfHealingWorker(): Promise<void> {
             WHERE iue.operation = 'verify'
               AND iue.status = 'OK'
               AND iue.created_at > alerts.created_at
-              AND (
-                -- Match by entity_id (text provider name like 'databento', 'openai')
-                iue.integration = alerts.entity_id
-                -- Or match by payload_json->>'provider' if entity_id is not set
-                OR iue.integration = (alerts.payload_json->>'provider')
-              )
+              AND iue.integration = (alerts.payload_json->>'provider')
           )
         RETURNING id
       `);
@@ -5361,20 +5357,25 @@ async function runArchetypeBackfill(): Promise<void> {
       
       // Find next batch of bots with NULL archetype_name (excluding known unresolvable)
       const excludeList = Array.from(unresolvableBotIds);
-      const botsNeedingBackfill = excludeList.length > 0
-        ? await db.execute(sql`
+      let botsNeedingBackfill;
+      if (excludeList.length > 0) {
+        // Use ARRAY constructor with explicit uuid casts to avoid type errors
+        const excludeArraySql = sql.raw(`ARRAY[${excludeList.map(id => `'${id}'::uuid`).join(',')}]`);
+        botsNeedingBackfill = await db.execute(sql`
             SELECT id, name, strategy_config
             FROM bots 
             WHERE archetype_name IS NULL
-              AND id NOT IN (SELECT unnest(${excludeList}::uuid[]))
+              AND id != ALL(${excludeArraySql})
             LIMIT ${BATCH_SIZE}
-          `)
-        : await db.execute(sql`
+          `);
+      } else {
+        botsNeedingBackfill = await db.execute(sql`
             SELECT id, name, strategy_config
             FROM bots 
             WHERE archetype_name IS NULL
             LIMIT ${BATCH_SIZE}
           `);
+      }
 
       const bots = (botsNeedingBackfill.rows || []) as any[];
       
