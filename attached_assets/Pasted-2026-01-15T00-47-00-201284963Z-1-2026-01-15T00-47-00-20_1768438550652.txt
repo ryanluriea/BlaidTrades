@@ -1,0 +1,50 @@
+2026-01-15T00:47:00.201284963Z     1,
+2026-01-15T00:47:00.201287813Z     6958.75,
+2026-01-15T00:47:00.201290633Z     6964,
+2026-01-15T00:47:00.201293254Z     6949,
+2026-01-15T00:47:00.201296834Z     '2026-01-15T00:46:00.000Z',
+2026-01-15T00:47:00.201299634Z     2.25,
+2026-01-15T00:47:00.201302404Z     0.25,
+2026-01-15T00:47:00.201304944Z     'OPEN',
+2026-01-15T00:47:00.201307734Z     'ENTRY_EMA_CROSSUNDER_DOWN',
+2026-01-15T00:47:00.201310285Z     '2026-01-15T00:46:00.000Z'
+2026-01-15T00:47:00.201312865Z   ],
+2026-01-15T00:47:00.201316465Z   cause: error: column "checksum" of relation "paper_trades" does not exist
+2026-01-15T00:47:00.201319175Z       at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2026-01-15T00:47:00.201328306Z       at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-15T00:47:00.201331356Z       at async targetPool.query (file:///opt/render/project/src/dist/index.js:3330:22)
+2026-01-15T00:47:00.201334186Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:124:18
+2026-01-15T00:47:00.201337636Z       at async NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:39:16)
+2026-01-15T00:47:00.201340327Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:117:22
+2026-01-15T00:47:00.201342777Z       at async PaperRunnerServiceImpl.openPosition (file:///opt/render/project/src/dist/index.js:23304:27)
+2026-01-15T00:47:00.201345677Z       at async PaperRunnerServiceImpl.onNewBar (file:///opt/render/project/src/dist/index.js:22883:15) {
+2026-01-15T00:47:00.201348417Z     length: 134,
+2026-01-15T00:47:00.201352097Z     severity: 'ERROR',
+2026-01-15T00:47:00.201354847Z     code: '42703',
+2026-01-15T00:47:00.201357417Z     detail: undefined,
+2026-01-15T00:47:00.201376849Z     hint: undefined,
+2026-01-15T00:47:00.201380569Z     position: '374',
+2026-01-15T00:47:00.201383819Z     internalPosition: undefined,
+2026-01-15T00:47:00.201386309Z     internalQuery: undefined,
+2026-01-15T00:47:00.201388719Z     where: undefined,
+2026-01-15T00:47:00.20139117Z     schema: undefined,
+2026-01-15T00:47:00.20139348Z     table: undefined,
+2026-01-15T00:47:00.2013962Z     column: undefined,
+2026-01-15T00:47:00.20139875Z     dataType: undefined,
+2026-01-15T00:47:00.20140132Z     constraint: undefined,
+2026-01-15T00:47:00.2014038Z     file: 'parse_target.c',
+2026-01-15T00:47:00.201406491Z     line: '1068',
+2026-01-15T00:47:00.201409151Z     routine: 'checkInsertTargets'
+2026-01-15T00:47:00.201411651Z   }
+2026-01-15T00:47:00.201414331Z }
+2026-01-15T00:47:04.239903155Z [BACKTEST_WORKER] trace_id=52d24132-8fa6-440b-a892-a435127df2e5 at_concurrency_limit=1
+2026-01-15T00:47:07.553359087Z [QC_THRESHOLD_RECOVERY] trace_id=442fad00 Scanning for DIVERGENT verifications eligible for re-run...
+2026-01-15T00:47:07.558184977Z [QC_THRESHOLD_RECOVERY] trace_id=442fad00 No DIVERGENT verifications eligible for threshold re-run
+2026-01-15T00:47:14.661687337Z [BACKTEST_WORKER] trace_id=b46e25fd-a136-4c62-be30-234fc9391273 at_concurrency_limit=1
+2026-01-15T00:47:22.514559334Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-15T00:47:22.51549225Z [EVENT_LOOP] status=OK current=0.0ms avg=0.8ms p95=0.9ms p99=15.5ms max=147.3ms samples=595 gc_pauses=0
+2026-01-15T00:47:22.517390014Z [MEMORY_LEAK] status=OK heap=129MB peak=162.5MB short=-63.8KB/s medium=-63.8KB/s long=-63.8KB/s confidence=0%
+2026-01-15T00:47:23.71412528Z [QC_WORKER] trace_id=048b5402 starting_cycle
+2026-01-15T00:47:23.72126944Z [QC_WORKER] trace_id=048b5402 queued_jobs=0 running=0/2
+2026-01-15T00:47:25.08332831Z [BACKTEST_WORKER] trace_id=19d5d505-89c6-4db2-828b-b8fc5493b3f8 at_concurrency_limit=1
+2026-01-15T00:47:26.675196544Z [LIVE_DATA_SERVICE] Quote tick symbol=MES last=6959 bid=6958.75 ask=6959.25 mid=6959.00 quotes_total=545

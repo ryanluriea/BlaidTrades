@@ -2021,18 +2021,26 @@ export function StrategyLabView() {
               <div className="flex-1 overflow-y-auto p-2 min-h-0">
                 {isLoadingCandidates ? (
                   <div className="space-y-1.5">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="p-2.5 rounded-md border border-border/20 bg-card/50 space-y-2 animate-pulse">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-1">
-                            <Skeleton className="h-3.5 w-3.5 rounded-full" />
-                            <Skeleton className="h-4 w-32" />
-                          </div>
-                          <Skeleton className="h-5 w-12 rounded" />
-                        </div>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div 
+                        key={i} 
+                        className="p-2.5 rounded-md border border-border/20 bg-card/40 space-y-2 animate-pulse"
+                        style={{ opacity: 1 - (i - 1) * 0.12 }}
+                      >
+                        {/* Row 1: Checkbox, icon, strategy name, badges */}
                         <div className="flex items-center gap-2">
-                          <Skeleton className="h-3 w-20" />
+                          <Skeleton className="h-4 w-4 rounded" />
+                          <Skeleton className="h-4 w-4 rounded" />
+                          <Skeleton className={`h-4 ${i % 3 === 0 ? 'w-28' : i % 2 === 0 ? 'w-36' : 'w-32'}`} />
+                          <div className="flex-1" />
+                          <Skeleton className="h-5 w-14 rounded" />
+                          <Skeleton className="h-5 w-10 rounded" />
+                        </div>
+                        {/* Row 2: Time ago, archetype, instrument */}
+                        <div className="flex items-center gap-3 pl-10">
+                          <Skeleton className="h-3 w-12" />
                           <Skeleton className="h-3 w-16" />
+                          <Skeleton className="h-3 w-8" />
                         </div>
                       </div>
                     ))}

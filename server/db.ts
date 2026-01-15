@@ -610,6 +610,27 @@ export async function ensureTournamentScoreColumn(): Promise<void> {
 }
 
 /**
+ * STARTUP MIGRATION: Ensure checksum column exists on paper_trades table
+ * Uses ADD COLUMN IF NOT EXISTS to be idempotent - safe for concurrent Render instances
+ */
+export async function ensurePaperTradesChecksumColumn(): Promise<void> {
+  console.log('[STARTUP_MIGRATION] Ensuring paper_trades.checksum column exists...');
+  
+  try {
+    await poolWeb.query(`
+      ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS checksum VARCHAR(64)
+    `);
+    console.log('[STARTUP_MIGRATION] paper_trades.checksum column ensured');
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : 'unknown';
+    console.error(`[STARTUP_MIGRATION] Failed to ensure paper_trades.checksum column: ${errMsg}`);
+    if (!errMsg.includes('already exists')) {
+      throw error;
+    }
+  }
+}
+
+/**
  * STARTUP MIGRATION: Ensure tick ingestion tables exist
  * Creates trade_ticks, quote_ticks, order_book_snapshots, tick_sequence_gaps, tick_ingestion_metrics
  * Uses CREATE TABLE IF NOT EXISTS to be idempotent

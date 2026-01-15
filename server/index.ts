@@ -6,7 +6,7 @@ import { createServer } from "http";
 import { startScheduler, pauseHeavyWorkers, resumeHeavyWorkers } from "./scheduler";
 import { livePnLWebSocket } from "./websocket-server";
 import { researchMonitorWS } from "./research-monitor-ws";
-import { validateSchemaAtStartup, warmupDatabase, poolWeb, ensureTickTablesExist, ensureCanonicalUserConsolidation, ensureArchetypeColumn, ensureTournamentScoreColumn } from "./db";
+import { validateSchemaAtStartup, warmupDatabase, poolWeb, ensureTickTablesExist, ensureCanonicalUserConsolidation, ensureArchetypeColumn, ensureTournamentScoreColumn, ensurePaperTradesChecksumColumn } from "./db";
 import { reconcileConfigAtStartup } from "./config-reconciliation";
 import bcrypt from "bcryptjs";
 import { startMemorySentinel, loadSheddingMiddleware, getInstanceId, registerSchedulerCallbacks, registerCacheEvictionCallback } from "./ops/memorySentinel";
@@ -115,6 +115,7 @@ if (isWorkerOnlyMode) {
     // This auto-migrates production databases on deploy
     await ensureArchetypeColumn();
     await ensureTournamentScoreColumn();
+    await ensurePaperTradesChecksumColumn();
     
     // CRITICAL: Ensure system user exists for autonomous operations
     try {
@@ -182,6 +183,7 @@ if (isWorkerOnlyMode) {
         // CRITICAL: Ensure archetype_name column exists BEFORE any bot queries
         await ensureArchetypeColumn().catch(e => log(`[STARTUP] ensureArchetypeColumn failed: ${e}`));
         await ensureTournamentScoreColumn().catch(e => log(`[STARTUP] ensureTournamentScoreColumn failed: ${e}`));
+        await ensurePaperTradesChecksumColumn().catch(e => log(`[STARTUP] ensurePaperTradesChecksumColumn failed: ${e}`));
         
         // Bootstrap admin account
         await bootstrapAdminAccount().catch(e => log(`[STARTUP] bootstrapAdminAccount failed: ${e}`));
