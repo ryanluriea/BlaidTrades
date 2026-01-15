@@ -14784,52 +14784,35 @@ export function registerRoutes(app: Express) {
       
       // PERFORMANCE: Fast-path cache check for non-bot queries
       // Cache key includes disposition for proper separation
+      // NOTE: We still hydrate fresh QC data on cached responses to ensure badges show
+      let cachedData: { candidates: any[]; trialsBotsCount: number; currentRegime: any } | null = null;
+      let cacheStatus: { hit: boolean; stale?: boolean; fallback?: boolean; ageSeconds?: number } | null = null;
+      
       if (!includeBots) {
         const cacheKey = `${disp}:${lim}`;
         const cached = await getCachedStrategyLabCandidates(userId, cacheKey);
-        if (cached.hit && cached.fresh) {
-          return res.json({
-            success: true,
-            data: cached.data!.candidates,
-            count: cached.data!.candidates.length,
+        if (cached.hit && (cached.fresh || cached.stale)) {
+          cachedData = {
+            candidates: cached.data!.candidates,
             trialsBotsCount: cached.data!.trialsBotsCount,
-            current_regime: cached.data!.currentRegime,
-            _cache: { hit: true, ageSeconds: cached.ageSeconds },
-          });
-        }
-        // Stale-while-revalidate: serve stale data immediately, refresh in background
-        if (cached.hit && cached.stale) {
-          // Trigger background refresh (non-blocking)
-          (async () => {
-            try {
-              // This will be done by the next request that doesn't hit cache
-              console.log(`[STRATEGY_LAB_CACHE] Stale data served for userId=${userId.slice(0,8)} disposition=${disp}, will refresh on next miss`);
-            } catch {}
-          })();
-          return res.json({
-            success: true,
-            data: cached.data!.candidates,
-            count: cached.data!.candidates.length,
-            trialsBotsCount: cached.data!.trialsBotsCount,
-            current_regime: cached.data!.currentRegime,
-            _cache: { hit: true, stale: true, ageSeconds: cached.ageSeconds },
-          });
+            currentRegime: cached.data!.currentRegime,
+          };
+          cacheStatus = { hit: true, stale: cached.stale, ageSeconds: cached.ageSeconds };
+          // Don't return yet - we'll hydrate fresh QC data below
         }
         
         // PERFORMANCE: Global fallback cache - serves any user during DB saturation
-        // Prevents skeleton loaders during cold starts and connection pool exhaustion
-        // Now Redis-backed for durability across Render restarts
-        const globalFallback = await getGlobalFallbackCache();
-        if (globalFallback && globalFallback.disposition === disp) {
-          console.log(`[STRATEGY_LAB_CACHE] Global fallback served for userId=${userId.slice(0,8)} disposition=${disp}`);
-          return res.json({
-            success: true,
-            data: globalFallback.candidates,
-            count: globalFallback.candidates.length,
-            trialsBotsCount: globalFallback.trialsBotsCount,
-            current_regime: globalFallback.currentRegime,
-            _cache: { hit: true, fallback: true },
-          });
+        if (!cachedData) {
+          const globalFallback = await getGlobalFallbackCache();
+          if (globalFallback && globalFallback.disposition === disp) {
+            console.log(`[STRATEGY_LAB_CACHE] Global fallback served for userId=${userId.slice(0,8)} disposition=${disp}`);
+            cachedData = {
+              candidates: globalFallback.candidates,
+              trialsBotsCount: globalFallback.trialsBotsCount,
+              currentRegime: globalFallback.currentRegime,
+            };
+            cacheStatus = { hit: true, fallback: true };
+          }
         }
       }
       
@@ -14837,19 +14820,33 @@ export function registerRoutes(app: Express) {
       const queryStart = Date.now();
       const { calculateRegimeAdjustedScore } = await import("./ai-strategy-evolution");
       
-      // Run trials count, candidates fetch, and regime detection in parallel
-      const [trialsBotsResult, candidates, currentRegime] = await Promise.all([
-        db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE UPPER(stage) = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL`)
-          .catch((err) => {
-            console.warn("[STRATEGY_LAB_CANDIDATES] Failed to fetch trials bots count:", err);
-            return { rows: [{ count: "0" }] };
-          }),
-        getCandidatesByDisposition(disp as any, lim),
-        getCachedRegime(),
-      ]);
+      let candidates: any[];
+      let trialsBotsCount: number;
+      let currentRegime: any;
       
-      const trialsBotsCount = parseInt((trialsBotsResult.rows[0] as any)?.count || "0");
-      console.log(`[STRATEGY_LAB_CANDIDATES] Phase 1 (parallel queries): ${Date.now() - queryStart}ms, candidates=${candidates.length}`);
+      if (cachedData) {
+        // Use cached candidates but fetch fresh regime (for regime adjustments)
+        candidates = cachedData.candidates;
+        trialsBotsCount = cachedData.trialsBotsCount;
+        currentRegime = cachedData.currentRegime;
+        console.log(`[STRATEGY_LAB_CANDIDATES] Phase 1 (cache hit): candidates=${candidates.length} trialsBotsCount=${trialsBotsCount}`);
+      } else {
+        // Run trials count, candidates fetch, and regime detection in parallel
+        const [trialsBotsResult, freshCandidates, freshRegime] = await Promise.all([
+          db.execute(sql`SELECT COUNT(*) as count FROM bots WHERE UPPER(stage) = 'TRIALS' AND archived_at IS NULL AND killed_at IS NULL`)
+            .catch((err) => {
+              console.warn("[STRATEGY_LAB_CANDIDATES] Failed to fetch trials bots count:", err);
+              return { rows: [{ count: "0" }] };
+            }),
+          getCandidatesByDisposition(disp as any, lim),
+          getCachedRegime(),
+        ]);
+        
+        candidates = freshCandidates;
+        trialsBotsCount = parseInt((trialsBotsResult.rows[0] as any)?.count || "0");
+        currentRegime = freshRegime;
+        console.log(`[STRATEGY_LAB_CANDIDATES] Phase 1 (fresh queries): ${Date.now() - queryStart}ms, candidates=${candidates.length}`);
+      }
       
       // INSTITUTIONAL: Batch fetch latest QC verification for each candidate
       // This ensures TRIALS candidates show QC badges even after 200+ new verifications
@@ -15064,7 +15061,7 @@ export function registerRoutes(app: Express) {
       }
       
       const totalMs = Date.now() - queryStart;
-      console.log(`[STRATEGY_LAB_CANDIDATES] TOTAL: ${totalMs}ms disposition=${disp} count=${candidatesWithRegime.length} cached=${!includeBots}`);
+      console.log(`[STRATEGY_LAB_CANDIDATES] TOTAL: ${totalMs}ms disposition=${disp} count=${candidatesWithRegime.length} cacheHit=${!!cacheStatus} qcHydrated=${qcVerificationMap.size}`);
       
       return res.json({
         success: true,
@@ -15072,6 +15069,7 @@ export function registerRoutes(app: Express) {
         count: candidatesWithRegime.length,
         trialsBotsCount,
         current_regime: currentRegime,
+        ...(cacheStatus && { _cache: cacheStatus }),
       });
     } catch (error: any) {
       console.error("[STRATEGY_LAB] Error getting candidates:", error);
