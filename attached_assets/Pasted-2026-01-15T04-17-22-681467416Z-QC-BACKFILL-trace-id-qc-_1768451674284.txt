@@ -1,0 +1,50 @@
+2026-01-15T04:17:22.681467416Z [QC_BACKFILL] trace_id=qc-backfill-5f45205c Backfill complete: promoted=0 failed=16 fastTrack=0
+2026-01-15T04:17:25.169833253Z [BACKTEST_WORKER] trace_id=00799363-a1df-469e-a281-dc285e03d815 processing_jobs=1
+2026-01-15T04:17:25.173385387Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 session_id=89460e3b-f587-4c91-a47d-6a09f028b7c3 bot_id=1de84f8b-8b35-4494-b0e9-674862be08b5 starting
+2026-01-15T04:17:25.177590629Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Nasdaq Sentiment Snap" trace_id=00799363-a1df-469e-a281-dc285e03d815
+2026-01-15T04:17:25.177612899Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 using REAL Databento data for MNQ via BAR_CACHE
+2026-01-15T04:17:25.17761761Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 loading_5year_history symbol=MNQ days=1825 source=COLD_STORAGE
+2026-01-15T04:17:25.177800747Z [BAR_CACHE] trace_id=00799363-a1df-469e-a281-dc285e03d815 symbol=MNQ cold_storage_empty
+2026-01-15T04:17:25.177825739Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 cold_storage_empty falling_back_to_redis_cache
+2026-01-15T04:17:26.069112019Z [EVENT_LOOP] CRITICAL LAG DETECTED lag=544.8ms avg=3.0ms p99=58.5ms
+2026-01-15T04:17:26.070767781Z [BARS_CACHE] trace_id=00799363-a1df-469e-a281-dc285e03d815 instance=f8f1fa60 cache_hit key=bars:v2:MNQ:5m:ALL:1610755200000:1768435200000 bars=351228 duration=889ms
+2026-01-15T04:17:26.084173011Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 resampling cached bars from 1m to 5m (factor=5)
+2026-01-15T04:17:26.173704074Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 REAL_DATA fetched_bars=70246 provider=databento latency=993ms
+2026-01-15T04:17:26.197067295Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 bot_name="Nasdaq Sentiment Snap" inferred_archetype="none" using="vwap_bounce"
+2026-01-15T04:17:26.197165769Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-15T04:17:26.197338557Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-15T04:17:26.199525302Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 using_real_strategy version=1.0.0 rules=MNQ VWAP rules_hash=18052159e56b7623
+2026-01-15T04:17:26.208459008Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-15T04:17:26.208470749Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 SESSION_MODE=ETH SESSION_BYPASS=false timezone=America/New_York
+2026-01-15T04:17:26.227806795Z [SESSION_CHECK] UTC=2021-01-19T00:50:00.000Z ET_hour=19 ET_min=50 ET_day=1 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-15T04:17:32.714379048Z [STRATEGY_EXECUTOR] bars=70246 valid_bars=70246 session_bars=19019 outside_session=51177 no_trade_window=0 entry_signals=3829 trades=3829
+2026-01-15T04:17:32.714911261Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 REAL_EXECUTION trades=3829 pnl=-8077.96 win_rate=16.3%
+2026-01-15T04:17:32.714917802Z [TX:00799363-a1df-469e-a281-dc285e03d815] BACKTEST_TRADES:89460e3b START
+2026-01-15T04:17:32.720095826Z [QC_THRESHOLD_RECOVERY] trace_id=aca1389c Scanning for DIVERGENT verifications eligible for re-run...
+2026-01-15T04:17:32.782675893Z [QC_THRESHOLD_RECOVERY] trace_id=aca1389c No DIVERGENT verifications eligible for threshold re-run
+2026-01-15T04:17:35.324813695Z [BACKTEST_WORKER] trace_id=e1635a42-80e5-4cdb-b5da-894567a8e1cb at_concurrency_limit=1
+2026-01-15T04:17:36.889142053Z [TX:00799363-a1df-469e-a281-dc285e03d815] BACKTEST_TRADES:89460e3b COMMITTED
+2026-01-15T04:17:37.049647247Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 updated generation performanceSnapshot gen_id=fbacc44f-e923-4e03-8fd9-0f4f3fdd5da1
+2026-01-15T04:17:37.051307859Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 LAB_BASELINE gen_id=fbacc44f-e923-4e03-8fd9-0f4f3fdd5da1 valid=true reason=N/A trades=3829
+2026-01-15T04:17:37.053522785Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Nasdaq Sentiment Snap" trace_id=00799363-a1df-469e-a281-dc285e03d815
+2026-01-15T04:17:37.053538306Z [BACKTEST_EXECUTOR] trace_id=00799363-a1df-469e-a281-dc285e03d815 session_id=89460e3b-f587-4c91-a47d-6a09f028b7c3 completed trades=3829 pnl=-8077.96
+2026-01-15T04:17:40.860362941Z [RUNNER_WORKER] trace_id=3a0518e2 active_runners=1 newly_started=0 blown_stopped=0 heartbeats_sent=1
+2026-01-15T04:17:43.884735025Z [LIVE_DATA_SERVICE] Quote tick symbol=ES last=6958.5 bid=6958.25 ask=6958.5 mid=6958.38 quotes_total=495
+2026-01-15T04:17:44.481088646Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-15T04:17:44.481642179Z [EVENT_LOOP] status=OK current=0.3ms avg=14.7ms p95=1.0ms p99=58.5ms max=6444.0ms samples=523 gc_pauses=0
+2026-01-15T04:17:44.48234086Z [MEMORY_LEAK] status=OK heap=350MB peak=350MB short=3472.9KB/s medium=3472.9KB/s long=3472.9KB/s confidence=0%
+2026-01-15T04:17:45.491722418Z [BACKTEST_WORKER] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d processing_jobs=1
+2026-01-15T04:17:45.510502351Z [BACKTEST_EXECUTOR] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d bot_id=34cb67dc-4745-47c9-b341-a4ae5b3aa3ba already_has_valid_baseline
+2026-01-15T04:17:45.510522152Z [BACKTEST_WORKER] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d bot_id=34cb67dc-4745-47c9-b341-a4ae5b3aa3ba created_session=2c91edec-f8dd-4984-8afa-162131bbc462 - will now execute
+2026-01-15T04:17:45.512245266Z [BACKTEST_EXECUTOR] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d session_id=2c91edec-f8dd-4984-8afa-162131bbc462 bot_id=34cb67dc-4745-47c9-b341-a4ae5b3aa3ba starting
+2026-01-15T04:17:45.51926972Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Divorce Drift Fade" trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d
+2026-01-15T04:17:45.519287311Z [BACKTEST_EXECUTOR] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d using REAL Databento data for MNQ via BAR_CACHE
+2026-01-15T04:17:45.519302111Z [BACKTEST_EXECUTOR] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d loading_5year_history symbol=MNQ days=30 source=COLD_STORAGE
+2026-01-15T04:17:45.519469799Z [BACKTEST_EXECUTOR] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d cold_storage_empty falling_back_to_redis_cache
+2026-01-15T04:17:45.519471809Z [BAR_CACHE] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d symbol=MNQ cold_storage_empty
+2026-01-15T04:17:45.524051337Z [BARS_CACHE] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d instance=f8f1fa60 lock_acquired fetching_from_provider
+2026-01-15T04:17:45.527674894Z [INTEGRATION_USAGE] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-15T04:17:45.527695725Z [DATABENTO] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d CME_LICENSE_CAP: Requested end=2026-01-15T04:17:45.510Z capped to 2026-01-14T02:17:45.527Z (26h buffer for license-free window)
+2026-01-15T04:17:45.527700055Z [DATABENTO] trace_id=1567ce62-6770-49c3-9a44-af29428a0a0d fetching symbol=MNQ.c.0 start=2025-12-16T04:17:45.510Z end=2026-01-14T02:17:45.527Z schema=ohlcv-1m
+2026-01-15T04:17:47.736952994Z [QC_WORKER] trace_id=b70d16f5 starting_cycle
+2026-01-15T04:17:47.741423477Z [QC_WORKER] trace_id=b70d16f5 queued_jobs=0 running=0/2

@@ -924,6 +924,27 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // ADMIN: Invalidate all strategy-lab caches (force fresh data)
+  app.post("/api/system/invalidate-strategy-lab-cache", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { invalidateAllStrategyLabCaches } = await import("./cache/strategy-lab-cache");
+      const success = await invalidateAllStrategyLabCaches();
+      
+      if (success) {
+        console.log(`[CACHE_INVALIDATE] Strategy-lab cache invalidated by user=${req.session?.userId}`);
+        res.json({ 
+          success: true, 
+          message: "Strategy Lab cache invalidated. Refresh the page to see fresh data." 
+        });
+      } else {
+        res.status(500).json({ success: false, error: "Failed to invalidate cache" });
+      }
+    } catch (err) {
+      console.error("[CACHE_INVALIDATE] Error:", err);
+      res.status(500).json({ success: false, error: "Cache invalidation failed" });
+    }
+  });
+
   // DIAGNOSTIC: Check session state for debugging production auth issues
   app.get("/api/_debug/session-check", (req: Request, res: Response) => {
     const sessionId = req.session?.id;

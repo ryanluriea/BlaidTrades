@@ -213,6 +213,42 @@ export async function invalidateStrategyLabCache(userId: string): Promise<boolea
 }
 
 /**
+ * Invalidate ALL strategy lab caches (all users, all dispositions)
+ * Used after QC backfill to ensure fresh data is served
+ */
+export async function invalidateAllStrategyLabCaches(): Promise<boolean> {
+  try {
+    const client = await getRedisClient();
+    if (!client) {
+      console.log('[STRATEGY_LAB_CACHE] No Redis client, clearing in-memory only');
+      globalFallbackMemory = { data: null, updatedAt: 0 };
+      return true;
+    }
+
+    // Clear all strategy-lab cache keys
+    const keys = await client.keys(`${CACHE_KEY_PREFIX}*`);
+    if (keys.length > 0) {
+      await client.del(keys);
+      console.log(`[STRATEGY_LAB_CACHE] Invalidated ALL ${keys.length} strategy-lab cache keys`);
+    }
+    
+    // Clear global fallback from Redis
+    await client.del(GLOBAL_FALLBACK_KEY);
+    
+    // Clear in-memory cache
+    globalFallbackMemory = { data: null, updatedAt: 0 };
+    
+    console.log('[STRATEGY_LAB_CACHE] Global cache invalidation complete');
+    return true;
+  } catch (err) {
+    console.warn('[STRATEGY_LAB_CACHE] Global invalidation failed:', err);
+    // Still clear in-memory even if Redis fails
+    globalFallbackMemory = { data: null, updatedAt: 0 };
+    return false;
+  }
+}
+
+/**
  * Get cache age for warming decisions
  */
 export async function getStrategyLabCacheAge(userId: string, disposition: string): Promise<number | null> {

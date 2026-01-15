@@ -7215,6 +7215,17 @@ async function runQCOKBackfillWorker(): Promise<void> {
     
     if (stranded.length === 0) {
       console.log(`[QC_BACKFILL] trace_id=${traceId} No stranded QC-verified candidates found`);
+      
+      // CRITICAL: Still invalidate cache on startup to ensure fresh QC data is served
+      // This is essential after QC backfills or production deployments
+      try {
+        const { invalidateAllStrategyLabCaches } = await import("./cache/strategy-lab-cache");
+        await invalidateAllStrategyLabCaches();
+        console.log(`[QC_BACKFILL] trace_id=${traceId} Strategy-lab cache invalidated on startup`);
+      } catch (cacheErr) {
+        console.warn(`[QC_BACKFILL] trace_id=${traceId} Cache invalidation failed:`, cacheErr);
+      }
+      
       return;
     }
     
@@ -7360,6 +7371,15 @@ async function runQCOKBackfillWorker(): Promise<void> {
     }
     
     console.log(`[QC_BACKFILL] trace_id=${traceId} Backfill complete: promoted=${promotedCount} failed=${failedCount} fastTrack=${fastTrackCount}`);
+    
+    // CRITICAL: Invalidate strategy-lab cache to ensure fresh QC data is served
+    try {
+      const { invalidateAllStrategyLabCaches } = await import("./cache/strategy-lab-cache");
+      await invalidateAllStrategyLabCaches();
+      console.log(`[QC_BACKFILL] trace_id=${traceId} Strategy-lab cache invalidated after backfill`);
+    } catch (cacheErr) {
+      console.warn(`[QC_BACKFILL] trace_id=${traceId} Cache invalidation failed:`, cacheErr);
+    }
     
     if (promotedCount > 0) {
       await logActivityEvent({
