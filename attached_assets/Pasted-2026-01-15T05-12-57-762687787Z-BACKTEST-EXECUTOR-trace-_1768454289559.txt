@@ -1,0 +1,50 @@
+2026-01-15T05:12:57.762687787Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c bot_id=e21e9b8c-6141-4ae5-8bba-d101df2670b7 already_has_valid_baseline
+2026-01-15T05:12:57.762707138Z [BACKTEST_WORKER] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c bot_id=e21e9b8c-6141-4ae5-8bba-d101df2670b7 created_session=d88f29af-92ab-4b50-a74d-b3d13ee89de3 - will now execute
+2026-01-15T05:12:57.764784521Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c session_id=d88f29af-92ab-4b50-a74d-b3d13ee89de3 bot_id=e21e9b8c-6141-4ae5-8bba-d101df2670b7 starting
+2026-01-15T05:12:57.771290177Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Hush Gap Reversal" trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c
+2026-01-15T05:12:57.771306578Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c using REAL Databento data for MES via BAR_CACHE
+2026-01-15T05:12:57.771309348Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-15T05:12:57.771500432Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c cold_storage_empty falling_back_to_redis_cache
+2026-01-15T05:12:57.771507182Z [BAR_CACHE] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c symbol=MES cold_storage_empty
+2026-01-15T05:12:57.773971814Z [BARS_CACHE] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c instance=5d189345 lock_acquired fetching_from_provider
+2026-01-15T05:12:57.776622539Z [INTEGRATION_USAGE] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-15T05:12:57.77667863Z [DATABENTO] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c CME_LICENSE_CAP: Requested end=2026-01-15T05:12:57.762Z capped to 2026-01-14T03:12:57.776Z (26h buffer for license-free window)
+2026-01-15T05:12:57.77668598Z [DATABENTO] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c fetching symbol=MES.c.0 start=2025-12-16T05:12:57.762Z end=2026-01-14T03:12:57.776Z schema=ohlcv-1m
+2026-01-15T05:12:58.565636516Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-15T05:12:58.566316141Z [EVENT_LOOP] status=OK current=0.0ms avg=1.4ms p95=0.9ms p99=44.6ms max=192.6ms samples=591 gc_pauses=0
+2026-01-15T05:12:58.568072587Z [MEMORY_LEAK] status=OK heap=148.9MB peak=148.9MB short=132.8KB/s medium=132.8KB/s long=132.8KB/s confidence=0%
+2026-01-15T05:13:00.020087427Z [IRONBEAM_LIVE] trace_id=4d0913e6 bar=NQ time=2026-01-15T05:12:00.000Z O=25606.5 H=25612 L=25606.5 C=25612 V=162
+2026-01-15T05:13:00.020578877Z [IRONBEAM_LIVE] trace_id=4d0913e6 bar=MNQ time=2026-01-15T05:12:00.000Z O=25607.25 H=25612.25 L=25606 C=25612 V=284
+2026-01-15T05:13:00.020933215Z [LIVE_DATA_SERVICE] Emitting bar symbol=MNQ close=25612.00 time=2026-01-15T05:12:00.000Z to 1 subscriber(s)
+2026-01-15T05:13:00.021864664Z [IRONBEAM_LIVE] trace_id=4d0913e6 bar=MES time=2026-01-15T05:12:00.000Z O=6961.75 H=6962.5 L=6961.5 C=6962.5 V=502
+2026-01-15T05:13:00.021880535Z [LIVE_DATA_SERVICE] Emitting bar symbol=MES close=6962.50 time=2026-01-15T05:12:00.000Z to 1 subscriber(s)
+2026-01-15T05:13:00.022012037Z [IRONBEAM_LIVE] trace_id=4d0913e6 bar=ES time=2026-01-15T05:12:00.000Z O=6961.75 H=6962.5 L=6961.75 C=6962.5 V=238
+2026-01-15T05:13:00.028984123Z [PAPER_RUNNER] trace_id=9806c423 bot=65c253c9 SIGNAL_FOUND side=SHORT reason=ENTRY_EMA_CROSSUNDER_DOWN thresholds={"rsiOversold":28.928067643178643,"rsiOverbought":65.04963700893559,"deviationThreshold":1.089531043274219,"momentumMultiplier":1.9313859630914838,"vwapDistanceThreshold":0.5959768005171737}
+2026-01-15T05:13:00.02977751Z [PAPER_RUNNER] trace_id=e34ac5cd bot=6fd1a077 SIGNAL_FOUND side=SHORT reason=ENTRY_EMA_CROSSUNDER_DOWN thresholds={"rsiOversold":30.63370567411969,"rsiOverbought":74.43608235321848,"deviationThreshold":1.0116590660208975,"momentumMultiplier":1.9515861967698638,"vwapDistanceThreshold":0.4556374885737052}
+2026-01-15T05:13:00.03842325Z [PAPER_RUNNER_SERVICE] trace_id=9806c423 bot=65c253c9 OPENED SHORT @ 6962.25 reason=ENTRY_EMA_CROSSUNDER_DOWN
+2026-01-15T05:13:00.039256158Z [PAPER_RUNNER_SERVICE] trace_id=e34ac5cd bot=6fd1a077 OPENED SHORT @ 25611.75 reason=ENTRY_EMA_CROSSUNDER_DOWN
+2026-01-15T05:13:00.041222209Z [ACTIVITY_EVENT] type=TRADE_EXECUTED severity=INFO title="Paper SHORT opened @ 6962.25" trace_id=9806c423
+2026-01-15T05:13:00.042485615Z [ACTIVITY_EVENT] type=TRADE_EXECUTED severity=INFO title="Paper SHORT opened @ 25611.75" trace_id=e34ac5cd
+2026-01-15T05:13:00.044919156Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Freshness Audit: pnl_display" trace_id=9806c423
+2026-01-15T05:13:00.045887137Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Freshness Audit: pnl_display" trace_id=e34ac5cd
+2026-01-15T05:13:01.0418125Z [DATABENTO] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c fetched bars=5073 latency=3265ms
+2026-01-15T05:13:01.043872923Z [LIVE_DATA_SERVICE] Quote tick symbol=ES last=6962.5 bid=6962.5 ask=6962.75 mid=6962.63 quotes_total=627
+2026-01-15T05:13:01.045856065Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c
+2026-01-15T05:13:01.129545885Z [BARS_CACHE] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c instance=5d189345 cache_set key=bars:v2:MES:5m:ALL:1765861977762:1768453977762 bars=5073 compressed_bytes=57831
+2026-01-15T05:13:01.130871052Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c resampling cached bars from 1m to 5m (factor=5)
+2026-01-15T05:13:01.13458406Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c REAL_DATA fetched_bars=1015 provider=databento latency=3360ms
+2026-01-15T05:13:01.137786097Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c bot_name="Hush Gap Reversal" inferred_archetype="none" using="gap_fade"
+2026-01-15T05:13:01.137862558Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c archetype=gap_fade mapped_to=gap_fade
+2026-01-15T05:13:01.138132664Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c TRIALS_SESSION_WIDENING original=09:30-11:00 widened=09:35-15:55
+2026-01-15T05:13:01.140614796Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c using_real_strategy version=1.0.0 rules=MES Gap Fade rules_hash=2a374c1494c8112d
+2026-01-15T05:13:01.14080968Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-15T05:13:01.14081498Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c SESSION_MODE=FULL_24x5 SESSION_BYPASS=true timezone=America/New_York
+2026-01-15T05:13:01.146230143Z [STRATEGY_EXECUTOR] bars=1015 valid_bars=1015 session_bars=965 outside_session=0 no_trade_window=0 entry_signals=74 trades=74
+2026-01-15T05:13:01.146275694Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c REAL_EXECUTION trades=74 pnl=-175.51 win_rate=43.2%
+2026-01-15T05:13:01.146279814Z [TX:deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c] BACKTEST_TRADES:d88f29af START
+2026-01-15T05:13:01.273813611Z [TX:deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c] BACKTEST_TRADES:d88f29af COMMITTED
+2026-01-15T05:13:01.290858257Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c updated generation performanceSnapshot gen_id=3486786d-42d8-40be-8a5c-630c80066615
+2026-01-15T05:13:01.293161116Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c LAB_BASELINE gen_id=3486786d-42d8-40be-8a5c-630c80066615 valid=true reason=N/A trades=74
+2026-01-15T05:13:01.295683958Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Hush Gap Reversal" trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c
+2026-01-15T05:13:01.295694329Z [BACKTEST_EXECUTOR] trace_id=deb5ceb7-de8a-4f3e-9650-f4ff4c54b27c session_id=d88f29af-92ab-4b50-a74d-b3d13ee89de3 completed trades=74 pnl=-175.51
+2026-01-15T05:13:01.690129176Z [RUNNER_WORKER] trace_id=89de07c6 active_runners=2 newly_started=0 blown_stopped=0 heartbeats_sent=1
