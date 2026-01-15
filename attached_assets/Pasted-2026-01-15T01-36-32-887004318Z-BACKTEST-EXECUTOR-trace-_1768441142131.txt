@@ -1,0 +1,50 @@
+2026-01-15T01:36:32.887004318Z [BACKTEST_EXECUTOR] trace_id=36768efb-e9bc-4efc-a342-ddcb4c354fa3 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-15T01:36:32.887883517Z [SESSION_CHECK] UTC=2025-12-16T23:27:00.000Z ET_hour=18 ET_min=27 ET_day=2 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-15T01:36:33.024705922Z [STRATEGY_EXECUTOR] bars=1017 valid_bars=1017 session_bars=251 outside_session=716 no_trade_window=0 entry_signals=133 trades=133
+2026-01-15T01:36:33.024739422Z [BACKTEST_EXECUTOR] trace_id=36768efb-e9bc-4efc-a342-ddcb4c354fa3 REAL_EXECUTION trades=133 pnl=-842.42 win_rate=28.6%
+2026-01-15T01:36:33.024743172Z [TX:36768efb-e9bc-4efc-a342-ddcb4c354fa3] BACKTEST_TRADES:2bf0e672 START
+2026-01-15T01:36:33.274205106Z [TX:36768efb-e9bc-4efc-a342-ddcb4c354fa3] BACKTEST_TRADES:2bf0e672 COMMITTED
+2026-01-15T01:36:33.292920447Z [BACKTEST_EXECUTOR] trace_id=36768efb-e9bc-4efc-a342-ddcb4c354fa3 updated generation performanceSnapshot gen_id=3fe63ef6-beb8-4931-937c-6cadfd57dfa6
+2026-01-15T01:36:33.295209045Z [BACKTEST_EXECUTOR] trace_id=36768efb-e9bc-4efc-a342-ddcb4c354fa3 LAB_BASELINE gen_id=3fe63ef6-beb8-4931-937c-6cadfd57dfa6 valid=true reason=N/A trades=133
+2026-01-15T01:36:33.298117266Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Gap Whisper Trap" trace_id=36768efb-e9bc-4efc-a342-ddcb4c354fa3
+2026-01-15T01:36:33.298126516Z [BACKTEST_EXECUTOR] trace_id=36768efb-e9bc-4efc-a342-ddcb4c354fa3 session_id=2bf0e672-bcf2-4e29-8c6e-c235930bac87 completed trades=133 pnl=-842.42
+2026-01-15T01:36:36.39649724Z [QC_WORKER] trace_id=7094b18e starting_cycle
+2026-01-15T01:36:36.403965606Z [QC_WORKER] trace_id=7094b18e queued_jobs=0 running=0/2
+2026-01-15T01:36:37.236473937Z [BACKTEST_WORKER] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 processing_jobs=1
+2026-01-15T01:36:37.251810138Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 bot_id=05011994-02fd-4de6-8a03-8404edb8c1ca already_has_valid_baseline
+2026-01-15T01:36:37.251834638Z [BACKTEST_WORKER] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 bot_id=05011994-02fd-4de6-8a03-8404edb8c1ca created_session=22b91794-9460-4ada-88a4-2ffb3da35f7f - will now execute
+2026-01-15T01:36:37.254221078Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 session_id=22b91794-9460-4ada-88a4-2ffb3da35f7f bot_id=05011994-02fd-4de6-8a03-8404edb8c1ca starting
+2026-01-15T01:36:37.260299736Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for VWAP Deviation Fade" trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0
+2026-01-15T01:36:37.260316956Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 using REAL Databento data for MES via BAR_CACHE
+2026-01-15T01:36:37.260325906Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-15T01:36:37.26050408Z [BAR_CACHE] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 symbol=MES cold_storage_empty
+2026-01-15T01:36:37.26050823Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 cold_storage_empty falling_back_to_redis_cache
+2026-01-15T01:36:37.263260078Z [BARS_CACHE] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 instance=5ee1ffb2 lock_acquired fetching_from_provider
+2026-01-15T01:36:37.266002945Z [INTEGRATION_USAGE] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-15T01:36:37.266016795Z [DATABENTO] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 CME_LICENSE_CAP: Requested end=2026-01-15T01:36:37.251Z capped to 2026-01-13T23:36:37.265Z (26h buffer for license-free window)
+2026-01-15T01:36:37.266021846Z [DATABENTO] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 fetching symbol=MES.c.0 start=2025-12-16T01:36:37.251Z end=2026-01-13T23:36:37.265Z schema=ohlcv-1m
+2026-01-15T01:36:39.623476175Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-15T01:36:39.624345933Z [EVENT_LOOP] status=OK current=0.0ms avg=1.8ms p95=1.0ms p99=77.0ms max=156.3ms samples=589 gc_pauses=0
+2026-01-15T01:36:39.632368552Z [MEMORY_LEAK] status=OK heap=135MB peak=184.4MB short=-306.9KB/s medium=-306.9KB/s long=-306.9KB/s confidence=0%
+2026-01-15T01:36:39.857981356Z [RUNNER_WORKER] trace_id=9e12ba68 active_runners=1 newly_started=0 blown_stopped=0 heartbeats_sent=1
+2026-01-15T01:36:40.339592319Z [DATABENTO] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 fetched bars=5073 latency=3073ms
+2026-01-15T01:36:40.342352777Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0
+2026-01-15T01:36:40.362003098Z [BARS_CACHE] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 instance=5ee1ffb2 cache_set key=bars:v2:MES:5m:ALL:1765848997251:1768440997251 bars=5073 compressed_bytes=57886
+2026-01-15T01:36:40.362967779Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 resampling cached bars from 1m to 5m (factor=5)
+2026-01-15T01:36:40.365968441Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 REAL_DATA fetched_bars=1015 provider=databento latency=3103ms
+2026-01-15T01:36:40.368531255Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 bot_name="VWAP Deviation Fade" inferred_archetype="none" using="vwap_bounce"
+2026-01-15T01:36:40.368547155Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 archetype=vwap_bounce mapped_to=vwap_bounce
+2026-01-15T01:36:40.368676658Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 TRIALS_SESSION_WIDENING original=09:45-15:30 widened=09:35-15:55
+2026-01-15T01:36:40.371057488Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 using_real_strategy version=1.0.0 rules=MES VWAP rules_hash=f62984d601fdbce9
+2026-01-15T01:36:40.371094649Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-15T01:36:40.371115459Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-15T01:36:40.371476157Z [SESSION_CHECK] UTC=2025-12-16T23:27:00.000Z ET_hour=18 ET_min=27 ET_day=2 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-15T01:36:40.454078966Z [STRATEGY_EXECUTOR] bars=1015 valid_bars=1015 session_bars=252 outside_session=713 no_trade_window=0 entry_signals=34 trades=34
+2026-01-15T01:36:40.454102417Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 REAL_EXECUTION trades=34 pnl=-74.66 win_rate=47.1%
+2026-01-15T01:36:40.454109827Z [TX:9158dab6-a375-43d9-b68a-79f6bf8dece0] BACKTEST_TRADES:22b91794 START
+2026-01-15T01:36:40.523790976Z [TX:9158dab6-a375-43d9-b68a-79f6bf8dece0] BACKTEST_TRADES:22b91794 COMMITTED
+2026-01-15T01:36:40.537282619Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 updated generation performanceSnapshot gen_id=e9b8a82e-b496-48c4-b6be-04aa19ce3dea
+2026-01-15T01:36:40.539710869Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 LAB_BASELINE gen_id=e9b8a82e-b496-48c4-b6be-04aa19ce3dea valid=true reason=N/A trades=34
+2026-01-15T01:36:40.542884396Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for VWAP Deviation Fade" trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0
+2026-01-15T01:36:40.542898626Z [BACKTEST_EXECUTOR] trace_id=9158dab6-a375-43d9-b68a-79f6bf8dece0 session_id=22b91794-9460-4ada-88a4-2ffb3da35f7f completed trades=34 pnl=-74.66
+2026-01-15T01:36:40.742040836Z [LIVE_DATA_SERVICE] Quote tick symbol=MES last=6957 bid=6957 ask=6957.25 mid=6957.13 quotes_total=827

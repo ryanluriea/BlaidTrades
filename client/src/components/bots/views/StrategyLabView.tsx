@@ -1304,7 +1304,7 @@ export function StrategyLabView() {
   }, [isPlaying, lastResearchTime, adaptiveIntervalMs]);
 
   return (
-    <div className="flex-1 flex flex-col gap-2 min-h-0">
+    <div className="flex-1 flex flex-col gap-2 min-h-0 h-full">
       {/* Subheader - Column Headers + Menu in one row */}
       <div className="sticky top-0 z-50 flex items-center gap-3 px-4 lg:px-6 py-1.5 -mx-4 lg:-mx-6 bg-card border-b border-border/30">
         {/* Column Headers Grid - 3 columns when QC enabled, 2 columns when disabled */}
@@ -2014,18 +2014,18 @@ export function StrategyLabView() {
           
           return (
             <div 
-              className="flex flex-col flex-1 min-h-0 bg-muted/10 rounded-lg border border-border/30"
+              className="flex flex-col flex-1 min-h-0 h-full bg-muted/10 rounded-lg border border-border/30"
               data-testid={`column-${columnId}`}
             >
               {/* Column Content - independently scrollable with native scroll for performance */}
-              <div className="flex-1 overflow-y-auto p-2 min-h-0">
+              <div className="flex-1 overflow-y-auto p-2 min-h-0 h-full">
                 {isLoadingCandidates ? (
-                  <div className="space-y-1.5">
-                    {[1, 2, 3, 4, 5].map((i) => (
+                  <div className="space-y-1.5 h-full">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                       <div 
                         key={i} 
                         className="p-2.5 rounded-md border border-border/20 bg-card/40 space-y-2 animate-pulse"
-                        style={{ opacity: 1 - (i - 1) * 0.12 }}
+                        style={{ opacity: Math.max(0.3, 1 - (i - 1) * 0.1) }}
                       >
                         {/* Row 1: Checkbox, icon, strategy name, badges */}
                         <div className="flex items-center gap-2">
@@ -2080,23 +2080,23 @@ export function StrategyLabView() {
                               return next;
                             });
                           }}
-                          qcBudget={showQC && columnId === "trials" && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
-                          qcBadgeState={showQC && columnId === "trials" ? (
+                          qcBudget={showQC && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
+                          qcBadgeState={showQC ? (
                             candidate.qcVerification?.badgeState as QCBadgeState || 
                             getCandidateQCBadgeInfo(qcVerifications, candidate.id).state
                           ) : undefined}
-                          qcAttemptCount={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
-                          qcMaxAttempts={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
-                          qcQueuedAt={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
-                          qcStartedAt={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
-                          qcProgressPct={showQC && columnId === "trials" ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
-                          qcScore={showQC && columnId === "trials" ? (
+                          qcAttemptCount={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
+                          qcMaxAttempts={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
+                          qcQueuedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
+                          qcStartedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
+                          qcProgressPct={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
+                          qcScore={showQC ? (
                             candidate.qcVerification?.qcScore ?? 
                             getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore
                           ) : undefined}
-                          showQCStatus={showQC && columnId === "trials"}
-                          onRunQCVerification={showQC && columnId === "trials" ? handleRunQCVerification : undefined}
-                          isRunningQC={showQC && columnId === "trials" && runningQCCandidateId === candidate.id}
+                          showQCStatus={showQC}
+                          onRunQCVerification={showQC ? handleRunQCVerification : undefined}
+                          isRunningQC={showQC && runningQCCandidateId === candidate.id}
                           compact={true}
                           tournamentTier={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.tier : undefined}
                           tournamentRank={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.rank : undefined}
@@ -2127,7 +2127,7 @@ export function StrategyLabView() {
         };
         
         return (
-          <div className="flex-1 flex flex-col gap-3 min-h-0">
+          <div className="flex-1 flex flex-col gap-3 min-h-0 h-full">
             {/* Selection Controls Bar */}
             {selectedIds.size > 0 && (
               <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/30 rounded-lg border border-border/40">
@@ -2196,8 +2196,8 @@ export function StrategyLabView() {
             )}
             
             {/* Kanban Body - Independently Scrolling, with spacer to match header */}
-            <div className="flex flex-1 min-h-0 items-stretch gap-3">
-              <div className={cn("flex-1 grid gap-3 min-h-0", isQcColumnVisible ? "grid-cols-3" : "grid-cols-2")} data-testid="kanban-grid">
+            <div className="flex flex-1 min-h-0 h-full items-stretch gap-3">
+              <div className={cn("flex-1 grid gap-3 min-h-0 h-full", isQcColumnVisible ? "grid-cols-3" : "grid-cols-2")} data-testid="kanban-grid">
                 {renderColumnBody(
                   "new",
                   Sparkles,
