@@ -2020,12 +2020,13 @@ export function StrategyLabView() {
               {/* Column Content - independently scrollable with native scroll for performance */}
               <div className="flex-1 overflow-y-auto p-2 min-h-0 h-full">
                 {isLoadingCandidates ? (
-                  <div className="space-y-1.5 h-full">
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <div className="flex flex-col gap-1.5 h-full">
+                    {/* Strategy card skeletons - enough to fill viewport */}
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
                       <div 
                         key={i} 
-                        className="p-2.5 rounded-md border border-border/20 bg-card/40 space-y-2 animate-pulse"
-                        style={{ opacity: Math.max(0.3, 1 - (i - 1) * 0.1) }}
+                        className="p-2.5 rounded-md border border-border/20 bg-card/40 space-y-2 animate-pulse flex-shrink-0"
+                        style={{ opacity: Math.max(0.2, 1 - (i - 1) * 0.07) }}
                       >
                         {/* Row 1: Checkbox, icon, strategy name, badges */}
                         <div className="flex items-center gap-2">
@@ -2044,6 +2045,8 @@ export function StrategyLabView() {
                         </div>
                       </div>
                     ))}
+                    {/* Spacer to ensure column background fills remaining space */}
+                    <div className="flex-1 min-h-[100px]" />
                   </div>
                 ) : candidates.length > 0 ? (
                   <div className="space-y-1.5">
@@ -2080,23 +2083,23 @@ export function StrategyLabView() {
                               return next;
                             });
                           }}
-                          qcBudget={showQC && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
-                          qcBadgeState={showQC ? (
+                          qcBudget={showQC && (columnId === "testing" || columnId === "trials") && qcBudget ? { dailyUsed: qcBudget.dailyUsed, dailyLimit: qcBudget.dailyLimit, weeklyUsed: qcBudget.weeklyUsed, weeklyLimit: qcBudget.weeklyLimit, canRun: qcBudget.canRun } : undefined}
+                          qcBadgeState={showQC && (columnId === "testing" || columnId === "trials") ? (
                             candidate.qcVerification?.badgeState as QCBadgeState || 
                             getCandidateQCBadgeInfo(qcVerifications, candidate.id).state
                           ) : undefined}
-                          qcAttemptCount={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
-                          qcMaxAttempts={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
-                          qcQueuedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
-                          qcStartedAt={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
-                          qcProgressPct={showQC ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
-                          qcScore={showQC ? (
+                          qcAttemptCount={showQC && (columnId === "testing" || columnId === "trials") ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).attemptCount : undefined}
+                          qcMaxAttempts={showQC && (columnId === "testing" || columnId === "trials") ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).maxAttempts : undefined}
+                          qcQueuedAt={showQC && (columnId === "testing" || columnId === "trials") ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).queuedAt : undefined}
+                          qcStartedAt={showQC && (columnId === "testing" || columnId === "trials") ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).startedAt : undefined}
+                          qcProgressPct={showQC && (columnId === "testing" || columnId === "trials") ? getCandidateQCBadgeInfo(qcVerifications, candidate.id).progressPct : undefined}
+                          qcScore={showQC && (columnId === "testing" || columnId === "trials") ? (
                             candidate.qcVerification?.qcScore ?? 
                             getCandidateQCBadgeInfo(qcVerifications, candidate.id).qcScore
                           ) : undefined}
-                          showQCStatus={showQC}
-                          onRunQCVerification={showQC ? handleRunQCVerification : undefined}
-                          isRunningQC={showQC && runningQCCandidateId === candidate.id}
+                          showQCStatus={showQC && (columnId === "testing" || columnId === "trials")}
+                          onRunQCVerification={showQC && (columnId === "testing" || columnId === "trials") ? handleRunQCVerification : undefined}
+                          isRunningQC={showQC && (columnId === "testing" || columnId === "trials") && runningQCCandidateId === candidate.id}
                           compact={true}
                           tournamentTier={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.tier : undefined}
                           tournamentRank={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.rank : undefined}
@@ -2204,7 +2207,7 @@ export function StrategyLabView() {
                   sortedPending,
                   isPlaying ? "Discovering..." : "No new candidates",
                   isPlaying ? "AI is researching new strategies" : "Start research to generate candidates",
-                  true,  // Show QC badges for NEW candidates too (VERIFIED/FAILED/etc.)
+                  true,  // showQC prop is true, but badges only show in testing/trials columns
                   true,
                   newColumnVisible,
                   newSentinelRef
