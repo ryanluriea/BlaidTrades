@@ -6330,7 +6330,7 @@ async function runQCVerificationWorker(): Promise<void> {
       // Use qcGatePassed flag instead of badge state for cleaner logic
       // RELAXED ELIGIBILITY: Accept LAB-facing dispositions except PENDING_REVIEW (which is manual-hold)
       // This allows candidates verified through alternate paths (e.g., Grok research) to auto-promote
-      const eligibleDispositions = ["QUEUED_FOR_QC", "NEW", "READY"];
+      const eligibleDispositions = ["QUEUED_FOR_QC", "QUEUED", "READY"];
       const isEligibleForPromotion = eligibleDispositions.includes(candidate.disposition ?? "");
       
       // Log diagnostic info for (qcGatePassed, disposition) pairs to detect mismatches
@@ -7148,7 +7148,7 @@ async function runQCOKBackfillWorker(): Promise<void> {
           lq.metrics_summary_json->>'totalTrades' as qc_trades
         FROM strategy_candidates c
         JOIN latest_qc lq ON lq.candidate_id = c.id
-        WHERE c.disposition IN ('NEW', 'READY', 'QUEUED_FOR_QC')
+        WHERE c.disposition IN ('QUEUED', 'READY', 'QUEUED_FOR_QC')
           AND c.created_bot_id IS NULL
         LIMIT 10
       `);
@@ -7194,14 +7194,14 @@ async function runQCOKBackfillWorker(): Promise<void> {
         lq.metrics_summary_json
       FROM strategy_candidates c
       JOIN latest_qc lq ON lq.candidate_id = c.id
-      WHERE c.disposition IN ('NEW', 'READY', 'QUEUED_FOR_QC')
+      WHERE c.disposition IN ('QUEUED', 'READY', 'QUEUED_FOR_QC')
         AND c.created_bot_id IS NULL
         AND (
-          -- New format: qcGatePassed flag
-          (lq.metrics_summary_json->>'qcGatePassed')::boolean = true
+          -- New format: qcGatePassed flag (null-safe check)
+          (lq.metrics_summary_json->>'qcGatePassed') = 'true'
           OR
-          -- Legacy format: VERIFIED, QC_PASSED, or QC_BYPASSED badge states (NOT DIVERGENT - that's a soft failure)
-          lq.badge_state IN ('VERIFIED', 'QC_PASSED', 'QC_BYPASSED')
+          -- Legacy format: VERIFIED or QC_BYPASSED badge states (NOT DIVERGENT - that's a soft failure)
+          lq.badge_state IN ('VERIFIED', 'QC_BYPASSED')
         )
       ORDER BY c.confidence_score DESC NULLS LAST
       LIMIT 50
