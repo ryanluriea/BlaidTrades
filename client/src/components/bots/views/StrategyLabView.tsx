@@ -2055,7 +2055,14 @@ export function StrategyLabView() {
                   </div>
                 ) : candidates.length > 0 ? (
                   <div className="space-y-1.5">
-                    {visibleCandidates.map((candidate, index) => (
+                    {visibleCandidates.map((candidate, index) => {
+                      // Debug: Log QC badge state for Trials column
+                      if (columnId === "trials" && index < 3) {
+                        const hydrated = candidate.qcVerification?.badgeState;
+                        const fallback = getCandidateQCBadgeInfo(qcVerifications, candidate.id).state;
+                        console.log(`[QC_DEBUG] Trials candidate ${candidate.id.slice(0,8)} hydrated=${hydrated} fallback=${fallback} showQC=${showQC}`);
+                      }
+                      return (
                       <div key={candidate.id}>
                         <StrategyCandidateTableRow
                           candidate={candidate}
@@ -2111,7 +2118,8 @@ export function StrategyLabView() {
                           tournamentScore={columnId === "trials" && candidate.createdBotId ? tournamentRankingsByBotId.get(candidate.createdBotId)?.score : undefined}
                         />
                       </div>
-                    ))}
+                    );
+                    })}
                     {hasMore && sentinelRef && (
                       <div 
                         ref={sentinelRef} 
