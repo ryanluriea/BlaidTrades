@@ -3,7 +3,7 @@ import { StrategyLabView } from "@/components/bots/views/StrategyLabView";
 
 export default function StrategyLab() {
   return (
-    <AppLayout title="Strategy Lab">
+    <AppLayout title="Strategy Lab" disableMainScroll>
       <StrategyLabView />
     </AppLayout>
   );

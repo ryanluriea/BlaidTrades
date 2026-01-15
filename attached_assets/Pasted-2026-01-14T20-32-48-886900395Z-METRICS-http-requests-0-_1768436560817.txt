@@ -1,0 +1,50 @@
+2026-01-14T20:32:48.886900395Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-14T20:32:48.887633352Z [EVENT_LOOP] status=OK current=0.1ms avg=0.3ms p95=0.9ms p99=1.1ms max=55.7ms samples=598 gc_pauses=0
+2026-01-14T20:32:48.888269059Z [MEMORY_LEAK] status=OK heap=131.6MB peak=181.8MB short=-366.0KB/s medium=-366.0KB/s long=-366.0KB/s confidence=0%
+2026-01-14T20:32:50.095362303Z [QC_WORKER] trace_id=29588305 starting_cycle
+2026-01-14T20:32:50.099986259Z [QC_WORKER] trace_id=29588305 queued_jobs=0 running=0/2
+2026-01-14T20:32:52.000889003Z [LIVE_DATA_SERVICE] Quote tick symbol=NQ last=25598.25 bid=25598 ask=25598.5 mid=25598.25 quotes_total=951
+2026-01-14T20:32:52.949024542Z [DISTRIBUTED_LOCK] acquired key=bot-runner:65c253c9-77bc-40ab-91c5-0cdb4a1cffcd lockId=93-1768422772947-crgkh6 ttl=30s
+2026-01-14T20:32:52.949053582Z [RUNNER_WORKER] trace_id=83bc7cde attempting_start bot=65c253c9 stage=PAPER
+2026-01-14T20:32:52.950469136Z [PAPER_RUNNER_SERVICE] trace_id=751d4646 Failed to start bot 65c253c9-77bc-40ab-91c5-0cdb4a1cffcd: DrizzleQueryError: Failed query: select "id", "user_id", "name", "symbol", "status", "mode", "evolution_status", "evolution_mode", "stage", "current_generation_id", "archetype_id", "archetype_name", "strategy_config", "risk_config", "health_score", "health_json", "priority_score", "is_candidate", "candidate_score", "candidate_reasons", "last_backtest_at", "last_evolution_at", "last_signal_at", "last_trade_at", "live_pnl", "live_total_trades", "live_win_rate", "sim_pnl", "sim_total_trades", "blocker_code", "blocker_details", "kill_reason", "killed_at", "archived_at", "is_trading_enabled", "default_account_id", "capital_allocated", "health_state", "health_reason_code", "health_reason_detail", "health_degraded_since", "stage_updated_at", "stage_reason_code", "stage_locked_until", "stage_lock_reason", "promotion_mode", "metrics_reset_at", "metrics_reset_reason_code", "metrics_reset_by", "metrics_reset_scope", "current_generation", "generation_updated_at", "generation_reason_code", "session_mode", "session_timezone", "session_start", "session_end", "matrix_aggregate", "matrix_best_cell", "matrix_worst_cell", "matrix_updated_at", "created_by_ai", "ai_provider", "ai_provider_badge", "source_candidate_id", "ai_research_sources", "ai_reasoning", "ai_research_depth", "tournament_score", "tournament_rank", "tournament_tier", "tournament_updated_at", "created_at", "updated_at" from "bots" where "bots"."id" = $1
+2026-01-14T20:32:52.950498856Z params: 65c253c9-77bc-40ab-91c5-0cdb4a1cffcd
+2026-01-14T20:32:52.950502346Z     at NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:41:15)
+2026-01-14T20:32:52.950504257Z [RUNNER_WORKER] trace_id=83bc7cde failed_to_start bot=65c253c9 reason=startBot_returned_false
+2026-01-14T20:32:52.950505366Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-14T20:32:52.950518677Z     at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:117:22
+2026-01-14T20:32:52.950521977Z     ... 3 lines matching cause stack trace ...
+2026-01-14T20:32:52.950524817Z     at async Timeout._onTimeout (file:///opt/render/project/src/dist/index.js:45931:7) {
+2026-01-14T20:32:52.950528527Z   query: 'select "id", "user_id", "name", "symbol", "status", "mode", "evolution_status", "evolution_mode", "stage", "current_generation_id", "archetype_id", "archetype_name", "strategy_config", "risk_config", "health_score", "health_json", "priority_score", "is_candidate", "candidate_score", "candidate_reasons", "last_backtest_at", "last_evolution_at", "last_signal_at", "last_trade_at", "live_pnl", "live_total_trades", "live_win_rate", "sim_pnl", "sim_total_trades", "blocker_code", "blocker_details", "kill_reason", "killed_at", "archived_at", "is_trading_enabled", "default_account_id", "capital_allocated", "health_state", "health_reason_code", "health_reason_detail", "health_degraded_since", "stage_updated_at", "stage_reason_code", "stage_locked_until", "stage_lock_reason", "promotion_mode", "metrics_reset_at", "metrics_reset_reason_code", "metrics_reset_by", "metrics_reset_scope", "current_generation", "generation_updated_at", "generation_reason_code", "session_mode", "session_timezone", "session_start", "session_end", "matrix_aggregate", "matrix_best_cell", "matrix_worst_cell", "matrix_updated_at", "created_by_ai", "ai_provider", "ai_provider_badge", "source_candidate_id", "ai_research_sources", "ai_reasoning", "ai_research_depth", "tournament_score", "tournament_rank", "tournament_tier", "tournament_updated_at", "created_at", "updated_at" from "bots" where "bots"."id" = $1',
+2026-01-14T20:32:52.950532327Z   params: [ '65c253c9-77bc-40ab-91c5-0cdb4a1cffcd' ],
+2026-01-14T20:32:52.950534887Z   cause: error: column "tournament_updated_at" does not exist
+2026-01-14T20:32:52.950538217Z       at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+2026-01-14T20:32:52.950541097Z       at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-14T20:32:52.950543857Z       at async targetPool.query (file:///opt/render/project/src/dist/index.js:3330:22)
+2026-01-14T20:32:52.950546477Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:124:18
+2026-01-14T20:32:52.950560237Z       at async NodePgPreparedQuery.queryWithCache (file:///opt/render/project/src/node_modules/drizzle-orm/pg-core/session.js:39:16)
+2026-01-14T20:32:52.950571047Z       at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:117:22
+2026-01-14T20:32:52.950574467Z       at async PaperRunnerServiceImpl.startBot (file:///opt/render/project/src/dist/index.js:22054:25)
+2026-01-14T20:32:52.950577057Z       at async runRunnerWorker (file:///opt/render/project/src/dist/index.js:42583:33)
+2026-01-14T20:32:52.950579997Z       at async selfHealingWrapper (file:///opt/render/project/src/dist/index.js:39768:5)
+2026-01-14T20:32:52.950582737Z       at async Timeout._onTimeout (file:///opt/render/project/src/dist/index.js:45931:7) {
+2026-01-14T20:32:52.950585557Z     length: 123,
+2026-01-14T20:32:52.950589077Z     severity: 'ERROR',
+2026-01-14T20:32:52.950592017Z     code: '42703',
+2026-01-14T20:32:52.950594617Z     detail: undefined,
+2026-01-14T20:32:52.950597297Z     hint: undefined,
+2026-01-14T20:32:52.950599997Z     position: '1304',
+2026-01-14T20:32:52.950603417Z     internalPosition: undefined,
+2026-01-14T20:32:52.950606038Z     internalQuery: undefined,
+2026-01-14T20:32:52.950608787Z     where: undefined,
+2026-01-14T20:32:52.950611587Z     schema: undefined,
+2026-01-14T20:32:52.950614738Z     table: undefined,
+2026-01-14T20:32:52.950617438Z     column: undefined,
+2026-01-14T20:32:52.950620198Z     dataType: undefined,
+2026-01-14T20:32:52.950622927Z     constraint: undefined,
+2026-01-14T20:32:52.950625578Z     file: 'parse_relation.c',
+2026-01-14T20:32:52.950628478Z     line: '3822',
+2026-01-14T20:32:52.950630968Z     routine: 'errorMissingColumn'
+2026-01-14T20:32:52.950633948Z   }
+2026-01-14T20:32:52.950636828Z }
+2026-01-14T20:32:52.951624217Z [DISTRIBUTED_LOCK] released key=bot-runner:65c253c9-77bc-40ab-91c5-0cdb4a1cffcd lockId=93-1768422772947-crgkh6
+2026-01-14T20:32:52.951631797Z [RUNNER_WORKER] trace_id=83bc7cde active_runners=0 newly_started=0 blown_stopped=0 heartbeats_sent=1

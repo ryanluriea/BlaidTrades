@@ -578,7 +578,7 @@ export async function ensureArchetypeColumn(): Promise<void> {
 
 /**
  * STARTUP MIGRATION: Ensure ALL tournament columns exist on bots table
- * Adds: tournament_score (real), tournament_rank (integer), tournament_tier (text)
+ * Adds: tournament_score (real), tournament_rank (integer), tournament_tier (text), tournament_updated_at (timestamp)
  * Uses ADD COLUMN IF NOT EXISTS to be idempotent - safe for concurrent Render instances
  */
 export async function ensureTournamentScoreColumn(): Promise<void> {
@@ -587,7 +587,8 @@ export async function ensureTournamentScoreColumn(): Promise<void> {
   const columns = [
     { name: 'tournament_score', type: 'real' },
     { name: 'tournament_rank', type: 'integer' },
-    { name: 'tournament_tier', type: 'text' }
+    { name: 'tournament_tier', type: 'text' },
+    { name: 'tournament_updated_at', type: 'timestamp' }
   ];
   
   for (const col of columns) {
