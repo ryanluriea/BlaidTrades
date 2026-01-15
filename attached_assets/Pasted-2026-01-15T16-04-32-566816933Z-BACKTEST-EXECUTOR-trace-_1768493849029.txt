@@ -1,0 +1,50 @@
+2026-01-15T16:04:32.566816933Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd bot_name="Vol Damp Scalp" inferred_archetype="none" using="scalping"
+2026-01-15T16:04:32.566829513Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd archetype=scalping mapped_to=scalping
+2026-01-15T16:04:32.566936995Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd TRIALS_SESSION_WIDENING original=09:45-11:30 widened=09:35-15:55
+2026-01-15T16:04:32.571570311Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd using_real_strategy version=1.0.0 rules=MES Scalping rules_hash=79279b181a259106
+2026-01-15T16:04:32.571621542Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-15T16:04:32.571639692Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd SESSION_MODE=ETH SESSION_BYPASS=false timezone=America/New_York
+2026-01-15T16:04:32.57204824Z [SESSION_CHECK] UTC=2025-12-30T08:50:00.000Z ET_hour=3 ET_min=50 ET_day=2 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-15T16:04:32.578180793Z [STRATEGY_EXECUTOR] bars=113 valid_bars=113 session_bars=18 outside_session=45 no_trade_window=0 entry_signals=0 trades=0
+2026-01-15T16:04:32.578216344Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd REAL_EXECUTION trades=0 pnl=0.00 win_rate=0.0%
+2026-01-15T16:04:32.578321765Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd FAIL_FAST: ZERO_TRADES_GENERATED - Strategy produced 0 trades over 113 bars. Check entry conditions or data quality.
+2026-01-15T16:04:32.584220555Z [ACTIVITY_EVENT] type=BACKTEST_FAILED severity=WARN title="Backtest failed: ZERO_TRADES_GENERATED" trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd
+2026-01-15T16:04:32.59855767Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd session_id=f0ebd7d7-da01-4f58-99c4-3c82d5419a86 bot_id=c23446e3-ae13-4ecd-bc99-93c3e97165ff starting
+2026-01-15T16:04:32.602733707Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Vol Damp Scalp" trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd
+2026-01-15T16:04:32.602746687Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd using REAL Databento data for MES via BAR_CACHE
+2026-01-15T16:04:32.602761808Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd loading_5year_history symbol=MES days=90 source=COLD_STORAGE
+2026-01-15T16:04:32.60291392Z [BAR_CACHE] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd symbol=MES cold_storage_empty
+2026-01-15T16:04:32.60291907Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd cold_storage_empty falling_back_to_redis_cache
+2026-01-15T16:04:32.607728439Z [BARS_CACHE] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd instance=2e1f371a lock_acquired fetching_from_provider
+2026-01-15T16:04:32.610811166Z [INTEGRATION_USAGE] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-15T16:04:32.610827737Z [DATABENTO] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd CME_LICENSE_CAP: Requested end=2026-01-15T16:04:32.592Z capped to 2026-01-14T14:04:32.610Z (26h buffer for license-free window)
+2026-01-15T16:04:32.610832706Z [DATABENTO] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd fetching symbol=MES.c.0 start=2025-10-17T16:04:32.592Z end=2026-01-14T14:04:32.610Z schema=ohlcv-1m
+2026-01-15T16:04:33.942173956Z [LIVE_DATA_SERVICE] Quote tick symbol=MES last=7010 bid=7009.75 ask=7010 mid=7009.88 quotes_total=943
+2026-01-15T16:04:34.433006659Z [QC_WORKER] trace_id=afc47836 starting_cycle
+2026-01-15T16:04:34.437811487Z [QC_WORKER] trace_id=afc47836 queued_jobs=0 running=0/2
+2026-01-15T16:04:34.474004846Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-15T16:04:34.474713149Z [EVENT_LOOP] status=OK current=0.1ms avg=24.2ms p95=1.0ms p99=204.8ms max=7785.4ms samples=483 gc_pauses=0
+2026-01-15T16:04:34.476489652Z [MEMORY_LEAK] status=OK heap=131.6MB peak=222.6MB short=717.8KB/s medium=717.8KB/s long=717.8KB/s confidence=0%
+2026-01-15T16:04:35.039253954Z [BACKTEST_WORKER] trace_id=d8956b83-536c-4685-a4c9-bc1d7afa6208 at_concurrency_limit=1
+2026-01-15T16:04:37.431580005Z [DATABENTO] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd fetched bars=5477 latency=4821ms
+2026-01-15T16:04:37.436224631Z [ACTIVITY_EVENT] type=INTEGRATION_PROOF severity=INFO title="Databento Historical Data Fetched" trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd
+2026-01-15T16:04:37.466229806Z [BARS_CACHE] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd instance=2e1f371a cache_set key=bars:v2:MES:15m:ALL:1760717072592:1768493072592 bars=5477 compressed_bytes=73321
+2026-01-15T16:04:37.469836402Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd resampling cached bars from 1m to 15m (factor=15)
+2026-01-15T16:04:37.47349192Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd REAL_DATA fetched_bars=366 provider=databento latency=4868ms
+2026-01-15T16:04:37.475894534Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd bot_name="Vol Damp Scalp" inferred_archetype="none" using="scalping"
+2026-01-15T16:04:37.475913615Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd archetype=scalping mapped_to=scalping
+2026-01-15T16:04:37.476051137Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd TRIALS_SESSION_WIDENING original=09:45-11:30 widened=09:35-15:55
+2026-01-15T16:04:37.478508533Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd using_real_strategy version=1.0.0 rules=MES Scalping rules_hash=79279b181a259106
+2026-01-15T16:04:37.478653515Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-15T16:04:37.478658025Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd SESSION_MODE=ETH SESSION_BYPASS=false timezone=America/New_York
+2026-01-15T16:04:37.479222966Z [SESSION_CHECK] UTC=2025-10-29T19:35:00.000Z ET_hour=15 ET_min=35 ET_day=3 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-15T16:04:37.512288107Z [STRATEGY_EXECUTOR] bars=366 valid_bars=366 session_bars=87 outside_session=229 no_trade_window=0 entry_signals=4 trades=4
+2026-01-15T16:04:37.512310178Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd REAL_EXECUTION trades=4 pnl=8.79 win_rate=50.0%
+2026-01-15T16:04:37.512322688Z [TX:ff3fff84-4910-4e7b-b9d7-30fed87ffbdd] BACKTEST_TRADES:f0ebd7d7 START
+2026-01-15T16:04:37.521590779Z [TX:ff3fff84-4910-4e7b-b9d7-30fed87ffbdd] BACKTEST_TRADES:f0ebd7d7 COMMITTED
+2026-01-15T16:04:37.534130731Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd updated generation performanceSnapshot gen_id=77da252c-c3ea-4052-b990-a15020b77943
+2026-01-15T16:04:37.536361912Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd LAB_BASELINE gen_id=77da252c-c3ea-4052-b990-a15020b77943 valid=false reason=INSUFFICIENT_TRADES trades=4
+2026-01-15T16:04:37.539154604Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Vol Damp Scalp" trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd
+2026-01-15T16:04:37.539165294Z [BACKTEST_EXECUTOR] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd session_id=f0ebd7d7-da01-4f58-99c4-3c82d5419a86 completed trades=4 pnl=8.79
+2026-01-15T16:04:37.552859247Z [MATRIX_PROMOTE] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd bot=c23446e3-ae13-4ecd-bc99-93c3e97165ff cells=5 best=15m/90d pf=1.3351125
+2026-01-15T16:04:37.552877057Z [MATRIX_WORKER] trace_id=ff3fff84-4910-4e7b-b9d7-30fed87ffbdd matrix_run=8bf0b1a5-8139-40ca-987d-526159f3d091 completed cells=5 failed=1
