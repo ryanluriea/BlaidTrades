@@ -1,0 +1,50 @@
+2026-01-15T03:32:26.634443559Z [BARS_CACHE] trace_id=5a30bf32-02ea-4831-8966-519152878fdd instance=50ac58c8 cache_hit key=bars:v2:MNQ:5m:ALL:1610755200000:1768435200000 bars=351228 duration=1292ms
+2026-01-15T03:32:26.649055922Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd resampling cached bars from 1m to 5m (factor=5)
+2026-01-15T03:32:26.746046669Z [INTERNAL_AUTH] BlaidAgent user not found - internal auth failed
+2026-01-15T03:32:26.746595433Z [REQ] 3a4c502c POST /api/strategy-lab/candidates/38bd5d5c-a72d-43f7-a595-12bd1d8d92ac/promote 401 117ms
+2026-01-15T03:32:26.749316433Z [QC_BACKFILL] trace_id=qc-backfill-639ea6eb FAILED: candidate=38bd5d5c status=401 error={"error":"Authentication required","code":"AUTH_REQUIRED"}
+2026-01-15T03:32:26.749562209Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd REAL_DATA fetched_bars=70246 provider=databento latency=1453ms
+2026-01-15T03:32:26.780210571Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd bot_name="Gap Whisper Trap" inferred_archetype="none" using="gap_fade"
+2026-01-15T03:32:26.780366475Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd archetype=gap_fade mapped_to=gap_fade
+2026-01-15T03:32:26.780802126Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd TRIALS_SESSION_WIDENING original=09:30-11:00 widened=09:35-15:55
+2026-01-15T03:32:26.78368593Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd using_real_strategy version=1.0.0 rules=MNQ Gap Fade rules_hash=53599213d393473e
+2026-01-15T03:32:26.792951787Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd RULES_PROFILE=TRIALS_RELAXED stage=TRIALS
+2026-01-15T03:32:26.792970707Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd SESSION_MODE=RTH_US SESSION_BYPASS=false timezone=America/New_York
+2026-01-15T03:32:26.797292227Z [SESSION_CHECK] UTC=2021-01-19T00:50:00.000Z ET_hour=19 ET_min=50 ET_day=1 tradingDays=[1,2,3,4,5] rthStart=09:35 rthEnd=15:55
+2026-01-15T03:32:33.951454976Z [STRATEGY_EXECUTOR] bars=70246 valid_bars=70246 session_bars=19019 outside_session=51177 no_trade_window=0 entry_signals=11921 trades=11921
+2026-01-15T03:32:33.952900763Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd REAL_EXECUTION trades=11921 pnl=-92830.04 win_rate=26.4%
+2026-01-15T03:32:33.952923094Z [TX:5a30bf32-02ea-4831-8966-519152878fdd] BACKTEST_TRADES:159a65f9 START
+2026-01-15T03:32:34.018391675Z [QC_THRESHOLD_RECOVERY] trace_id=3cd0ec7d Scanning for DIVERGENT verifications eligible for re-run...
+2026-01-15T03:32:34.057045563Z [QC_BACKFILL] trace_id=qc-backfill-639ea6eb SKIP_FAST_TRACK: candidate=3bfe06fc missing_metrics hasTrades=true hasSharpe=false hasWinRate=true hasDrawdown=true
+2026-01-15T03:32:34.073425371Z [QC_THRESHOLD_RECOVERY] trace_id=3cd0ec7d No DIVERGENT verifications eligible for threshold re-run
+2026-01-15T03:32:34.095911585Z [INTERNAL_AUTH] BlaidAgent user not found - internal auth failed
+2026-01-15T03:32:34.096290035Z [REQ] 24f76ce9 POST /api/strategy-lab/candidates/3bfe06fc-91a2-462b-835b-add28aa91236/promote 401 37ms
+2026-01-15T03:32:34.097189608Z [QC_BACKFILL] trace_id=qc-backfill-639ea6eb FAILED: candidate=3bfe06fc status=401 error={"error":"Authentication required","code":"AUTH_REQUIRED"}
+2026-01-15T03:32:34.443737168Z [BACKTEST_WORKER] trace_id=9f6f92a1-d9b4-4cda-9082-b3e9e61e8412 at_concurrency_limit=1
+2026-01-15T03:32:34.59692325Z [QC_BACKFILL] trace_id=qc-backfill-639ea6eb Backfill complete: promoted=0 failed=16 fastTrack=0
+2026-01-15T03:32:42.599936594Z [RUNNER_WORKER] trace_id=7dc9eb92 active_runners=1 newly_started=0 blown_stopped=0 heartbeats_sent=1
+2026-01-15T03:32:43.613757634Z [BACKTEST_WORKER] trace_id=75289c2e-a1e0-4278-8e4e-c69ad24eea61 at_concurrency_limit=1
+2026-01-15T03:32:46.654394502Z [LIVE_DATA_SERVICE] Quote tick symbol=MNQ last=25597 bid=25596.5 ask=25597 mid=25596.75 quotes_total=679
+2026-01-15T03:32:47.485085386Z [QC_WORKER] trace_id=0416161f starting_cycle
+2026-01-15T03:32:47.489402146Z [QC_WORKER] trace_id=0416161f queued_jobs=0 running=0/2
+2026-01-15T03:32:47.947050783Z [TX:5a30bf32-02ea-4831-8966-519152878fdd] BACKTEST_TRADES:159a65f9 COMMITTED
+2026-01-15T03:32:48.369706196Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd updated generation performanceSnapshot gen_id=400cf1f1-07bb-412f-9b7e-c5814c50e6bc
+2026-01-15T03:32:48.372168959Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd LAB_BASELINE gen_id=400cf1f1-07bb-412f-9b7e-c5814c50e6bc valid=true reason=N/A trades=11921
+2026-01-15T03:32:48.374303493Z [ACTIVITY_EVENT] type=BACKTEST_COMPLETED severity=INFO title="Backtest completed for Gap Whisper Trap" trace_id=5a30bf32-02ea-4831-8966-519152878fdd
+2026-01-15T03:32:48.374345364Z [BACKTEST_EXECUTOR] trace_id=5a30bf32-02ea-4831-8966-519152878fdd session_id=159a65f9-6764-4bf2-9117-0f6cda03a415 completed trades=11921 pnl=-92830.04
+2026-01-15T03:32:48.55156337Z [METRICS] http_requests=0 http_errors=0 cache_hits=0 cache_misses=0 hit_rate=0.00% active_bots=0 backtests_running=0
+2026-01-15T03:32:48.552717439Z [EVENT_LOOP] status=OK current=0.0ms avg=19.8ms p95=1.0ms p99=200.3ms max=7108.1ms samples=501 gc_pauses=0
+2026-01-15T03:32:48.553650143Z [MEMORY_LEAK] status=LEAK heap=389.7MB peak=389.7MB short=4697.9KB/s medium=4697.9KB/s long=4697.9KB/s confidence=100%
+2026-01-15T03:32:52.791463194Z [BACKTEST_WORKER] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 processing_jobs=1
+2026-01-15T03:32:52.80071778Z [BACKTEST_EXECUTOR] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 bot_id=a8be4d35-f93b-48e0-beae-b56a23e8b4af already_has_valid_baseline
+2026-01-15T03:32:52.80073579Z [BACKTEST_WORKER] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 bot_id=a8be4d35-f93b-48e0-beae-b56a23e8b4af created_session=0e1c1008-b750-45d5-89a2-12371959e370 - will now execute
+2026-01-15T03:32:52.802484745Z [BACKTEST_EXECUTOR] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 session_id=0e1c1008-b750-45d5-89a2-12371959e370 bot_id=a8be4d35-f93b-48e0-beae-b56a23e8b4af starting
+2026-01-15T03:32:52.807596215Z [ACTIVITY_EVENT] type=BACKTEST_STARTED severity=INFO title="Backtest started for Sentiment Peak Fade" trace_id=17dc59a7-4182-4938-8755-9125ca0aa245
+2026-01-15T03:32:52.807616426Z [BACKTEST_EXECUTOR] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 using REAL Databento data for MES via BAR_CACHE
+2026-01-15T03:32:52.807624946Z [BACKTEST_EXECUTOR] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 loading_5year_history symbol=MES days=30 source=COLD_STORAGE
+2026-01-15T03:32:52.807809041Z [BAR_CACHE] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 symbol=MES cold_storage_empty
+2026-01-15T03:32:52.807811121Z [BACKTEST_EXECUTOR] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 cold_storage_empty falling_back_to_redis_cache
+2026-01-15T03:32:52.812527951Z [BARS_CACHE] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 instance=50ac58c8 lock_acquired fetching_from_provider
+2026-01-15T03:32:52.815433266Z [INTEGRATION_USAGE] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 provider=databento operation=historical_bars status=OK latency_ms=0
+2026-01-15T03:32:52.815497177Z [DATABENTO] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 CME_LICENSE_CAP: Requested end=2026-01-15T03:32:52.800Z capped to 2026-01-14T01:32:52.815Z (26h buffer for license-free window)
+2026-01-15T03:32:52.815501927Z [DATABENTO] trace_id=17dc59a7-4182-4938-8755-9125ca0aa245 fetching symbol=MES.c.0 start=2025-12-16T03:32:52.800Z end=2026-01-14T01:32:52.815Z schema=ohlcv-1m

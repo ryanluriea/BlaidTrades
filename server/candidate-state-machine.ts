@@ -37,12 +37,21 @@ interface TransitionResult {
   reason?: string;
 }
 
+/**
+ * STRICT QC GATE ENFORCEMENT:
+ * - PENDING_REVIEW and QUEUED can only go to QUEUED_FOR_QC, not directly to SENT_TO_LAB
+ * - Only QUEUED_FOR_QC, READY, and WAITLIST can transition to SENT_TO_LAB
+ * - This ensures all promotions MUST go through QC verification first
+ */
 const VALID_TRANSITIONS: Record<CandidateDisposition, CandidateDisposition[]> = {
-  PENDING_REVIEW: ["QUEUED", "QUEUED_FOR_QC", "SENT_TO_LAB", "REJECTED", "EXPIRED"],
-  QUEUED: ["QUEUED_FOR_QC", "SENT_TO_LAB", "REJECTED", "EXPIRED", "READY"],
+  // Pre-QC states: CANNOT go directly to SENT_TO_LAB (must go through QC first)
+  PENDING_REVIEW: ["QUEUED", "QUEUED_FOR_QC", "REJECTED", "EXPIRED"],
+  QUEUED: ["QUEUED_FOR_QC", "REJECTED", "EXPIRED", "READY"],
+  // QC states: CAN transition to SENT_TO_LAB after QC verification
   QUEUED_FOR_QC: ["SENT_TO_LAB", "READY", "WAITLIST", "REJECTED", "EXPIRED"],
   READY: ["SENT_TO_LAB", "WAITLIST", "QUEUED_FOR_QC", "REJECTED", "EXPIRED", "MERGED"],
   WAITLIST: ["SENT_TO_LAB", "REJECTED", "EXPIRED"], // Can promote when capacity opens
+  // Post-promotion states
   SENT_TO_LAB: ["MERGED", "REJECTED", "RECYCLED"],
   REJECTED: [], // Terminal state
   MERGED: [],   // Terminal state
